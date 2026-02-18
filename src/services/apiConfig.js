@@ -14,6 +14,7 @@ const getCurrentEnvironment = () => {
 
 // Base URLs for different environments
 const BASE_URLS = "https://api.ritesqasarthi.com/sarthi-backend";
+
 // Get the base URL for the current environment
 export const getBaseUrl = () => {
   const env = getCurrentEnvironment();
