@@ -13,12 +13,23 @@ const getCurrentEnvironment = () => {
 };
 
 // Base URLs for different environments
-const BASE_URLS = "https://api.ritesqasarthi.com/sarthi-backend";
+const BASE_URLS = {
+  [ENV.DEVELOPMENT]: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/sarthi-backend/api',
+  [ENV.STAGING]: process.env.REACT_APP_API_STAGING_URL || 'https://staging-api.yourserver.com/api',
+  [ENV.PRODUCTION]: process.env.REACT_APP_API_PROD_URL || 'https://api.yourserver.com/api'
+};
 
 // Get the base URL for the current environment
+// export const getBaseUrl = () => {
+//   const env = getCurrentEnvironment();
+//   return BASE_URLS[env] || BASE_URLS[ENV.DEVELOPMENT];
+// };
+
+
+
+
 export const getBaseUrl = () => {
-  const env = getCurrentEnvironment();
-  return BASE_URLS[env] || BASE_URLS[ENV.DEVELOPMENT];
+  return "https://api.ritesqasarthi.com/sarthi-backend";
 };
 
 // API Endpoints configuration
