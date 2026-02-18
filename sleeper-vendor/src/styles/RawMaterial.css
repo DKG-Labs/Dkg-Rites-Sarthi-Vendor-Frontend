@@ -1,0 +1,224 @@
+.raw-material-dashboard {
+    padding: 24px;
+}
+
+.rm-grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.rm-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    border: 1px solid #edf2f7;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 200px;
+}
+
+.rm-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e0;
+}
+
+.rm-card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rm-card-metrics {
+    margin-top: auto;
+}
+
+.rm-metric-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.rm-metric-value {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.alert-badge {
+    background-color: #fef2f2;
+    color: #ef4444;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+    margin-top: 8px;
+    border: 1px solid #fee2e2;
+}
+
+/* Material Detail View Styles */
+.material-detail-container {
+    background: #f8fafc;
+    min-height: 100vh;
+}
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #4a5568;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+}
+
+.back-button:hover {
+    color: #2d3748;
+    text-decoration: underline;
+}
+
+.section-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #edf2f7;
+    padding-bottom: 12px;
+}
+
+.form-toggle-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.toggle-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #cbd5e0;
+    background: white;
+    color: #4a5568;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.toggle-btn.active {
+    background: #13343b;
+    color: white;
+    border-color: #13343b;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.status-card {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+}
+
+.status-label {
+    font-size: 0.85rem;
+    color: #718096;
+    margin-bottom: 4px;
+}
+
+.status-value {
+    font-size: 1rem;
+    /* Reduced from 1.25rem */
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.form-section {
+    background: #f9fafb;
+    padding: 16px;
+    /* Reduced padding */
+    border-radius: 8px;
+    border: 1px solid #edf2f7;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+    /* Reduced gap */
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* Reduced gap */
+}
+
+.form-field label {
+    font-size: 12px;
+    /* 12px requirement */
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.form-field input,
+.form-field select {
+    padding: 6px 10px;
+    /* Reduced padding */
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 13px;
+    /* 13px requirement */
+    height: 32px;
+    /* Fixed height for compact look */
+}
+
+.form-field input:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: #13343b;
+    box-shadow: 0 0 0 2px rgba(19, 52, 59, 0.1);
+}
+
+.action-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}

@@ -1,0 +1,845 @@
+{
+  "description": "Mock data for Raw Material Inspection Request with 3 Heat Numbers",
+  "scenario": "Vendor raising inspection call for raw material stage with multiple heat numbers",
+  "use_case": "Backend API development and auto-population testing",
+  
+  "inspection_request": {
+    "po_no": "PO-2025-1001",
+    "po_serial_no": "PO-2025-1001/01",
+    "po_date": "2025-11-01",
+    "po_description": "ERC MK-III Clips - Type A",
+    "po_qty": 5000,
+    "po_unit": "Nos",
+    "amendment_no": "AMD-001",
+    "amendment_date": "2025-11-05",
+    "vendor_contact_name": "Rajesh Kumar",
+    "vendor_contact_phone": "+91-9876543210",
+
+    "type_of_call": "Raw Material",
+    "desired_inspection_date": "2025-12-22",
+
+    "qty_already_inspected_rm": 2000,
+    "qty_already_inspected_process": 1500,
+    "qty_already_inspected_final": 0,
+
+    "rm_heat_numbers": "HT-2025-001,HT-2025-002,HT-2025-003",
+
+    "rm_heat_tc_mapping": [
+      {
+        "heatNumber": "HT-2025-001",
+        "tcNumber": "TC-45678",
+        "tcDate": "2025-11-15",
+        "manufacturer": "Steel India Ltd",
+        "invoiceNo": "INV-2025-1001",
+        "invoiceDate": "2025-11-14",
+        "subPoNumber": "SPO-2025-101",
+        "subPoDate": "2025-11-10",
+        "subPoQty": "5000 Kg",
+        "subPoTotalValue": "₹504450.00",
+        "tcQty": "5000 Kg",
+        "tcQtyRemaining": "2000 Kg",
+        "offeredQty": "1.500"
+      },
+      {
+        "heatNumber": "HT-2025-002",
+        "tcNumber": "TC-45681",
+        "tcDate": "2025-11-20",
+        "manufacturer": "XYZ Materials Co.",
+        "invoiceNo": "INV-2025-1004",
+        "invoiceDate": "2025-11-19",
+        "subPoNumber": "SPO-2025-104",
+        "subPoDate": "2025-11-18",
+        "subPoQty": "8000 Kg",
+        "subPoTotalValue": "₹885120.00",
+        "tcQty": "8000 Kg",
+        "tcQtyRemaining": "4000 Kg",
+        "offeredQty": "2.250"
+      },
+      {
+        "heatNumber": "HT-2025-003",
+        "tcNumber": "TC-45690",
+        "tcDate": "2025-11-18",
+        "manufacturer": "JSW Steel Ltd",
+        "invoiceNo": "INV-2025-1010",
+        "invoiceDate": "2025-11-20",
+        "subPoNumber": "SPO-2025-106",
+        "subPoDate": "2025-11-12",
+        "subPoQty": "7500 Kg",
+        "subPoTotalValue": "₹778800.00",
+        "tcQty": "7500 Kg",
+        "tcQtyRemaining": "7500 Kg",
+        "offeredQty": "1.750"
+      }
+    ],
+
+    "rm_chemical_carbon": 0.42,
+    "rm_chemical_manganese": 0.75,
+    "rm_chemical_silicon": 0.25,
+    "rm_chemical_sulphur": 0.025,
+    "rm_chemical_phosphorus": 0.030,
+    "rm_chemical_chromium": 0.15,
+
+    "rm_total_offered_qty_mt": 5.500,
+    "rm_offered_qty_erc": 4786,
+
+    "company_id": 1,
+    "company_name": "ABC Industries Pvt Ltd",
+    "cin": "U27100MH2020PTC123456",
+    "unit_id": 101,
+    "unit_name": "Unit 1 - Mumbai",
+    "unit_address": "Plot 1, MIDC Industrial Area, Andheri East, Mumbai - 400093",
+    "unit_gstin": "27AABCU9603R1ZM",
+    "unit_contact_person": "Rajesh Kumar",
+    "unit_role": "ERC Manufacturer",
+
+    "remarks": "All three heat numbers are from different suppliers. Material quality verified as per IS 2062/IS 1786 standards. Ready for inspection."
+  },
+  
+  "heat_details": [
+    {
+      "heatNumber": "HT-2025-001",
+      "tcNumber": "TC-45678",
+      "tcDate": "2025-11-15",
+      "manufacturer": "Steel India Ltd",
+      "rawMaterial": "Steel Round",
+      "gradeSpecification": "IS 2062",
+      "invoiceNumber": "INV-2025-1001",
+      "invoiceDate": "2025-11-14",
+      "subPoNumber": "SPO-2025-101",
+      "subPoDate": "2025-11-10",
+      "subPoQty": 5000,
+      "subPoQtyUnit": "Kg",
+      "rateOfMaterial": 85.50,
+      "rateOfGst": 18,
+      "declaredQuantity": 5000,
+      "qtyLeftForInspection": 2000,
+      "unitOfMeasurement": "Kg",
+      "offeredQty": 1.500,
+      "offeredQtyUnit": "MT",
+      "chemicalAnalysis": {
+        "carbon": 0.42,
+        "manganese": 0.75,
+        "silicon": 0.25,
+        "sulphur": 0.025,
+        "phosphorus": 0.030,
+        "chromium": 0.15
+      },
+      "status": "Under Inspection"
+    },
+    {
+      "heatNumber": "HT-2025-002",
+      "tcNumber": "TC-45681",
+      "tcDate": "2025-11-20",
+      "manufacturer": "XYZ Materials Co.",
+      "rawMaterial": "Steel Round",
+      "gradeSpecification": "IS 1786",
+      "invoiceNumber": "INV-2025-1004",
+      "invoiceDate": "2025-11-19",
+      "subPoNumber": "SPO-2025-104",
+      "subPoDate": "2025-11-18",
+      "subPoQty": 8000,
+      "subPoQtyUnit": "Kg",
+      "rateOfMaterial": 92.00,
+      "rateOfGst": 18,
+      "declaredQuantity": 8000,
+      "qtyLeftForInspection": 4000,
+      "unitOfMeasurement": "Kg",
+      "offeredQty": 2.250,
+      "offeredQtyUnit": "MT",
+      "chemicalAnalysis": {
+        "carbon": 0.45,
+        "manganese": 0.80,
+        "silicon": 0.28,
+        "sulphur": 0.020,
+        "phosphorus": 0.025,
+        "chromium": 0.18
+      },
+      "status": "Partially Inspected"
+    },
+    {
+      "heatNumber": "HT-2025-003",
+      "tcNumber": "TC-45690",
+      "tcDate": "2025-11-18",
+      "manufacturer": "JSW Steel Ltd",
+      "rawMaterial": "Steel Round",
+      "gradeSpecification": "IS 2062",
+      "invoiceNumber": "INV-2025-1010",
+      "invoiceDate": "2025-11-20",
+      "subPoNumber": "SPO-2025-106",
+      "subPoDate": "2025-11-12",
+      "subPoQty": 7500,
+      "subPoQtyUnit": "Kg",
+      "rateOfMaterial": 88.00,
+      "rateOfGst": 18,
+      "declaredQuantity": 7500,
+      "qtyLeftForInspection": 7500,
+      "unitOfMeasurement": "Kg",
+      "offeredQty": 1.750,
+      "offeredQtyUnit": "MT",
+      "chemicalAnalysis": {
+        "carbon": 0.40,
+        "manganese": 0.72,
+        "silicon": 0.22,
+        "sulphur": 0.028,
+        "phosphorus": 0.032,
+        "chromium": 0.12
+      },
+      "status": "Fresh"
+    }
+  ],
+
+  "calculation_details": {
+    "conversion_factor": {
+      "product_type": "ERC MK-III",
+      "division_factor": 0.928426,
+      "formula": "(Total Offered Qty MT × 1000) / Division Factor = Max ERC Count"
+    },
+    "total_offered_qty_mt": 5.500,
+    "calculation": "(5.500 × 1000) / 0.928426 = 5925.77 ≈ 5,926 ERCs",
+    "heat_wise_breakdown": [
+      {
+        "heatNumber": "HT-2025-001",
+        "offeredQty": 1.500,
+        "unit": "MT",
+        "approx_erc": 1615
+      },
+      {
+        "heatNumber": "HT-2025-002",
+        "offeredQty": 2.250,
+        "unit": "MT",
+        "approx_erc": 2423
+      },
+      {
+        "heatNumber": "HT-2025-003",
+        "offeredQty": 1.750,
+        "unit": "MT",
+        "approx_erc": 1885
+      }
+    ],
+    "remaining_po_qty": {
+      "po_qty": 5000,
+      "qty_already_inspected_rm": 2000,
+      "remaining_for_rm_inspection": 3000,
+      "current_offered_qty_erc": 4786,
+      "note": "Current offered quantity (4786 ERCs) is within remaining PO quantity (3000 Nos)"
+    }
+  },
+
+  "validation_rules": {
+    "required_fields": [
+      "po_serial_no",
+      "type_of_call",
+      "desired_inspection_date",
+      "company_id",
+      "unit_id",
+      "rm_heat_numbers",
+      "rm_tc_number",
+      "rm_chemical_carbon",
+      "rm_chemical_manganese",
+      "rm_chemical_silicon",
+      "rm_chemical_sulphur",
+      "rm_chemical_phosphorus",
+      "rm_chemical_chromium"
+    ],
+    "date_constraints": {
+      "desired_inspection_date": {
+        "min": "today",
+        "max": "today + 7 days",
+        "format": "YYYY-MM-DD"
+      }
+    },
+    "quantity_constraints": {
+      "rm_total_offered_qty_mt": {
+        "min": 0,
+        "max": "remaining_po_qty",
+        "validation": "Total offered quantity cannot exceed remaining PO quantity"
+      },
+      "heat_quantities": {
+        "validation": "All heat numbers must have offered quantity greater than 0"
+      }
+    },
+    "chemical_analysis_constraints": {
+      "all_elements": {
+        "min": 0,
+        "max": 100,
+        "step": 0.01,
+        "unit": "percentage"
+      }
+    }
+  },
+
+  "api_endpoint_suggestions": {
+    "submit_inspection_request": {
+      "method": "POST",
+      "endpoint": "/api/vendor/inspection-calls/raw-material",
+      "request_body": "inspection_request object from this mock data",
+      "expected_response": {
+        "success": true,
+        "message": "Raw Material Inspection Call created successfully",
+        "data": {
+          "ic_number": "RM-IC-2025-005",
+          "status": "Pending",
+          "created_at": "2025-12-18T10:30:00Z"
+        }
+      }
+    },
+    "auto_populate_heat_details": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inventory/heat/{heatNumber}",
+      "description": "Fetch heat number details from inventory for auto-population",
+      "example": "/api/vendor/inventory/heat/HT-2025-001",
+      "expected_response": "heat_details object from this mock data"
+    },
+    "get_available_heat_numbers": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inventory/available-heats",
+      "query_params": {
+        "status": ["Fresh", "Inspection Requested", "Partially Inspected"]
+      },
+      "expected_response": {
+        "success": true,
+        "data": [
+          {
+            "heatNumber": "HT-2025-001",
+            "tcNumber": "TC-45678",
+            "rawMaterial": "Steel Round",
+            "supplierName": "Steel India Ltd",
+            "qtyLeft": 2000,
+            "unit": "Kg"
+          }
+        ]
+      }
+    },
+    "get_tc_details": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inventory/tc/{tcNumber}",
+      "description": "Fetch TC details based on selected heat number",
+      "example": "/api/vendor/inventory/tc/TC-45678",
+      "expected_response": "Detailed TC information including chemical analysis"
+    }
+  },
+
+  "database_schema": {
+    "description": "Complete database schema for Inspection Module - supports Raw Material, Process, and Final inspection stages",
+    "tables": [
+      {
+        "table_name": "inspection_calls",
+        "description": "Main table for all inspection calls (Raw Material, Process, Final)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier for inspection call"
+          },
+          {
+            "name": "ic_number",
+            "type": "VARCHAR(50)",
+            "constraints": "UNIQUE NOT NULL",
+            "description": "Inspection Call Number (e.g., RM-IC-2025-005)",
+            "example": "RM-IC-2025-005"
+          },
+          {
+            "name": "po_no",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "Purchase Order Number",
+            "example": "PO-2025-1001"
+          },
+          {
+            "name": "po_serial_no",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "PO Serial Number",
+            "example": "PO-2025-1001/01"
+          },
+          {
+            "name": "po_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Purchase Order Date",
+            "example": "2025-11-01"
+          },
+          {
+            "name": "po_description",
+            "type": "VARCHAR(255)",
+            "constraints": "NULL",
+            "description": "PO Item Description",
+            "example": "ERC MK-III Clips - Type A"
+          },
+          {
+            "name": "po_qty",
+            "type": "INT",
+            "constraints": "NULL",
+            "description": "PO Quantity",
+            "example": 5000
+          },
+          {
+            "name": "po_unit",
+            "type": "VARCHAR(20)",
+            "constraints": "NULL",
+            "description": "PO Unit of Measurement",
+            "example": "Nos"
+          },
+          {
+            "name": "amendment_no",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Amendment Number if any",
+            "example": "AMD-001"
+          },
+          {
+            "name": "amendment_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Amendment Date",
+            "example": "2025-11-05"
+          },
+          {
+            "name": "type_of_call",
+            "type": "ENUM('Raw Material', 'Process', 'Final')",
+            "constraints": "NOT NULL",
+            "description": "Type of inspection call",
+            "example": "Raw Material"
+          },
+          {
+            "name": "desired_inspection_date",
+            "type": "DATE",
+            "constraints": "NOT NULL",
+            "description": "Desired date for inspection",
+            "example": "2025-12-22"
+          },
+          {
+            "name": "actual_inspection_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Actual inspection date (filled after inspection)",
+            "example": null
+          },
+          {
+            "name": "status",
+            "type": "ENUM('Pending', 'Scheduled', 'Under Inspection', 'Completed', 'Rejected')",
+            "constraints": "DEFAULT 'Pending'",
+            "description": "Current status of inspection call",
+            "example": "Pending"
+          },
+          {
+            "name": "company_id",
+            "type": "INT",
+            "constraints": "NOT NULL",
+            "description": "Company ID (Place of Inspection)",
+            "example": 1
+          },
+          {
+            "name": "company_name",
+            "type": "VARCHAR(255)",
+            "constraints": "NULL",
+            "description": "Company Name",
+            "example": "ABC Industries Pvt Ltd"
+          },
+          {
+            "name": "cin",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Company Identification Number",
+            "example": "U27100MH2020PTC123456"
+          },
+          {
+            "name": "unit_id",
+            "type": "INT",
+            "constraints": "NOT NULL",
+            "description": "Unit ID (Place of Inspection)",
+            "example": 101
+          },
+          {
+            "name": "unit_name",
+            "type": "VARCHAR(255)",
+            "constraints": "NULL",
+            "description": "Unit Name",
+            "example": "Unit 1 - Mumbai"
+          },
+          {
+            "name": "unit_address",
+            "type": "TEXT",
+            "constraints": "NULL",
+            "description": "Unit Address",
+            "example": "Plot 1, MIDC Industrial Area, Andheri East, Mumbai - 400093"
+          },
+          {
+            "name": "unit_gstin",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Unit GSTIN",
+            "example": "27AABCU9603R1ZM"
+          },
+          {
+            "name": "unit_contact_person",
+            "type": "VARCHAR(100)",
+            "constraints": "NULL",
+            "description": "Contact Person at Unit",
+            "example": "Rajesh Kumar"
+          },
+          {
+            "name": "unit_role",
+            "type": "VARCHAR(100)",
+            "constraints": "NULL",
+            "description": "Role of Unit",
+            "example": "ERC Manufacturer"
+          },
+          {
+            "name": "vendor_contact_name",
+            "type": "VARCHAR(100)",
+            "constraints": "NULL",
+            "description": "Vendor Contact Person Name",
+            "example": "Rajesh Kumar"
+          },
+          {
+            "name": "vendor_contact_phone",
+            "type": "VARCHAR(20)",
+            "constraints": "NULL",
+            "description": "Vendor Contact Phone",
+            "example": "+91-9876543210"
+          },
+          {
+            "name": "remarks",
+            "type": "TEXT",
+            "constraints": "NULL",
+            "description": "Additional remarks/notes",
+            "example": "All three heat numbers are from different suppliers..."
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP",
+            "description": "Record creation timestamp",
+            "example": "2025-12-18 10:30:00"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+            "description": "Record last update timestamp",
+            "example": "2025-12-18 10:30:00"
+          },
+          {
+            "name": "created_by",
+            "type": "VARCHAR(100)",
+            "constraints": "NULL",
+            "description": "User who created the record",
+            "example": "vendor_user_123"
+          }
+        ],
+        "indexes": [
+          "INDEX idx_ic_number (ic_number)",
+          "INDEX idx_po_no (po_no)",
+          "INDEX idx_po_serial_no (po_serial_no)",
+          "INDEX idx_type_of_call (type_of_call)",
+          "INDEX idx_status (status)",
+          "INDEX idx_desired_inspection_date (desired_inspection_date)",
+          "INDEX idx_company_unit (company_id, unit_id)"
+        ]
+      },
+      {
+        "table_name": "rm_inspection_heat_details",
+        "description": "Heat-wise details for Raw Material inspection calls (one-to-many with inspection_calls)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier"
+          },
+          {
+            "name": "ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL",
+            "description": "Foreign key to inspection_calls.id",
+            "example": 12345
+          },
+          {
+            "name": "heat_number",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "Heat Number",
+            "example": "HT-2025-001"
+          },
+          {
+            "name": "tc_number",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "Test Certificate Number",
+            "example": "TC-45678"
+          },
+          {
+            "name": "tc_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "TC Date",
+            "example": "2025-11-15"
+          },
+          {
+            "name": "manufacturer",
+            "type": "VARCHAR(255)",
+            "constraints": "NULL",
+            "description": "Manufacturer/Supplier Name",
+            "example": "Steel India Ltd"
+          },
+          {
+            "name": "invoice_no",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Invoice Number",
+            "example": "INV-2025-1001"
+          },
+          {
+            "name": "invoice_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Invoice Date",
+            "example": "2025-11-14"
+          },
+          {
+            "name": "sub_po_number",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Sub PO Number",
+            "example": "SPO-2025-101"
+          },
+          {
+            "name": "sub_po_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Sub PO Date",
+            "example": "2025-11-10"
+          },
+          {
+            "name": "sub_po_qty",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Sub PO Quantity with unit",
+            "example": "5000 Kg"
+          },
+          {
+            "name": "sub_po_total_value",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Sub PO Total Value",
+            "example": "₹504450.00"
+          },
+          {
+            "name": "tc_qty",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "TC Quantity with unit",
+            "example": "5000 Kg"
+          },
+          {
+            "name": "tc_qty_remaining",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "TC Quantity Remaining with unit",
+            "example": "2000 Kg"
+          },
+          {
+            "name": "offered_qty",
+            "type": "DECIMAL(10,3)",
+            "constraints": "NOT NULL",
+            "description": "Offered Quantity in MT for this heat",
+            "example": 1.500
+          },
+          {
+            "name": "raw_material",
+            "type": "VARCHAR(100)",
+            "constraints": "NULL",
+            "description": "Raw Material Type",
+            "example": "Steel Round"
+          },
+          {
+            "name": "grade_specification",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Grade/Specification",
+            "example": "IS 2062"
+          }
+        ],
+        "indexes": [
+          "INDEX idx_ic_id (ic_id)",
+          "INDEX idx_heat_number (heat_number)",
+          "INDEX idx_tc_number (tc_number)",
+          "FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE"
+        ]
+      },
+      {
+        "table_name": "rm_chemical_analysis",
+        "description": "Chemical analysis data for Raw Material inspection (one-to-one with inspection_calls)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier"
+          },
+          {
+            "name": "ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL UNIQUE",
+            "description": "Foreign key to inspection_calls.id",
+            "example": 12345
+          },
+          {
+            "name": "carbon",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Carbon percentage",
+            "example": 0.420
+          },
+          {
+            "name": "manganese",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Manganese percentage",
+            "example": 0.750
+          },
+          {
+            "name": "silicon",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Silicon percentage",
+            "example": 0.250
+          },
+          {
+            "name": "sulphur",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Sulphur percentage",
+            "example": 0.025
+          },
+          {
+            "name": "phosphorus",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Phosphorus percentage",
+            "example": 0.030
+          },
+          {
+            "name": "chromium",
+            "type": "DECIMAL(5,3)",
+            "constraints": "NULL",
+            "description": "Chromium percentage",
+            "example": 0.150
+          }
+        ],
+        "indexes": [
+          "INDEX idx_ic_id (ic_id)",
+          "FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE"
+        ]
+      },
+      {
+        "table_name": "rm_inspection_summary",
+        "description": "Summary/aggregated data for Raw Material inspection (one-to-one with inspection_calls)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier"
+          },
+          {
+            "name": "ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL UNIQUE",
+            "description": "Foreign key to inspection_calls.id",
+            "example": 12345
+          },
+          {
+            "name": "total_heat_count",
+            "type": "INT",
+            "constraints": "NOT NULL DEFAULT 0",
+            "description": "Total number of heat numbers",
+            "example": 3
+          },
+          {
+            "name": "total_offered_qty_mt",
+            "type": "DECIMAL(10,3)",
+            "constraints": "NOT NULL DEFAULT 0.000",
+            "description": "Total offered quantity in MT (sum of all heats)",
+            "example": 5.500
+          },
+          {
+            "name": "offered_qty_erc",
+            "type": "INT",
+            "constraints": "NULL",
+            "description": "Approximate number of ERCs",
+            "example": 4786
+          },
+          {
+            "name": "qty_already_inspected_rm",
+            "type": "INT",
+            "constraints": "NULL DEFAULT 0",
+            "description": "Quantity already inspected at RM stage",
+            "example": 2000
+          },
+          {
+            "name": "qty_already_inspected_process",
+            "type": "INT",
+            "constraints": "NULL DEFAULT 0",
+            "description": "Quantity already inspected at Process stage",
+            "example": 1500
+          },
+          {
+            "name": "qty_already_inspected_final",
+            "type": "INT",
+            "constraints": "NULL DEFAULT 0",
+            "description": "Quantity already inspected at Final stage",
+            "example": 0
+          }
+        ],
+        "indexes": [
+          "INDEX idx_ic_id (ic_id)",
+          "FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE"
+        ]
+      }
+    ],
+    "sql_create_statements": {
+      "inspection_calls": "CREATE TABLE inspection_calls (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  ic_number VARCHAR(50) UNIQUE NOT NULL,\n  po_no VARCHAR(50) NOT NULL,\n  po_serial_no VARCHAR(50) NOT NULL,\n  po_date DATE,\n  po_description VARCHAR(255),\n  po_qty INT,\n  po_unit VARCHAR(20),\n  amendment_no VARCHAR(50),\n  amendment_date DATE,\n  type_of_call ENUM('Raw Material', 'Process', 'Final') NOT NULL,\n  desired_inspection_date DATE NOT NULL,\n  actual_inspection_date DATE,\n  status ENUM('Pending', 'Scheduled', 'Under Inspection', 'Completed', 'Rejected') DEFAULT 'Pending',\n  company_id INT NOT NULL,\n  company_name VARCHAR(255),\n  cin VARCHAR(50),\n  unit_id INT NOT NULL,\n  unit_name VARCHAR(255),\n  unit_address TEXT,\n  unit_gstin VARCHAR(50),\n  unit_contact_person VARCHAR(100),\n  unit_role VARCHAR(100),\n  vendor_contact_name VARCHAR(100),\n  vendor_contact_phone VARCHAR(20),\n  remarks TEXT,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  created_by VARCHAR(100),\n  INDEX idx_ic_number (ic_number),\n  INDEX idx_po_no (po_no),\n  INDEX idx_po_serial_no (po_serial_no),\n  INDEX idx_type_of_call (type_of_call),\n  INDEX idx_status (status),\n  INDEX idx_desired_inspection_date (desired_inspection_date),\n  INDEX idx_company_unit (company_id, unit_id)\n);",
+      "rm_inspection_heat_details": "CREATE TABLE rm_inspection_heat_details (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  ic_id BIGINT NOT NULL,\n  heat_number VARCHAR(50) NOT NULL,\n  tc_number VARCHAR(50) NOT NULL,\n  tc_date DATE,\n  manufacturer VARCHAR(255),\n  invoice_no VARCHAR(50),\n  invoice_date DATE,\n  sub_po_number VARCHAR(50),\n  sub_po_date DATE,\n  sub_po_qty VARCHAR(50),\n  sub_po_total_value VARCHAR(50),\n  tc_qty VARCHAR(50),\n  tc_qty_remaining VARCHAR(50),\n  offered_qty DECIMAL(10,3) NOT NULL,\n  raw_material VARCHAR(100),\n  grade_specification VARCHAR(50),\n  INDEX idx_ic_id (ic_id),\n  INDEX idx_heat_number (heat_number),\n  INDEX idx_tc_number (tc_number),\n  FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE\n);",
+      "rm_chemical_analysis": "CREATE TABLE rm_chemical_analysis (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  ic_id BIGINT NOT NULL UNIQUE,\n  carbon DECIMAL(5,3),\n  manganese DECIMAL(5,3),\n  silicon DECIMAL(5,3),\n  sulphur DECIMAL(5,3),\n  phosphorus DECIMAL(5,3),\n  chromium DECIMAL(5,3),\n  INDEX idx_ic_id (ic_id),\n  FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE\n);",
+      "rm_inspection_summary": "CREATE TABLE rm_inspection_summary (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  ic_id BIGINT NOT NULL UNIQUE,\n  total_heat_count INT NOT NULL DEFAULT 0,\n  total_offered_qty_mt DECIMAL(10,3) NOT NULL DEFAULT 0.000,\n  offered_qty_erc INT,\n  qty_already_inspected_rm INT DEFAULT 0,\n  qty_already_inspected_process INT DEFAULT 0,\n  qty_already_inspected_final INT DEFAULT 0,\n  INDEX idx_ic_id (ic_id),\n  FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE\n);"
+    }
+  },
+
+  "notes": {
+    "scenario_description": "This mock data represents a realistic scenario where a vendor is raising an inspection call for raw material (Steel Round) with 3 different heat numbers from different suppliers.",
+    "key_features": [
+      "Multiple heat numbers (3) with different quantities",
+      "Each heat has its own TC number, manufacturer, and chemical analysis",
+      "Auto-calculated total offered quantity and ERC count",
+      "Complete PO and Sub-PO information",
+      "Place of inspection details (company and unit)",
+      "Chemical analysis data for quality verification"
+    ],
+    "data_structure_notes": [
+      "rm_heat_tc_mapping array contains complete details for each heat number",
+      "Each heat has unique TC number, manufacturer, invoice, and sub-PO details",
+      "Chemical analysis is common for the entire inspection request",
+      "Total offered quantity is sum of all heat quantities",
+      "Database schema supports one-to-many relationship between inspection call and heat details"
+    ],
+    "backend_usage": [
+      "Use this data to test POST endpoint for creating raw material inspection calls",
+      "Test auto-population logic when heat number is selected",
+      "Validate calculation of total offered quantity and ERC conversion",
+      "Test multi-heat number handling in backend",
+      "Verify chemical analysis data storage and retrieval",
+      "Insert data into inspection_calls table first, then related tables using ic_id"
+    ],
+    "frontend_integration": [
+      "Form should auto-populate TC details when heat number is selected",
+      "Chemical analysis fields should be editable but pre-filled if available",
+      "Total offered quantity should auto-calculate from heat-wise quantities",
+      "ERC count should auto-calculate based on conversion factor",
+      "Support dynamic addition of multiple heat numbers with individual TC details"
+    ]
+  }
+}
+

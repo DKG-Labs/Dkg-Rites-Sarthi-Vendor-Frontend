@@ -1,0 +1,44 @@
+{
+  "name": "sarthi-react-app",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.5",
+    "@mui/material": "^7.3.5",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.394",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.30.3",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "dev:all": "npm start & npm run dev:sleeper",
+    "dev:sleeper": "cd sleeper-vendor && npm run dev",
+    "build": "react-scripts build && npm run build:sleeper",
+    "build:sleeper": "cd sleeper-vendor && npm install && npm run build && mkdir -p ../build/sleeper-vendor && cp -r dist/* ../build/sleeper-vendor",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

@@ -1,0 +1,451 @@
+/* src/styles/raiseInspectionCall.css */
+/* Raise Inspection Call Form Styles - BEM naming convention */
+
+/* Form Container */
+.ric-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Section Header */
+.ric-section-header {
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.ric-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e3a5f;
+  margin: 0 0 4px 0;
+}
+
+.ric-section-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Form Grid */
+.ric-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 24px;
+}
+
+/* Form Group */
+.ric-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ric-form-group--full-width {
+  grid-column: 1 / -1;
+}
+
+/* Form Label */
+.ric-form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.ric-required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+/* Form Inputs */
+.ric-form-input,
+.ric-form-select,
+.ric-form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #374151;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ric-form-input:focus,
+.ric-form-select:focus,
+.ric-form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.ric-form-input--disabled {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.ric-form-input--calculated {
+  background-color: #f0fdf4;
+  color: #166534;
+  font-weight: 600;
+}
+
+/* Multi-Select Dropdown */
+.ric-multiselect-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.ric-multiselect-trigger {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #374151;
+  background-color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ric-multiselect-trigger:hover {
+  border-color: #9ca3af;
+}
+
+.ric-multiselect-trigger:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.ric-multiselect-arrow {
+  color: #6b7280;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.ric-multiselect-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.ric-multiselect-option {
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s;
+}
+
+.ric-multiselect-option:hover {
+  background-color: #f3f4f6;
+}
+
+.ric-multiselect-option--selected {
+  background-color: #eff6ff;
+}
+
+.ric-multiselect-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Heat Quantities Section */
+.ric-heat-quantities {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.ric-heat-quantity-row {
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+/* Heat-TC Mapping Sections */
+.ric-heat-section {
+  background-color: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  transition: all 0.3s ease;
+}
+
+.ric-heat-section:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ric-heat-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ric-heat-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.ric-btn-remove-heat {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ric-btn-remove-heat:hover {
+  background-color: #fecaca;
+  border-color: #fca5a5;
+}
+
+.ric-btn-add-heat {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 2px dashed #93c5fd;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 300px;
+}
+
+.ric-btn-add-heat:hover {
+  background-color: #bfdbfe;
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.ric-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Form Hint */
+.ric-form-hint {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* Form Error */
+.ric-form-error {
+  font-size: 12px;
+  color: #dc2626;
+  margin-top: 4px;
+  display: block;
+  font-weight: 500;
+  animation: errorFadeIn 0.3s ease-in;
+}
+
+@keyframes errorFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Highlight input fields with errors */
+.ric-form-input:invalid,
+.ric-form-select:invalid,
+.ric-form-input.error,
+.ric-form-select.error {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.ric-form-input:invalid:focus,
+.ric-form-select:invalid:focus,
+.ric-form-input.error:focus,
+.ric-form-select.error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Validation Summary Banner */
+.ric-validation-summary {
+  background-color: #fef2f2;
+  border: 2px solid #dc2626;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  animation: errorFadeIn 0.3s ease-in;
+}
+
+.ric-validation-summary__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ric-validation-summary__icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.ric-validation-summary__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.ric-validation-summary__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ric-validation-summary__item {
+  padding: 6px 0;
+  color: #7f1d1d;
+  font-size: 14px;
+}
+
+.ric-validation-summary__link {
+  background: none;
+  border: none;
+  color: #dc2626;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  text-align: left;
+  transition: color 0.2s;
+}
+
+.ric-validation-summary__link:hover {
+  color: #991b1b;
+}
+
+.ric-validation-summary__item--more {
+  font-style: italic;
+  color: #991b1b;
+  margin-top: 4px;
+}
+
+.ric-form-group.has-error {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* Quantity Summary */
+.ric-qty-summary {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.ric-qty-summary__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0369a1;
+  margin-bottom: 12px;
+}
+
+.ric-qty-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* Quantity Card */
+.ric-qty-card {
+  background: #ffffff;
+  border: 1px solid #e0f2fe;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.ric-qty-card--remaining {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.ric-qty-card__label {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.ric-qty-card__value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+/* Checkbox Group */
+.ric-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}

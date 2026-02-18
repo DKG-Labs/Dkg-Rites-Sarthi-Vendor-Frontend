@@ -1,0 +1,685 @@
+{
+  "description": "Mock data for Process Inspection Request with Multiple RM IC Numbers",
+  "scenario": "Vendor raising inspection call for process stage with semi-finished products from multiple completed RM inspections",
+  "use_case": "Backend API development and auto-population testing for Process stage inspections",
+
+  "inspection_request": {
+    "po_no": "PO-2025-1001",
+    "po_serial_no": "PO-2025-1001/01",
+    "po_date": "2025-11-01",
+    "po_description": "ERC MK-III Clips - Type A",
+    "po_qty": 5000,
+    "po_unit": "Nos",
+    "amendment_no": "AMD-001",
+    "amendment_date": "2025-11-05",
+    "vendor_contact_name": "Rajesh Kumar",
+    "vendor_contact_phone": "+91-9876543210",
+
+    "type_of_call": "Process",
+    "desired_inspection_date": "2025-12-25",
+
+    "qty_already_inspected_rm": 10100,
+    "qty_already_inspected_process": 6500,
+    "qty_already_inspected_final": 0,
+
+    "process_rm_ic_numbers": ["RM-IC-2025-001", "RM-IC-2025-002", "RM-IC-2025-004" ,"RM-IC-1767191285774",
+      "RM-IC-1767192239075",
+      "RM-IC-1767352141920",
+      "RM-IC-1767425631624"],
+
+    "process_rm_ic_mapping": [
+      {
+        "rmIcNumber": "RM-IC-2025-001",
+        "poSerialNo": "PO-2025-1001/01",
+        "heatNumber": "HT-2025-001",
+        "manufacturer": "Steel India Ltd",
+        "bookSetNo": "BS-001",
+        "icDate": "2025-11-18",
+        "qtyOffered": 2000,
+        "qtyAccepted": 1800,
+        "qtyRejected": 200,
+        "status": "Completed",
+        "tcNumber": "TC-45678",
+        "tcDate": "2025-11-15",
+        "rawMaterial": "Steel Round",
+        "gradeSpecification": "IS 2062",
+        "chemicalAnalysis": {
+          "carbon": 0.42,
+          "manganese": 0.75,
+          "silicon": 0.25,
+          "sulphur": 0.025,
+          "phosphorus": 0.030,
+          "chromium": 0.15
+        }
+      },
+      {
+        "rmIcNumber": "RM-IC-2025-002",
+        "poSerialNo": "PO-2025-1001/01",
+        "heatNumber": "HT-2025-002",
+        "manufacturer": "XYZ Materials Co.",
+        "bookSetNo": "BS-002",
+        "icDate": "2025-11-20",
+        "qtyOffered": 4000,
+        "qtyAccepted": 3800,
+        "qtyRejected": 200,
+        "status": "Completed",
+        "tcNumber": "TC-45681",
+        "tcDate": "2025-11-20",
+        "rawMaterial": "Steel Round",
+        "gradeSpecification": "IS 1786",
+        "chemicalAnalysis": {
+          "carbon": 0.45,
+          "manganese": 0.78,
+          "silicon": 0.28,
+          "sulphur": 0.022,
+          "phosphorus": 0.028,
+          "chromium": 0.18
+        }
+      },
+      {
+        "rmIcNumber": "RM-IC-2025-004",
+        "poSerialNo": "PO-2025-1001/01",
+        "heatNumber": "HT-2025-004",
+        "manufacturer": "Tata Steel Ltd",
+        "bookSetNo": "BS-004",
+        "icDate": "2025-11-24",
+        "qtyOffered": 5000,
+        "qtyAccepted": 4500,
+        "qtyRejected": 500,
+        "status": "Completed",
+        "tcNumber": "TC-45695",
+        "tcDate": "2025-11-22",
+        "rawMaterial": "Steel Round",
+        "gradeSpecification": "IS 2062",
+        "chemicalAnalysis": {
+          "carbon": 0.40,
+          "manganese": 0.72,
+          "silicon": 0.22,
+          "sulphur": 0.028,
+          "phosphorus": 0.032,
+          "chromium": 0.12
+        }
+      }
+    ],
+
+    "process_book_set_nos": [
+      {
+        "icNumber": "RM-IC-2025-001",
+        "bookSetNo": "BS-001"
+      },
+      {
+        "icNumber": "RM-IC-2025-002",
+        "bookSetNo": "BS-002"
+      },
+      {
+        "icNumber": "RM-IC-2025-004",
+        "bookSetNo": "BS-004"
+      }
+    ],
+
+    "process_lot_no": "LOT-2025-P-005",
+    "process_manufacturer_heat": "Steel India Ltd - HT-2025-001",
+    "process_offered_qty": 8500,
+    "process_total_accepted_qty_rm": 10100,
+
+    "company_id": 1,
+    "company_name": "ABC Industries Pvt Ltd",
+    "cin": "U27100MH2020PTC123456",
+    "unit_id": 101,
+    "unit_name": "Unit 1 - Mumbai",
+    "unit_address": "Plot 1, MIDC Industrial Area, Andheri East, Mumbai - 400093",
+    "unit_gstin": "27AABCU9603R1ZM",
+    "unit_contact_person": "Rajesh Kumar",
+    "unit_role": "ERC Manufacturer",
+
+    "remarks": "Semi-finished ERC clips from 3 different RM batches. All material has passed raw material inspection. Process inspection requested for heat treatment and forming operations. Lot number LOT-2025-P-005 represents combined material from RM-IC-2025-001, RM-IC-2025-002, and RM-IC-2025-004."
+  },
+
+  "rm_ic_details_breakdown": [
+    {
+      "rmIcNumber": "RM-IC-2025-001",
+      "heatNumber": "HT-2025-001",
+      "manufacturer": "Steel India Ltd",
+      "bookSetNo": "BS-001",
+      "qtyAccepted": 1800,
+      "percentageOfTotal": "17.82%",
+      "usageInProcess": "Full quantity from this RM IC used in this process lot"
+    },
+    {
+      "rmIcNumber": "RM-IC-2025-002",
+      "heatNumber": "HT-2025-002",
+      "manufacturer": "XYZ Materials Co.",
+      "bookSetNo": "BS-002",
+      "qtyAccepted": 3800,
+      "percentageOfTotal": "37.62%",
+      "usageInProcess": "Full quantity from this RM IC used in this process lot"
+    },
+    {
+      "rmIcNumber": "RM-IC-2025-004",
+      "heatNumber": "HT-2025-004",
+      "manufacturer": "Tata Steel Ltd",
+      "bookSetNo": "BS-004",
+      "qtyAccepted": 4500,
+      "percentageOfTotal": "44.55%",
+      "usageInProcess": "Full quantity from this RM IC used in this process lot"
+    }
+  ],
+
+  "calculation_details": {
+    "total_accepted_qty_from_rm_ics": {
+      "formula": "SUM(qtyAccepted from all selected RM ICs)",
+      "calculation": "1800 + 3800 + 4500 = 10,100 Nos",
+      "value": 10100
+    },
+    "process_offered_qty": {
+      "description": "Quantity of semi-finished products offered for process inspection",
+      "value": 8500,
+      "unit": "Nos",
+      "constraint": "Must be ≤ Total Accepted Qty from RM ICs (10,100)",
+      "validation": "8500 ≤ 10100 ✓ Valid"
+    },
+    "expected_rejection_allowance": {
+      "description": "Expected material loss/rejection during process stage",
+      "calculation": "10100 - 8500 = 1600 Nos",
+      "percentage": "15.84%",
+      "reason": "Normal process losses, scrap, and quality rejections during heat treatment and forming"
+    },
+    "remaining_qty_for_inspection": {
+      "po_total_qty": 5000,
+      "qty_already_inspected_rm": 10100,
+      "qty_already_inspected_process": 6500,
+      "qty_already_inspected_final": 0,
+      "remaining_for_process": "10100 - 6500 = 3600 Nos",
+      "note": "This process inspection of 8500 Nos will update qty_already_inspected_process"
+    }
+  },
+
+  "validation_rules": {
+    "required_fields": [
+      "po_serial_no",
+      "type_of_call",
+      "desired_inspection_date",
+      "process_rm_ic_numbers (at least 1)",
+      "process_lot_no",
+      "process_manufacturer_heat",
+      "process_offered_qty",
+      "company_id",
+      "unit_id"
+    ],
+    "process_specific_validations": {
+      "process_rm_ic_numbers": {
+        "rule": "At least one RM IC must be selected",
+        "constraint": "Only completed RM ICs for the same PO Serial Number can be selected",
+        "example": "['RM-IC-2025-001', 'RM-IC-2025-002', 'RM-IC-2025-004']"
+      },
+      "process_lot_no": {
+        "rule": "Required, manual string entry",
+        "format": "Free text, typically LOT-YYYY-P-XXX format",
+        "example": "LOT-2025-P-005",
+        "note": "If multiple lot numbers are entered (comma-separated), Process IC will be issued only after all lots are manufactured and inspected"
+      },
+      "process_manufacturer_heat": {
+        "rule": "Required, selected from heat numbers in selected RM ICs",
+        "format": "Manufacturer Name - Heat Number",
+        "example": "Steel India Ltd - HT-2025-001",
+        "constraint": "Must be from one of the selected RM IC heat numbers"
+      },
+      "process_offered_qty": {
+        "rule": "Required, must be > 0",
+        "constraint": "process_offered_qty ≤ process_total_accepted_qty_rm",
+        "example": "8500 ≤ 10100 ✓",
+        "error_message": "Offered Qty cannot exceed Total Accepted Material in RM IC"
+      },
+      "desired_inspection_date": {
+        "rule": "Required, must be within 7 days from today",
+        "format": "YYYY-MM-DD",
+        "constraint": "today ≤ desired_inspection_date ≤ today + 7 days",
+        "example": "2025-12-25"
+      }
+    },
+    "auto_calculated_fields": {
+      "process_book_set_nos": "Auto-fetched from selected RM ICs",
+      "process_total_accepted_qty_rm": "Sum of qtyAccepted from all selected RM ICs"
+    }
+  },
+
+  "database_schema": {
+    "description": "Complete database schema for Process Inspection Module - extends the inspection_calls table with process-specific details",
+    "tables": [
+      {
+        "table_name": "inspection_calls",
+        "description": "Main table for all inspection calls (Raw Material, Process, Final) - same structure as RM inspection",
+        "note": "This table is shared across all inspection types. Process-specific data is stored in related tables.",
+        "key_columns_for_process": [
+          "id - Primary key",
+          "ic_number - Unique IC number (e.g., PR-IC-2025-005)",
+          "po_no, po_serial_no - PO details",
+          "type_of_call - 'Process'",
+          "desired_inspection_date",
+          "status - Pending/Scheduled/Under Inspection/Completed/Rejected",
+          "company_id, unit_id - Place of inspection",
+          "remarks"
+        ]
+      },
+      {
+        "table_name": "process_inspection_details",
+        "description": "Process-specific inspection details (one-to-one with inspection_calls)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier"
+          },
+          {
+            "name": "ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL UNIQUE",
+            "description": "Foreign key to inspection_calls.id",
+            "example": 12345
+          },
+          {
+            "name": "lot_number",
+            "type": "VARCHAR(100)",
+            "constraints": "NOT NULL",
+            "description": "Lot number for this process batch",
+            "example": "LOT-2025-P-005"
+          },
+          {
+            "name": "manufacturer_heat",
+            "type": "VARCHAR(255)",
+            "constraints": "NOT NULL",
+            "description": "Manufacturer and heat number",
+            "example": "Steel India Ltd - HT-2025-001"
+          },
+          {
+            "name": "offered_qty",
+            "type": "INT",
+            "constraints": "NOT NULL",
+            "description": "Quantity offered for process inspection",
+            "example": 8500
+          },
+          {
+            "name": "total_accepted_qty_rm",
+            "type": "INT",
+            "constraints": "NOT NULL DEFAULT 0",
+            "description": "Total accepted quantity from all linked RM ICs",
+            "example": 10100
+          },
+          {
+            "name": "qty_accepted",
+            "type": "INT",
+            "constraints": "NULL",
+            "description": "Quantity accepted after process inspection (filled post-inspection)",
+            "example": null
+          },
+          {
+            "name": "qty_rejected",
+            "type": "INT",
+            "constraints": "NULL",
+            "description": "Quantity rejected after process inspection (filled post-inspection)",
+            "example": null
+          },
+          {
+            "name": "rejection_reason",
+            "type": "TEXT",
+            "constraints": "NULL",
+            "description": "Reason for rejection if any",
+            "example": null
+          }
+        ],
+        "indexes": [
+          "INDEX idx_ic_id (ic_id)",
+          "INDEX idx_lot_number (lot_number)",
+          "FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE"
+        ]
+      },
+      {
+        "table_name": "process_rm_ic_mapping",
+        "description": "Mapping table linking Process inspection to multiple RM ICs (one-to-many)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT",
+            "constraints": "PRIMARY KEY AUTO_INCREMENT",
+            "description": "Unique identifier"
+          },
+          {
+            "name": "process_ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL",
+            "description": "Foreign key to inspection_calls.id (Process IC)",
+            "example": 12345
+          },
+          {
+            "name": "rm_ic_id",
+            "type": "BIGINT",
+            "constraints": "NOT NULL",
+            "description": "Foreign key to inspection_calls.id (RM IC)",
+            "example": 11001
+          },
+          {
+            "name": "rm_ic_number",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "RM IC Number for reference",
+            "example": "RM-IC-2025-001"
+          },
+          {
+            "name": "heat_number",
+            "type": "VARCHAR(50)",
+            "constraints": "NOT NULL",
+            "description": "Heat number from RM IC",
+            "example": "HT-2025-001"
+          },
+          {
+            "name": "manufacturer",
+            "type": "VARCHAR(255)",
+            "constraints": "NULL",
+            "description": "Manufacturer from RM IC",
+            "example": "Steel India Ltd"
+          },
+          {
+            "name": "book_set_no",
+            "type": "VARCHAR(50)",
+            "constraints": "NULL",
+            "description": "Book/Set number from RM IC",
+            "example": "BS-001"
+          },
+          {
+            "name": "rm_qty_accepted",
+            "type": "INT",
+            "constraints": "NOT NULL",
+            "description": "Accepted quantity from this RM IC",
+            "example": 1800
+          },
+          {
+            "name": "rm_ic_date",
+            "type": "DATE",
+            "constraints": "NULL",
+            "description": "Date of RM IC completion",
+            "example": "2025-11-18"
+          }
+        ],
+        "indexes": [
+          "INDEX idx_process_ic_id (process_ic_id)",
+          "INDEX idx_rm_ic_id (rm_ic_id)",
+          "INDEX idx_rm_ic_number (rm_ic_number)",
+          "INDEX idx_heat_number (heat_number)",
+          "FOREIGN KEY (process_ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE",
+          "FOREIGN KEY (rm_ic_id) REFERENCES inspection_calls(id) ON DELETE RESTRICT"
+        ]
+      }
+    ],
+    "sql_create_statements": {
+      "process_inspection_details": "CREATE TABLE process_inspection_details (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  ic_id BIGINT NOT NULL UNIQUE,\n  lot_number VARCHAR(100) NOT NULL,\n  manufacturer_heat VARCHAR(255) NOT NULL,\n  offered_qty INT NOT NULL,\n  total_accepted_qty_rm INT NOT NULL DEFAULT 0,\n  qty_accepted INT NULL,\n  qty_rejected INT NULL,\n  rejection_reason TEXT NULL,\n  INDEX idx_ic_id (ic_id),\n  INDEX idx_lot_number (lot_number),\n  FOREIGN KEY (ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE\n);",
+      "process_rm_ic_mapping": "CREATE TABLE process_rm_ic_mapping (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  process_ic_id BIGINT NOT NULL,\n  rm_ic_id BIGINT NOT NULL,\n  rm_ic_number VARCHAR(50) NOT NULL,\n  heat_number VARCHAR(50) NOT NULL,\n  manufacturer VARCHAR(255) NULL,\n  book_set_no VARCHAR(50) NULL,\n  rm_qty_accepted INT NOT NULL,\n  rm_ic_date DATE NULL,\n  INDEX idx_process_ic_id (process_ic_id),\n  INDEX idx_rm_ic_id (rm_ic_id),\n  INDEX idx_rm_ic_number (rm_ic_number),\n  INDEX idx_heat_number (heat_number),\n  FOREIGN KEY (process_ic_id) REFERENCES inspection_calls(id) ON DELETE CASCADE,\n  FOREIGN KEY (rm_ic_id) REFERENCES inspection_calls(id) ON DELETE RESTRICT\n);"
+    },
+    "sample_data_insertion": {
+      "description": "Example of how to insert this mock data into the database",
+      "steps": [
+        "1. Insert into inspection_calls table (main record)",
+        "2. Get the generated ic_id from step 1",
+        "3. Insert into process_inspection_details table using ic_id",
+        "4. Insert 3 records into process_rm_ic_mapping table (one for each RM IC)"
+      ],
+      "sql_example": "-- Step 1: Insert main inspection call\nINSERT INTO inspection_calls (ic_number, po_no, po_serial_no, type_of_call, desired_inspection_date, status, company_id, unit_id, remarks, created_at)\nVALUES ('PR-IC-2025-005', 'PO-2025-1001', 'PO-2025-1001/01', 'Process', '2025-12-25', 'Pending', 1, 101, 'Semi-finished ERC clips...', NOW());\n\n-- Step 2: Get ic_id (assume it's 12345)\nSET @ic_id = LAST_INSERT_ID();\n\n-- Step 3: Insert process details\nINSERT INTO process_inspection_details (ic_id, lot_number, manufacturer_heat, offered_qty, total_accepted_qty_rm)\nVALUES (@ic_id, 'LOT-2025-P-005', 'Steel India Ltd - HT-2025-001', 8500, 10100);\n\n-- Step 4: Insert RM IC mappings\nINSERT INTO process_rm_ic_mapping (process_ic_id, rm_ic_id, rm_ic_number, heat_number, manufacturer, book_set_no, rm_qty_accepted, rm_ic_date)\nVALUES \n  (@ic_id, 11001, 'RM-IC-2025-001', 'HT-2025-001', 'Steel India Ltd', 'BS-001', 1800, '2025-11-18'),\n  (@ic_id, 11002, 'RM-IC-2025-002', 'HT-2025-002', 'XYZ Materials Co.', 'BS-002', 3800, '2025-11-20'),\n  (@ic_id, 11004, 'RM-IC-2025-004', 'HT-2025-004', 'Tata Steel Ltd', 'BS-004', 4500, '2025-11-24');"
+    },
+    "relationships": {
+      "process_to_rm_ics": "One Process IC can reference multiple RM ICs (many-to-many via process_rm_ic_mapping)",
+      "process_to_inspection_calls": "One-to-one relationship via ic_id",
+      "cascade_behavior": "Deleting a Process IC will cascade delete process_inspection_details and process_rm_ic_mapping records"
+    }
+  },
+
+  "api_endpoint_suggestions": {
+    "submit_process_inspection": {
+      "method": "POST",
+      "endpoint": "/api/vendor/inspection-calls/process",
+      "description": "Submit a new process inspection request",
+      "request_body": {
+        "po_no": "PO-2025-1001",
+        "po_serial_no": "PO-2025-1001/01",
+        "type_of_call": "Process",
+        "desired_inspection_date": "2025-12-25",
+        "process_rm_ic_numbers": ["RM-IC-2025-001", "RM-IC-2025-002", "RM-IC-2025-004"],
+        "process_lot_no": "LOT-2025-P-005",
+        "process_manufacturer_heat": "Steel India Ltd - HT-2025-001",
+        "process_offered_qty": 8500,
+        "company_id": 1,
+        "unit_id": 101,
+        "remarks": "Semi-finished ERC clips from 3 different RM batches..."
+      },
+      "response_success": {
+        "status": "success",
+        "message": "Process Inspection Call created successfully",
+        "data": {
+          "ic_number": "PR-IC-2025-005",
+          "ic_id": 12345,
+          "status": "Pending",
+          "desired_inspection_date": "2025-12-25",
+          "lot_number": "LOT-2025-P-005",
+          "offered_qty": 8500,
+          "rm_ic_count": 3,
+          "created_at": "2025-12-18T10:30:00Z"
+        }
+      },
+      "response_error": {
+        "status": "error",
+        "message": "Validation failed",
+        "errors": {
+          "process_offered_qty": "Offered Qty (12000) cannot exceed Total Accepted Material in RM IC (10100)"
+        }
+      }
+    },
+    "get_available_rm_ics": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inspection-calls/available-rm-ics",
+      "description": "Get list of completed RM ICs available for process inspection",
+      "query_params": {
+        "po_serial_no": "PO-2025-1001/01",
+        "status": "Completed"
+      },
+      "response": {
+        "status": "success",
+        "data": [
+          {
+            "ic_number": "RM-IC-2025-001",
+            "heat_number": "HT-2025-001",
+            "manufacturer": "Steel India Ltd",
+            "book_set_no": "BS-001",
+            "qty_accepted": 1800,
+            "qty_rejected": 200,
+            "ic_date": "2025-11-18",
+            "status": "Completed"
+          },
+          {
+            "ic_number": "RM-IC-2025-002",
+            "heat_number": "HT-2025-002",
+            "manufacturer": "XYZ Materials Co.",
+            "book_set_no": "BS-002",
+            "qty_accepted": 3800,
+            "qty_rejected": 200,
+            "ic_date": "2025-11-20",
+            "status": "Completed"
+          },
+          {
+            "ic_number": "RM-IC-2025-004",
+            "heat_number": "HT-2025-004",
+            "manufacturer": "Tata Steel Ltd",
+            "book_set_no": "BS-004",
+            "qty_accepted": 4500,
+            "qty_rejected": 500,
+            "ic_date": "2025-11-24",
+            "status": "Completed"
+          }
+        ]
+      }
+    },
+    "get_rm_ic_details": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inspection-calls/rm-ic/{icNumber}",
+      "description": "Get detailed information about a specific RM IC",
+      "path_params": {
+        "icNumber": "RM-IC-2025-001"
+      },
+      "response": {
+        "status": "success",
+        "data": {
+          "ic_number": "RM-IC-2025-001",
+          "po_serial_no": "PO-2025-1001/01",
+          "heat_number": "HT-2025-001",
+          "manufacturer": "Steel India Ltd",
+          "book_set_no": "BS-001",
+          "tc_number": "TC-45678",
+          "tc_date": "2025-11-15",
+          "qty_offered": 2000,
+          "qty_accepted": 1800,
+          "qty_rejected": 200,
+          "ic_date": "2025-11-18",
+          "status": "Completed",
+          "raw_material": "Steel Round",
+          "grade_specification": "IS 2062",
+          "chemical_analysis": {
+            "carbon": 0.42,
+            "manganese": 0.75,
+            "silicon": 0.25,
+            "sulphur": 0.025,
+            "phosphorus": 0.030,
+            "chromium": 0.15
+          }
+        }
+      }
+    },
+    "calculate_total_accepted_qty": {
+      "method": "POST",
+      "endpoint": "/api/vendor/inspection-calls/calculate-total-accepted",
+      "description": "Calculate total accepted quantity from selected RM ICs",
+      "request_body": {
+        "rm_ic_numbers": ["RM-IC-2025-001", "RM-IC-2025-002", "RM-IC-2025-004"]
+      },
+      "response": {
+        "status": "success",
+        "data": {
+          "total_accepted_qty": 10100,
+          "breakdown": [
+            {"ic_number": "RM-IC-2025-001", "qty_accepted": 1800},
+            {"ic_number": "RM-IC-2025-002", "qty_accepted": 3800},
+            {"ic_number": "RM-IC-2025-004", "qty_accepted": 4500}
+          ]
+        }
+      }
+    },
+    "get_process_ic_details": {
+      "method": "GET",
+      "endpoint": "/api/vendor/inspection-calls/process/{icNumber}",
+      "description": "Get complete details of a process inspection call",
+      "path_params": {
+        "icNumber": "PR-IC-2025-005"
+      },
+      "response": {
+        "status": "success",
+        "data": {
+          "ic_number": "PR-IC-2025-005",
+          "po_no": "PO-2025-1001",
+          "po_serial_no": "PO-2025-1001/01",
+          "type_of_call": "Process",
+          "desired_inspection_date": "2025-12-25",
+          "status": "Pending",
+          "lot_number": "LOT-2025-P-005",
+          "manufacturer_heat": "Steel India Ltd - HT-2025-001",
+          "offered_qty": 8500,
+          "total_accepted_qty_rm": 10100,
+          "rm_ics": [
+            {
+              "rm_ic_number": "RM-IC-2025-001",
+              "heat_number": "HT-2025-001",
+              "manufacturer": "Steel India Ltd",
+              "book_set_no": "BS-001",
+              "qty_accepted": 1800
+            },
+            {
+              "rm_ic_number": "RM-IC-2025-002",
+              "heat_number": "HT-2025-002",
+              "manufacturer": "XYZ Materials Co.",
+              "book_set_no": "BS-002",
+              "qty_accepted": 3800
+            },
+            {
+              "rm_ic_number": "RM-IC-2025-004",
+              "heat_number": "HT-2025-004",
+              "manufacturer": "Tata Steel Ltd",
+              "book_set_no": "BS-004",
+              "qty_accepted": 4500
+            }
+          ],
+          "company": {
+            "company_id": 1,
+            "company_name": "ABC Industries Pvt Ltd",
+            "unit_id": 101,
+            "unit_name": "Unit 1 - Mumbai"
+          },
+          "created_at": "2025-12-18T10:30:00Z"
+        }
+      }
+    }
+  },
+
+  "notes": {
+    "scenario_description": "This mock data represents a realistic Process inspection scenario where a vendor is raising an inspection call for semi-finished ERC clips that have been processed from raw materials that passed RM inspection. The process stage involves heat treatment, forming, and other manufacturing operations.",
+    "key_features": [
+      "Multiple RM IC references (3 different RM ICs)",
+      "Each RM IC has different heat numbers, manufacturers, and accepted quantities",
+      "Auto-calculated total accepted quantity from all RM ICs (10,100 Nos)",
+      "Process offered quantity (8,500 Nos) is less than total accepted (allowing for process losses)",
+      "Complete traceability from Process IC back to RM ICs and heat numbers",
+      "Book/Set numbers auto-fetched from RM ICs",
+      "Lot number for tracking the process batch"
+    ],
+    "data_structure_notes": [
+      "process_rm_ic_mapping array contains complete details for each linked RM IC",
+      "Each RM IC has unique heat number, manufacturer, book/set number, and accepted quantity",
+      "process_book_set_nos is auto-populated based on selected RM ICs",
+      "process_total_accepted_qty_rm is sum of all RM IC accepted quantities",
+      "Database schema supports many-to-many relationship between Process IC and RM ICs"
+    ],
+    "business_logic": [
+      "Process inspection can only be raised for completed RM ICs",
+      "Only RM ICs from the same PO Serial Number can be selected",
+      "Offered quantity must not exceed total accepted quantity from RM ICs",
+      "If multiple lot numbers are entered, Process IC is issued only after all lots are manufactured",
+      "Manufacturer-Heat must be selected from one of the heat numbers in selected RM ICs",
+      "Process stage represents semi-finished products (after heat treatment, forming, etc.)",
+      "Normal process losses/rejections are expected (15-20% typical)"
+    ],
+    "backend_usage": [
+      "Use this data to test POST endpoint for creating process inspection calls",
+      "Test auto-population logic when RM ICs are selected",
+      "Validate calculation of total accepted quantity from multiple RM ICs",
+      "Test multi-RM IC handling and mapping table insertions",
+      "Verify book/set number auto-fetching from RM ICs",
+      "Insert data into inspection_calls table first, then process_inspection_details, then process_rm_ic_mapping",
+      "Implement validation: offered_qty <= total_accepted_qty_rm"
+    ],
+    "frontend_integration": [
+      "Form should allow multi-select of completed RM ICs for the same PO Serial Number",
+      "Book/Set numbers should auto-populate when RM ICs are selected",
+      "Total accepted quantity should auto-calculate from selected RM ICs",
+      "Manufacturer-Heat dropdown should show only heat numbers from selected RM ICs",
+      "Validate offered quantity against total accepted quantity in real-time",
+      "Display breakdown of selected RM ICs with their accepted quantities",
+      "Show warning if offered quantity is significantly less than total accepted (indicating high process losses)"
+    ],
+    "testing_scenarios": [
+      "Test with 1 RM IC (minimum case)",
+      "Test with 3 RM ICs (this scenario)",
+      "Test with 5+ RM ICs (maximum case)",
+      "Test validation: offered_qty > total_accepted_qty_rm (should fail)",
+      "Test with RM ICs from different PO Serial Numbers (should fail)",
+      "Test with RM ICs that are not completed (should fail)",
+      "Test lot number with comma-separated values (multiple lots)",
+      "Test auto-calculation of total accepted quantity",
+      "Test book/set number auto-fetching"
+    ]
+  }
+}

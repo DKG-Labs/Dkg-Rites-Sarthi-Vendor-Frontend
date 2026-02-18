@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Calibration & Document Verification Schema",
+  "description": "Schema for Calibration & Document Verification Sub Module inside ERC Raw Material Inspection Main Module",
+  "type": "object",
+  "required": ["heats", "gaugesAvailable"],
+  "properties": {
+    "rdsoApprovalValidity": {
+      "type": "object",
+      "description": "RDSO approval & its Validity",
+      "properties": {
+        "approvalId": {
+          "type": "string",
+          "description": "RDSO Approval ID"
+        },
+        "validFrom": {
+          "type": "string",
+          "format": "date",
+          "description": "Validity start date"
+        },
+        "validTo": {
+          "type": "string",
+          "format": "date",
+          "description": "Validity end date"
+        }
+      }
+    },
+    "heats": {
+      "type": "array",
+      "description": "Ladle Analysis of Each Heat as per TC",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["heatNo", "percentC", "percentSi", "percentMn", "percentP", "percentS"],
+        "properties": {
+          "heatNo": {
+            "type": "string",
+            "description": "Heat No. of Raw Material - Fetched from Pre Inspection Data entered on main module"
+          },
+          "percentC": {
+            "type": "number",
+            "description": "Ladle Analysis of Each Heat as per TC - % C",
+            "minimum": 0.5,
+            "maximum": 0.6,
+            "multipleOf": 0.001
+          },
+          "percentSi": {
+            "type": "number",
+            "description": "Ladle Analysis of Each Heat as per TC - % Si",
+            "minimum": 1.5,
+            "maximum": 2.0,
+            "multipleOf": 0.001
+          },
+          "percentMn": {
+            "type": "number",
+            "description": "Ladle Analysis of Each Heat as per TC - % Mn",
+            "minimum": 0.8,
+            "maximum": 1.0,
+            "multipleOf": 0.001
+          },
+          "percentP": {
+            "type": "number",
+            "description": "Ladle Analysis of Each Heat as per TC - % P",
+            "maximum": 0.030,
+            "multipleOf": 0.001
+          },
+          "percentS": {
+            "type": "number",
+            "description": "Ladle Analysis of Each Heat as per TC - % S",
+            "maximum": 0.030,
+            "multipleOf": 0.001
+          }
+        }
+      }
+    },
+    "gaugesAvailable": {
+      "type": "boolean",
+      "description": "Availability of RDSO approved Gauges"
+    },
+    "vendorVerification": {
+      "type": "object",
+      "description": "Vendor verification details",
+      "properties": {
+        "verified": {
+          "type": "boolean",
+          "description": "Verified (filled by Vendor before Call Request)"
+        },
+        "verifiedBy": {
+          "type": "string",
+          "description": "User who verified"
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Verification timestamp"
+        }
+      }
+    }
+  }
+}
+
