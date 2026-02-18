@@ -5,7 +5,7 @@
 
 
 export const getBaseUrl = () => {
-  return "https://api.ritesqasarthi.com/sarthi-backend";
+  return "https://api.ritesqasarthi.com/sarthi-backend/api";
 };
 
 // API Endpoints configuration
