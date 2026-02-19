@@ -10,7 +10,7 @@ const initialFormState = {
   companyName: '',
   unitId: '',
   unitName: '',
-  rawMaterial: '',
+  rawMaterial: 'Spring Steel Rounds',
   supplierName: '',
   supplierAddress: '',
   gradeSpecification: '',
@@ -496,9 +496,9 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
                 name="rawMaterial"
                 value={formData.rawMaterial}
                 onChange={handleChange}
-                className={`form-input ${errors.rawMaterial ? 'error' : ''}`}
+                className={`form-input ${errors.rawMaterial ? 'error' : ''} disabled`}
+                disabled
               >
-                <option value="">-- Select Material --</option>
                 {data.rawMaterials.map(item => (
                   <option key={item} value={item}>{item}</option>
                 ))}
