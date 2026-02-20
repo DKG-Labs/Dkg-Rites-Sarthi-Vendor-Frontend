@@ -5,7 +5,7 @@
 
 
 export const getBaseUrl = () => {
-  return "https://api.ritesqasarthi.com/sarthi-backend/api";
+  return "http://localhost:8080/sarthi-backend/api";
 };
 
 // API Endpoints configuration

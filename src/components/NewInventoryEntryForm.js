@@ -4,32 +4,33 @@ import '../styles/forms.css';
 import { RAW_MATERIAL_GRADE_MAPPING } from '../data/vendorMockData';
 import inventoryService from '../services/inventoryService';
 import { getStoredUser } from '../services/authService';
+import Notification from './Notification';
 
-const initialFormState = {
-  companyId: '',
-  companyName: '',
-  unitId: '',
-  unitName: '',
-  rawMaterial: 'Spring Steel Rounds',
-  supplierName: '',
-  supplierAddress: '',
-  gradeSpecification: '',
+const initialHeatRow = {
   heatNumber: '',
-  tcNumber: '',
-  tcDate: '',
-  invoiceNumber: '',
-  invoiceDate: '',
+  tcQuantity: '',
+  numberOfBundles: '',
   subPoNumber: '',
   subPoDate: '',
   subPoQty: '',
-  rateOfMaterial: '',
-  rateOfGst: '',
-  declaredQuantity: '',
-  numberOfBundles: '',
-  baseValuePO: '',
-  totalPO: '',
+  invoiceNumber: '',
+  invoiceDate: ''
+};
+
+const initialFormState = {
+  rawMaterial: 'Spring Steel Rounds',
+  gradeSpecification: '',
   lengthOfBars: '',
-  unitOfMeasurement: ''
+  supplierName: '',
+  supplierAddress: '',
+  unitId: '',
+  unitName: '',
+  tcNumber: '',
+  tcDate: '',
+  unitOfMeasurement: 'MT',
+  repeatPO: 'no',
+  repeatInvoice: 'no',
+  heats: [{ ...initialHeatRow }]
 };
 
 const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmit, onCancel, editData = null, isLoading = false }) => {
@@ -38,13 +39,19 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   const [errors, setErrors] = useState({});
   const [suppliers, setSuppliers] = useState([]);
   const [units, setUnits] = useState([]);
+  const [isCheckingTC, setIsCheckingTC] = useState(false);
+  const [notification, setNotification] = useState({ message: '', type: 'success' });
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [loadingUnits, setLoadingUnits] = useState(false);
-  const [isCheckingTC, setIsCheckingTC] = useState(false);
 
   // Debounced TC Number uniqueness check
   useEffect(() => {
     const checkUniqueness = async () => {
+      // If we are editing and the TC number is same as original, it's not a duplicate
+      if (editData && formData.tcNumber === editData.tcNumber) {
+        return;
+      }
+
       // Only check if it's not empty and at least 3 chars to avoid too many calls
       if (formData.tcNumber && formData.tcNumber.length >= 3) {
         setIsCheckingTC(true);
@@ -74,28 +81,49 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData.tcNumber]);
+  }, [formData.tcNumber, editData]);
 
   // Populating form data when editData changes
   useEffect(() => {
     if (editData) {
+      console.log('📝 Editing inventory entry:', editData);
+
       // Format dates to YYYY-MM-DD for input[type="date"]
       const formatDateForInput = (dateString) => {
         if (!dateString) return '';
+        // If it's already in YYYY-MM-DD format, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
+
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
         return date.toISOString().split('T')[0];
       };
 
       setFormData({
-        ...initialFormState,
-        ...editData,
+        rawMaterial: editData.rawMaterial || 'Spring Steel Rounds',
+        gradeSpecification: editData.gradeSpecification || '',
+        lengthOfBars: editData.lengthOfBars || '',
+        supplierName: editData.supplierName || '',
+        supplierAddress: editData.supplierAddress || '',
+        unitId: editData.unitId || '',
+        unitName: editData.unitName || '',
+        tcNumber: editData.tcNumber || '',
         tcDate: formatDateForInput(editData.tcDate),
-        invoiceDate: formatDateForInput(editData.invoiceDate),
-        subPoDate: formatDateForInput(editData.subPoDate),
-        declaredQuantity: editData.declaredQuantity || editData.tcQuantity || '',
-        baseValuePO: editData.baseValuePO || editData.baseValuePo || '',
-        totalPO: editData.totalPO || editData.totalPo || ''
+        unitOfMeasurement: editData.unitOfMeasurement || 'MT',
+        repeatPO: 'no',
+        repeatInvoice: 'no',
+        heats: [{
+          heatNumber: editData.heatNumber || '',
+          tcQuantity: editData.declaredQuantity || editData.tcQuantity || '',
+          numberOfBundles: editData.numberOfBundles || '',
+          subPoNumber: editData.subPoNumber || '',
+          subPoDate: formatDateForInput(editData.subPoDate),
+          subPoQty: editData.subPoQty || '',
+          invoiceNumber: editData.invoiceNumber || '',
+          invoiceDate: formatDateForInput(editData.invoiceDate),
+          rateOfMaterial: editData.rateOfMaterial || '',
+          rateOfGst: editData.rateOfGst || ''
+        }]
       });
     } else {
       setFormData(initialFormState);
@@ -180,24 +208,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     return 'Heat Number / Batch Number / Lot Number';
   };
 
-  // Default master data options
-  const defaultMasterData = {
-    rawMaterials: ['Spring Steel Rounds'],
-    suppliers: [
-      'Jayaswal Neco',
-      'Tata Steel',
-      'JSPL',
-      'RINL',
-      'ABC Suppliers Pvt Ltd',
-      'XYZ Materials Co.',
-      'Steel India Ltd',
-      'National Cement Corp'
-    ],
-    grades: ['Grade A', 'Grade B', 'Grade C', 'IS 2062', 'IS 1786', 'OPC 53', 'PPC'],
-    units: ['MT']
-  };
 
-  const data = { ...defaultMasterData, ...masterData };
 
   // Reset unit fields when supplier changes (address is now handled in fetchUnits)
   useEffect(() => {
@@ -277,33 +288,105 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     }
   };
 
+  const handleHeatChange = (index, e) => {
+    const { name, value } = e.target;
+    const updatedHeats = [...formData.heats];
+    updatedHeats[index][name] = value;
+
+    // Apply repeat logic if enabled
+    if (index === 0) {
+      if (formData.repeatPO === 'yes') {
+        if (['subPoNumber', 'subPoDate', 'subPoQty'].includes(name)) {
+          updatedHeats.forEach((heat, i) => {
+            if (i > 0) heat[name] = value;
+          });
+        }
+      }
+      if (formData.repeatInvoice === 'yes') {
+        if (['invoiceNumber', 'invoiceDate'].includes(name)) {
+          updatedHeats.forEach((heat, i) => {
+            if (i > 0) heat[name] = value;
+          });
+        }
+      }
+    }
+
+    setFormData(prev => ({ ...prev, heats: updatedHeats }));
+
+    // Clear heat-related errors
+    if (errors[`heats_${index}_${name}`]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`heats_${index}_${name}`];
+        return newErrors;
+      });
+    }
+  };
+
+  const addHeatRow = () => {
+    const firstHeat = formData.heats[0];
+    const newRow = { ...initialHeatRow };
+
+    // If repeat is ON, pre-fill from first row
+    if (formData.repeatPO === 'yes') {
+      newRow.subPoNumber = firstHeat.subPoNumber;
+      newRow.subPoDate = firstHeat.subPoDate;
+      newRow.subPoQty = firstHeat.subPoQty;
+    }
+    if (formData.repeatInvoice === 'yes') {
+      newRow.invoiceNumber = firstHeat.invoiceNumber;
+      newRow.invoiceDate = firstHeat.invoiceDate;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      heats: [...prev.heats, newRow]
+    }));
+  };
+
+  const removeHeatRow = (index) => {
+    if (formData.heats.length > 1) {
+      const updatedHeats = formData.heats.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, heats: updatedHeats }));
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // If raw material changes, reset grade specification and supplier-related fields
     if (name === 'rawMaterial') {
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        gradeSpecification: '', // Reset grade when raw material changes
-        supplierName: '', // Reset supplier
-        unitId: '', // Reset unit
+        gradeSpecification: '',
+        supplierName: '',
+        unitId: '',
         unitName: '',
         supplierAddress: ''
       }));
-      // Clear errors
-      if (errors[name] || errors.gradeSpecification || errors.supplierName || errors.unitId) {
-        setErrors(prev => ({ ...prev, [name]: '', gradeSpecification: '', supplierName: '', unitId: '' }));
-      }
-    }
-    // If supplier name changes, reset unit fields (handled by useEffect)
-    else if (name === 'supplierName') {
-      setFormData(prev => ({ ...prev, [name]: value }));
-      if (errors[name] || errors.unitId) {
-        setErrors(prev => ({ ...prev, [name]: '', unitId: '' }));
-      }
-    }
-    else {
+    } else if (name === 'repeatPO' || name === 'repeatInvoice') {
+      setFormData(prev => {
+        const newState = { ...prev, [name]: value };
+        if (value === 'yes' && prev.heats.length > 1) {
+          const firstHeat = prev.heats[0];
+          const updatedHeats = prev.heats.map((heat, i) => {
+            if (i === 0) return heat;
+            const newHeat = { ...heat };
+            if (name === 'repeatPO') {
+              newHeat.subPoNumber = firstHeat.subPoNumber;
+              newHeat.subPoDate = firstHeat.subPoDate;
+              newHeat.subPoQty = firstHeat.subPoQty;
+            } else {
+              newHeat.invoiceNumber = firstHeat.invoiceNumber;
+              newHeat.invoiceDate = firstHeat.invoiceDate;
+            }
+            return newHeat;
+          });
+          newState.heats = updatedHeats;
+        }
+        return newState;
+      });
+    } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       if (errors[name]) {
         setErrors(prev => ({ ...prev, [name]: '' }));
@@ -340,135 +423,153 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   const validateForm = () => {
     const newErrors = {};
 
-    /* ---------- REQUIRED FIELD VALIDATION ---------- */
-    const requiredFields = [
-      'unitId', // companyId is derived
-      'rawMaterial',
-      'supplierName',
-      'gradeSpecification',
-      'heatNumber',
-      'tcNumber',
-      'tcDate',
-      'invoiceNumber',
-      'invoiceDate',
-      'subPoNumber',
-      'subPoDate',
-      'subPoQty',
-      // 'rateOfMaterial',  // COMMENTED OUT - Pricing section disabled
-      // 'rateOfGst',       // COMMENTED OUT - Pricing section disabled
-      'declaredQuantity',
-      'numberOfBundles',
-      'unitOfMeasurement',
-      'lengthOfBars'
+    /* SECTION 1 & 2 VALIDATION */
+    const section12Fields = [
+      'rawMaterial', 'gradeSpecification', 'lengthOfBars', 'supplierName',
+      'unitId', 'tcNumber', 'tcDate', 'unitOfMeasurement'
     ];
 
-    requiredFields.forEach(field => {
-      if (
-        formData[field] === '' ||
-        formData[field] === null ||
-        formData[field] === undefined
-      ) {
+    section12Fields.forEach(field => {
+      if (!formData[field]) {
         newErrors[field] = 'This field is required';
       }
     });
 
-    /* ---------- NUMERIC FIELD VALIDATION ---------- */
-    const numericFields = [
-      'subPoQty',
-      // 'rateOfMaterial',  // COMMENTED OUT - Pricing section disabled
-      // 'rateOfGst',       // COMMENTED OUT - Pricing section disabled
-      'declaredQuantity'
-    ];
+    /* SECTION 3 VALIDATION (Heats) */
+    formData.heats.forEach((heat, index) => {
+      const heatFields = [
+        'heatNumber', 'tcQuantity', 'numberOfBundles',
+        'subPoNumber', 'subPoDate', 'subPoQty',
+        'invoiceNumber', 'invoiceDate'
+      ];
 
-    numericFields.forEach(field => {
-      if (
-        formData[field] !== '' &&
-        (isNaN(Number(formData[field])) || Number(formData[field]) < 0)
-      ) {
-        newErrors[field] = 'Must be a valid non-negative number';
+      heatFields.forEach(field => {
+        if (!heat[field]) {
+          newErrors[`heats_${index}_${field}`] = 'Required';
+        }
+      });
+
+      // Numeric validations
+      if (heat.tcQuantity && (isNaN(Number(heat.tcQuantity)) || Number(heat.tcQuantity) <= 0)) {
+        newErrors[`heats_${index}_tcQuantity`] = 'Invalid Qty';
+      }
+      if (heat.numberOfBundles && (isNaN(Number(heat.numberOfBundles)) || Number(heat.numberOfBundles) <= 0)) {
+        newErrors[`heats_${index}_numberOfBundles`] = 'Invalid';
+      }
+
+      // Business Rules
+      if (heat.tcQuantity && heat.subPoQty && Number(heat.subPoQty) < Number(heat.tcQuantity)) {
+        newErrors[`heats_${index}_subPoQty`] = 'Sub PO Qty < TC Qty';
       }
     });
 
-    /* ---------- BUSINESS RULE VALIDATION ---------- */
-
-    const tcQty = Number(formData.declaredQuantity);
-    const subPoQty = Number(formData.subPoQty);
-
-    const tcDate = formData.tcDate ? new Date(formData.tcDate) : null;
-    const subPoDate = formData.subPoDate ? new Date(formData.subPoDate) : null;
-    const invoiceDate = formData.invoiceDate ? new Date(formData.invoiceDate) : null;
-
-    /* Rule 1: Sub PO Qty >= TC Qty */
-    if (
-      !newErrors.subPoQty &&
-      !newErrors.declaredQuantity &&
-      tcQty > 0 &&
-      subPoQty > 0 &&
-      subPoQty < tcQty
-    ) {
-      newErrors.subPoQty =
-        'Sub PO Quantity should not be less than TC Quantity';
+    /* TC Uniqueness Check */
+    if (errors.tcNumber && errors.tcNumber.includes('already exists')) {
+      newErrors.tcNumber = errors.tcNumber;
     }
 
-    /* Rule 2: Sub PO Date <= TC Date */
-    if (
-      !newErrors.subPoDate &&
-      tcDate &&
-      subPoDate &&
-      subPoDate > tcDate
-    ) {
-      newErrors.subPoDate =
-        'Sub PO Date should not be later than TC Date';
-    }
-
-    /* Rule 3: Sub PO Date <= Invoice Date */
-    if (
-      !newErrors.subPoDate &&
-      invoiceDate &&
-      subPoDate &&
-      subPoDate > invoiceDate
-    ) {
-      newErrors.subPoDate =
-        'Sub PO Date should not be later than Invoice Date';
-    }
-
-    /* Rule 4: TC Number must be unique for this vendor */
-    if (!newErrors.tcNumber) {
-      if (errors.tcNumber && errors.tcNumber.includes('already exists')) {
-        newErrors.tcNumber = errors.tcNumber;
-      } else if (formData.tcNumber && formData.supplierName) {
-        const duplicateEntry = inventoryEntries.find(
-          entry =>
-            entry.tcNumber === formData.tcNumber &&
-            entry.supplierName === formData.supplierName
-        );
-
-        if (duplicateEntry) {
-          newErrors.tcNumber =
-            'Entry with TC Number already present in the inventory database of this particular vendor is not allowed';
-        }
-      }
-    }
-
-    /* ---------- FINALIZE ---------- */
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isCheckingTC) {
-      alert('Please wait while we verify the TC Number uniqueness...');
+      setNotification({ message: 'Please wait while we verify the TC Number uniqueness...', type: 'warning' });
       return;
     }
 
     if (validateForm()) {
-      const result = await onSubmit?.(formData);
-      // Reset form if submission was successful (parent returns true)
-      if (result) {
-        handleReset();
+      const user = getStoredUser();
+      const vendorCode = user?.userName || '';
+      const vendorName = user?.name || '';
+
+      if (editData && editData.id) {
+        // UPDATE MODE: Update single entry
+        const heat = formData.heats[0];
+        const updateData = {
+          vendorCode,
+          vendorName,
+          companyId: editData.companyId || 1,
+          companyName: editData.companyName || 'DKG',
+          supplierName: formData.supplierName,
+          unitName: formData.unitName,
+          supplierAddress: formData.supplierAddress,
+          rawMaterial: formData.rawMaterial,
+          gradeSpecification: formData.gradeSpecification,
+          lengthOfBars: Number(formData.lengthOfBars),
+          tcNumber: formData.tcNumber,
+          tcDate: formData.tcDate,
+          unitOfMeasurement: formData.unitOfMeasurement,
+          // Single entry fields
+          heatNumber: heat.heatNumber,
+          declaredQuantity: heat.tcQuantity ? Number(heat.tcQuantity) : 0,
+          numberOfBundles: heat.numberOfBundles ? parseInt(heat.numberOfBundles) : null,
+          subPoNumber: heat.subPoNumber,
+          subPoDate: heat.subPoDate,
+          subPoQty: Number(heat.subPoQty),
+          invoiceNumber: heat.invoiceNumber,
+          invoiceDate: heat.invoiceDate,
+          rateOfMaterial: Number(heat.rateOfMaterial),
+          rateOfGst: Number(heat.rateOfGst),
+          baseValuePO: (Number(heat.tcQuantity) * Number(heat.rateOfMaterial)) || 0,
+          totalPO: ((Number(heat.tcQuantity) * Number(heat.rateOfMaterial)) * (1 + (Number(heat.rateOfGst) / 100))) || 0
+        };
+
+        const response = await inventoryService.updateInventoryEntry(editData.id, updateData);
+
+        if (response.success) {
+          setNotification({ message: 'Inventory entry updated successfully!', type: 'success' });
+          if (onSubmit) {
+            setTimeout(() => onSubmit(response.data), 1000);
+          }
+          handleReset();
+        } else {
+          setNotification({ message: 'Failed to update entry: ' + (response.error || 'Unknown error'), type: 'error' });
+        }
+      } else {
+        // CREATE BULK MODE
+        const bulkData = {
+          vendorCode,
+          vendorName,
+          companyId: 1,
+          companyName: 'DKG',
+          supplierName: formData.supplierName,
+          unitName: formData.unitName,
+          supplierAddress: formData.supplierAddress,
+          rawMaterial: formData.rawMaterial,
+          gradeSpecification: formData.gradeSpecification,
+          lengthOfBars: Number(formData.lengthOfBars),
+          tcNumber: formData.tcNumber,
+          tcDate: formData.tcDate,
+          unitOfMeasurement: formData.unitOfMeasurement,
+          heatEntries: formData.heats.map(heat => ({
+            heatNumber: heat.heatNumber,
+            tcQuantity: Number(heat.tcQuantity),
+            numberOfBundles: parseInt(heat.numberOfBundles),
+            subPoNumber: heat.subPoNumber,
+            subPoDate: heat.subPoDate,
+            subPoQty: Number(heat.subPoQty),
+            invoiceNumber: heat.invoiceNumber,
+            invoiceDate: heat.invoiceDate,
+            rateOfMaterial: Number(heat.rateOfMaterial),
+            rateOfGst: Number(heat.rateOfGst)
+          }))
+        };
+
+        const response = await inventoryService.createBulkInventoryEntries(bulkData);
+
+        if (response.success) {
+          setNotification({ message: 'Inventory entries created successfully!', type: 'success' });
+          if (onSubmit) {
+            setTimeout(() => onSubmit(response.data), 1000);
+          }
+          handleReset();
+        } else {
+          const errorMsg = response.error || 'Unknown error occurred while creating entries';
+          setNotification({ message: 'Failed to create inventory entries: ' + errorMsg, type: 'error' });
+        }
       }
     }
   };
@@ -479,613 +580,202 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   };
 
   return (
-    <div className="inventory-entry-form">
-      <form onSubmit={handleSubmit}>
+    <div className="inventory-entry-form-container">
+      <form onSubmit={handleSubmit} className="premium-form">
 
-        {/* Material & Supplier Information Section */}
-        <div className="form-section">
-          <div className="form-section-header">
-            <h4 className="form-section-title">📦 Material & Supplier Information</h4>
+        {/* Section 1: Autopopulated & Basic Details */}
+        <div className="form-section ivory-section">
+          <div className="section-header">
+            <span className="section-number">1</span>
+            <h4 className="section-title">Basic Material & Supplier Info</h4>
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">
-                Name of Raw Material <span className="required">*</span>
-              </label>
-              <select
-                name="rawMaterial"
-                value={formData.rawMaterial}
-                onChange={handleChange}
-                className={`form-input ${errors.rawMaterial ? 'error' : ''} disabled`}
-                disabled
-              >
-                {data.rawMaterials.map(item => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-              {errors.rawMaterial && <span className="error-text">{errors.rawMaterial}</span>}
+              <label>Name of Raw Material</label>
+              <input type="text" value={formData.rawMaterial} disabled className="input-disabled" />
             </div>
-
-
-
-
             <div className="form-group">
-              <label className="form-label">
-                Grade / Specification <span className="required">*</span>
-              </label>
+              <label>Grade / Specification <span className="required">*</span></label>
               <select
                 name="gradeSpecification"
                 value={formData.gradeSpecification}
                 onChange={handleChange}
-                className={`form-input ${errors.gradeSpecification ? 'error' : ''}`}
-                disabled={!formData.rawMaterial || availableGrades.length === 0}
+                className={errors.gradeSpecification ? 'error' : ''}
               >
-                <option value="">
-                  {!formData.rawMaterial ? '-- Select Raw Material First --' : '-- Select Grade --'}
-                </option>
-                {availableGrades.map(grade => (
-                  <option key={grade} value={grade}>{grade}</option>
-                ))}
+                <option value="">-- Select Grade --</option>
+                {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
-              {errors.gradeSpecification && <span className="error-text">{errors.gradeSpecification}</span>}
-              {!formData.rawMaterial && (
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
-                  Please select a raw material first to see available grades
-                </div>
-              )}
+              {errors.gradeSpecification && <span className="error-msg">{errors.gradeSpecification}</span>}
             </div>
-
-
-
             <div className="form-group">
-              <label className="form-label">
-                Length of Bars <span className="required">*</span>
-              </label>
-
-              <select
-                name="lengthOfBars"
-                value={formData.lengthOfBars}
-                onChange={handleChange}
-                className={`form-input ${errors.lengthOfBars ? 'error' : ''}`}
-              >
-                <option value="">Select Length</option>
+              <label>Length of Bars <span className="required">*</span></label>
+              <select name="lengthOfBars" value={formData.lengthOfBars} onChange={handleChange}>
+                <option value="">-- Select Length --</option>
                 <option value="6">6 m</option>
                 <option value="12">12 m</option>
               </select>
-
-              {errors.lengthOfBars && (
-                <span className="error-text">{errors.lengthOfBars}</span>
-              )}
+              {errors.lengthOfBars && <span className="error-msg">{errors.lengthOfBars}</span>}
             </div>
-
-            {/* <div className="form-group">
-              <label className="form-label">
-               Length of Bars <span className="required">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                name="lengthOfBars"
-                value={formData.lengthOfBars}
-                onChange={handleChange}
-                className={`form-input ${errors.lengthOfBars ? 'error' : ''}`}
-                placeholder="Length of Bars"
-              />
-              {errors.subPoQty && <span className="error-text">{errors.lengthOfBars}</span>}
-            </div> */}
-
             <div className="form-group">
-              <label className="form-label">
-                Supplier Name <span className="required">*</span>
-              </label>
-              <select
-                name="supplierName"
-                value={formData.supplierName}
-                onChange={handleChange}
-                className={`form-input ${errors.supplierName ? 'error' : ''}`}
-                disabled={!formData.rawMaterial || loadingSuppliers}
-              >
-                <option value="">
-                  {!formData.rawMaterial ? '-- Select Raw Material First --' : loadingSuppliers ? 'Loading suppliers...' : '-- Select Supplier --'}
-                </option>
-                {suppliers.map(item => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
+              <label>Supplier Name <span className="required">*</span></label>
+              <select name="supplierName" value={formData.supplierName} onChange={handleChange} disabled={loadingSuppliers}>
+                <option value="">{loadingSuppliers ? 'Loading...' : '-- Select Supplier --'}</option>
+                {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              {errors.supplierName && <span className="error-text">{errors.supplierName}</span>}
-              {!formData.rawMaterial && (
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
-                  Please select a raw material first to see available suppliers
-                </div>
-              )}
+              {errors.supplierName && <span className="error-msg">{errors.supplierName}</span>}
             </div>
-
             <div className="form-group">
-              <label className="form-label">
-                Unit Name <span className="required">*</span>
-              </label>
-              <select
-                name="unitId"
-                value={formData.unitId}
-                onChange={handleUnitChange}
-                className={`form-input ${errors.unitId ? 'error' : ''}`}
-                disabled={!formData.supplierName || loadingUnits}
-              >
-                <option value="">
-                  {!formData.supplierName ? '-- Select Supplier First --' : loadingUnits ? 'Loading units...' : '-- Select Unit --'}
-                </option>
-                {units.map((unit, index) => (
-                  <option key={index} value={unit.unitName}>
-                    {unit.unitName}
-                  </option>
-                ))}
+              <label>Unit Name <span className="required">*</span></label>
+              <select name="unitId" value={formData.unitId} onChange={handleUnitChange} disabled={!formData.supplierName || loadingUnits}>
+                <option value="">{loadingUnits ? 'Loading...' : '-- Select Unit --'}</option>
+                {units.map(u => <option key={u.unitName} value={u.unitName}>{u.unitName}</option>)}
               </select>
-              {errors.unitId && <span className="error-text">{errors.unitId}</span>}
-              {!formData.supplierName && (
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
-                  Please select a supplier first to see available units
-                </div>
-              )}
+              {errors.unitId && <span className="error-msg">{errors.unitId}</span>}
             </div>
-
-            {/* <div className="form-group">
-              <label className="form-label">
-                Grade / Specification <span className="required">*</span>
-              </label>
-              <select
-                name="gradeSpecification"
-                value={formData.gradeSpecification}
-                onChange={handleChange}
-                className={`form-input ${errors.gradeSpecification ? 'error' : ''}`}
-                disabled={!formData.rawMaterial || availableGrades.length === 0}
-              >
-                <option value="">
-                  {!formData.rawMaterial ? '-- Select Raw Material First --' : '-- Select Grade --'}
-                </option>
-                {availableGrades.map(grade => (
-                  <option key={grade} value={grade}>{grade}</option>
-                ))}
-              </select>
-              {errors.gradeSpecification && <span className="error-text">{errors.gradeSpecification}</span>}
-              {!formData.rawMaterial && (
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
-                  Please select a raw material first to see available grades
-                </div>
-              )}
-            </div> */}
-
             <div className="form-group full-width">
-              <label className="form-label">Supplier Address (Auto-fetched)</label>
-              <input
-                type="text"
-                name="supplierAddress"
-                value={formData.supplierAddress}
-                className="form-input disabled"
-                disabled
-                placeholder="Will be auto-filled based on supplier selection"
-              />
+              <label>Unit Address</label>
+              <input type="text" value={formData.supplierAddress} disabled className="input-disabled" />
             </div>
-
-            {/* <div className="form-group">
-              <label className="form-label">
-               Length of Bars <span className="required">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                name="lengthOfBars"
-                value={formData.lengthOfBars}
-                onChange={handleChange}
-                className={`form-input ${errors.lengthOfBars ? 'error' : ''}`}
-                placeholder="Length of Bars"
-              />
-              {errors.subPoQty && <span className="error-text">{errors.lengthOfBars}</span>}
-            </div> */}
-
-
-
           </div>
         </div>
 
-
-
-        {/* Company & Unit Information Section - COMMENTED OUT */}
-        {/* <div className="form-section">
-          <div className="form-section-header">
-            <h4 className="form-section-title">🏢 Company & Unit Information</h4>
+        {/* Section 2: TC Details & Repetition Options */}
+        <div className="form-section ivory-section">
+          <div className="section-header">
+            <span className="section-number">2</span>
+            <h4 className="section-title">Test Certificate & Repeat Options</h4>
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">
-                Company Name <span className="required">*</span>
-              </label>
-              <select
-                name="companyId"
-                value={formData.companyId}
-                onChange={handleCompanyChange}
-                className={`form-input ${errors.companyId ? 'error' : ''}`}
-              >
-                <option value="">-- Select Company --</option>
-                {COMPANY_UNIT_MASTER.map(company => (
-                  <option key={company.id} value={company.id}>
-                    {company.companyName}
-                  </option>
-                ))}
-              </select>
-              {errors.companyId && <span className="error-text">{errors.companyId}</span>}
+              <label>TC Number <span className="required">*</span></label>
+              <div className="input-with-loader">
+                <input
+                  type="text"
+                  name="tcNumber"
+                  value={formData.tcNumber}
+                  onChange={handleChange}
+                  className={errors.tcNumber ? 'error' : ''}
+                />
+                {isCheckingTC && <div className="loader-mini"></div>}
+              </div>
+              {errors.tcNumber && <span className="error-msg">{errors.tcNumber}</span>}
             </div>
-
             <div className="form-group">
-              <label className="form-label">
-                Unit Name <span className="required">*</span>
-              </label>
-              <select
-                name="unitId"
-                value={formData.unitId}
-                onChange={handleUnitChange}
-                className={`form-input ${errors.unitId ? 'error' : ''}`}
-                disabled={!formData.companyId || availableUnits.length === 0}
-              >
-                <option value="">
-                  {!formData.companyId ? '-- Select Company First --' : '-- Select Unit --'}
-                </option>
-                {availableUnits.map(unit => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unitName}
-                  </option>
-                ))}
-              </select>
-              {errors.unitId && <span className="error-text">{errors.unitId}</span>}
-              {!formData.companyId && (
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
-                  Please select a company first to see available units
-                </div>
-              )}
+              <label>TC Date <span className="required">*</span></label>
+              <input type="date" name="tcDate" value={formData.tcDate} onChange={handleChange} />
+              {errors.tcDate && <span className="error-msg">{errors.tcDate}</span>}
+            </div>
+            <div className="form-group">
+              <label>UOM (Unit of Measurement)</label>
+              <input type="text" value={formData.unitOfMeasurement} disabled className="input-disabled" />
+            </div>
+            <div className="form-group repeat-options">
+              <label>Repeat PO for all Heats?</label>
+              <div className="radio-group">
+                <label><input type="radio" name="repeatPO" value="yes" checked={formData.repeatPO === 'yes'} onChange={handleChange} /> Yes</label>
+                <label><input type="radio" name="repeatPO" value="no" checked={formData.repeatPO === 'no'} onChange={handleChange} /> No</label>
+              </div>
+            </div>
+            <div className="form-group repeat-options">
+              <label>Repeat Invoice for all Heats?</label>
+              <div className="radio-group">
+                <label><input type="radio" name="repeatInvoice" value="yes" checked={formData.repeatInvoice === 'yes'} onChange={handleChange} /> Yes</label>
+                <label><input type="radio" name="repeatInvoice" value="no" checked={formData.repeatInvoice === 'no'} onChange={handleChange} /> No</label>
+              </div>
             </div>
           </div>
-        </div> */}
+        </div>
 
+        {/* Section 3: Dynamic Heat Rows */}
+        <div className="form-section heat-section">
+          <div className="section-header">
+            <span className="section-number">3</span>
+            <h4 className="section-title">Heat-wise Details</h4>
+            {!editData && (
+              <button type="button" className="btn-add-heat" onClick={addHeatRow}>
+                + Add Another Heat
+              </button>
+            )}
+          </div>
 
-
-        {/* Conditional Sections - Only show after Raw Material is selected */}
-        {formData.rawMaterial && (
-          <>
-            {/* Test Certificate & Batch Information Section */}
-            <div className="form-section">
-              <div className="form-section-header">
-                <h4 className="form-section-title">📋 Test Certificate & Batch Information</h4>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">
-                    {getHeatNumberLabel()} <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="heatNumber"
-                    value={formData.heatNumber}
-                    onChange={handleChange}
-                    className={`form-input ${errors.heatNumber ? 'error' : ''}`}
-                    placeholder={`Enter ${getHeatNumberLabel()}`}
-                  />
-                  {errors.heatNumber && <span className="error-text">{errors.heatNumber}</span>}
+          <div className="heats-container">
+            {formData.heats.map((heat, index) => (
+              <div key={index} className="heat-row-card">
+                <div className="heat-row-header">
+                  <h5>Heat #{index + 1}</h5>
+                  {formData.heats.length > 1 && (
+                    <button type="button" className="btn-remove-row" onClick={() => removeHeatRow(index)}>Remove</button>
+                  )}
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    TC Number <span className="required">*</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="text"
-                      name="tcNumber"
-                      value={formData.tcNumber}
-                      onChange={handleChange}
-                      className={`form-input ${errors.tcNumber ? 'error' : ''}`}
-                      placeholder="Enter TC Number"
-                      style={{ paddingRight: isCheckingTC ? '40px' : '10px' }}
-                    />
-                    {isCheckingTC && (
-                      <div style={{
-                        position: 'absolute',
-                        right: '10px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: '12px',
-                        color: '#6366f1'
-                      }}>
-                        Checking...
-                      </div>
-                    )}
+                <div className="form-grid-mini">
+                  <div className="form-group">
+                    <label>{getHeatNumberLabel()}</label>
+                    <input type="text" name="heatNumber" value={heat.heatNumber} onChange={(e) => handleHeatChange(index, e)} />
+                    {errors[`heats_${index}_heatNumber`] && <span className="error-msg">{errors[`heats_${index}_heatNumber`]}</span>}
                   </div>
-                  {errors.tcNumber && <span className="error-text">{errors.tcNumber}</span>}
-                  {isCheckingTC && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#6366f1' }}>
-                      🔍 Verifying TC Number uniqueness in inventory...
-                    </div>
-                  )}
+                  <div className="form-group">
+                    <label>Qty in TC (MT)</label>
+                    <input type="number" step="0.001" name="tcQuantity" value={heat.tcQuantity} onChange={(e) => handleHeatChange(index, e)} />
+                    {errors[`heats_${index}_tcQuantity`] && <span className="error-msg">{errors[`heats_${index}_tcQuantity`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>No. of Bundles</label>
+                    <input type="number" name="numberOfBundles" value={heat.numberOfBundles} onChange={(e) => handleHeatChange(index, e)} />
+                    {errors[`heats_${index}_numberOfBundles`] && <span className="error-msg">{errors[`heats_${index}_numberOfBundles`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>PO Number</label>
+                    <input type="text" name="subPoNumber" value={heat.subPoNumber} onChange={(e) => handleHeatChange(index, e)}
+                      disabled={index > 0 && formData.repeatPO === 'yes'} />
+                    {errors[`heats_${index}_subPoNumber`] && <span className="error-msg">{errors[`heats_${index}_subPoNumber`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>PO Date</label>
+                    <input type="date" name="subPoDate" value={heat.subPoDate} onChange={(e) => handleHeatChange(index, e)}
+                      disabled={index > 0 && formData.repeatPO === 'yes'} />
+                    {errors[`heats_${index}_subPoDate`] && <span className="error-msg">{errors[`heats_${index}_subPoDate`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>PO Qty (MT)</label>
+                    <input type="number" step="0.001" name="subPoQty" value={heat.subPoQty} onChange={(e) => handleHeatChange(index, e)}
+                      disabled={index > 0 && formData.repeatPO === 'yes'} />
+                    {errors[`heats_${index}_subPoQty`] && <span className="error-msg">{errors[`heats_${index}_subPoQty`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>Invoice No.</label>
+                    <input type="text" name="invoiceNumber" value={heat.invoiceNumber} onChange={(e) => handleHeatChange(index, e)}
+                      disabled={index > 0 && formData.repeatInvoice === 'yes'} />
+                    {errors[`heats_${index}_invoiceNumber`] && <span className="error-msg">{errors[`heats_${index}_invoiceNumber`]}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label>Invoice Date</label>
+                    <input type="date" name="invoiceDate" value={heat.invoiceDate} onChange={(e) => handleHeatChange(index, e)}
+                      disabled={index > 0 && formData.repeatInvoice === 'yes'} />
+                    {errors[`heats_${index}_invoiceDate`] && <span className="error-msg">{errors[`heats_${index}_invoiceDate`]}</span>}
+                  </div>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    TC Date <span className="required">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="tcDate"
-                    value={formData.tcDate}
-                    onChange={handleChange}
-                    className={`form-input ${errors.tcDate ? 'error' : ''}`}
-                  />
-                  {errors.tcDate && <span className="error-text">{errors.tcDate}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Unit of Measurement <span className="required">*</span>
-                  </label>
-                  <select
-                    name="unitOfMeasurement"
-                    value={formData.unitOfMeasurement}
-                    onChange={handleChange}
-                    className={`form-input ${errors.unitOfMeasurement ? 'error' : ''}`}
-                  >
-                    <option value="">-- Select Unit --</option>
-                    {data.units.map(item => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
-                  {errors.unitOfMeasurement && <span className="error-text">{errors.unitOfMeasurement}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    TC Quantity in MT <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="declaredQuantity"
-                    value={formData.declaredQuantity}
-                    onChange={handleChange}
-                    className={`form-input ${errors.declaredQuantity ? 'error' : ''}`}
-                    placeholder="Enter TC Qty"
-                  />
-                  {errors.declaredQuantity && <span className="error-text">{errors.declaredQuantity}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    No. of Bundles <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    name="numberOfBundles"
-                    value={formData.numberOfBundles}
-                    onChange={handleChange}
-                    className={`form-input ${errors.numberOfBundles ? 'error' : ''}`}
-                    placeholder="Enter number of bundles"
-                  />
-                  {errors.numberOfBundles && <span className="error-text">{errors.numberOfBundles}</span>}
-                </div>
-
               </div>
-            </div>
-
-
-            {/* Invoice & Purchase Order Information Section */}
-            <div className="form-section">
-              <div className="form-section-header">
-                <h4 className="form-section-title">🧾 Invoice & Purchase Order Details</h4>
-              </div>
-              <div className="form-grid">
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Sub PO Number <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="subPoNumber"
-                    value={formData.subPoNumber}
-                    onChange={handleChange}
-                    className={`form-input ${errors.subPoNumber ? 'error' : ''}`}
-                    placeholder="Enter Sub PO Number"
-                  />
-                  {errors.subPoNumber && <span className="error-text">{errors.subPoNumber}</span>}
-                </div>
-
-                {/* <div className="form-group">
-              <label className="form-label">
-                Sub PO Date <span className="required">*</span>
-              </label>
-              <input
-                type="date"
-                name="subPoDate"
-                value={formData.subPoDate}
-                onChange={handleChange}
-                className={`form-input ${errors.subPoDate ? 'error' : ''}`}
-              />
-              {errors.subPoDate && <span className="error-text">{errors.subPoDate}</span>}
-            </div> */}
-                <div className="form-group">
-                  <label className="form-label">
-                    Sub PO Date <span className="required">*</span>
-                  </label>
-
-                  <input
-                    type="date"
-                    name="subPoDate"
-                    value={formData.subPoDate}
-                    onChange={handleChange}
-                    max={
-                      formData.tcDate && formData.invoiceDate
-                        ? (formData.tcDate < formData.invoiceDate
-                          ? formData.tcDate
-                          : formData.invoiceDate)
-                        : formData.tcDate || formData.invoiceDate || undefined
-                    }
-                    className={`form-input ${errors.subPoDate ? 'error' : ''}`}
-                  />
-
-                  {errors.subPoDate && (
-                    <span className="error-text">{errors.subPoDate}</span>
-                  )}
-                </div>
-
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Sub PO Qty <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="subPoQty"
-                    value={formData.subPoQty}
-                    onChange={handleChange}
-                    className={`form-input ${errors.subPoQty ? 'error' : ''}`}
-                    placeholder="Enter Quantity"
-                  />
-                  {errors.subPoQty && <span className="error-text">{errors.subPoQty}</span>}
-                </div>
-
-
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Invoice Number <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="invoiceNumber"
-                    value={formData.invoiceNumber}
-                    onChange={handleChange}
-                    className={`form-input ${errors.invoiceNumber ? 'error' : ''}`}
-                    placeholder="Enter Invoice Number"
-                  />
-                  {errors.invoiceNumber && <span className="error-text">{errors.invoiceNumber}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Invoice Date <span className="required">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    value={formData.invoiceDate}
-                    onChange={handleChange}
-                    className={`form-input ${errors.invoiceDate ? 'error' : ''}`}
-                  />
-                  {errors.invoiceDate && <span className="error-text">{errors.invoiceDate}</span>}
-                </div>
-
-
-              </div>
-            </div>
-
-
-            {/* Pricing & Quantity Information Section - COMMENTED OUT */}
-            {/* <div className="form-section">
-          <div className="form-section-header">
-            <h4 className="form-section-title">💰 Pricing & Quantity Details</h4>
+            ))}
           </div>
+        </div>
 
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">
-                Rate of Material (Rs/UOM) <span className="required">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                name="rateOfMaterial"
-                value={formData.rateOfMaterial}
-                onChange={handleChange}
-                className={`form-input ${errors.rateOfMaterial ? 'error' : ''}`}
-                placeholder="Enter Rate"
-              />
-              {errors.rateOfMaterial && <span className="error-text">{errors.rateOfMaterial}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                Rate of GST (%) <span className="required">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                name="rateOfGst"
-                value={formData.rateOfGst}
-                onChange={handleChange}
-                className={`form-input ${errors.rateOfGst ? 'error' : ''}`}
-                placeholder="Enter GST %"
-              />
-              {errors.rateOfGst && <span className="error-text">{errors.rateOfGst}</span>}
-            </div>
-
-            <div className="form-group">
-  <label className="form-label">
-    Base Value of PO <span className="required">*</span>
-  </label>
-
-  <input
-    type="number"
-    name="baseValuePO"
-    value={formData.baseValuePO}
-    disabled
-    className="form-input disabled"
-    placeholder="Auto calculated"
-  />
-
-  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-    Auto calculated as: Sub PO Qty × Rate of Material
-  </div>
-</div>
-
-
-            <div className="form-group">
-  <label className="form-label">
-    Total PO <span className="required">*</span>
-  </label>
-
-  <input
-    type="number"
-    name="totalPO"
-    value={formData.totalPO}
-    disabled
-    className="form-input disabled"
-    placeholder="Auto calculated"
-  />
-
-  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-    Auto calculated as: Base Value + GST
-  </div>
-</div>
-
-          </div>
-        </div> */}
-          </>
-        )}
-
-        {/* Form Actions */}
         <div className="form-actions">
-          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isLoading}>
-            🔄 Reset Form
-          </button>
-          {editData && (
-            <button type="button" className="btn-secondary" onClick={onCancel} disabled={isLoading} style={{ marginLeft: '10px', backgroundColor: '#6b7280', color: 'white' }}>
-              ✕ Cancel Edit
-            </button>
-          )}
-          <button type="submit" className="btn-primary" disabled={isLoading} style={{ marginLeft: '10px' }}>
-            {isLoading ? '⏳ Submitting...' : (editData ? '✓ Update Entry' : '✓ Submit Entry')}
+          <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={isLoading}>
+            {isLoading ? 'Submitting...' : editData ? 'Update Inventory Entry' : 'Submit Inventory Entry'}
           </button>
         </div>
       </form>
+
+      {notification.message && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          autoClose={true}
+          autoCloseDelay={5000}
+          onClose={() => setNotification({ message: '', type: 'success' })}
+        />
+      )}
     </div>
   );
 };
