@@ -1838,7 +1838,7 @@ export const RaiseInspectionCallForm = ({
               subPoDate: inventoryEntry.subPoDate || '',
               subPoQty: `${inventoryEntry.subPoQty} ${inventoryEntry.unitOfMeasurement}`,
               subPoTotalValue: `₹${totalValue}`,
-              tcQty: `${inventoryEntry.declaredQuantity} ${inventoryEntry.unitOfMeasurement}`,
+              tcQty: `${inventoryEntry.tcQuantity} ${inventoryEntry.unitOfMeasurement}`,
               tcQtyRemaining: `${inventoryEntry.qtyLeftForInspection} ${inventoryEntry.unitOfMeasurement}`,
               maxQty: inventoryEntry.qtyLeftForInspection,
               unit: inventoryEntry.unitOfMeasurement,
