@@ -146,4 +146,3 @@ const InventoryManagementDashboard = () => {
 };
 
 export default InventoryManagementDashboard;
-

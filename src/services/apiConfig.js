@@ -1,28 +1,11 @@
 // API Configuration
 // Base URL configuration for different environments
 
-const ENV = {
-  DEVELOPMENT: 'development',
-  PRODUCTION: 'production',
-  STAGING: 'staging'
-};
 
-// Get current environment - defaults to development
-const getCurrentEnvironment = () => {
-  return process.env.REACT_APP_ENV || ENV.DEVELOPMENT;
-};
 
-// Base URLs for different environments
-const BASE_URLS = {
-  [ENV.DEVELOPMENT]: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/sarthi-backend/api',
-  [ENV.STAGING]: process.env.REACT_APP_API_STAGING_URL || 'https://staging-api.yourserver.com/api',
-  [ENV.PRODUCTION]: process.env.REACT_APP_API_PROD_URL || 'https://api.yourserver.com/api'
-};
 
-// Get the base URL for the current environment
 export const getBaseUrl = () => {
-  const env = getCurrentEnvironment();
-  return BASE_URLS[env] || BASE_URLS[ENV.DEVELOPMENT];
+  return "https://api.ritesqasarthi.com/sarthi-backend/api";
 };
 
 // API Endpoints configuration

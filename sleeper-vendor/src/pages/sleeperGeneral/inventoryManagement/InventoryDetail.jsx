@@ -208,7 +208,6 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
-
     return (
         <div className="inventory-detail fade-in">
             <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>

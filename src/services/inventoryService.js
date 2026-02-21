@@ -7,6 +7,7 @@
 
 import httpClient from './httpClient';
 import { getStoredUser } from '../services/authService';
+import { getBaseUrl } from './apiConfig';
 
 
 /**
@@ -40,17 +41,18 @@ const inventoryService = {
         heatNumber: inventoryData.heatNumber,
         tcNumber: inventoryData.tcNumber,
         tcDate: inventoryData.tcDate, // Format: yyyy-MM-dd
-        tcQuantity: inventoryData.declaredQuantity ? parseFloat(inventoryData.declaredQuantity) : 0,
+        tcQuantity: (inventoryData.tcQuantity || inventoryData.declaredQuantity) ? parseFloat(inventoryData.tcQuantity || inventoryData.declaredQuantity) : 0,
         subPoNumber: inventoryData.subPoNumber,
         subPoDate: inventoryData.subPoDate, // Format: yyyy-MM-dd
-        subPoQty: inventoryData.subPoQty ? parseFloat(inventoryData.subPoQty) : 0,
+        subPoQty: (inventoryData.subPoQty || inventoryData.subPoQuantity) ? parseFloat(inventoryData.subPoQty || inventoryData.subPoQuantity) : 0,
         invoiceNumber: inventoryData.invoiceNumber,
         invoiceDate: inventoryData.invoiceDate, // Format: yyyy-MM-dd
         unitOfMeasurement: inventoryData.unitOfMeasurement,
         rateOfMaterial: inventoryData.rateOfMaterial ? parseFloat(inventoryData.rateOfMaterial) : 0,
         rateOfGst: inventoryData.rateOfGst ? parseFloat(inventoryData.rateOfGst) : 0,
-        baseValuePo: inventoryData.baseValuePO ? parseFloat(inventoryData.baseValuePO) : 0,
-        totalPo: inventoryData.totalPO ? parseFloat(inventoryData.totalPO) : 0
+        baseValuePo: (inventoryData.baseValuePo || inventoryData.baseValuePO) ? parseFloat(inventoryData.baseValuePo || inventoryData.baseValuePO) : 0,
+        totalPo: (inventoryData.totalPo || inventoryData.totalPO) ? parseFloat(inventoryData.totalPo || inventoryData.totalPO) : 0,
+        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null
       };
 
       console.log('📤 Transformed data for backend:', transformedData);
@@ -77,6 +79,40 @@ const inventoryService = {
       return {
         success: false,
         error: error.message || 'Failed to create inventory entry',
+        details: error.response?.data || error
+      };
+    }
+  },
+
+  /**
+   * Create multiple inventory entries (Bulk)
+   * @param {Object} bulkData - Bulk inventory data
+   * @returns {Promise<Object>} - API response
+   */
+  createBulkInventoryEntries: async (bulkData) => {
+    try {
+      console.log('📥 Bulk Inventory data received:', bulkData);
+
+      // Make API call to backend
+      const response = await httpClient.post('/vendor/inventory/bulk-entries', bulkData);
+
+      console.log('✅ Backend bulk response:', response);
+
+      if (response && response.success) {
+        return {
+          success: true,
+          data: response.data,
+          message: 'Bulk inventory entries created successfully'
+        };
+      } else {
+        throw new Error(response.message || 'Unexpected response format from backend');
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating bulk inventory entries:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create bulk inventory entries',
         details: error.response?.data || error
       };
     }
@@ -221,17 +257,18 @@ const inventoryService = {
         heatNumber: inventoryData.heatNumber,
         tcNumber: inventoryData.tcNumber,
         tcDate: inventoryData.tcDate,
-        tcQuantity: inventoryData.declaredQuantity ? parseFloat(inventoryData.declaredQuantity) : 0,
+        tcQuantity: (inventoryData.tcQuantity || inventoryData.declaredQuantity) ? parseFloat(inventoryData.tcQuantity || inventoryData.declaredQuantity) : 0,
         subPoNumber: inventoryData.subPoNumber,
         subPoDate: inventoryData.subPoDate,
-        subPoQty: inventoryData.subPoQty ? parseFloat(inventoryData.subPoQty) : 0,
+        subPoQty: (inventoryData.subPoQty || inventoryData.subPoQuantity) ? parseFloat(inventoryData.subPoQty || inventoryData.subPoQuantity) : 0,
         invoiceNumber: inventoryData.invoiceNumber,
         invoiceDate: inventoryData.invoiceDate,
         unitOfMeasurement: inventoryData.unitOfMeasurement,
         rateOfMaterial: inventoryData.rateOfMaterial ? parseFloat(inventoryData.rateOfMaterial) : 0,
         rateOfGst: inventoryData.rateOfGst ? parseFloat(inventoryData.rateOfGst) : 0,
-        baseValuePo: inventoryData.baseValuePO ? parseFloat(inventoryData.baseValuePO) : 0,
-        totalPo: inventoryData.totalPO ? parseFloat(inventoryData.totalPO) : 0
+        baseValuePo: (inventoryData.baseValuePo || inventoryData.baseValuePO) ? parseFloat(inventoryData.baseValuePo || inventoryData.baseValuePO) : 0,
+        totalPo: (inventoryData.totalPo || inventoryData.totalPO) ? parseFloat(inventoryData.totalPo || inventoryData.totalPO) : 0,
+        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null
       };
 
       console.log('📤 Transformed data for backend:', transformedData);
@@ -384,6 +421,18 @@ const inventoryService = {
       console.error('❌ Error checking TC uniqueness:', error);
       return { success: false, exists: false };
     }
+  },
+
+  /**
+   * Get full URL for a file path
+   * @param {String} filePath - Relative file path (e.g. uploads/tc_files/file.pdf)
+   * @returns {String} - Full URL to access the file
+   */
+  getFileUrl: (filePath) => {
+    if (!filePath) return null;
+    const apiUrl = getBaseUrl(); // "https://api.ritesqasarthi.com/sarthi-backend/api"
+    const baseUrl = apiUrl.replace(/\/api$/, ''); // "https://api.ritesqasarthi.com/sarthi-backend"
+    return `${baseUrl}/${filePath}`;
   }
 };
 

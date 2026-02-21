@@ -263,8 +263,8 @@ const VendorDashboardPage = ({ onBack }) => {
             subPoQty: entry.subPoQty,
             rateOfMaterial: entry.rateOfMaterial,
             rateOfGst: entry.rateOfGst,
-            declaredQuantity: entry.tcQuantity,
-            qtyOfferedForInspection: entry.offeredQuantity || 0,
+            tcQuantity: entry.tcQuantity,
+            offeredQuantity: entry.offeredQuantity || 0,
             // FIX: Use nullish coalescing (??) instead of || to handle 0 correctly
             // When qtyLeftForInspection is 0 (exhausted), it should display 0, not fall back to tcQuantity
             qtyLeftForInspection: entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity,
@@ -276,6 +276,7 @@ const VendorDashboardPage = ({ onBack }) => {
             companyId: entry.companyId,
             companyName: entry.companyName,
             unitName: entry.unitName,
+            tcFilePath: entry.tcFilePath,
             createdAt: entry.createdAt
           }));
 
@@ -808,8 +809,8 @@ const VendorDashboardPage = ({ onBack }) => {
             unitName: data.unit_name,
             unitAddress: data.unit_address,
             remarks: data.remarks,
-            createdBy: '3', // Fixed value for Process inspection calls
-            updatedBy: '3'  // Fixed value for Process inspection calls
+            createdBy: parseInt(user.userId) || user.userId, // Use logged-in userId
+            updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           processInspectionDetails: data.process_lot_heat_mapping.map(lotHeat => ({
             rmIcNumber: data.process_rm_ic_numbers && data.process_rm_ic_numbers.length > 0
@@ -869,8 +870,8 @@ const VendorDashboardPage = ({ onBack }) => {
             unitName: data.unit_name,
             unitAddress: data.unit_address,
             remarks: data.remarks || '',
-            createdBy: '3', // Fixed value for Final inspection calls
-            updatedBy: '3'  // Fixed value for Final inspection calls
+            createdBy: parseInt(user.userId) || user.userId, // Use logged-in userId
+            updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           finalInspectionDetails: {
             rmIcNumber: data.final_rm_ic_numbers && data.final_rm_ic_numbers.length > 0
@@ -1016,13 +1017,66 @@ const VendorDashboardPage = ({ onBack }) => {
     console.log('Inventory entry submitted:', data);
     setIsLoading(true);
 
+    // If data already has an ID, it means it's already saved in the backend (e.g. from bulk create or an update handled by the form itself)
+    if (Array.isArray(data) || (data && data.id)) {
+      const savedEntries = Array.isArray(data) ? data : [data];
+
+      // Transform backend response to match frontend structure
+      const formattedEntries = savedEntries.map(entry => ({
+        id: entry.id,
+        rawMaterial: entry.rawMaterial,
+        supplierName: entry.supplierName,
+        supplierAddress: entry.supplierAddress,
+        gradeSpecification: entry.gradeSpecification,
+        heatNumber: entry.heatNumber,
+        tcNumber: entry.tcNumber,
+        tcDate: entry.tcDate,
+        invoiceNumber: entry.invoiceNumber,
+        invoiceDate: entry.invoiceDate,
+        subPoNumber: entry.subPoNumber,
+        subPoDate: entry.subPoDate,
+        subPoQty: entry.subPoQty,
+        rateOfMaterial: entry.rateOfMaterial,
+        rateOfGst: entry.rateOfGst,
+        tcQuantity: entry.tcQuantity,
+        offeredQuantity: entry.offeredQuantity || 0,
+        qtyLeftForInspection: entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity,
+        unitOfMeasurement: entry.unitOfMeasurement,
+        baseValuePO: entry.baseValuePo,
+        totalPO: entry.totalPo,
+        lengthOfBars: entry.lengthOfBars,
+        status: entry.status === 'FRESH_PO' ? 'Fresh' : entry.status,
+        companyId: entry.companyId,
+        companyName: entry.companyName,
+        unitId: entry.unitId,
+        unitName: entry.unitName,
+        createdAt: entry.createdAt
+      }));
+
+      if (editingInventoryEntry) {
+        // Update handling for edit mode: find and replace in state
+        const updatedEntry = formattedEntries[0];
+        setInventoryEntries(prev => prev.map(entry => entry.id === editingInventoryEntry.id ? updatedEntry : entry));
+        setEditingInventoryEntry(null);
+        setNotification({
+          message: `✅ Inventory entry updated successfully!`,
+          type: 'success'
+        });
+      } else {
+        // Add new entries to state
+        setInventoryEntries(prev => [...formattedEntries, ...prev]);
+      }
+
+      setIsLoading(false);
+      return true;
+    }
+
     try {
       // Add vendor code to the data (currently hardcoded as 13104)
       const inventoryData = {
         ...data,
-        // vendorCode: '13104', // TODO: Get from auth context
         vendorCode: user.userName,
-        vendorName: 'Vendor Name' // TODO: Get from auth context
+        vendorName: 'Vendor Name'
       };
 
       // Call backend API to save inventory entry
@@ -1050,8 +1104,8 @@ const VendorDashboardPage = ({ onBack }) => {
           subPoQty: response.data.subPoQty,
           rateOfMaterial: response.data.rateOfMaterial,
           rateOfGst: response.data.rateOfGst,
-          declaredQuantity: response.data.tcQuantity,
-          qtyOfferedForInspection: response.data.offeredQuantity || 0,
+          tcQuantity: response.data.tcQuantity,
+          offeredQuantity: response.data.offeredQuantity || 0,
           qtyLeftForInspection: response.data.qtyLeftForInspection !== undefined ? response.data.qtyLeftForInspection : response.data.tcQuantity,
           unitOfMeasurement: response.data.unitOfMeasurement,
           baseValuePO: response.data.baseValuePo,
@@ -2015,12 +2069,12 @@ const VendorDashboardPage = ({ onBack }) => {
     },
     { key: 'subPoNumber', label: 'Sub PO No.' },
     {
-      key: 'declaredQuantity',
+      key: 'tcQuantity',
       label: 'TC Qty',
       render: (value, row) => `${value} ${row.unitOfMeasurement}`
     },
     {
-      key: 'qtyOfferedForInspection',
+      key: 'offeredQuantity',
       label: 'Qty Offered',
       render: (value, row) => (
         <span style={{ color: '#059669', fontWeight: 500 }}>
@@ -2068,6 +2122,33 @@ const VendorDashboardPage = ({ onBack }) => {
             <VisibilityIcon sx={{ fontSize: '16px' }} />
             View
           </button>
+          {row.tcFilePath && (
+            <button
+              className="btn btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                const url = inventoryService.getFileUrl(row.tcFilePath);
+                if (url) window.open(url, '_blank');
+              }}
+              title="View TC Document"
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                width: '90px',
+                height: '32px',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                border: 'none',
+                fontSize: '13px'
+              }}
+            >
+              <span role="img" aria-label="pdf">📄</span>
+              TC PDF
+            </button>
+          )}
           {(row.status === 'Fresh' || row.status === 'FRESH_PO') && (
             <button
               className="btn btn-sm"
