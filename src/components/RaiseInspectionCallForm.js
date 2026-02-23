@@ -1198,19 +1198,22 @@ export const RaiseInspectionCallForm = ({
       }
     }
 
-    // Filter out TC numbers that are already selected in other heat sections
-    const selectedTcNumbers = formData.rm_heat_tc_mapping
-      .filter(heat => heat.id !== currentHeatMappingId && heat.tcNumber)
+    // Filter out TC numbers that are already selected in OTHER rows for the SAME heat number.
+    // A TC number should only be excluded if it's already selected for this specific heat number
+    // in a different row. Two different heats can legitimately share the same TC number label
+    // because they correspond to separate inventory entries.
+    const selectedTcNumbersForThisHeat = formData.rm_heat_tc_mapping
+      .filter(heat => heat.id !== currentHeatMappingId && heat.tcNumber && heat.heatNumber === heatNumber)
       .map(heat => heat.tcNumber);
 
-    const filteredTcList = tcList.filter(tc => !selectedTcNumbers.includes(tc.tcNumber));
+    const filteredTcList = tcList.filter(tc => !selectedTcNumbersForThisHeat.includes(tc.tcNumber));
 
     console.log(`📋 TC numbers for heat ${heatNumber}:`, {
       total: tcList.length,
       filtered: filteredTcList.length,
-      selectedInOtherSections: selectedTcNumbers.length,
-      selectedTcNumbers,
-      note: 'Excluded TC numbers with 0 remaining quantity'
+      selectedInSameHeatOtherRows: selectedTcNumbersForThisHeat.length,
+      selectedTcNumbersForThisHeat,
+      note: 'Excluded TC numbers with 0 remaining quantity or already selected for the same heat'
     });
 
     return filteredTcList;
