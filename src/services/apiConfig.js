@@ -5,7 +5,7 @@
 
 
 export const getBaseUrl = () => {
-  return "https://api.ritesqasarthi.com/sarthi-backend/api";
+  return "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
 };
 
 // API Endpoints configuration
