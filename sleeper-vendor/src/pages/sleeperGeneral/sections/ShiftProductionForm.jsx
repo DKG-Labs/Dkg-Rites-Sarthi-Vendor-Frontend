@@ -117,6 +117,25 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         setChambers(newChambers);
     };
 
+    const removeBenchFromGroup = (cIdx, gIdx, bIdx) => {
+        const newChambers = [...chambers];
+        const group = newChambers[cIdx].benchGroups[gIdx];
+        group.benches.splice(bIdx, 1);
+
+        // Recalculate group error/type after removal
+        const types = group.benches.map(b => getSleeperTypeForBench(b)).filter(t => t);
+        const uniqueTypes = [...new Set(types)];
+        if (uniqueTypes.length > 1) {
+            group.error = 'Mixed sleeper types in same group';
+            group.sleeperType = 'Error';
+        } else {
+            group.error = null;
+            group.sleeperType = uniqueTypes[0] || '';
+        }
+
+        setChambers(newChambers);
+    };
+
     const addBenchToGroup = (cIdx, gIdx) => {
         const newChambers = [...chambers];
         newChambers[cIdx].benchGroups[gIdx].benches.push('');
@@ -326,7 +345,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Time of L.B.C (Last Bench Casting)</label>
+                                <label style={labelStyle}>Time of LBC</label>
                                 <input
                                     type="time"
                                     style={inputStyle}
@@ -389,6 +408,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                                 {group.benches.map((bench, bIdx) => {
                                                                     const isDuplicate = isBenchDuplicate(bench, chamber.id, group.id, bIdx);
+                                                                    const isMixedError = group.error === 'Mixed sleeper types in same group';
                                                                     return (
                                                                         <div key={bIdx} style={{ position: 'relative' }}>
                                                                             <input
@@ -399,12 +419,38 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                                                                     ...inputStyle,
                                                                                     width: '70px',
                                                                                     padding: '10px',
-                                                                                    borderColor: isDuplicate ? '#ef4444' : '#cbd5e1',
-                                                                                    backgroundColor: isDuplicate ? '#fef2f2' : 'white'
+                                                                                    borderColor: (isDuplicate || isMixedError) ? '#ef4444' : '#cbd5e1',
+                                                                                    backgroundColor: (isDuplicate || isMixedError) ? '#fef2f2' : 'white'
                                                                                 }}
                                                                                 placeholder="No."
                                                                             />
                                                                             {isDuplicate && <span style={{ position: 'absolute', bottom: '-14px', left: 0, fontSize: '9px', color: '#ef4444', fontWeight: 'bold' }}>Duplicate</span>}
+                                                                            {group.benches.length > 1 && (
+                                                                                <button
+                                                                                    onClick={() => removeBenchFromGroup(cIdx, gIdx, bIdx)}
+                                                                                    style={{
+                                                                                        position: 'absolute',
+                                                                                        top: '-8px',
+                                                                                        right: '-8px',
+                                                                                        width: '18px',
+                                                                                        height: '18px',
+                                                                                        borderRadius: '50%',
+                                                                                        background: '#ef4444',
+                                                                                        color: 'white',
+                                                                                        border: 'none',
+                                                                                        fontSize: '10px',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        cursor: 'pointer',
+                                                                                        zIndex: 2,
+                                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                                                    }}
+                                                                                    title="Remove bench"
+                                                                                >
+                                                                                    ×
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     );
                                                                 })}
