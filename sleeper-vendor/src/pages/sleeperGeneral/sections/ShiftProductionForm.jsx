@@ -17,13 +17,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
     };
 
     const getBenchMasterDetails = (benchNo) => {
-        if (!benchNo) return { moulds: 0, rft: 0, sleeperNames: [] };
+        if (!benchNo) return { moulds: 0, rft: 0, sleeperNames: [], sleeperType: '' };
         // Simulated lookup based on typical data - in production this would fetch from a master state
         const moulds = 8;
         const isPnC = parseInt(benchNo) % 5 === 0;
         const rft = isPnC ? 2.5 : 0;
+        const sleeperType = isPnC ? 'RT-8746 (PnC)' : 'RT-8521';
         const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
-        return { moulds, rft, sleeperNames, isPnC };
+        return { moulds, rft, sleeperNames, isPnC, sleeperType };
     };
 
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
@@ -113,8 +114,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         const group = newChambers[cIdx].benchGroups[gIdx];
         group.benches[bIdx] = value;
 
-        // Auto determine sleeper type
-        const types = group.benches.map(b => getSleeperTypeForBench(b)).filter(t => t);
+        // Auto determine sleeper type from master
+        const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
         const uniqueTypes = [...new Set(types)];
         if (uniqueTypes.length > 1) {
             group.error = 'Mixed sleeper types in same group';
@@ -132,8 +133,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         const group = newChambers[cIdx].benchGroups[gIdx];
         group.benches.splice(bIdx, 1);
 
-        // Recalculate group error/type after removal
-        const types = group.benches.map(b => getSleeperTypeForBench(b)).filter(t => t);
+        // Recalculate group error/type after removal from master
+        const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
         const uniqueTypes = [...new Set(types)];
         if (uniqueTypes.length > 1) {
             group.error = 'Mixed sleeper types in same group';
@@ -191,8 +192,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
             chambers.forEach(c => {
                 c.benchGroups.forEach(g => {
                     if (g.sleeperType && g.sleeperType !== 'Error') {
-                        const validBenches = g.benches.filter(b => b.trim()).length;
-                        counts[g.sleeperType] = (counts[g.sleeperType] || 0) + (validBenches * g.mouldsPerBench);
+                        const totalMouldsInGroup = g.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).moulds, 0);
+                        counts[g.sleeperType] = (counts[g.sleeperType] || 0) + totalMouldsInGroup;
                     }
                 });
             });
@@ -308,15 +309,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                 </select>
                             </div>
 
-                            <div>
-                                <label style={labelStyle}>Type of Unit</label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={formHeader.shedType}
-                                    style={{ ...inputStyle, background: '#f8fafc', color: '#64748b' }}
-                                />
-                            </div>
 
                             <div>
                                 <label style={labelStyle}>Date of Casting</label>
