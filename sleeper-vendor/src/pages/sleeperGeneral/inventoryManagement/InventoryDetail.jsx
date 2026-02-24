@@ -95,29 +95,29 @@ const InventoryDetail = ({ material, onBack }) => {
         switch (material.id) {
             case 'cement':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Eway Bill No.',
-                    'Total Quantity', 'Batch Numbers in consignment'
+                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.',
+                    'Total Quantity (Kg)', 'Batch Numbers in consignment'
                 ];
             case 'hts-wire':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Eway Bill No.', 'Total Quantity', 'Coil Serial Number'
+                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.', 'Total Quantity (Kg)', 'Coil Serial Number'
                 ];
             case 'aggregates':
                 return [
                     'Date of Receipt', 'Aggregate Type',
-                    'Source', 'Challan Number', 'Total Quantity'
+                    'Source', 'Challan Number', 'Total Quantity (Kg)'
                 ];
             case 'sgci-insert':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Eway Bill No.', 'Total Quantity'
+                    'Date of Receipt', 'Grade / Type', 'Manufacturer', 'Invoice Number', 'Total Quantity'
                 ];
             case 'dowel':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Eway Bill No.', 'Total Quantity'
+                    'Date of Receipt', 'Grade / Type', 'Manufacturer', 'Invoice Number', 'Total Quantity'
                 ];
             case 'admixture':
                 return [
-                    'Date of Receipt', 'Manufacturer', 'E Way Bill Number', 'E Way Bill Date', 'Total Quantity'
+                    'Date of Receipt', 'Manufacturer', 'E Way Bill Number', 'E Way Bill Date', 'Total Quantity (Kg)'
                 ];
             default:
                 return ['Date of Receipt', 'Inventory ID', 'Grade / Spec', 'Manufacturer Name', 'Quantity'];
@@ -136,7 +136,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.details.grade || 'OPC 53'}</td>
                         <td style={tdStyle}>{entry.details.manufacturer}</td>
                         <td style={tdStyle}>{entry.details.ewayBillNo || '-'}</td>
-                        <td style={boldStyle}>{entry.qty}</td>
+                        <td style={boldStyle}>{entry.qty} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>
                             {entry.details.batches?.map(b => b.mtcNo).join(', ') || '-'}
                         </td>
@@ -148,8 +148,8 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.date}</td>
                         <td style={tdStyle}>{entry.details.grade || '-'}</td>
                         <td style={tdStyle}>{entry.details.manufacturer || '-'}</td>
-                        <td style={tdStyle}>{entry.details.ewayBillNo || '-'}</td>
-                        <td style={boldStyle}>{entry.qty}</td>
+                        <td style={tdStyle}>{entry.details.invoiceNo || entry.details.ewayBillNo || '-'}</td>
+                        <td style={boldStyle}>{entry.qty} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>
                             {entry.details.coils?.map(c => c.coilNumber).join(', ') || entry.details.serialNumbers || '-'}
                         </td>
@@ -162,7 +162,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.details.type}</td>
                         <td style={tdStyle}>{entry.details.source}</td>
                         <td style={tdStyle}>{entry.details.challanNo}</td>
-                        <td style={boldStyle}>{entry.qty}</td>
+                        <td style={boldStyle}>{entry.qty} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                     </>
                 );
             case 'sgci-insert':
@@ -192,7 +192,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.details.manufacturer}</td>
                         <td style={tdStyle}>{entry.details.ewayBillNo}</td>
                         <td style={tdStyle}>{entry.details.ewayDate}</td>
-                        <td style={boldStyle}>{entry.qty}</td>
+                        <td style={boldStyle}>{entry.qty} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                     </>
                 );
             default:

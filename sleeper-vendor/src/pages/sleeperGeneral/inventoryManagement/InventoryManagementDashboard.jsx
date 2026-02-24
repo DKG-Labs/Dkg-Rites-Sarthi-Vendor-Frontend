@@ -5,10 +5,10 @@ const InventoryManagementDashboard = () => {
     const [selectedMaterial, setSelectedMaterial] = useState(null);
 
     const materials = [
-        { id: 'hts-wire', name: 'HTS wire', unit: 'MT', quantity: 156.5, alerts: ['Test expiring in 3 days'], icon: '⛓️' },
-        { id: 'cement', name: 'Cement', unit: 'Bags', quantity: 1250, alerts: [], icon: '🧱' },
-        { id: 'admixture', name: 'Admixture', unit: 'Liters', quantity: 450, alerts: ['Min stock breach'], icon: '🧪' },
-        { id: 'aggregates', name: 'Aggregates', unit: 'MT', quantity: 890, alerts: [], icon: '🪨' },
+        { id: 'hts-wire', name: 'HTS wire', unit: 'Kg', quantity: 156.5, alerts: ['Test expiring in 3 days'], icon: '⛓️' },
+        { id: 'cement', name: 'Cement', unit: 'Kg', quantity: 1250, alerts: [], icon: '🧱' },
+        { id: 'admixture', name: 'Admixture', unit: 'Kg', quantity: 450, alerts: ['Min stock breach'], icon: '🧪' },
+        { id: 'aggregates', name: 'Aggregates', unit: 'Kg', quantity: 890, alerts: [], icon: '🪨' },
         { id: 'sgci-insert', name: 'SGCI Insert', unit: 'Nos', quantity: 5000, alerts: [], icon: '🔩' },
         { id: 'dowel', name: 'Dowel', unit: 'Nos', quantity: 3200, alerts: [], icon: '📍' },
     ];

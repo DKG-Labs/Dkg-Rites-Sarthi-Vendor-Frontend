@@ -21,8 +21,14 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 base.details = {
                     grade: '3ply 3mm',
                     manufacturer: 'Tata Steel',
+                    invoiceNo: '',
+                    invoiceDate: '',
                     relaxationTest: 'Y',
-                    coils: [{ coilNumber: '', lotNo: '', quantity: '' }]
+                    coilEntryMode: 'range',
+                    coilFrom: '',
+                    coilTo: '',
+                    coilSingle: '',
+                    coils: []
                 };
                 break;
             case 'cement':
@@ -44,8 +50,8 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 break;
             case 'admixture':
                 base.details = {
-                    grade: 'Type 1',
                     manufacturer: '',
+                    grade: 'Type 1',
                     ewayBillNo: '',
                     ewayDate: new Date().toISOString().split('T')[0],
                     lotNo: '',
@@ -177,8 +183,8 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                                     <option value="Ambuja Cement">Ambuja Cement</option>
                                 </select>
                             </div>
-                            <div style={groupStyle}><label style={labelStyle}>Eway Bill Number</label><input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} /></div>
-                            <div style={groupStyle}><label style={labelStyle}>Eway Date</label><input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} /></div>
+                            <div style={groupStyle}><label style={labelStyle}>Invoice Number</label><input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} /></div>
+                            <div style={groupStyle}><label style={labelStyle}>Invoice Date</label><input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} /></div>
                         </div>
 
                         <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
@@ -192,7 +198,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                                         <div><label style={{ ...labelStyle, fontSize: '11px' }}>Week</label><input type="number" min="1" max="53" value={batch.week} onChange={(e) => handleBatchChange(index, 'week', e.target.value)} required style={inputStyle} /></div>
                                         <div><label style={{ ...labelStyle, fontSize: '11px' }}>Year</label><input type="number" value={batch.year} onChange={(e) => handleBatchChange(index, 'year', e.target.value)} required style={inputStyle} /></div>
                                         <div><label style={{ ...labelStyle, fontSize: '11px' }}>MTC No.</label><input type="text" value={batch.mtcNo} onChange={(e) => handleBatchChange(index, 'mtcNo', e.target.value)} required style={inputStyle} /></div>
-                                        <div><label style={{ ...labelStyle, fontSize: '11px' }}>Quantity (MT)</label><input type="number" step="0.001" value={batch.quantity} onChange={(e) => handleBatchChange(index, 'quantity', e.target.value)} required style={inputStyle} /></div>
+                                        <div><label style={{ ...labelStyle, fontSize: '11px' }}>Quantity (Kg)</label><input type="number" step="0.001" value={batch.quantity} onChange={(e) => handleBatchChange(index, 'quantity', e.target.value)} required style={inputStyle} /></div>
                                         <button type="button" onClick={() => removeBatch(index)} style={{ padding: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }} disabled={batches.length === 1}>×</button>
                                     </div>
                                 </div>
@@ -200,35 +206,62 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                         </div>
 
                         <div style={groupStyle}>
-                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (MT) - Auto Calculated</label>
+                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (Kg) - Auto Calculated</label>
                             <input type="number" value={formData.qty} readOnly style={{ ...inputStyle, borderColor: '#42818c', background: '#f0fdfa' }} />
                         </div>
                     </div>
                 );
-            case 'hts-wire':
-                const coils = formData.details.coils || [{ coilNumber: '', lotNo: '', quantity: '' }];
-                const handleCoilChange = (index, field, value) => {
-                    const newCoils = [...coils];
-                    newCoils[index] = { ...newCoils[index], [field]: value };
-                    const totalQty = newCoils.reduce((sum, c) => sum + (parseFloat(c.quantity) || 0), 0);
-                    setFormData({
-                        ...formData,
-                        qty: totalQty,
-                        details: { ...formData.details, coils: newCoils }
-                    });
+            case 'hts-wire': {
+                const coilEntryMode = formData.details.coilEntryMode || 'range';
+                const coilFrom = formData.details.coilFrom || '';
+                const coilTo = formData.details.coilTo || '';
+                const coilSingle = formData.details.coilSingle || '';
+                const coils = formData.details.coils || [];
+
+                // Derive coil list from range or single entry
+                const getGeneratedCoils = () => {
+                    if (coilEntryMode === 'range') {
+                        const from = parseInt(coilFrom);
+                        const to = parseInt(coilTo);
+                        if (!isNaN(from) && !isNaN(to) && to >= from) {
+                            return Array.from({ length: to - from + 1 }, (_, i) => `C-${from + i}`);
+                        }
+                        return [];
+                    } else {
+                        return coilSingle ? [coilSingle] : [];
+                    }
                 };
-                const addCoil = () => {
-                    const newCoils = [...coils, { coilNumber: '', lotNo: '', quantity: '' }];
-                    setFormData({ ...formData, details: { ...formData.details, coils: newCoils } });
+
+                const generatedCoilNumbers = getGeneratedCoils();
+
+                const getCoilEntry = (coilNo) => {
+                    return coils.find(c => c.coilNumber === coilNo) || { coilNumber: coilNo, lotNo: '', quantity: '' };
                 };
-                const removeCoil = (index) => {
-                    const newCoils = coils.filter((_, i) => i !== index);
+
+                const handleCoilDetailChange = (coilNo, field, value) => {
+                    const existing = coils.find(c => c.coilNumber === coilNo);
+                    let newCoils;
+                    if (existing) {
+                        newCoils = coils.map(c => c.coilNumber === coilNo ? { ...c, [field]: value } : c);
+                    } else {
+                        newCoils = [...coils, { coilNumber: coilNo, lotNo: '', quantity: '', [field]: value }];
+                    }
                     const totalQty = newCoils.reduce((sum, c) => sum + (parseFloat(c.quantity) || 0), 0);
-                    setFormData({
-                        ...formData,
-                        qty: totalQty,
-                        details: { ...formData.details, coils: newCoils }
-                    });
+                    setFormData({ ...formData, qty: totalQty, details: { ...formData.details, coils: newCoils } });
+                };
+
+                const syncCoilsToRange = (mode, from, to, single) => {
+                    let nums = [];
+                    if (mode === 'range') {
+                        const f = parseInt(from), t = parseInt(to);
+                        if (!isNaN(f) && !isNaN(t) && t >= f) nums = Array.from({ length: t - f + 1 }, (_, i) => `C-${f + i}`);
+                    } else {
+                        if (single) nums = [single];
+                    }
+                    // Keep existing coil data for matching coilNumbers, drop others
+                    const newCoils = nums.map(n => coils.find(c => c.coilNumber === n) || { coilNumber: n, lotNo: '', quantity: '' });
+                    const totalQty = newCoils.reduce((sum, c) => sum + (parseFloat(c.quantity) || 0), 0);
+                    setFormData(prev => ({ ...prev, qty: totalQty, details: { ...prev.details, coilEntryMode: mode, coilFrom: from, coilTo: to, coilSingle: single, coils: newCoils } }));
                 };
 
                 return (
@@ -249,8 +282,8 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                                     <option value="JSPL">JSPL</option>
                                 </select>
                             </div>
-                            <div style={groupStyle}><label style={labelStyle}>Eway Bill Number</label><input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} /></div>
-                            <div style={groupStyle}><label style={labelStyle}>Eway Date</label><input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} /></div>
+                            <div style={groupStyle}><label style={labelStyle}>Invoice Number</label><input type="text" value={formData.details.invoiceNo || ''} onChange={(e) => handleChange(e, 'invoiceNo', true)} required style={inputStyle} /></div>
+                            <div style={groupStyle}><label style={labelStyle}>Invoice Date</label><input type="date" value={formData.details.invoiceDate || ''} onChange={(e) => handleChange(e, 'invoiceDate', true)} required style={inputStyle} /></div>
                             <div style={groupStyle}><label style={labelStyle}>RITES IC Number</label><input type="text" value={formData.details.icNo || ''} onChange={(e) => handleChange(e, 'icNo', true)} required style={inputStyle} /></div>
                             <div style={groupStyle}><label style={labelStyle}>RITES IC Date</label><input type="date" value={formData.details.icDate || ''} onChange={(e) => handleChange(e, 'icDate', true)} required style={inputStyle} /></div>
                             <div style={groupStyle}>
@@ -265,27 +298,121 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             )}
                         </div>
 
+                        {/* Coil Number Entry - Range or Single */}
                         <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Coil Details</h4>
-                                <button type="button" onClick={addCoil} style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Add Coil</button>
-                            </div>
-                            {coils.map((coil, index) => (
-                                <div key={index} style={{ ...gridStyle, gridTemplateColumns: '1fr 1fr 1fr 40px', alignItems: 'end', marginBottom: index === coils.length - 1 ? 0 : '12px' }}>
-                                    <div><label style={{ ...labelStyle, fontSize: '11px' }}>Coil Number</label><input type="text" value={coil.coilNumber} onChange={(e) => handleCoilChange(index, 'coilNumber', e.target.value)} required style={inputStyle} /></div>
-                                    <div><label style={{ ...labelStyle, fontSize: '11px' }}>Lot No.</label><input type="text" value={coil.lotNo} onChange={(e) => handleCoilChange(index, 'lotNo', e.target.value)} required style={inputStyle} /></div>
-                                    <div><label style={{ ...labelStyle, fontSize: '11px' }}>Quantity (MT)</label><input type="number" step="0.001" value={coil.quantity} onChange={(e) => handleCoilChange(index, 'quantity', e.target.value)} required style={inputStyle} /></div>
-                                    <button type="button" onClick={() => removeCoil(index)} style={{ padding: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }} disabled={coils.length === 1}>×</button>
+                                <div style={{ display: 'flex', gap: '16px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#475569' }}>
+                                        <input
+                                            type="radio"
+                                            checked={coilEntryMode === 'range'}
+                                            onChange={() => syncCoilsToRange('range', coilFrom, coilTo, coilSingle)}
+                                        /> Range
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#475569' }}>
+                                        <input
+                                            type="radio"
+                                            checked={coilEntryMode === 'single'}
+                                            onChange={() => syncCoilsToRange('single', coilFrom, coilTo, coilSingle)}
+                                        /> Single
+                                    </label>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Coil Number Range / Single inputs */}
+                            <div style={{ display: 'grid', gridTemplateColumns: coilEntryMode === 'range' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                {coilEntryMode === 'range' ? (
+                                    <>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Coil No. From</label>
+                                            <input
+                                                type="number" min="1"
+                                                value={coilFrom}
+                                                onChange={(e) => syncCoilsToRange('range', e.target.value, coilTo, coilSingle)}
+                                                placeholder="Start"
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Coil No. To</label>
+                                            <input
+                                                type="number" min="1"
+                                                value={coilTo}
+                                                onChange={(e) => syncCoilsToRange('range', coilFrom, e.target.value, coilSingle)}
+                                                placeholder="End"
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>No. of Coils</label>
+                                            <input
+                                                type="text" readOnly
+                                                value={generatedCoilNumbers.length || 0}
+                                                style={{ ...inputStyle, background: '#f8fafc', color: '#64748b' }}
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Coil Number</label>
+                                        <input
+                                            type="text"
+                                            value={coilSingle}
+                                            onChange={(e) => syncCoilsToRange('single', coilFrom, coilTo, e.target.value)}
+                                            placeholder="e.g. C-42"
+                                            style={inputStyle}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Per-coil Lot No. and Quantity */}
+                            {generatedCoilNumbers.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '8px', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Coil No.</span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Lot No.</span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Quantity (Kg)</span>
+                                    </div>
+                                    {generatedCoilNumbers.map((coilNo) => {
+                                        const entry = getCoilEntry(coilNo);
+                                        return (
+                                            <div key={coilNo} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '8px', alignItems: 'center' }}>
+                                                <div style={{ padding: '10px', background: '#e0f2fe', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#0369a1' }}>{coilNo}</div>
+                                                <input
+                                                    type="text"
+                                                    value={entry.lotNo}
+                                                    onChange={(e) => handleCoilDetailChange(coilNo, 'lotNo', e.target.value)}
+                                                    placeholder="Lot No."
+                                                    style={{ ...inputStyle, fontSize: '13px' }}
+                                                />
+                                                <input
+                                                    type="number" step="0.001" min="0"
+                                                    value={entry.quantity}
+                                                    onChange={(e) => handleCoilDetailChange(coilNo, 'quantity', e.target.value)}
+                                                    placeholder="Qty in Kg"
+                                                    style={{ ...inputStyle, fontSize: '13px' }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {generatedCoilNumbers.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px' }}>
+                                    {coilEntryMode === 'range' ? 'Enter From and To coil numbers above to generate coil list.' : 'Enter a coil number above.'}
+                                </div>
+                            )}
                         </div>
 
                         <div style={groupStyle}>
-                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (MT) - Auto Calculated</label>
+                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (Kg) - Auto Calculated</label>
                             <input type="number" value={formData.qty} readOnly style={{ ...inputStyle, borderColor: '#42818c', background: '#f0fdfa' }} />
                         </div>
                     </div>
                 );
+            }
             case 'aggregates':
                 return (
                     <div style={gridStyle}>
@@ -298,7 +425,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             </select>
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Manufacturer</label>
+                            <label style={labelStyle}>Source</label>
                             <select value={formData.details.source || ''} onChange={(e) => handleChange(e, 'source', true)} required style={inputStyle}>
                                 <option value="">Select Source</option>
                                 <option value="Approved Source A">Approved Source A</option>
@@ -315,7 +442,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             <input type="date" value={formData.details.challanDate || ''} onChange={(e) => handleChange(e, 'challanDate', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
-                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (MT)</label>
+                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Qty Received (Kg)</label>
                             <input type="number" step="0.001" value={formData.qty} onChange={(e) => handleChange(e, 'qty')} required style={{ ...inputStyle, borderColor: '#42818c' }} />
                         </div>
                     </div>
@@ -324,19 +451,19 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 return (
                     <div style={gridStyle}>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Grade / Spec</label>
-                            <select value={formData.details.grade || 'Type 1'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
-                                <option value="Type 1">Type 1</option>
-                                <option value="Type 2">Type 2</option>
-                            </select>
-                        </div>
-                        <div style={groupStyle}>
                             <label style={labelStyle}>Manufacturer</label>
                             <select value={formData.details.manufacturer || ''} onChange={(e) => handleChange(e, 'manufacturer', true)} required style={inputStyle}>
                                 <option value="">Select Manufacturer</option>
                                 <option value="FOSROC">FOSROC</option>
                                 <option value="BASF">BASF</option>
                                 <option value="Sika">Sika</option>
+                            </select>
+                        </div>
+                        <div style={groupStyle}>
+                            <label style={labelStyle}>Grade / Spec</label>
+                            <select value={formData.details.grade || 'Type 1'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
+                                <option value="Type 1">Type 1</option>
+                                <option value="Type 2">Type 2</option>
                             </select>
                         </div>
                         <div style={groupStyle}>
@@ -356,7 +483,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             <input type="text" value={formData.details.mtcNo || ''} onChange={(e) => handleChange(e, 'mtcNo', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
-                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Quantity</label>
+                            <label style={{ ...labelStyle, color: '#42818c' }}>Total Quantity (Kg)</label>
                             <input type="number" step="0.001" value={formData.qty} onChange={(e) => handleChange(e, 'qty')} required style={{ ...inputStyle, borderColor: '#42818c' }} />
                         </div>
                     </div>
@@ -365,7 +492,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 return (
                     <div style={gridStyle}>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Grade / Spec</label>
+                            <label style={labelStyle}>Grade / Type</label>
                             <select value={formData.details.grade || 'MK-III Insert'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
                                 <option value="MK-III Insert">MK-III Insert</option>
                                 <option value="MK-V Insert">MK-V Insert</option>
@@ -378,11 +505,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             </select>
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Eway Bill Number</label>
+                            <label style={labelStyle}>Invoice Number</label>
                             <input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Eway Date</label>
+                            <label style={labelStyle}>Invoice Date</label>
                             <input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
@@ -403,7 +530,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 return (
                     <div style={gridStyle}>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Grade / Spec</label>
+                            <label style={labelStyle}>Grade / Type</label>
                             <select value={formData.details.grade || 'Type A'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
                                 <option value="Type A">Type A</option>
                                 <option value="Type B">Type B</option>
@@ -417,11 +544,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             </select>
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Eway Bill Number</label>
+                            <label style={labelStyle}>Invoice Number</label>
                             <input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Eway Date</label>
+                            <label style={labelStyle}>Invoice Date</label>
                             <input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>

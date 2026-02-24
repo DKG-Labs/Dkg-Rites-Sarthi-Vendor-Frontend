@@ -125,7 +125,7 @@ const RawMaterialSourceSection = () => {
                 <form onSubmit={handleSubmit}>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                        gridTemplateColumns: formData.rawMaterialType === 'Water Source' ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr',
                         gap: '24px',
                         marginBottom: '30px'
                     }}>
@@ -213,45 +213,47 @@ const RawMaterialSourceSection = () => {
                                 }}
                             />
                         </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#8c9fb1', marginBottom: '12px' }}>Validity Period</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <input
-                                    name="validityFrom"
-                                    type="date"
-                                    value={formData.validityFrom}
-                                    onChange={handleInputChange}
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 12px',
-                                        borderRadius: '12px',
-                                        border: '1px solid #ebf0f5',
-                                        backgroundColor: '#fdfdfd',
-                                        fontSize: '14px',
-                                        color: '#3e4c59',
-                                        outline: 'none'
-                                    }}
-                                />
-                                <input
-                                    name="validityTo"
-                                    type="date"
-                                    value={formData.validityTo}
-                                    onChange={handleInputChange}
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 12px',
-                                        borderRadius: '12px',
-                                        border: '1px solid #ebf0f5',
-                                        backgroundColor: '#fdfdfd',
-                                        fontSize: '14px',
-                                        color: '#3e4c59',
-                                        outline: 'none'
-                                    }}
-                                />
+                        {formData.rawMaterialType !== 'Water Source' && (
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#8c9fb1', marginBottom: '12px' }}>Validity Period</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        name="validityFrom"
+                                        type="date"
+                                        value={formData.validityFrom}
+                                        onChange={handleInputChange}
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px 12px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #ebf0f5',
+                                            backgroundColor: '#fdfdfd',
+                                            fontSize: '14px',
+                                            color: '#3e4c59',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    <input
+                                        name="validityTo"
+                                        type="date"
+                                        value={formData.validityTo}
+                                        onChange={handleInputChange}
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px 12px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #ebf0f5',
+                                            backgroundColor: '#fdfdfd',
+                                            fontSize: '14px',
+                                            color: '#3e4c59',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px' }}>
@@ -316,7 +318,9 @@ const RawMaterialSourceSection = () => {
                                     <td style={{ padding: '16px', fontSize: '14px', color: '#475569' }}>{entry.source}</td>
                                     <td style={{ padding: '16px', fontSize: '14px', color: '#475569' }}>{entry.approvalReference}</td>
                                     <td style={{ padding: '16px', fontSize: '13px', color: '#475569' }}>
-                                        {entry.validityFrom} <span style={{ color: '#94a3b8' }}>to</span> {entry.validityTo}
+                                        {entry.rawMaterialType === 'Water Source'
+                                            ? <span style={{ color: '#94a3b8' }}>—</span>
+                                            : <>{entry.validityFrom} <span style={{ color: '#94a3b8' }}>to</span> {entry.validityTo}</>}
                                     </td>
                                     <td style={{ padding: '16px' }}>
                                         <span style={{

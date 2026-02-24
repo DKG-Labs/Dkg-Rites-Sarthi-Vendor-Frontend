@@ -11,7 +11,7 @@ const PlantDeclarationDashboard = () => {
             id: 1,
             plantName: 'M/s ABC Sleepers - Nagpur Plant',
             vendorCode: 'V-10294',
-            type: 'Stress Bench – Twin',
+            type: 'Stress Bench',
             shedsLines: 2,
             status: 'Verified & Locked'
         }
