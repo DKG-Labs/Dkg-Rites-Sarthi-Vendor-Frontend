@@ -15,26 +15,19 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     profiles.forEach(profile => {
         const count = parseInt(profile.shedsLines) || 0;
         for (let i = 0; i < count; i++) {
-            if (profile.type.includes('Stress Bench')) {
+            if (profile.type === 'Stress Bench') {
                 shedCount++;
-                const isSingle = profile.type.includes('Single');
-                const typeLabel = isSingle ? '(Single)' : '(Twin)';
-                const label = isSingle
-                    ? `Line Shed-${shedCount} ${typeLabel}`
-                    : `Shed-${shedCount} ${typeLabel}`;
-
                 dynamicTabs.push({
                     id: `shed-${shedCount}`,
-                    label,
+                    label: `Stress Bench`,
                     type: 'conventional',
-                    subType: isSingle ? 'Single' : 'Twin',
-                    defaultMoulds: isSingle ? 4 : 8
+                    defaultMoulds: 8
                 });
-            } else if (profile.type === 'Long Line') {
+            } else if (profile.type === 'Longline') {
                 lineCount++;
                 dynamicTabs.push({
                     id: `line-${lineCount}`,
-                    label: `Line-${lineCount}`,
+                    label: `Longline`,
                     type: 'longline',
                     defaultMoulds: 8
                 });
@@ -53,7 +46,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numItems: 4,
                 numMouldsPerItem: 8,
                 totalMoulds: 32,
-                sleeperCategory: 'RT-8527 (Pre-stressed)',
+                sleeperCategory: 'Wider Base',
                 status: STATUSES.PENDING
             },
             {
@@ -64,7 +57,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numItems: 4,
                 numMouldsPerItem: 8,
                 totalMoulds: 32,
-                sleeperCategory: 'RT-8527 (Pre-stressed)',
+                sleeperCategory: 'Wider Base',
                 status: STATUSES.LOCKED
             },
             {
@@ -74,7 +67,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numItems: 1,
                 numMouldsPerItem: 8,
                 totalMoulds: 8,
-                sleeperCategory: 'RT-4852 (Wider)',
+                sleeperCategory: 'PnC',
                 status: STATUSES.UNLOCKED
             }
         ]
@@ -88,7 +81,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         singleNo: '',
         numItems: 0,
         numMouldsPerItem: '',
-        sleeperCategory: 'RT-8527 (Pre-stressed)',
+        sleeperCategory: 'Wider Base',
+        rft: '',
+        sleeperNames: [],
         isEditing: false,
         editingId: null,
         status: STATUSES.PENDING
@@ -124,7 +119,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         }));
     }, [formState.entryMode, formState.fromNo, formState.toNo, formState.singleNo]);
 
-    // Handle initial mould count when tab or mode changes
+    // Handle initial mould count when tab changes (use activeTabId not activeTab object,
+    // because dynamicTabs is rebuilt every render producing a new activeTab reference
+    // which would otherwise fire this effect on every render and reset user selections)
     useEffect(() => {
         if (activeTab && !formState.isEditing) {
             setFormState(prev => ({
@@ -132,7 +129,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numMouldsPerItem: activeTab.defaultMoulds
             }));
         }
-    }, [activeTab, formState.isEditing]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTabId, formState.isEditing]);
 
     // Enforce same sleeper category for Long Line if entries exist
     useEffect(() => {
@@ -158,6 +156,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             numMouldsPerItem: formState.numMouldsPerItem,
             totalMoulds: formState.numItems * formState.numMouldsPerItem,
             sleeperCategory: formState.sleeperCategory,
+            rft: formState.sleeperCategory === 'PnC' ? formState.rft : '',
+            sleeperNames: formState.sleeperCategory === 'PnC' ? formState.sleeperNames : [],
             status: formState.isEditing ? formState.status : STATUSES.PENDING
         };
 
@@ -186,7 +186,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             numMouldsPerItem: activeTab?.defaultMoulds || '',
             sleeperCategory: isLongLine && tabEntries[activeTabId]?.length > 0
                 ? tabEntries[activeTabId][0].sleeperCategory
-                : 'RT-8527 (Pre-stressed)',
+                : 'Wider Base',
+            rft: '',
+            sleeperNames: [],
             isEditing: false,
             editingId: null,
             status: STATUSES.PENDING
@@ -206,6 +208,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             numItems: entry.numItems,
             numMouldsPerItem: entry.numMouldsPerItem,
             sleeperCategory: entry.sleeperCategory,
+            rft: entry.rft || '',
+            sleeperNames: entry.sleeperNames || [],
             isEditing: true,
             editingId: entry.id,
             status: entry.status
@@ -269,7 +273,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     singleNo: '',
                                     numItems: 0,
                                     numMouldsPerItem: tab.defaultMoulds,
-                                    sleeperCategory: 'RT-8527 (Pre-stressed)',
+                                    sleeperCategory: 'Wider Base',
+                                    rft: '',
+                                    sleeperNames: [],
                                     isEditing: false,
                                     editingId: null,
                                     status: STATUSES.PENDING
@@ -296,7 +302,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
                 {dynamicTabs.length === 0 && (
                     <div style={{ padding: '20px', background: '#fff9eb', border: '1px solid #ffeeba', borderRadius: '8px', color: '#856404', fontSize: '14px' }}>
-                        ⚠️ Please add Sheds/Lines in the <strong>Plant Profile</strong> section first to configure Bench/Mould Master.
+                        ⚠️ Please add a <strong>Stress Bench</strong> or <strong>Longline</strong> profile in the <strong>Plant Profile</strong> section first to configure Bench/Mould Master.
                     </div>
                 )}
             </div>
@@ -317,7 +323,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     }}>
                         <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
                             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Total {isLongLine ? 'Gangs' : 'Benches'}
+                                Total {isLongLine ? 'Lines' : 'Benches'}
                             </div>
                             <div style={{ fontSize: '20px', fontWeight: '700', color: '#42818c' }}>{totalItems}</div>
                         </div>
@@ -354,7 +360,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h4 style={{ color: '#42818c', margin: 0, fontSize: '16px' }}>
-                                {isLongLine ? 'Long Line Entry Form' : 'Shed Entry Form'} ({activeTab.subType || 'Long Line'})
+                                {isLongLine ? 'Longline Entry Form' : 'Stress Bench Entry Form'}
                             </h4>
                             <div style={{ display: 'flex', gap: '16px' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
@@ -379,7 +385,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                 <>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Gang No. From' : 'Bench No. From'}
+                                            {isLongLine ? 'Line No. From' : 'Bench No. From'}
                                         </label>
                                         <input
                                             type="number"
@@ -391,7 +397,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Gang No. To' : 'Bench No. To'}
+                                            {isLongLine ? 'Line No. To' : 'Bench No. To'}
                                         </label>
                                         <input
                                             type="number"
@@ -405,7 +411,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             ) : (
                                 <div>
                                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                        {isLongLine ? 'Gang No.' : 'Bench No.'}
+                                        {isLongLine ? 'Line No.' : 'Bench No.'}
                                     </label>
                                     <input
                                         type="number"
@@ -419,33 +425,13 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    No. of {isLongLine ? 'Gangs' : 'Benches'}
+                                    No. of {isLongLine ? 'Lines' : 'Benches'}
                                 </label>
                                 <input
                                     type="text"
                                     readOnly
                                     value={formState.numItems}
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    No. of Moulds {isLongLine ? '(per Gang)' : '(per Bench)'}
-                                </label>
-                                <input
-                                    type="number"
-                                    value={formState.numMouldsPerItem}
-                                    onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
-                                    placeholder="e.g. 4 or 8"
-                                    readOnly={!isLongLine && !formState.isEditing} // Shed moulds are fixed by Single/Twin logic but editable in some cases or just default
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #cbd5e1',
-                                        background: (!isLongLine && !formState.isEditing) ? '#f8fafc' : '#fff'
-                                    }}
                                 />
                             </div>
 
@@ -463,10 +449,41 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                         background: (isLongLine && currentEntries.length > 0 && !formState.isEditing) ? '#f8fafc' : '#fff'
                                     }}
                                 >
-                                    <option>RT-8527 (Pre-stressed)</option>
-                                    <option>RT-4852 (Wider)</option>
-                                    <option>RT-2495 (Turnout)</option>
+                                    <option value="Wider Base">Wider Base</option>
+                                    <option value="PnC">PnC</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                                    No. of Moulds {isLongLine ? '(per Line)' : '(per Bench)'}
+                                </label>
+                                {formState.sleeperCategory === 'Wider Base' ? (
+                                    <select
+                                        value={formState.numMouldsPerItem}
+                                        onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    >
+                                        <option value="">Select No. of Moulds</option>
+                                        <option value="4">4</option>
+                                        <option value="8">8</option>
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="number"
+                                        value={formState.numMouldsPerItem}
+                                        onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
+                                        placeholder="Enter integer"
+                                        readOnly={!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC'}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #cbd5e1',
+                                            background: (!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC') ? '#f8fafc' : '#fff'
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -487,6 +504,42 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     {formState.isEditing ? 'Update Entry' : 'Add to List'}
                                 </button>
                             </div>
+
+                            {formState.sleeperCategory === 'PnC' && (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
+                                        <input
+                                            type="number"
+                                            value={formState.rft}
+                                            onChange={(e) => setFormState(prev => ({ ...prev, rft: e.target.value }))}
+                                            placeholder="Enter RFT"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '12px' }}>Sleeper Names</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                                            {Array.from({ length: parseInt(formState.numMouldsPerItem) || 0 }).map((_, idx) => (
+                                                <div key={idx}>
+                                                    <label style={{ fontSize: '10px', color: '#64748b', display: 'block', marginBottom: '4px' }}>Mould {idx + 1}</label>
+                                                    <input
+                                                        type="text"
+                                                        value={formState.sleeperNames[idx] || ''}
+                                                        onChange={(e) => {
+                                                            const newNames = [...formState.sleeperNames];
+                                                            newNames[idx] = e.target.value;
+                                                            setFormState(prev => ({ ...prev, sleeperNames: newNames }));
+                                                        }}
+                                                        placeholder="Name"
+                                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -518,7 +571,14 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                                 <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b' }}>{entry.numItems}</td>
                                                 <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b' }}>{entry.numMouldsPerItem}</td>
                                                 <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b', fontWeight: 'bold' }}>{entry.totalMoulds}</td>
-                                                <td style={{ padding: '12px', color: '#1e293b' }}>{entry.sleeperCategory}</td>
+                                                <td style={{ padding: '12px', color: '#1e293b' }}>
+                                                    {entry.sleeperCategory}
+                                                    {entry.sleeperCategory === 'PnC' && (
+                                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                                                            RFT: {entry.rft}m | {entry.sleeperNames?.filter(Boolean).length} Names
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td style={{ padding: '12px', textAlign: 'center' }}>
                                                     <span style={{
                                                         padding: '4px 10px',

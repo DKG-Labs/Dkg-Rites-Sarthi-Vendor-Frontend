@@ -12,7 +12,7 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
 
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
-        type: 'Stress Bench – Single',
+        type: 'Stress Bench',
         shedsLines: ''
     });
 
@@ -48,7 +48,7 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
             };
             setProfiles(prev => [...prev, newProfile]);
         }
-        setFormData({ type: 'Stress Bench – Single', shedsLines: '' });
+        setFormData({ type: 'Stress Bench', shedsLines: '' });
     };
 
     const handleModify = (profile) => {
@@ -113,21 +113,20 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
                                     onChange={handleInputChange}
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
                                 >
-                                    <option value="Stress Bench – Single">Stress Bench – Single</option>
-                                    <option value="Stress Bench – Twin">Stress Bench – Twin</option>
-                                    <option value="Long Line">Long Line</option>
+                                    <option value="Stress Bench">Stress Bench</option>
+                                    <option value="Longline">Longline</option>
                                 </select>
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    {formData.type.includes('Stress') ? 'Number of Sheds' : 'Number of Lines'}
+                                    {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Lines'}
                                 </label>
                                 <input
                                     type="number"
                                     name="shedsLines"
                                     value={formData.shedsLines}
                                     onChange={handleInputChange}
-                                    placeholder={`Enter number of ${formData.type.includes('Stress') ? 'sheds' : 'lines'}`}
+                                    placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'lines'}`}
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
                                 />
                             </div>
@@ -144,7 +143,7 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
                             {editingId && (
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench – Single', shedsLines: '' }); }}
+                                    onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench', shedsLines: '' }); }}
                                     style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
                                 >
                                     Cancel
@@ -184,7 +183,7 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
                                     <tr key={profile.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                         <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
                                         <td style={{ padding: '16px', color: '#475569' }}>
-                                            {profile.shedsLines} {profile.type.includes('Stress') ? 'Sheds' : 'Lines'}
+                                            {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{

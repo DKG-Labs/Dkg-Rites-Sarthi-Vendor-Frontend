@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 
 const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
     const AVAILABLE_SHEDS = [
-        { name: 'Shed A', type: 'Twin', mouldsPerBench: 8 },
-        { name: 'Shed B', type: 'Single', mouldsPerBench: 4 },
-        { name: 'Shed C', type: 'Twin', mouldsPerBench: 8 },
+        { name: 'Stress Bench A', type: 'Twin', mouldsPerBench: 8 },
+        { name: 'Stress Bench B', type: 'Single', mouldsPerBench: 4 },
+        { name: 'Stress Bench C', type: 'Twin', mouldsPerBench: 8 },
     ];
     const AVAILABLE_LINES = [
-        { name: 'Line 1', type: 'Long Line', mouldsPerGang: 8 },
-        { name: 'Line 2', type: 'Long Line', mouldsPerGang: 8 },
+        { name: 'Long Line 1', type: 'Long Line', mouldsPerGang: 8 },
+        { name: 'Long Line 2', type: 'Long Line', mouldsPerGang: 8 },
     ];
 
     const getCurrentTime = () => {
@@ -16,10 +16,20 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         return now.toTimeString().split(' ')[0].substring(0, 5);
     };
 
+    const getBenchMasterDetails = (benchNo) => {
+        if (!benchNo) return { moulds: 0, rft: 0, sleeperNames: [] };
+        // Simulated lookup based on typical data - in production this would fetch from a master state
+        const moulds = 8;
+        const isPnC = parseInt(benchNo) % 5 === 0;
+        const rft = isPnC ? 2.5 : 0;
+        const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+        return { moulds, rft, sleeperNames, isPnC };
+    };
+
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
     const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
     const [formHeader, setFormHeader] = useState({
-        unit: 'Shed A',
+        unit: 'Stress Bench A',
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
         shift: 'Day Shift',
@@ -144,7 +154,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
 
     const updateMouldsInGroup = (cIdx, gIdx, value) => {
         const newChambers = [...chambers];
-        newChambers[cIdx].benchGroups[gIdx].mouldsPerBench = parseInt(value) || 0;
+        const val = parseInt(value) || 0;
+        newChambers[cIdx].benchGroups[gIdx].mouldsPerBench = Math.max(0, val);
         setChambers(newChambers);
     };
 
@@ -152,8 +163,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         if (plantType === 'Stress Bench') {
             return chambers.reduce((acc, c) => {
                 return acc + c.benchGroups.reduce((gAcc, g) => {
-                    const validBenches = g.benches.filter(b => b.trim()).length;
-                    return gAcc + (validBenches * g.mouldsPerBench);
+                    return gAcc + g.benches.reduce((bAcc, b) => bAcc + getBenchMasterDetails(b).moulds, 0);
                 }, 0);
             }, 0);
         } else {
@@ -162,6 +172,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                 return acc + (count * e.mouldsPerGang);
             }, 0);
         }
+    };
+
+    const calculateTotalRFT = () => {
+        if (plantType === 'Stress Bench') {
+            return chambers.reduce((acc, c) => {
+                return acc + c.benchGroups.reduce((gAcc, g) => {
+                    return gAcc + g.benches.reduce((bAcc, b) => bAcc + getBenchMasterDetails(b).rft, 0);
+                }, 0);
+            }, 0);
+        }
+        return 0;
     };
 
     const getProductionBreakdown = () => {
@@ -264,7 +285,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                             </div>
 
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Shed No.)' : 'Production Unit (Line No.)'}</label>
+                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Long Line No.)'}</label>
                                 <select
                                     style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
                                     value={formHeader.unit}
@@ -398,7 +419,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches Cast</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '200px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '150px' }}>Moulds / Bench</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Total Moulds</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Total RFT</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -424,6 +446,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                                                                 }}
                                                                                 placeholder="No."
                                                                             />
+                                                                            <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={getBenchMasterDetails(bench).sleeperNames.join(', ')}>
+                                                                                {getBenchMasterDetails(bench).sleeperNames.slice(0, 3).join(',')}{getBenchMasterDetails(bench).sleeperNames.length > 3 ? '...' : ''}
+                                                                            </div>
                                                                             {isDuplicate && <span style={{ position: 'absolute', bottom: '-14px', left: 0, fontSize: '9px', color: '#ef4444', fontWeight: 'bold' }}>Duplicate</span>}
                                                                             {group.benches.length > 1 && (
                                                                                 <button
@@ -478,17 +503,25 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                                             {group.error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>{group.error}</div>}
                                                         </td>
                                                         <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                            <input
-                                                                type="number"
-                                                                value={group.mouldsPerBench}
-                                                                onChange={(e) => updateMouldsInGroup(cIdx, gIdx, e.target.value)}
-                                                                style={{ ...inputStyle, textAlign: 'center', background: 'white', minHeight: '42px' }}
-                                                            />
+                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
+                                                                {group.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).moulds, 0)}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
+                                                                {group.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).rft, 0)}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
+                                        <div style={{ marginTop: '16px', borderTop: '1px dashed #e2e8f0', paddingTop: '12px' }}>
+                                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Sleeper Numbers in Chamber:</div>
+                                            <div style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.4' }}>
+                                                {chamber.benchGroups.flatMap(g => g.benches).flatMap(b => getBenchMasterDetails(b).sleeperNames).filter(Boolean).join(', ')}
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -605,6 +638,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ color: '#64748b', fontSize: '14px' }}>Total Types of Sleepers:</span>
                                         <span style={{ color: '#115e59', fontSize: '20px', fontWeight: '800' }}>{Object.keys(getProductionBreakdown()).length}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#64748b', fontSize: '14px' }}>Total RFT Casted:</span>
+                                        <span style={{ color: '#115e59', fontSize: '20px', fontWeight: '800' }}>{calculateTotalRFT().toFixed(2)} m</span>
                                     </div>
                                     <div style={{ borderTop: '1px dashed #ccfbf1', paddingTop: '10px', marginTop: '5px' }}>
                                         <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Breakdown by Type:</span>
