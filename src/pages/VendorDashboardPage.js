@@ -894,6 +894,7 @@ const VendorDashboardPage = ({ onBack }) => {
             manufacturer: '', // Manufacturer name not directly available in final_lots_data
             manufacturerHeat: lot.heatNo || '', // Using heat number as fallback
             offeredQty: parseInt(lot.offeredQty) || 0,
+            noOfBags: parseInt(lot.noOfBags) || 0,
             processIcNumber: data.final_process_ic_numbers && data.final_process_ic_numbers.length > 0
               ? data.final_process_ic_numbers[0]
               : null
