@@ -24,11 +24,15 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     invoiceNo: '',
                     invoiceDate: '',
                     relaxationTest: 'Y',
-                    coilEntryMode: 'range',
-                    coilFrom: '',
-                    coilTo: '',
-                    coilSingle: '',
-                    coils: []
+                    // coilEntries: array of { type: 'range'|'single', coilFrom, coilTo, coilNo, lotNo, qty }
+                    coilEntries: [],
+                    // temporary input state
+                    _inputMode: 'range',
+                    _rangeFrom: '',
+                    _rangeTo: '',
+                    _singleCoil: '',
+                    _lotNo: '',
+                    _qty: ''
                 };
                 break;
             case 'cement':
@@ -212,60 +216,90 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     </div>
                 );
             case 'hts-wire': {
-                const coilEntryMode = formData.details.coilEntryMode || 'range';
-                const coilFrom = formData.details.coilFrom || '';
-                const coilTo = formData.details.coilTo || '';
-                const coilSingle = formData.details.coilSingle || '';
-                const coils = formData.details.coils || [];
+                const coilEntries = formData.details.coilEntries || [];
+                const inputMode = formData.details._inputMode || 'range';
+                const rangeFrom = formData.details._rangeFrom || '';
+                const rangeTo = formData.details._rangeTo || '';
+                const singleCoil = formData.details._singleCoil || '';
+                const entryLotNo = formData.details._lotNo || '';
+                const entryQty = formData.details._qty || '';
 
-                // Derive coil list from range or single entry
-                const getGeneratedCoils = () => {
-                    if (coilEntryMode === 'range') {
-                        const from = parseInt(coilFrom);
-                        const to = parseInt(coilTo);
-                        if (!isNaN(from) && !isNaN(to) && to >= from) {
-                            return Array.from({ length: to - from + 1 }, (_, i) => `C-${from + i}`);
-                        }
-                        return [];
+                const setHtsDetail = (patch) => {
+                    setFormData(prev => ({ ...prev, details: { ...prev.details, ...patch } }));
+                };
+
+                const recalcTotal = (entries) => {
+                    return entries.reduce((sum, e) => sum + (parseFloat(e.qty) || 0), 0);
+                };
+
+                const addCoilEntry = () => {
+                    if (inputMode === 'range') {
+                        const f = parseInt(rangeFrom), t = parseInt(rangeTo);
+                        if (isNaN(f) || isNaN(t) || t < f) return;
+                        if (!entryLotNo || !entryQty) return;
+                        const newEntry = { type: 'range', coilFrom: rangeFrom, coilTo: rangeTo, lotNo: entryLotNo, qty: entryQty };
+                        const newEntries = [...coilEntries, newEntry];
+                        setFormData(prev => ({
+                            ...prev,
+                            qty: recalcTotal(newEntries),
+                            details: { ...prev.details, coilEntries: newEntries, _rangeFrom: '', _rangeTo: '', _lotNo: '', _qty: '' }
+                        }));
                     } else {
-                        return coilSingle ? [coilSingle] : [];
+                        if (!singleCoil || !entryLotNo || !entryQty) return;
+                        const newEntry = { type: 'single', coilNo: singleCoil, lotNo: entryLotNo, qty: entryQty };
+                        const newEntries = [...coilEntries, newEntry];
+                        setFormData(prev => ({
+                            ...prev,
+                            qty: recalcTotal(newEntries),
+                            details: { ...prev.details, coilEntries: newEntries, _singleCoil: '', _lotNo: '', _qty: '' }
+                        }));
                     }
                 };
 
-                const generatedCoilNumbers = getGeneratedCoils();
-
-                const getCoilEntry = (coilNo) => {
-                    return coils.find(c => c.coilNumber === coilNo) || { coilNumber: coilNo, lotNo: '', quantity: '' };
+                const removeCoilEntry = (idx) => {
+                    const newEntries = coilEntries.filter((_, i) => i !== idx);
+                    setFormData(prev => ({
+                        ...prev,
+                        qty: recalcTotal(newEntries),
+                        details: { ...prev.details, coilEntries: newEntries }
+                    }));
                 };
 
-                const handleCoilDetailChange = (coilNo, field, value) => {
-                    const existing = coils.find(c => c.coilNumber === coilNo);
-                    let newCoils;
-                    if (existing) {
-                        newCoils = coils.map(c => c.coilNumber === coilNo ? { ...c, [field]: value } : c);
-                    } else {
-                        newCoils = [...coils, { coilNumber: coilNo, lotNo: '', quantity: '', [field]: value }];
-                    }
-                    const totalQty = newCoils.reduce((sum, c) => sum + (parseFloat(c.quantity) || 0), 0);
-                    setFormData({ ...formData, qty: totalQty, details: { ...formData.details, coils: newCoils } });
+                const updateCoilEntry = (idx, field, value) => {
+                    const newEntries = coilEntries.map((e, i) => i === idx ? { ...e, [field]: value } : e);
+                    setFormData(prev => ({
+                        ...prev,
+                        qty: recalcTotal(newEntries),
+                        details: { ...prev.details, coilEntries: newEntries }
+                    }));
                 };
 
-                const syncCoilsToRange = (mode, from, to, single) => {
-                    let nums = [];
-                    if (mode === 'range') {
-                        const f = parseInt(from), t = parseInt(to);
-                        if (!isNaN(f) && !isNaN(t) && t >= f) nums = Array.from({ length: t - f + 1 }, (_, i) => `C-${f + i}`);
-                    } else {
-                        if (single) nums = [single];
-                    }
-                    // Keep existing coil data for matching coilNumbers, drop others
-                    const newCoils = nums.map(n => coils.find(c => c.coilNumber === n) || { coilNumber: n, lotNo: '', quantity: '' });
-                    const totalQty = newCoils.reduce((sum, c) => sum + (parseFloat(c.quantity) || 0), 0);
-                    setFormData(prev => ({ ...prev, qty: totalQty, details: { ...prev.details, coilEntryMode: mode, coilFrom: from, coilTo: to, coilSingle: single, coils: newCoils } }));
+                // Compute coil count for a range entry
+                const rangeCount = (entry) => {
+                    const f = parseInt(entry.coilFrom), t = parseInt(entry.coilTo);
+                    if (!isNaN(f) && !isNaN(t) && t >= f) return t - f + 1;
+                    return 0;
+                };
+
+                const canAdd = inputMode === 'range'
+                    ? (rangeFrom && rangeTo && parseInt(rangeTo) >= parseInt(rangeFrom) && entryLotNo && entryQty)
+                    : (singleCoil && entryLotNo && entryQty);
+
+                const btnAddStyle = {
+                    padding: '10px 20px', borderRadius: '10px', border: 'none',
+                    background: canAdd ? '#42818c' : '#cbd5e1', color: 'white',
+                    fontWeight: '700', fontSize: '13px', cursor: canAdd ? 'pointer' : 'not-allowed',
+                    whiteSpace: 'nowrap'
+                };
+
+                const tagStyle = {
+                    display: 'inline-block', padding: '2px 8px', borderRadius: '6px',
+                    fontSize: '11px', fontWeight: '700', background: '#e0f2fe', color: '#0369a1'
                 };
 
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Top fields */}
                         <div style={gridStyle}>
                             <div style={groupStyle}>
                                 <label style={labelStyle}>Grade / Spec</label>
@@ -298,110 +332,142 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             )}
                         </div>
 
-                        {/* Coil Number Entry - Range or Single */}
+                        {/* Coil Entry Panel */}
                         <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Coil Details</h4>
-                                <div style={{ display: 'flex', gap: '16px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#475569' }}>
-                                        <input
-                                            type="radio"
-                                            checked={coilEntryMode === 'range'}
-                                            onChange={() => syncCoilsToRange('range', coilFrom, coilTo, coilSingle)}
-                                        /> Range
+                                <div style={{ display: 'flex', gap: '20px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: inputMode === 'range' ? '#42818c' : '#475569' }}>
+                                        <input type="radio" checked={inputMode === 'range'} onChange={() => setHtsDetail({ _inputMode: 'range', _rangeFrom: '', _rangeTo: '', _singleCoil: '', _lotNo: '', _qty: '' })} />
+                                        Range
                                     </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#475569' }}>
-                                        <input
-                                            type="radio"
-                                            checked={coilEntryMode === 'single'}
-                                            onChange={() => syncCoilsToRange('single', coilFrom, coilTo, coilSingle)}
-                                        /> Single
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: inputMode === 'single' ? '#42818c' : '#475569' }}>
+                                        <input type="radio" checked={inputMode === 'single'} onChange={() => setHtsDetail({ _inputMode: 'single', _rangeFrom: '', _rangeTo: '', _singleCoil: '', _lotNo: '', _qty: '' })} />
+                                        Single
                                     </label>
                                 </div>
                             </div>
 
-                            {/* Coil Number Range / Single inputs */}
-                            <div style={{ display: 'grid', gridTemplateColumns: coilEntryMode === 'range' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                {coilEntryMode === 'range' ? (
-                                    <>
-                                        <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Coil No. From</label>
-                                            <input
-                                                type="number" min="1"
-                                                value={coilFrom}
-                                                onChange={(e) => syncCoilsToRange('range', e.target.value, coilTo, coilSingle)}
-                                                placeholder="Start"
-                                                style={inputStyle}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Coil No. To</label>
-                                            <input
-                                                type="number" min="1"
-                                                value={coilTo}
-                                                onChange={(e) => syncCoilsToRange('range', coilFrom, e.target.value, coilSingle)}
-                                                placeholder="End"
-                                                style={inputStyle}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>No. of Coils</label>
-                                            <input
-                                                type="text" readOnly
-                                                value={generatedCoilNumbers.length || 0}
-                                                style={{ ...inputStyle, background: '#f8fafc', color: '#64748b' }}
-                                            />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Coil Number</label>
-                                        <input
-                                            type="text"
-                                            value={coilSingle}
-                                            onChange={(e) => syncCoilsToRange('single', coilFrom, coilTo, e.target.value)}
-                                            placeholder="e.g. C-42"
-                                            style={inputStyle}
-                                        />
+                            {/* Input row */}
+                            {inputMode === 'range' ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr auto', gap: '10px', alignItems: 'end', marginBottom: '16px' }}>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Coil From</label>
+                                        <input type="number" min="1" value={rangeFrom} onChange={(e) => setHtsDetail({ _rangeFrom: e.target.value })} placeholder="Start" style={inputStyle} />
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Per-coil Lot No. and Quantity */}
-                            {generatedCoilNumbers.length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '8px', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Coil No.</span>
-                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Lot No.</span>
-                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Quantity (Kg)</span>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Coil To</label>
+                                        <input type="number" min="1" value={rangeTo} onChange={(e) => setHtsDetail({ _rangeTo: e.target.value })} placeholder="End" style={inputStyle} />
                                     </div>
-                                    {generatedCoilNumbers.map((coilNo) => {
-                                        const entry = getCoilEntry(coilNo);
-                                        return (
-                                            <div key={coilNo} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '8px', alignItems: 'center' }}>
-                                                <div style={{ padding: '10px', background: '#e0f2fe', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#0369a1' }}>{coilNo}</div>
-                                                <input
-                                                    type="text"
-                                                    value={entry.lotNo}
-                                                    onChange={(e) => handleCoilDetailChange(coilNo, 'lotNo', e.target.value)}
-                                                    placeholder="Lot No."
-                                                    style={{ ...inputStyle, fontSize: '13px' }}
-                                                />
-                                                <input
-                                                    type="number" step="0.001" min="0"
-                                                    value={entry.quantity}
-                                                    onChange={(e) => handleCoilDetailChange(coilNo, 'quantity', e.target.value)}
-                                                    placeholder="Qty in Kg"
-                                                    style={{ ...inputStyle, fontSize: '13px' }}
-                                                />
-                                            </div>
-                                        );
-                                    })}
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Lot No.</label>
+                                        <input type="text" value={entryLotNo} onChange={(e) => setHtsDetail({ _lotNo: e.target.value })} placeholder="Lot No." style={inputStyle} />
+                                    </div>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Total Qty (Kg)</label>
+                                        <input type="number" step="0.001" min="0" value={entryQty} onChange={(e) => setHtsDetail({ _qty: e.target.value })} placeholder="Qty in Kg" style={inputStyle} />
+                                    </div>
+                                    <button type="button" onClick={addCoilEntry} style={btnAddStyle} disabled={!canAdd}>+ Add</button>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.4fr 1.4fr auto', gap: '10px', alignItems: 'end', marginBottom: '16px' }}>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Coil No.</label>
+                                        <input type="text" value={singleCoil} onChange={(e) => setHtsDetail({ _singleCoil: e.target.value })} placeholder="e.g. C-42" style={inputStyle} />
+                                    </div>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Lot No.</label>
+                                        <input type="text" value={entryLotNo} onChange={(e) => setHtsDetail({ _lotNo: e.target.value })} placeholder="Lot No." style={inputStyle} />
+                                    </div>
+                                    <div>
+                                        <label style={{ ...labelStyle, fontSize: '11px' }}>Qty (Kg)</label>
+                                        <input type="number" step="0.001" min="0" value={entryQty} onChange={(e) => setHtsDetail({ _qty: e.target.value })} placeholder="Qty in Kg" style={inputStyle} />
+                                    </div>
+                                    <button type="button" onClick={addCoilEntry} style={btnAddStyle} disabled={!canAdd}>+ Add</button>
                                 </div>
                             )}
-                            {generatedCoilNumbers.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px' }}>
-                                    {coilEntryMode === 'range' ? 'Enter From and To coil numbers above to generate coil list.' : 'Enter a coil number above.'}
+
+                            {/* Added entries list */}
+                            {coilEntries.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                    {/* Header */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '2.5fr 1.5fr 1.5fr 32px',
+                                        gap: '8px',
+                                        padding: '8px 10px',
+                                        background: '#e2e8f0',
+                                        borderRadius: '10px 10px 0 0',
+                                        marginBottom: '2px'
+                                    }}>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>Coil</span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>Lot No.</span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>Qty (Kg)</span>
+                                        <span></span>
+                                    </div>
+                                    {coilEntries.map((entry, idx) => (
+                                        <div key={idx} style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '2.5fr 1.5fr 1.5fr 32px',
+                                            gap: '8px',
+                                            alignItems: 'center',
+                                            padding: '8px 10px',
+                                            background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                            borderBottom: '1px solid #e2e8f0'
+                                        }}>
+                                            {/* Coil label */}
+                                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1' }}>
+                                                {entry.type === 'range' ? (
+                                                    <span>
+                                                        <span style={tagStyle}>C-{entry.coilFrom}</span>
+                                                        <span style={{ color: '#64748b', margin: '0 6px' }}>–</span>
+                                                        <span style={tagStyle}>C-{entry.coilTo}</span>
+                                                        <span style={{ color: '#94a3b8', fontSize: '11px', marginLeft: '8px' }}>({rangeCount(entry)} coils)</span>
+                                                    </span>
+                                                ) : (
+                                                    <span style={tagStyle}>{entry.coilNo}</span>
+                                                )}
+                                            </div>
+                                            {/* Lot No. editable */}
+                                            <input
+                                                type="text"
+                                                value={entry.lotNo}
+                                                onChange={(e) => updateCoilEntry(idx, 'lotNo', e.target.value)}
+                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px' }}
+                                            />
+                                            {/* Qty editable */}
+                                            <input
+                                                type="number" step="0.001" min="0"
+                                                value={entry.qty}
+                                                onChange={(e) => updateCoilEntry(idx, 'qty', e.target.value)}
+                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCoilEntry(idx)}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '18px', cursor: 'pointer', padding: '0', lineHeight: 1 }}
+                                            >×</button>
+                                        </div>
+                                    ))}
+                                    {/* Footer total */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '2.5fr 1.5fr 1.5fr 32px',
+                                        gap: '8px',
+                                        padding: '8px 10px',
+                                        background: '#f0fdfa',
+                                        borderRadius: '0 0 10px 10px',
+                                        borderTop: '2px solid #42818c'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#42818c' }}>Total</span>
+                                        <span></span>
+                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#42818c' }}>{parseFloat(formData.qty || 0).toFixed(3)} Kg</span>
+                                        <span></span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px', background: '#fff', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+                                    No coil entries added yet. Fill the fields above and click <b>+ Add</b>.
                                 </div>
                             )}
                         </div>
@@ -467,11 +533,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             </select>
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>E Way Bill Number</label>
+                            <label style={labelStyle}>Invoice Number</label>
                             <input type="text" value={formData.details.ewayBillNo || ''} onChange={(e) => handleChange(e, 'ewayBillNo', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>E Way Bill Date</label>
+                            <label style={labelStyle}>Invoice Date</label>
                             <input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} />
                         </div>
                         <div style={groupStyle}>

@@ -7,31 +7,27 @@ const STATUSES = {
 };
 
 const BenchMouldMasterSection = ({ profiles = [] }) => {
-    // Generate dynamic tabs based on profiles
+    // Generate dynamic tabs based on profiles — one tab per unique type
+    const seenTypes = new Set();
     const dynamicTabs = [];
-    let shedCount = 0;
-    let lineCount = 0;
 
     profiles.forEach(profile => {
-        const count = parseInt(profile.shedsLines) || 0;
-        for (let i = 0; i < count; i++) {
-            if (profile.type === 'Stress Bench') {
-                shedCount++;
-                dynamicTabs.push({
-                    id: `shed-${shedCount}`,
-                    label: `Stress Bench`,
-                    type: 'conventional',
-                    defaultMoulds: 8
-                });
-            } else if (profile.type === 'Longline') {
-                lineCount++;
-                dynamicTabs.push({
-                    id: `line-${lineCount}`,
-                    label: `Longline`,
-                    type: 'longline',
-                    defaultMoulds: 8
-                });
-            }
+        if (profile.type === 'Stress Bench' && !seenTypes.has('Stress Bench')) {
+            seenTypes.add('Stress Bench');
+            dynamicTabs.push({
+                id: 'shed-1',
+                label: 'Stress Bench',
+                type: 'conventional',
+                defaultMoulds: 8
+            });
+        } else if (profile.type === 'Longline' && !seenTypes.has('Longline')) {
+            seenTypes.add('Longline');
+            dynamicTabs.push({
+                id: 'line-1',
+                label: 'Longline',
+                type: 'longline',
+                defaultMoulds: 8
+            });
         }
     });
 
@@ -380,7 +376,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+                        {/* Row 1: Bench/Line number inputs + No. of Benches/Lines + Sleeper Category */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '20px' }}>
                             {formState.entryMode === 'range' ? (
                                 <>
                                     <div>
@@ -392,7 +389,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                             value={formState.fromNo}
                                             onChange={(e) => setFormState(prev => ({ ...prev, fromNo: e.target.value }))}
                                             placeholder="Enter Start"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                     <div>
@@ -404,23 +401,27 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                             value={formState.toNo}
                                             onChange={(e) => setFormState(prev => ({ ...prev, toNo: e.target.value }))}
                                             placeholder="Enter End"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                 </>
                             ) : (
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                        {isLongLine ? 'Line No.' : 'Bench No.'}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formState.singleNo}
-                                        onChange={(e) => setFormState(prev => ({ ...prev, singleNo: e.target.value }))}
-                                        placeholder="Enter No."
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                                    />
-                                </div>
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                                            {isLongLine ? 'Line No.' : 'Bench No.'}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={formState.singleNo}
+                                            onChange={(e) => setFormState(prev => ({ ...prev, singleNo: e.target.value }))}
+                                            placeholder="Enter No."
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    {/* placeholder to keep grid alignment */}
+                                    <div />
+                                </>
                             )}
 
                             <div>
@@ -431,7 +432,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     type="text"
                                     readOnly
                                     value={formState.numItems}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b' }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', boxSizing: 'border-box' }}
                                 />
                             </div>
 
@@ -446,14 +447,18 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                         padding: '10px',
                                         borderRadius: '8px',
                                         border: '1px solid #cbd5e1',
-                                        background: (isLongLine && currentEntries.length > 0 && !formState.isEditing) ? '#f8fafc' : '#fff'
+                                        background: (isLongLine && currentEntries.length > 0 && !formState.isEditing) ? '#f8fafc' : '#fff',
+                                        boxSizing: 'border-box'
                                     }}
                                 >
                                     <option value="Wider Base">Wider Base</option>
                                     <option value="PnC">PnC</option>
                                 </select>
                             </div>
+                        </div>
 
+                        {/* Row 2: No. of Moulds + PnC fields (RFT, Sleeper Names) + Add to List button */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', alignItems: 'end' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
                                     No. of Moulds {isLongLine ? '(per Line)' : '(per Bench)'}
@@ -462,7 +467,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     <select
                                         value={formState.numMouldsPerItem}
                                         onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                     >
                                         <option value="">Select No. of Moulds</option>
                                         <option value="4">4</option>
@@ -480,32 +485,14 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                             padding: '10px',
                                             borderRadius: '8px',
                                             border: '1px solid #cbd5e1',
-                                            background: (!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC') ? '#f8fafc' : '#fff'
+                                            background: (!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC') ? '#f8fafc' : '#fff',
+                                            boxSizing: 'border-box'
                                         }}
                                     />
                                 )}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                <button
-                                    onClick={handleSave}
-                                    style={{
-                                        width: '100%',
-                                        background: '#42818c',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '11px 24px',
-                                        borderRadius: '8px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        transition: 'opacity 0.2s'
-                                    }}
-                                >
-                                    {formState.isEditing ? 'Update Entry' : 'Add to List'}
-                                </button>
-                            </div>
-
-                            {formState.sleeperCategory === 'PnC' && (
+                            {formState.sleeperCategory === 'PnC' ? (
                                 <>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
@@ -514,15 +501,15 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                             value={formState.rft}
                                             onChange={(e) => setFormState(prev => ({ ...prev, rft: e.target.value }))}
                                             placeholder="Enter RFT"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                         />
                                     </div>
-                                    <div style={{ gridColumn: 'span 2', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '12px' }}>Sleeper Names</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                                    <div style={{ gridColumn: 'span 1', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Sleeper Names</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
                                             {Array.from({ length: parseInt(formState.numMouldsPerItem) || 0 }).map((_, idx) => (
                                                 <div key={idx}>
-                                                    <label style={{ fontSize: '10px', color: '#64748b', display: 'block', marginBottom: '4px' }}>Mould {idx + 1}</label>
+                                                    <label style={{ fontSize: '10px', color: '#64748b', display: 'block', marginBottom: '2px' }}>Mould {idx + 1}</label>
                                                     <input
                                                         type="text"
                                                         value={formState.sleeperNames[idx] || ''}
@@ -532,11 +519,53 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                                             setFormState(prev => ({ ...prev, sleeperNames: newNames }));
                                                         }}
                                                         placeholder="Name"
-                                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
                                                     />
                                                 </div>
                                             ))}
                                         </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                        <button
+                                            onClick={handleSave}
+                                            style={{
+                                                width: '100%',
+                                                background: '#42818c',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '11px 24px',
+                                                borderRadius: '8px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                        >
+                                            {formState.isEditing ? 'Update Entry' : 'Add to List'}
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* spacer columns */}
+                                    <div />
+                                    <div />
+                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                        <button
+                                            onClick={handleSave}
+                                            style={{
+                                                width: '100%',
+                                                background: '#42818c',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '11px 24px',
+                                                borderRadius: '8px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                        >
+                                            {formState.isEditing ? 'Update Entry' : 'Add to List'}
+                                        </button>
                                     </div>
                                 </>
                             )}

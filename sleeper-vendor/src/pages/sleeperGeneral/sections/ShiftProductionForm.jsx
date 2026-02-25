@@ -66,6 +66,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
     };
 
+    const isGroupPnC = (group) => {
+        return group.sleeperType && group.sleeperType.toLowerCase().includes('pnc');
+    };
+
     const isBenchDuplicate = (benchNo, currentChamberId, currentGroupId, currentBenchIdx) => {
         if (!benchNo) return false;
         let count = 0;
@@ -111,6 +115,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
             mouldsPerBench: formHeader.shedType === 'Single' ? 4 : 8,
             sleeperType: ''
         });
+        setChambers(newChambers);
+    };
+
+    const removeBenchGroup = (cIdx, gIdx) => {
+        const newChambers = [...chambers];
+        if (newChambers[cIdx].benchGroups.length <= 1) return;
+        newChambers[cIdx].benchGroups.splice(gIdx, 1);
         setChambers(newChambers);
     };
 
@@ -411,121 +422,166 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                             </h4>
                                         </div>
 
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                                            <thead>
-                                                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches Cast</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '200px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '120px' }}>Mould per Bench</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Total RFT</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {chamber.benchGroups.map((group, gIdx) => (
-                                                    <tr key={group.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                                {group.benches.map((bench, bIdx) => {
-                                                                    const isDuplicate = isBenchDuplicate(bench, chamber.id, group.id, bIdx);
-                                                                    const isMixedError = group.error === 'Mixed sleeper types in same group';
-                                                                    return (
-                                                                        <div key={bIdx} style={{ position: 'relative' }}>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={bench}
-                                                                                onChange={(e) => updateBenchInGroup(cIdx, gIdx, bIdx, e.target.value)}
-                                                                                style={{
-                                                                                    ...inputStyle,
-                                                                                    width: '70px',
-                                                                                    padding: '10px',
-                                                                                    borderColor: (isDuplicate || isMixedError) ? '#ef4444' : '#cbd5e1',
-                                                                                    backgroundColor: (isDuplicate || isMixedError) ? '#fef2f2' : 'white'
-                                                                                }}
-                                                                                placeholder="No."
-                                                                            />
-                                                                            <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={generateSleeperIds(bench, group.mouldsPerBench).join(', ')}>
-                                                                                {generateSleeperIds(bench, group.mouldsPerBench).slice(0, 3).join(',')}{group.mouldsPerBench > 3 ? '...' : ''}
-                                                                            </div>
-                                                                            {isDuplicate && <span style={{ position: 'absolute', bottom: '-14px', left: 0, fontSize: '9px', color: '#ef4444', fontWeight: 'bold' }}>Duplicate</span>}
-                                                                            {group.benches.length > 1 && (
-                                                                                <button
-                                                                                    onClick={() => removeBenchFromGroup(cIdx, gIdx, bIdx)}
-                                                                                    style={{
-                                                                                        position: 'absolute',
-                                                                                        top: '-8px',
-                                                                                        right: '-8px',
-                                                                                        width: '18px',
-                                                                                        height: '18px',
-                                                                                        borderRadius: '50%',
-                                                                                        background: '#ef4444',
-                                                                                        color: 'white',
-                                                                                        border: 'none',
-                                                                                        fontSize: '10px',
-                                                                                        display: 'flex',
-                                                                                        alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        cursor: 'pointer',
-                                                                                        zIndex: 2,
-                                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                                                                                    }}
-                                                                                    title="Remove bench"
-                                                                                >
-                                                                                    ×
-                                                                                </button>
-                                                                            )}
+                                        {(() => {
+                                            const anyGroupIsPnC = chamber.benchGroups.some(g => isGroupPnC(g));
+                                            return (
+                                                <>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches Cast</th>
+                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
+                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '200px' }}>Sleeper Type</th>
+                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '120px' }}>Mould per Bench</th>
+                                                                {anyGroupIsPnC && (
+                                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>RFT (m)</th>
+                                                                )}
+                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '60px' }}>Del</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {chamber.benchGroups.map((group, gIdx) => (
+                                                                <tr key={group.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                                            {group.benches.map((bench, bIdx) => {
+                                                                                const isDuplicate = isBenchDuplicate(bench, chamber.id, group.id, bIdx);
+                                                                                const isMixedError = group.error === 'Mixed sleeper types in same group';
+                                                                                return (
+                                                                                    <div key={bIdx} style={{ position: 'relative' }}>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={bench}
+                                                                                            onChange={(e) => updateBenchInGroup(cIdx, gIdx, bIdx, e.target.value)}
+                                                                                            style={{
+                                                                                                ...inputStyle,
+                                                                                                width: '70px',
+                                                                                                padding: '10px',
+                                                                                                borderColor: (isDuplicate || isMixedError) ? '#ef4444' : '#cbd5e1',
+                                                                                                backgroundColor: (isDuplicate || isMixedError) ? '#fef2f2' : 'white'
+                                                                                            }}
+                                                                                            placeholder="No."
+                                                                                        />
+                                                                                        <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={generateSleeperIds(bench, group.mouldsPerBench).join(', ')}>
+                                                                                            {generateSleeperIds(bench, group.mouldsPerBench).slice(0, 3).join(',')}{group.mouldsPerBench > 3 ? '...' : ''}
+                                                                                        </div>
+                                                                                        {isDuplicate && <span style={{ position: 'absolute', bottom: '-14px', left: 0, fontSize: '9px', color: '#ef4444', fontWeight: 'bold' }}>Duplicate</span>}
+                                                                                        {group.benches.length > 1 && (
+                                                                                            <button
+                                                                                                onClick={() => removeBenchFromGroup(cIdx, gIdx, bIdx)}
+                                                                                                style={{
+                                                                                                    position: 'absolute',
+                                                                                                    top: '-8px',
+                                                                                                    right: '-8px',
+                                                                                                    width: '18px',
+                                                                                                    height: '18px',
+                                                                                                    borderRadius: '50%',
+                                                                                                    background: '#ef4444',
+                                                                                                    color: 'white',
+                                                                                                    border: 'none',
+                                                                                                    fontSize: '10px',
+                                                                                                    display: 'flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    justifyContent: 'center',
+                                                                                                    cursor: 'pointer',
+                                                                                                    zIndex: 2,
+                                                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                                                                }}
+                                                                                                title="Remove bench"
+                                                                                            >
+                                                                                                ×
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                            <button onClick={() => addBenchToGroup(cIdx, gIdx)} style={{ width: '42px', height: '42px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'white', cursor: 'pointer', fontSize: '20px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                                                                         </div>
-                                                                    );
-                                                                })}
-                                                                <button onClick={() => addBenchToGroup(cIdx, gIdx)} style={{ width: '42px', height: '42px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'white', cursor: 'pointer', fontSize: '20px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'top' }}>
-                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
-                                                                {group.benches.filter(b => b.trim()).length}
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                            <div style={{
-                                                                ...inputStyle,
-                                                                background: group.error ? '#fef2f2' : '#f1f5f9',
-                                                                color: group.error ? '#ef4444' : '#1e293b',
-                                                                fontSize: '13px',
-                                                                fontWeight: '600',
-                                                                minHeight: '42px',
-                                                                display: 'flex',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                {group.sleeperType || 'Identify...'}
-                                                            </div>
-                                                            {group.error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>{group.error}</div>}
-                                                        </td>
-                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={group.mouldsPerBench}
-                                                                onChange={(e) => updateMouldsInGroup(cIdx, gIdx, e.target.value)}
-                                                                style={{ ...inputStyle, textAlign: 'center', background: 'white', minHeight: '42px' }}
-                                                            />
-                                                        </td>
-                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
-                                                                {group.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).rft, 0)}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        <div style={{ marginTop: '16px', borderTop: '1px dashed #e2e8f0', paddingTop: '12px' }}>
-                                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Sleeper Numbers in Chamber:</div>
-                                            <div style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.4' }}>
-                                                {chamber.benchGroups.flatMap(g => 
-                                                    g.benches.flatMap(b => generateSleeperIds(b, g.mouldsPerBench))
-                                                ).filter(Boolean).join(', ')}
-                                            </div>
-                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'top' }}>
+                                                                        <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
+                                                                            {group.benches.filter(b => b.trim()).length}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                                                                        <div style={{
+                                                                            ...inputStyle,
+                                                                            background: group.error ? '#fef2f2' : '#f1f5f9',
+                                                                            color: group.error ? '#ef4444' : '#1e293b',
+                                                                            fontSize: '13px',
+                                                                            fontWeight: '600',
+                                                                            minHeight: '42px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center'
+                                                                        }}>
+                                                                            {group.sleeperType || 'Identify...'}
+                                                                        </div>
+                                                                        {group.error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>{group.error}</div>}
+                                                                    </td>
+                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={group.mouldsPerBench}
+                                                                            onChange={(e) => updateMouldsInGroup(cIdx, gIdx, e.target.value)}
+                                                                            style={{ ...inputStyle, textAlign: 'center', background: 'white', minHeight: '42px' }}
+                                                                        />
+                                                                    </td>
+                                                                    {isGroupPnC(group) && (
+                                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
+                                                                                {group.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).rft, 0)}
+                                                                            </div>
+                                                                        </td>
+                                                                    )}
+                                                                    <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                                        {chamber.benchGroups.length > 1 && (
+                                                                            <button
+                                                                                onClick={() => removeBenchGroup(cIdx, gIdx)}
+                                                                                title="Delete this bench group"
+                                                                                style={{
+                                                                                    width: '34px',
+                                                                                    height: '34px',
+                                                                                    borderRadius: '8px',
+                                                                                    border: '1px solid #fecaca',
+                                                                                    background: '#fff5f5',
+                                                                                    color: '#ef4444',
+                                                                                    cursor: 'pointer',
+                                                                                    display: 'inline-flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    fontSize: '15px',
+                                                                                    lineHeight: 1,
+                                                                                    fontWeight: '700'
+                                                                                }}
+                                                                                onMouseEnter={e => {
+                                                                                    e.currentTarget.style.background = '#fee2e2';
+                                                                                    e.currentTarget.style.borderColor = '#ef4444';
+                                                                                }}
+                                                                                onMouseLeave={e => {
+                                                                                    e.currentTarget.style.background = '#fff5f5';
+                                                                                    e.currentTarget.style.borderColor = '#fecaca';
+                                                                                }}
+                                                                            >
+                                                                                🗑
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                    <div style={{ marginTop: '16px', borderTop: '1px dashed #e2e8f0', paddingTop: '12px' }}>
+                                                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Sleeper Numbers in Chamber:</div>
+                                                        <div style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.4' }}>
+                                                            {chamber.benchGroups.flatMap(g =>
+                                                                g.benches.flatMap(b => generateSleeperIds(b, g.mouldsPerBench))
+                                                            ).filter(Boolean).join(', ')}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 ))}
                             </div>

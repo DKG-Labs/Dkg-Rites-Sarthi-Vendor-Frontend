@@ -117,7 +117,7 @@ const InventoryDetail = ({ material, onBack }) => {
                 ];
             case 'admixture':
                 return [
-                    'Date of Receipt', 'Manufacturer', 'E Way Bill Number', 'E Way Bill Date', 'Total Quantity (Kg)'
+                    'Date of Receipt', 'Manufacturer', 'Invoice Number', 'Invoice Date', 'Total Quantity (Kg)'
                 ];
             default:
                 return ['Date of Receipt', 'Inventory ID', 'Grade / Spec', 'Manufacturer Name', 'Quantity'];
@@ -142,7 +142,22 @@ const InventoryDetail = ({ material, onBack }) => {
                         </td>
                     </>
                 );
-            case 'hts-wire':
+            case 'hts-wire': {
+                // Build coil summary from new coilEntries structure
+                const coilEntries = entry.details.coilEntries;
+                let coilSummary = '-';
+                if (coilEntries && coilEntries.length > 0) {
+                    coilSummary = coilEntries.map(e =>
+                        e.type === 'range'
+                            ? `C-${e.coilFrom} – C-${e.coilTo}`
+                            : (e.coilNo || e.coilNumber || '-')
+                    ).join(', ');
+                } else if (entry.details.coils && entry.details.coils.length > 0) {
+                    // backward compat with old structure
+                    coilSummary = entry.details.coils.map(c => c.coilNumber).join(', ');
+                } else if (entry.details.serialNumbers) {
+                    coilSummary = entry.details.serialNumbers;
+                }
                 return (
                     <>
                         <td style={tdStyle}>{entry.date}</td>
@@ -150,11 +165,12 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.details.manufacturer || '-'}</td>
                         <td style={tdStyle}>{entry.details.invoiceNo || entry.details.ewayBillNo || '-'}</td>
                         <td style={boldStyle}>{entry.qty} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
-                        <td style={tdStyle}>
-                            {entry.details.coils?.map(c => c.coilNumber).join(', ') || entry.details.serialNumbers || '-'}
+                        <td style={{ ...tdStyle, maxWidth: '220px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                            {coilSummary}
                         </td>
                     </>
                 );
+            }
             case 'aggregates':
                 return (
                     <>
