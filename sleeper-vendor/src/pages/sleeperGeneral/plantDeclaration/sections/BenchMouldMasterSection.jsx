@@ -457,8 +457,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             </div>
                         </div>
 
-                        {/* Row 2: No. of Moulds + PnC fields (RFT, Sleeper Names) + Add to List button */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', alignItems: 'end' }}>
+                        {/* Row 2: Basic Properties */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: formState.sleeperCategory === 'PnC' ? '24px' : '0' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
                                     No. of Moulds {isLongLine ? '(per Line)' : '(per Bench)'}
@@ -492,84 +492,136 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                 )}
                             </div>
 
-                            {formState.sleeperCategory === 'PnC' ? (
-                                <>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
-                                        <input
-                                            type="number"
-                                            value={formState.rft}
-                                            onChange={(e) => setFormState(prev => ({ ...prev, rft: e.target.value }))}
-                                            placeholder="Enter RFT"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: 'span 1', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Sleeper Names</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
-                                            {Array.from({ length: parseInt(formState.numMouldsPerItem) || 0 }).map((_, idx) => (
-                                                <div key={idx}>
-                                                    <label style={{ fontSize: '10px', color: '#64748b', display: 'block', marginBottom: '2px' }}>Mould {idx + 1}</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formState.sleeperNames[idx] || ''}
-                                                        onChange={(e) => {
-                                                            const newNames = [...formState.sleeperNames];
-                                                            newNames[idx] = e.target.value;
-                                                            setFormState(prev => ({ ...prev, sleeperNames: newNames }));
-                                                        }}
-                                                        placeholder="Name"
-                                                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button
-                                            onClick={handleSave}
-                                            style={{
-                                                width: '100%',
-                                                background: '#42818c',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '11px 24px',
-                                                borderRadius: '8px',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                transition: 'opacity 0.2s'
-                                            }}
-                                        >
-                                            {formState.isEditing ? 'Update Entry' : 'Add to List'}
-                                        </button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    {/* spacer columns */}
-                                    <div />
-                                    <div />
-                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button
-                                            onClick={handleSave}
-                                            style={{
-                                                width: '100%',
-                                                background: '#42818c',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '11px 24px',
-                                                borderRadius: '8px',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                transition: 'opacity 0.2s'
-                                            }}
-                                        >
-                                            {formState.isEditing ? 'Update Entry' : 'Add to List'}
-                                        </button>
-                                    </div>
-                                </>
+                            {formState.sleeperCategory === 'PnC' && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
+                                    <input
+                                        type="number"
+                                        value={formState.rft}
+                                        onChange={(e) => setFormState(prev => ({ ...prev, rft: e.target.value }))}
+                                        placeholder="Enter RFT"
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Spacer columns */}
+                            <div />
+
+                            {formState.sleeperCategory !== 'PnC' && (
+                                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                    <button
+                                        onClick={handleSave}
+                                        style={{
+                                            width: '100%',
+                                            background: '#42818c',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '11px 24px',
+                                            borderRadius: '8px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                    >
+                                        {formState.isEditing ? 'Update Entry' : 'Add to List'}
+                                    </button>
+                                </div>
                             )}
                         </div>
+
+                        {/* Row 3: PnC Sleeper Names Grid */}
+                        {formState.sleeperCategory === 'PnC' && (
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '20px',
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                marginBottom: '24px'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                    <h5 style={{ margin: 0, color: '#475569', fontSize: '13px', fontWeight: '700' }}>Sleeper Names Configuration</h5>
+                                    <span style={{ fontSize: '11px', color: '#64748b', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                        Total Moulds: {formState.numMouldsPerItem || 0}
+                                    </span>
+                                </div>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                                    gap: '12px',
+                                    maxHeight: '260px',
+                                    overflowY: 'auto',
+                                    padding: '4px'
+                                }}>
+                                    {Array.from({ length: parseInt(formState.numMouldsPerItem) || 0 }).map((_, idx) => (
+                                        <div key={idx} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: '#fff',
+                                            padding: '6px 10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #cbd5e1',
+                                            transition: 'border-color 0.2s'
+                                        }}>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                color: '#42818c',
+                                                minWidth: '20px'
+                                            }}>{idx + 1}.</span>
+                                            <input
+                                                type="text"
+                                                value={formState.sleeperNames[idx] || ''}
+                                                onChange={(e) => {
+                                                    const newNames = [...formState.sleeperNames];
+                                                    newNames[idx] = e.target.value;
+                                                    setFormState(prev => ({ ...prev, sleeperNames: newNames }));
+                                                }}
+                                                placeholder="Sleeper Name"
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '6px 0',
+                                                    border: 'none',
+                                                    fontSize: '12px',
+                                                    outline: 'none',
+                                                    color: '#1e293b',
+                                                    background: 'transparent'
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                    {(!formState.numMouldsPerItem || parseInt(formState.numMouldsPerItem) <= 0) && (
+                                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>
+                                            Enter Number of Moulds to configure sleeper names.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Row 4: PnC Action Button */}
+                        {formState.sleeperCategory === 'PnC' && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={handleSave}
+                                    style={{
+                                        background: '#42818c',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '11px 32px',
+                                        borderRadius: '8px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        boxShadow: '0 2px 4px rgba(66, 129, 140, 0.2)'
+                                    }}
+                                >
+                                    {formState.isEditing ? 'Update Entry' : 'Add to List'}
+                                </button>
+                            </div>
+                        )}
+
                     </div>
 
                     {/* Entry List */}

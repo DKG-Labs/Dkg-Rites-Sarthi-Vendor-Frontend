@@ -101,7 +101,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         }]);
     };
 
+    const removeChamber = (index) => {
+        const newChambers = [...chambers];
+        if (newChambers.length <= 1) return;
+        newChambers.splice(index, 1);
+        setChambers(newChambers);
+    };
+
     const updateChamberNo = (index, value) => {
+        const val = parseInt(value);
+        if (!isNaN(val) && val < 0) return;
         const newChambers = [...chambers];
         newChambers[index].chamberNo = value;
         setChambers(newChambers);
@@ -408,11 +417,34 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
                                             <div style={{ width: '200px' }}>
                                                 <label style={labelStyle}>Chamber No.</label>
-                                                <input type="number" value={chamber.chamberNo} onChange={(e) => updateChamberNo(cIdx, e.target.value)} style={{ ...inputStyle, background: 'white' }} placeholder="e.g. 1" />
+                                                <input type="number" min="0" value={chamber.chamberNo} onChange={(e) => updateChamberNo(cIdx, e.target.value)} style={{ ...inputStyle, background: 'white' }} placeholder="e.g. 1" />
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Manage Benches</div>
-                                                <button onClick={() => addBenchGroup(cIdx)} style={{ background: '#42818c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>+ Add Bench Group</button>
+                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Manage Chamber / Benches</div>
+                                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                                    {chambers.length > 1 && (
+                                                        <button
+                                                            onClick={() => removeChamber(cIdx)}
+                                                            title="Delete this chamber"
+                                                            style={{
+                                                                background: '#fff5f5',
+                                                                color: '#ef4444',
+                                                                border: '1px solid #fecaca',
+                                                                padding: '8px 16px',
+                                                                borderRadius: '8px',
+                                                                fontSize: '12px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}
+                                                        >
+                                                            🗑 Delete Chamber
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => addBenchGroup(cIdx)} style={{ background: '#42818c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>+ Add Bench Group</button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div style={{ marginBottom: '16px' }}>

@@ -4,7 +4,7 @@ const RawMaterialSourceSection = () => {
     const materialTypes = [
         'Cement', 'HTS Wire', 'Dowel', 'SGCI Insert',
         'Aggregates - CA1', 'Aggregates - CA2', 'Aggregates - FA',
-        'Admixtures', 'Water Source'
+        'Admixtures'
     ];
 
     const [entries, setEntries] = useState([

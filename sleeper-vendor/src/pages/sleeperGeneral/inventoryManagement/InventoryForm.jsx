@@ -428,19 +428,19 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                                                     <span style={tagStyle}>{entry.coilNo}</span>
                                                 )}
                                             </div>
-                                            {/* Lot No. editable */}
+                                            {/* Lot No. read-only */}
                                             <input
                                                 type="text"
                                                 value={entry.lotNo}
-                                                onChange={(e) => updateCoilEntry(idx, 'lotNo', e.target.value)}
-                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px' }}
+                                                readOnly
+                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px', background: '#f8fafc' }}
                                             />
-                                            {/* Qty editable */}
+                                            {/* Qty read-only */}
                                             <input
                                                 type="number" step="0.001" min="0"
                                                 value={entry.qty}
-                                                onChange={(e) => updateCoilEntry(idx, 'qty', e.target.value)}
-                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px' }}
+                                                readOnly
+                                                style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px', background: '#f8fafc' }}
                                             />
                                             <button
                                                 type="button"
