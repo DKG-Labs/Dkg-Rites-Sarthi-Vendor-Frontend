@@ -1,13 +1,124 @@
 import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../services/api';
 
 const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
+    const formatDateForBackend = (dateStr) => {
+        if (!dateStr) return null;
+        // Handle yyyy-MM-dd from input
+        if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts[0].length === 4) {
+                const [year, month, day] = parts;
+                return `${day}/${month}/${year}`;
+            }
+            // Handle dd-MM-yyyy
+            const [day, month, year] = parts;
+            return `${day}/${month}/${year}`;
+        }
+        // If already has slashes, ensure it's dd/MM/yyyy
+        return dateStr.replace(/-/g, '/');
+    };
+
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return '';
+        if (dateStr.includes('-') && dateStr.split('-')[0].length === 4) return dateStr;
+
+        // Handle dd/MM/yyyy or dd-MM-yyyy
+        const separator = dateStr.includes('/') ? '/' : '-';
+        const parts = dateStr.split(separator);
+        if (parts.length === 3) {
+            const [day, month, year] = parts;
+            // Check if it's dd-MM-yyyy or dd/MM/yyyy
+            if (day.length === 2 && year.length === 4) {
+                return `${year}-${month}-${day}`;
+            }
+        }
+        return dateStr;
+    };
+
     const [formData, setFormData] = useState(() => {
         if (initialData) {
-            return {
-                date: initialData.date,
-                qty: initialData.qty,
-                details: initialData.details || {}
+            const base = {
+                date: formatDateForInput(initialData.dateOfReceipt || initialData.date),
+                qty: initialData.totalQtyReceived || initialData.totalQuantity || initialData.qty,
+                details: { ...initialData.details }
             };
+
+            // Map backend fields back to form details context
+            if (material.id === 'hts-wire') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec || base.details.grade,
+                    manufacturer: initialData.manufacturer || base.details.manufacturer,
+                    invoiceNo: initialData.invoiceNumber || base.details.invoiceNo,
+                    invoiceDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber || base.details.icNo,
+                    icDate: formatDateForInput(initialData.ritesIcDate),
+                    relaxationTest: initialData.relaxationTest === 'Yes' ? 'Y' : (initialData.relaxationTest === 'No' ? 'N' : base.details.relaxationTest),
+                    relaxationDate: formatDateForInput(initialData.relaxationTestDate),
+                    coilEntries: initialData.coilDetails?.map(c => ({
+                        type: c.entryType?.toLowerCase(),
+                        coilFrom: c.coilFrom,
+                        coilTo: c.coilTo,
+                        coilNo: c.coilNo,
+                        lotNo: c.lotNo,
+                        qty: c.qtyKg
+                    })) || base.details.coilEntries || []
+                };
+            } else if (material.id === 'cement') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec || base.details.grade,
+                    manufacturer: initialData.manufacturer || base.details.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber || base.details.ewayBillNo,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    batches: initialData.batchDetails?.map(b => ({
+                        week: b.weekNo,
+                        year: b.yearNo,
+                        mtcNo: b.mtcNo,
+                        quantity: b.quantityKg
+                    })) || base.details.batches || []
+                };
+            } else if (material.id === 'dowel') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeType || base.details.grade,
+                    manufacturer: initialData.manufacturer || base.details.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber || base.details.ewayBillNo,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber || base.details.icNo,
+                    icDate: formatDateForInput(initialData.ritesIcDate)
+                };
+            } else if (material.id === 'aggregates') {
+                base.details = {
+                    ...base.details,
+                    type: initialData.gradeSpec || base.details.type,
+                    source: initialData.source || base.details.source,
+                    challanNo: initialData.challanNumber || base.details.challanNo,
+                    challanDate: formatDateForInput(initialData.challanDate)
+                };
+            } else if (material.id === 'admixture') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec || base.details.grade,
+                    manufacturer: initialData.manufacturer || base.details.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber || base.details.ewayBillNo,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    lotNo: initialData.lotNo || base.details.lotNo,
+                    mtcNo: initialData.mtcNo || base.details.mtcNo
+                };
+            } else if (material.id === 'sgci-insert') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeType || base.details.grade,
+                    manufacturer: initialData.manufacturer || base.details.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber || base.details.ewayBillNo,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber || base.details.icNo,
+                    icDate: formatDateForInput(initialData.ritesIcDate)
+                };
+            }
+            return base;
         }
 
         const base = {
@@ -90,13 +201,88 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
 
     useEffect(() => {
         if (initialData) {
-            setFormData({
-                date: initialData.date,
-                qty: initialData.qty,
-                details: initialData.details || {}
-            });
+            const base = {
+                date: formatDateForInput(initialData.dateOfReceipt || initialData.date),
+                qty: initialData.totalQtyReceived || initialData.totalQuantity || initialData.qty,
+                details: { ...initialData.details }
+            };
+
+            if (material.id === 'hts-wire') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec,
+                    manufacturer: initialData.manufacturer,
+                    invoiceNo: initialData.invoiceNumber,
+                    invoiceDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber,
+                    icDate: formatDateForInput(initialData.ritesIcDate),
+                    relaxationTest: initialData.relaxationTest === 'Yes' ? 'Y' : 'N',
+                    relaxationDate: formatDateForInput(initialData.relaxationTestDate),
+                    coilEntries: initialData.coilDetails?.map(c => ({
+                        type: c.entryType?.toLowerCase(),
+                        coilFrom: c.coilFrom,
+                        coilTo: c.coilTo,
+                        coilNo: c.coilNo,
+                        lotNo: c.lotNo,
+                        qty: c.qtyKg
+                    })) || []
+                };
+            } else if (material.id === 'cement') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec,
+                    manufacturer: initialData.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    batches: initialData.batchDetails?.map(b => ({
+                        week: b.weekNo,
+                        year: b.yearNo,
+                        mtcNo: b.mtcNo,
+                        quantity: b.quantityKg
+                    })) || []
+                };
+            } else if (material.id === 'dowel') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeType,
+                    manufacturer: initialData.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber,
+                    icDate: formatDateForInput(initialData.ritesIcDate)
+                };
+            } else if (material.id === 'aggregates') {
+                base.details = {
+                    ...base.details,
+                    type: initialData.gradeSpec,
+                    source: initialData.source,
+                    challanNo: initialData.challanNumber,
+                    challanDate: formatDateForInput(initialData.challanDate)
+                };
+            } else if (material.id === 'admixture') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeSpec,
+                    manufacturer: initialData.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    lotNo: initialData.lotNo,
+                    mtcNo: initialData.mtcNo
+                };
+            } else if (material.id === 'sgci-insert') {
+                base.details = {
+                    ...base.details,
+                    grade: initialData.gradeType,
+                    manufacturer: initialData.manufacturer,
+                    ewayBillNo: initialData.invoiceNumber,
+                    ewayDate: formatDateForInput(initialData.invoiceDate),
+                    icNo: initialData.ritesIcNumber,
+                    icDate: formatDateForInput(initialData.ritesIcDate)
+                };
+            }
+            setFormData(base);
         }
-    }, [initialData]);
+    }, [initialData, material.id]);
 
     const handleChange = (e, field, isDetail = false) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -124,16 +310,130 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const finalDetails = { ...formData.details };
 
-        onSubmit({
-            id: initialData?.id || `INV-${material.id.toUpperCase().substring(0, 3)}-${Math.floor(Math.random() * 10000)}`,
-            status: initialData?.status || 'Unverified',
-            ...formData,
-            details: finalDetails
-        });
+        try {
+            if (material.id === 'hts-wire') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    gradeSpec: finalDetails.grade,
+                    manufacturer: finalDetails.manufacturer,
+                    invoiceNumber: finalDetails.invoiceNo,
+                    invoiceDate: formatDateForBackend(finalDetails.invoiceDate),
+                    ritesIcNumber: finalDetails.icNo,
+                    ritesIcDate: formatDateForBackend(finalDetails.icDate),
+                    relaxationTest: finalDetails.relaxationTest === 'Y' ? 'Yes' : 'No',
+                    relaxationTestDate: formatDateForBackend(finalDetails.relaxationDate),
+                    createdBy: 1, // Example user ID
+                    updatedBy: 1,
+                    coilDetails: finalDetails.coilEntries?.map(c => ({
+                        coilFrom: c.coilFrom || null,
+                        coilTo: c.coilTo || null,
+                        coilNo: c.coilNo || null,
+                        lotNo: c.lotNo,
+                        qtyKg: parseFloat(c.qty),
+                        entryType: c.type?.toUpperCase() || 'SINGLE'
+                    })) || []
+                };
+                await apiService.saveHtsWire(payload);
+            } else if (material.id === 'cement') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    gradeSpec: finalDetails.grade,
+                    manufacturer: finalDetails.manufacturer,
+                    invoiceNumber: finalDetails.ewayBillNo,
+                    invoiceDate: formatDateForBackend(finalDetails.ewayDate),
+                    createdBy: 1,
+                    updatedBy: 1,
+                    batchDetails: finalDetails.batches?.map(b => ({
+                        weekNo: parseInt(b.week),
+                        yearNo: parseInt(b.year),
+                        mtcNo: b.mtcNo,
+                        quantityKg: parseFloat(b.quantity)
+                    })) || []
+                };
+                await apiService.saveCement(payload);
+            } else if (material.id === 'dowel') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    gradeType: finalDetails.grade,
+                    manufacturer: finalDetails.manufacturer,
+                    invoiceNumber: finalDetails.ewayBillNo,
+                    invoiceDate: formatDateForBackend(finalDetails.ewayDate),
+                    ritesIcNumber: finalDetails.icNo,
+                    ritesIcDate: formatDateForBackend(finalDetails.icDate),
+                    totalQtyReceived: parseInt(formData.qty),
+                    createdBy: 1,
+                    updatedBy: 1
+                };
+                await apiService.saveDowel(payload);
+            } else if (material.id === 'aggregates') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    gradeSpec: finalDetails.type,
+                    source: finalDetails.source,
+                    challanNumber: finalDetails.challanNo,
+                    challanDate: formatDateForBackend(finalDetails.challanDate),
+                    totalQtyReceived: parseFloat(formData.qty),
+                    createdBy: 1,
+                    updatedBy: 1
+                };
+                await apiService.saveAggregate(payload);
+            } else if (material.id === 'admixture') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    manufacturer: finalDetails.manufacturer,
+                    gradeSpec: finalDetails.grade,
+                    invoiceNumber: finalDetails.ewayBillNo,
+                    invoiceDate: formatDateForBackend(finalDetails.ewayDate),
+                    lotNo: finalDetails.lotNo,
+                    mtcNo: finalDetails.mtcNo,
+                    totalQuantity: parseFloat(formData.qty),
+                    createdBy: 1,
+                    updatedBy: 1
+                };
+                await apiService.saveAdmixture(payload);
+            } else if (material.id === 'sgci-insert') {
+                const payload = {
+                    id: initialData?.id,
+                    dateOfReceipt: formatDateForBackend(formData.date),
+                    gradeType: finalDetails.grade,
+                    manufacturer: finalDetails.manufacturer,
+                    invoiceNumber: finalDetails.ewayBillNo,
+                    invoiceDate: formatDateForBackend(finalDetails.ewayDate),
+                    ritesIcNumber: finalDetails.icNo,
+                    ritesIcDate: formatDateForBackend(finalDetails.icDate),
+                    totalQtyReceived: parseInt(formData.qty),
+                    createdBy: 1,
+                    updatedBy: 1
+                };
+                await apiService.saveSgciInsert(payload);
+            } else {
+                // Mock behavior for others
+                onSubmit({
+                    id: initialData?.id || `INV-${material.id.toUpperCase().substring(0, 3)}-${Math.floor(Math.random() * 10000)}`,
+                    status: initialData?.status || 'Unverified',
+                    ...formData,
+                    details: {
+                        ...finalDetails,
+                        ewayDate: formatDateForBackend(finalDetails.ewayDate),
+                        icDate: formatDateForBackend(finalDetails.icDate),
+                        challanDate: formatDateForBackend(finalDetails.challanDate)
+                    }
+                });
+                return;
+            }
+            onSubmit(); // Trigger refresh in parent
+        } catch (error) {
+            alert('Error saving inventory: ' + error.message);
+        }
     };
 
     const inputStyle = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' };
