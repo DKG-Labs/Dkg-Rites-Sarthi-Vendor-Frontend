@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { loginUser, storeAuthData, isAuthenticated } from '../services/authService';
 import './LoginPage.css';
 
+// Import Assets
+import logoSarthi from '../assets/login/logo-sarthi.png';
+import slide1 from '../assets/login/slide1.jpeg';
+import slide2 from '../assets/login/slide2.jpeg';
 
+/**
+ * Redesigned LoginPage for SARTHI Vendor Frontend
+ */
 const LoginPage = () => {
+  // Original Logic States
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [loginType] = useState('Vendor');
@@ -11,12 +19,63 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Redesign Specific States
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [pointerRatio, setPointerRatio] = useState({ x: 0, y: 0 });
+  const [scrollY, setScrollY] = useState(0);
+
+  const heroRef = useRef(null);
+
+  const slides = [
+    {
+      kicker: 'Automated QA Platform',
+      title: 'Build quality at source.',
+      highlight: 'Deliver safety on track.',
+      description: 'Smart checks from material approval to final dispatch with complete digital traceability.',
+      image: slide2
+    },
+    {
+      kicker: 'Inspection Intelligence',
+      title: 'Catch issues early',
+      highlight: 'with real-time inspection.',
+      description: 'Drive compliance decisions faster with live alerts, clear records, and accountable workflows.',
+      image: slide1
+    }
+  ];
+
+  // Slider Autoplay
+  useEffect(() => {
+    if (isInteracting) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, [isInteracting, slides.length]);
+
+  // Header Scroll Effect
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // If already logged in, reload app to show Vendor Dashboard
+  // This must be after ALL hooks to avoid conditional hook errors
   if (isAuthenticated()) {
     window.location.reload();
     return null;
   }
 
+  const handlePointerMove = (e) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setPointerRatio({ x: Math.max(-0.5, Math.min(0.5, x)), y: Math.max(-0.5, Math.min(0.5, y)) });
+  };
+
+  // Original Submit Logic
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -48,79 +107,126 @@ const LoginPage = () => {
     }
   };
 
+  const parallaxX = pointerRatio.x * 16;
+  const parallaxY = (pointerRatio.y * 12) + Math.max(-16, Math.min(22, -scrollY * 0.08));
+
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <div className="login-card">
-          <div className="login-header">
-            <div className="login-logo">SARTHI</div>
-            <h1 className="login-title">Sign In</h1>
-            <p className="login-subtitle">
-              Access your inspection dashboard
-            </p>
-          </div>
-
-          <form className="login-form" onSubmit={handleSubmit}>
-            {error && (
-              <div className="login-error">
-                <span className="login-error-icon">⚠️</span>
-                {error}
-              </div>
-            )}
-
-            <div className="login-form-group">
-              <label className="login-label">
-                User ID <span className="login-required">*</span>
-              </label>
-              <input
-                type="text"
-                className="login-input"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter your User ID / Employee Code"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="login-form-group">
-              <label className="login-label">
-                Password <span className="login-required">*</span>
-              </label>
-              <div className="login-password-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  className="login-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  className="login-password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="login-submit-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-
-          <div className="login-footer">
-            <p className="login-footer-text">
-              © 2025 SARTHI - Inspection Management System
-            </p>
-          </div>
+    <div className="login-redesign-wrapper">
+      <header className={`site-header ${scrollY > 8 ? 'is-compact' : ''}`}>
+        <div className="header-shell">
+          <a className="brand" href="/#">
+            <span className="brand-mark">
+              <img className="brand-rites-logo" src={logoSarthi} alt="SARTHI logo" />
+            </span>
+            <span className="brand-text">
+              <span className="brand-title-row"><span className="brand-title">SARTHI</span></span>
+              <span className="brand-fullform">System for Automated Review Tracking & Holistic Inspection</span>
+            </span>
+          </a>
         </div>
-      </div>
+      </header>
+
+      <main>
+        <section className="hero" ref={heroRef} onPointerMove={handlePointerMove} onPointerLeave={() => setPointerRatio({ x: 0, y: 0 })}>
+          <div className="hero-slider" onMouseEnter={() => setIsInteracting(true)} onMouseLeave={() => setIsInteracting(false)}>
+            {slides.map((slide, index) => (
+              <article key={index} className={`hero-slide ${index === currentSlide ? 'is-active' : ''}`}>
+                <img src={slide.image} alt={slide.title} style={{
+                  '--parallax-x': `${index === currentSlide ? parallaxX : 0}px`,
+                  '--parallax-y': `${index === currentSlide ? parallaxY : 0}px`
+                }} />
+              </article>
+            ))}
+          </div>
+
+          <div className="hero-overlay"></div>
+
+          <div className="hero-content-shell">
+            <div className="hero-grid">
+              <article className="hero-copy-card is-revealed reveal-up">
+                <p className="slide-kicker">{slides[currentSlide].kicker}</p>
+                <h2 className="slide-title">
+                  {slides[currentSlide].title} <span>{slides[currentSlide].highlight}</span>
+                </h2>
+                <p className="slide-description">{slides[currentSlide].description}</p>
+              </article>
+
+              <aside className="dashboard-panel is-revealed reveal-up">
+                <div className="dashboard-login-chip">LOGIN</div>
+                <div className="dashboard-header">
+                  <div className="dashboard-logo-wrap">
+                    <span className="dashboard-logo-glow"></span>
+                    <img className="dashboard-rites-mark" src={logoSarthi} alt="SARTHI logo" />
+                  </div>
+                  <h2>SARTHI</h2>
+                  <p className="dashboard-fullform">System for Automated Review Tracking & Holistic Inspection</p>
+                </div>
+
+                <form className="dashboard-form" onSubmit={handleSubmit}>
+                  {error && (
+                    <div className="login-error-toast">
+                      <span>⚠️ {error}</span>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label>User ID</label>
+                    <div className="input-field-shell">
+                      <span className="input-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.1 0-8 2.1-8 5v1h16v-1c0-2.9-3.9-5-8-5Z" />
+                        </svg>
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Enter your User ID"
+                        value={userId}
+                        onChange={(e) => setUserId(e.target.value)}
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Password</label>
+                    <div className="input-field-shell">
+                      <span className="input-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                          <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4Zm2 10.75A1.75 1.75 0 1 1 13.75 16 1.75 1.75 0 0 1 12 17.75Z" />
+                        </svg>
+                      </span>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
+                        required
+                      />
+                      <button type="button" className="password-toggle-redesign" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-options">
+                    <label className="remember-me">
+                      <input type="checkbox" /> <span>Remember me</span>
+                    </label>
+                    <a href="/#" className="forgot-link">Forgot password?</a>
+                  </div>
+
+                  <button type="submit" className="submit-btn" disabled={isLoading}>
+                    {isLoading ? 'Signing In...' : 'Sign In'}
+                  </button>
+                  <p className="dashboard-footnote">Protected session with active security monitoring</p>
+                </form>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 };
