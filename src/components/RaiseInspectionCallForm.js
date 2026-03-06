@@ -1029,27 +1029,9 @@ export const RaiseInspectionCallForm = ({
     }
   }, [formData.rm_heat_tc_mapping, formData.type_of_call, formData.type_of_erc, calculateErcFromMt]);
 
-  // Real-time validation for Raw Material Total Offered Qty against PO Sr Qty
-  useEffect(() => {
-    if (formData.type_of_call === 'Raw Material') {
-      const currentErcQty = formData.rm_offered_qty_erc || 0;
-      const previouslyInspectedErc = formData.qty_already_inspected_rm || 0;
-      const totalErcQty = currentErcQty + previouslyInspectedErc;
+  // Note: Validation for total quantity against PO Serial Quantity has been removed as per user request.
 
-      if (formData.po_qty > 0 && totalErcQty > formData.po_qty) {
-        setErrors(prev => ({
-          ...prev,
-          rm_total_offered_qty_mt: `Total Offered Quantity (including previous inspections) exceeds PO Serial Quantity (${formData.po_qty} ${formData.po_unit}). Current cumulative total equivalent: ${Math.round(totalErcQty)} ${formData.po_unit}`
-        }));
-      } else {
-        // Clear the error if quantity is now within limits
-        setErrors(prev => {
-          const { rm_total_offered_qty_mt, ...rest } = prev;
-          return rest;
-        });
-      }
-    }
-  }, [formData.rm_offered_qty_erc, formData.qty_already_inspected_rm, formData.po_qty, formData.type_of_call, formData.po_unit]);
+
 
   // Use availableHeatNumbers from props (fetched from /api/vendor/available-heat-numbers/{vendorCode})
   // This endpoint returns only heat numbers with:
@@ -2080,17 +2062,9 @@ export const RaiseInspectionCallForm = ({
         // Validate total offered quantity only if heat data is provided
         if (!formData.rm_total_offered_qty_mt || parseFloat(formData.rm_total_offered_qty_mt) <= 0) {
           newErrors.rm_total_offered_qty_mt = 'Total Offered Quantity (MT) must be greater than 0';
-        } else {
-          // Check if total offered quantity (ERC equivalent) exceeds available PO Serial Quantity
-          // Requirement: Qty should not be more than PO Sr Qty
-          const currentErcQty = formData.rm_offered_qty_erc || 0;
-          const previouslyInspectedErc = formData.qty_already_inspected_rm || 0;
-          const totalErcQty = currentErcQty + previouslyInspectedErc;
-
-          if (formData.po_qty > 0 && totalErcQty > formData.po_qty) {
-            newErrors.rm_total_offered_qty_mt = `Total Offered Quantity (including previous inspections) exceeds PO Serial Quantity (${formData.po_qty} ${formData.po_unit}). Current cumulative total equivalent: ${Math.round(totalErcQty)} ${formData.po_unit}`;
-          }
         }
+        // Removed PO Serial Quantity validation as per user request
+
 
         // Chemical analysis validations per heat (now per-heat instead of global)
         formData.rm_heat_tc_mapping.forEach((heat, index) => {
