@@ -13,7 +13,7 @@ import Header from './components/Header';
 import { isAuthenticated, getStoredUser } from './services/authService';
 import LoginPage from './pages/LoginPage';
 import SleeperVendorHost from './pages/SleeperVendorHost';
-
+import RailpadHost from './pages/RailpadHost';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('vendor-dashboard');
@@ -79,6 +79,8 @@ const App = () => {
       <LoginPage />
     ) : user?.roleName === 'SLEEPER_VENDOR' ? (
       <SleeperVendorHost />
+    ) : user?.roleName === 'RAILPAD_USER' ? (
+      <RailpadHost />
     ) : (
       <div>
 

@@ -89,6 +89,18 @@ const LoginPage = () => {
       return;
     }
 
+    // Static credentials for RailPad application
+    if (userId.toLowerCase() === 'railpad' && password === 'password') {
+      const railpadUser = {
+        roleName: 'RAILPAD_USER',
+        userId: 'railpad',
+        email: 'railpad@sarthi.com'
+      };
+      storeAuthData(railpadUser);
+      window.location.reload();
+      return;
+    }
+
     setIsLoading(true);
 
     try {

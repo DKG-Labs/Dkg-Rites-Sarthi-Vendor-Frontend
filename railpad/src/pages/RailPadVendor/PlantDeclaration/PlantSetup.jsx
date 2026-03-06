@@ -1,0 +1,269 @@
+import React, { useState } from 'react';
+
+const PlantSetup = ({ entries, setEntries }) => {
+    const [view, setView] = useState('list'); // 'list' or 'form'
+    const [numUnits, setNumUnits] = useState(0);
+    const [unitSections, setUnitSections] = useState([]);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+
+    const productOptions = [
+        "6.00mm GRSP", "10.00mm GRSP", "6.20mm CGRSP", "10.00mm CGRSP", "6.00mm NCRGRSP", "10.00mm NCRGRSP"
+    ];
+
+    const handleNumUnitsChange = (e) => {
+        const val = parseInt(e.target.value) || 0;
+        setNumUnits(val);
+        const newSections = Array.from({ length: val }, (_, i) => ({
+            id: Date.now() + i,
+            unitName: '',
+            address: '',
+            numLines: '',
+            selectedProducts: []
+        }));
+        setUnitSections(newSections);
+    };
+
+    const handleUnitChange = (index, field, value) => {
+        const updated = [...unitSections];
+        updated[index][field] = value;
+        setUnitSections(updated);
+    };
+
+    const handleProductSelect = (unitIndex, product) => {
+        const updated = [...unitSections];
+        const currentProducts = updated[unitIndex].selectedProducts;
+        if (currentProducts.find(p => p.name === product)) {
+            updated[unitIndex].selectedProducts = currentProducts.filter(p => p.name !== product);
+        } else {
+            updated[unitIndex].selectedProducts.push({
+                name: product,
+                approvalNo: '',
+                approvalDate: '',
+                capacity: ''
+            });
+        }
+        setUnitSections(updated);
+    };
+
+    const handleProductDetailChange = (unitIndex, prodIndex, field, value) => {
+        const updated = [...unitSections];
+        updated[unitIndex].selectedProducts[prodIndex][field] = value;
+        setUnitSections(updated);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        const newEntries = unitSections.map(unit => ({
+            id: unit.id || Date.now() + Math.random(),
+            manufacturer: "ABC Industries (VEND001)",
+            unitName: unit.unitName,
+            address: unit.address,
+            numLines: unit.numLines,
+            capacity: unit.selectedProducts.length > 0 ? `${unit.selectedProducts[0].capacity} Pcs/Month` : '-',
+            status: "Pending Verification"
+        }));
+
+        setEntries([...entries, ...newEntries]);
+        setIsSubmitted(true);
+        setView('list');
+        // Reset form
+        setNumUnits(0);
+        setUnitSections([]);
+    };
+
+    return (
+        <div className="fade-in">
+            <div className="section-header" style={{ marginBottom: '24px' }}>
+                <div>
+                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Plant Set Up</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
+                </div>
+                {view === 'list' && (
+                    <button className="btn-primary" onClick={() => setView('form')}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                        Add New Entry
+                    </button>
+                )}
+            </div>
+
+            {view === 'list' ? (
+                <div className="table-container fade-in">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Manufacturer & Code</th>
+                                <th>Unit Name & Address</th>
+                                <th>No. of Lines</th>
+                                <th>Capacity</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {entries.map(unit => (
+                                <tr key={unit.id}>
+                                    <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{unit.manufacturer}</td>
+                                    <td>
+                                        <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{unit.unitName}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{unit.address}</div>
+                                    </td>
+                                    <td>{unit.numLines}</td>
+                                    <td>{unit.capacity}</td>
+                                    <td>
+                                        <span className={`badge ${unit.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'} `}>
+                                            {unit.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="form-container fade-in">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>Submit Plant Set Up</h3>
+                        <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.4rem 1rem' }}>Cancel</button>
+                    </div>
+
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-grid">
+                            <div className="form-group">
+                                <label className="form-label">Vendor Name</label>
+                                <input className="form-input" value="ABC Industries" disabled style={{ background: '#f1f5f9' }} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Vendor Code</label>
+                                <input className="form-input" value="VEND001" disabled style={{ background: '#f1f5f9' }} />
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ maxWidth: '240px', marginBottom: '32px' }}>
+                            <label className="form-label">No. of Units</label>
+                            <input
+                                type="number"
+                                className="form-input"
+                                placeholder="Enter units count"
+                                value={numUnits}
+                                onChange={handleNumUnitsChange}
+                                min="0"
+                                required
+                            />
+                        </div>
+
+                        {unitSections.map((unit, unitIdx) => (
+                            <div key={unitIdx} className="unit-section fade-in">
+                                <h4>Unit {unitIdx + 1} Details</h4>
+                                <div className="form-grid">
+                                    <div className="form-group">
+                                        <label className="form-label">Unit Name</label>
+                                        <input
+                                            className="form-input"
+                                            value={unit.unitName}
+                                            onChange={(e) => handleUnitChange(unitIdx, 'unitName', e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">No. of Lines</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={unit.numLines}
+                                            onChange={(e) => handleUnitChange(unitIdx, 'numLines', e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '20px' }}>
+                                    <label className="form-label">Address of Unit</label>
+                                    <textarea
+                                        className="form-textarea"
+                                        rows="2"
+                                        value={unit.address}
+                                        onChange={(e) => handleUnitChange(unitIdx, 'address', e.target.value)}
+                                        required
+                                    ></textarea>
+                                </div>
+
+                                <div className="form-group" style={{ marginBottom: '20px' }}>
+                                    <label className="form-label">Production Items Selection</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginTop: '4px' }}>
+                                        {productOptions.map(prod => (
+                                            <div
+                                                key={prod}
+                                                onClick={() => handleProductSelect(unitIdx, prod)}
+                                                style={{
+                                                    padding: '10px 14px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    border: '1px solid var(--border-color)',
+                                                    background: unit.selectedProducts.find(p => p.name === prod) ? 'rgba(66, 129, 140, 0.1)' : 'white',
+                                                    color: unit.selectedProducts.find(p => p.name === prod) ? 'var(--primary-color)' : 'var(--text-muted)',
+                                                    transition: 'all 0.2s',
+                                                    textAlign: 'center',
+                                                    borderColor: unit.selectedProducts.find(p => p.name === prod) ? 'var(--primary-color)' : 'var(--border-color)'
+                                                }}
+                                            >
+                                                {prod}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {unit.selectedProducts.map((prod, pIdx) => (
+                                    <div key={pIdx} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginTop: '12px', border: '1px solid rgba(66, 129, 140, 0.15)' }}>
+                                        <div style={{ fontWeight: '800', marginBottom: '12px', fontSize: '11px', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            RDSO Approval for {prod.name}
+                                        </div>
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label className="form-label">RDSO Appr. No.</label>
+                                                <input
+                                                    className="form-input"
+                                                    value={prod.approvalNo}
+                                                    onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalNo', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">date</label>
+                                                <input
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={prod.approvalDate}
+                                                    onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalDate', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Approved Capacity</label>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={prod.capacity}
+                                                    onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'capacity', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+
+                        <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button type="submit" className="btn-primary" style={{ padding: '0.8rem 3rem' }}>
+                                Submit Declaration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default PlantSetup;

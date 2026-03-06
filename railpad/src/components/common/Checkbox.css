@@ -1,0 +1,66 @@
+/* Global Checkbox Styles */
+
+/* Hide default checkbox */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    /* Slightly larger for better touch target */
+    height: 20px;
+    border: 2px solid #64748b;
+    /* Darker grey border to match reference */
+    border-radius: 6px;
+    /* More rounded corners */
+    cursor: pointer;
+    position: relative;
+    background-color: white;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    margin: 0;
+    /* Remove default margin */
+}
+
+/* Checked State */
+input[type="checkbox"]:checked {
+    background-color: #0f172a;
+    border-color: #0f172a;
+}
+
+/* Checkmark using pseudo-element */
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Label styling for alignment */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: #334155;
+    user-select: none;
+    /* Prevent text selection when clicking quickly */
+}
+
+/* Hover effect */
+.checkbox-label:hover input[type="checkbox"] {
+    border-color: #475569;
+    box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.1);
+    /* Subtle focus ring on hover */
+}
+
+/* Focus state for accessibility */
+input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.1);
+}
