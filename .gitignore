@@ -2,6 +2,11 @@ node_modules/
 build/
 dist/
 
+# Railpad sub-project artifacts
+railpad/node_modules/
+railpad/dist/
+railpad/.vite/
+
 # Local env files
 .env
 .env.*
