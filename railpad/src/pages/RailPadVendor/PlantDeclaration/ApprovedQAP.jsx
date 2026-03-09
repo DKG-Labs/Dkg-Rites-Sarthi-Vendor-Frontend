@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const PAD_TYPES = [
     "6.00mm GRSP",
@@ -58,6 +58,25 @@ const summarizeMoulding = (params) => {
 /* ── Multi-select Dropdown ─────────────────────────────────────────────── */
 const MultiSelect = ({ options, selected, onChange }) => {
     const [open, setOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+
+        if (open) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [open]);
 
     const toggle = (val) => {
         const next = selected.includes(val)
@@ -67,7 +86,7 @@ const MultiSelect = ({ options, selected, onChange }) => {
     };
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} ref={containerRef}>
             <div
                 className="form-input"
                 style={{
@@ -324,7 +343,7 @@ const ApprovedQAP = ({ entries, setEntries }) => {
             qapValidityDate: form.qapValidityDate,
             selectedPadTypes: form.selectedPadTypes,
             productParams: form.productParams,
-            status: 'Unverified'
+            status: 'Pending Verification'
         };
 
         if (editingId) {
@@ -336,9 +355,9 @@ const ApprovedQAP = ({ entries, setEntries }) => {
         setEditingId(null);
     };
 
-    const isEditable = (entry) => entry.status === 'Unverified' || entry.status === 'Unlocked';
+    const isEditable = (entry) => entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification';
 
-    const canDelete = (entry) => entry.status === 'Unverified';
+    const canDelete = (entry) => entry.status === 'Pending Verification';
 
     /* ── Read-only View ── */
     if (view === 'view') {
@@ -371,7 +390,7 @@ const ApprovedQAP = ({ entries, setEntries }) => {
                         <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--primary-color)', marginBottom: '16px' }}>
                             Section A — QAP Document Details
                         </div>
-                        <div className="form-grid">
+                        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
                             {[
                                 ['QAP No.', entry?.qapNo],
                                 ['Approving Authority', entry?.qapApprovingAuthority],
@@ -487,7 +506,7 @@ const ApprovedQAP = ({ entries, setEntries }) => {
                             QAP Document Details
                         </div>
 
-                        <div className="form-grid">
+                        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
                             <div className="form-group">
                                 <label className="form-label">QAP No. <span style={{ color: '#dc2626' }}>*</span></label>
                                 <input
