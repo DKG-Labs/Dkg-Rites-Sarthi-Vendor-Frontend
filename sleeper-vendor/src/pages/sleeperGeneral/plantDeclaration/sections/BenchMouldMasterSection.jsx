@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../../services/api';
 
 const STATUSES = {
     PENDING: 'Verification Pending',
@@ -7,6 +8,9 @@ const STATUSES = {
 };
 
 const BenchMouldMasterSection = ({ profiles = [] }) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
     // Generate dynamic tabs based on profiles — one tab per unique type
     const seenTypes = new Set();
     const dynamicTabs = [];
@@ -32,42 +36,37 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     });
 
     const [activeTabId, setActiveTabId] = useState('');
-    const [tabEntries, setTabEntries] = useState({
-        'shed-1': [
-            {
-                id: 101,
-                entryMode: 'range',
-                fromNo: '1',
-                toNo: '4',
-                numItems: 4,
-                numMouldsPerItem: 8,
-                totalMoulds: 32,
-                sleeperCategory: 'Wider Base',
-                status: STATUSES.PENDING
-            },
-            {
-                id: 102,
-                entryMode: 'range',
-                fromNo: '5',
-                toNo: '8',
-                numItems: 4,
-                numMouldsPerItem: 8,
-                totalMoulds: 32,
-                sleeperCategory: 'Wider Base',
-                status: STATUSES.LOCKED
-            },
-            {
-                id: 103,
-                entryMode: 'single',
-                singleNo: '9',
-                numItems: 1,
-                numMouldsPerItem: 8,
-                totalMoulds: 8,
-                sleeperCategory: 'PnC',
-                status: STATUSES.UNLOCKED
-            }
-        ]
-    });
+    const [tabEntries, setTabEntries] = useState({});
+
+    useEffect(() => {
+        if (activeTabId === 'shed-1') {
+            fetchStressBenches();
+        }
+    }, [activeTabId]);
+
+    const fetchStressBenches = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getStressBenches();
+            const mappedData = data.map(b => ({
+                id: b.id,
+                entryMode: b.entryType?.toLowerCase() || 'single',
+                fromNo: b.benchFrom || '',
+                toNo: b.benchTo || '',
+                singleNo: b.benchNo || '',
+                numItems: b.noOfBenches || 1,
+                numMouldsPerItem: b.mouldsPerBench || 0,
+                totalMoulds: (b.noOfBenches || 1) * (b.mouldsPerBench || 0),
+                sleeperCategory: b.sleeperCategory,
+                status: b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING
+            }));
+            setTabEntries(prev => ({ ...prev, 'shed-1': mappedData }));
+        } catch (err) {
+            console.error('Error fetching stress benches:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Form State
     const [formState, setFormState] = useState({
@@ -136,59 +135,51 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         }
     }, [activeTabId, isLongLine, tabEntries, formState.isEditing]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (formState.numItems <= 0) {
             alert("Please enter valid Bench/Gang numbers.");
             return;
         }
 
-        const newEntry = {
-            id: formState.isEditing ? formState.editingId : Date.now(),
-            entryMode: formState.entryMode,
-            fromNo: formState.fromNo,
-            toNo: formState.toNo,
-            singleNo: formState.singleNo,
-            numItems: formState.numItems,
-            numMouldsPerItem: formState.numMouldsPerItem,
-            totalMoulds: formState.numItems * formState.numMouldsPerItem,
+        const benchDto = {
+            id: formState.isEditing ? formState.editingId : null,
+            entryType: formState.entryMode.toUpperCase(),
+            benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
+            benchFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : null,
+            benchTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : null,
             sleeperCategory: formState.sleeperCategory,
-            rft: formState.sleeperCategory === 'PnC' ? formState.rft : '',
-            sleeperNames: formState.sleeperCategory === 'PnC' ? formState.sleeperNames : [],
-            status: formState.isEditing ? formState.status : STATUSES.PENDING
+            mouldsPerBench: parseInt(formState.numMouldsPerItem) || 0,
+            createdBy: 1
         };
 
-        setTabEntries(prev => {
-            const current = prev[activeTabId] || [];
-            if (formState.isEditing) {
-                return {
-                    ...prev,
-                    [activeTabId]: current.map(e => e.id === formState.editingId ? newEntry : e)
-                };
-            } else {
-                return {
-                    ...prev,
-                    [activeTabId]: [...current, newEntry]
-                };
-            }
-        });
+        try {
+            setLoading(true);
+            await apiService.saveStressBench(benchDto);
+            await fetchStressBenches();
 
-        // Reset form
-        setFormState({
-            entryMode: 'range',
-            fromNo: '',
-            toNo: '',
-            singleNo: '',
-            numItems: 0,
-            numMouldsPerItem: activeTab?.defaultMoulds || '',
-            sleeperCategory: isLongLine && tabEntries[activeTabId]?.length > 0
-                ? tabEntries[activeTabId][0].sleeperCategory
-                : 'Wider Base',
-            rft: '',
-            sleeperNames: [],
-            isEditing: false,
-            editingId: null,
-            status: STATUSES.PENDING
-        });
+            // Reset form
+            setFormState({
+                entryMode: 'range',
+                fromNo: '',
+                toNo: '',
+                singleNo: '',
+                numItems: 0,
+                numMouldsPerItem: activeTab?.defaultMoulds || '',
+                sleeperCategory: isLongLine && tabEntries[activeTabId]?.length > 0
+                    ? tabEntries[activeTabId][0].sleeperCategory
+                    : 'Wider Base',
+                rft: '',
+                sleeperNames: [],
+                isEditing: false,
+                editingId: null,
+                status: STATUSES.PENDING
+            });
+            alert(formState.isEditing ? 'Bench updated successfully' : 'Bench added successfully');
+        } catch (err) {
+            alert(err.message || 'Error saving stress bench');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleEdit = (entry) => {
@@ -212,16 +203,22 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         });
     };
 
-    const handleDelete = (id, status) => {
+    const handleDelete = async (id, status) => {
         if (status === STATUSES.LOCKED) {
             alert("Verified & Locked entries cannot be deleted.");
             return;
         }
         if (window.confirm("Are you sure you want to delete this entry?")) {
-            setTabEntries(prev => ({
-                ...prev,
-                [activeTabId]: prev[activeTabId].filter(e => e.id !== id)
-            }));
+            try {
+                setLoading(true);
+                await apiService.deleteStressBench(id);
+                await fetchStressBenches();
+                alert('Entry deleted successfully');
+            } catch (err) {
+                alert(err.message || 'Error deleting entry');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -244,7 +241,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     }, {});
 
     return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="spinner">Loading...</div>
+                </div>
+            )}
             <div style={{ marginBottom: '24px' }}>
                 <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Bench / Mould Master Declaration</h3>
 

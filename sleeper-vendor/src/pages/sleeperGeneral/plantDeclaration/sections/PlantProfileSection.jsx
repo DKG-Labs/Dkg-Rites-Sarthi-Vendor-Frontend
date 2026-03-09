@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../../services/api';
 
 const STATUSES = {
     PENDING: 'Verification Pending',
@@ -6,49 +7,50 @@ const STATUSES = {
     UNLOCKED: 'Unlocked for Modification'
 };
 
-const PlantProfileSection = ({ profiles, setProfiles }) => {
+const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
 
-
+    const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         type: 'Stress Bench',
         shedsLines: ''
     });
 
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.shedsLines) {
             alert('Please enter number of sheds/lines');
             return;
         }
 
-        if (editingId) {
-            setProfiles(prev => prev.map(p =>
-                p.id === editingId
-                    ? { ...p, ...formData, status: STATUSES.PENDING }
-                    : p
-            ));
+        const plantDto = {
+            id: editingId,
+            plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
+            vendorCode: 'V-10294',
+            plantType: formData.type,
+            numberOfSheds: parseInt(formData.shedsLines),
+            createdBy: 1,
+            updatedBy: editingId ? 1 : null
+        };
+
+        try {
+            setLoading(true);
+            await apiService.savePlantProfile(plantDto);
+            if (refreshProfiles) await refreshProfiles();
             setEditingId(null);
-        } else {
-            if (profiles.length >= 2) {
-                alert('Maximum 2 plant profiles allowed');
-                return;
-            }
-            const newProfile = {
-                id: Date.now(),
-                plantName: 'M/s ABC Sleepers - Nagpur Plant',
-                vendorCode: 'V-10294',
-                ...formData,
-                status: STATUSES.PENDING
-            };
-            setProfiles(prev => [...prev, newProfile]);
+            setFormData({ type: 'Stress Bench', shedsLines: '' });
+            alert(editingId ? 'Profile updated successfully' : 'Profile added successfully');
+        } catch (err) {
+            alert(err.message || 'Error saving plant profile');
+        } finally {
+            setLoading(false);
         }
-        setFormData({ type: 'Stress Bench', shedsLines: '' });
     };
 
     const handleModify = (profile) => {
@@ -58,12 +60,22 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
             type: profile.type,
             shedsLines: profile.shedsLines
         });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = (id, status) => {
+    const handleDelete = async (id, status) => {
         if (status === STATUSES.LOCKED) return;
         if (window.confirm('Are you sure you want to delete this profile?')) {
-            setProfiles(prev => prev.filter(p => p.id !== id));
+            try {
+                setLoading(true);
+                await apiService.deletePlantProfile(id);
+                if (refreshProfiles) await refreshProfiles();
+                alert('Profile deleted successfully');
+            } catch (err) {
+                alert(err.message || 'Error deleting plant profile');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -76,7 +88,12 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
     };
 
     return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="spinner">Loading...</div>
+                </div>
+            )}
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Plant Profile Declaration</h3>
 
             {/* Form Section - Always visible to maintain layout */}

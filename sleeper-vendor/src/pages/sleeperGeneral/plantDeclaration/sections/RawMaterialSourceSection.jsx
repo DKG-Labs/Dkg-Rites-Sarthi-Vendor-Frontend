@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../../services/api';
 
 const RawMaterialSourceSection = () => {
     const materialTypes = [
@@ -7,35 +8,36 @@ const RawMaterialSourceSection = () => {
         'Admixtures'
     ];
 
-    const [entries, setEntries] = useState([
-        {
-            id: 1,
-            rawMaterialType: 'Cement',
-            source: 'ACC Limited, Wadi',
-            approvalReference: 'RITES/QA/2023/123',
-            validityFrom: '2024-01-01',
-            validityTo: '2024-12-31',
-            status: 'Verified & Locked'
-        },
-        {
-            id: 2,
-            rawMaterialType: 'HTS Wire',
-            source: 'Tata Steel, Jamshedpur',
-            approvalReference: 'RDSO/2023/CIVIL/045',
-            validityFrom: '2024-02-15',
-            validityTo: '2025-02-14',
-            status: 'Verification Pending'
-        },
-        {
-            id: 3,
-            rawMaterialType: 'Admixtures',
-            source: 'Sika India, Mumbai',
-            approvalReference: 'RITES/QA/AD/2023/089',
-            validityFrom: '2024-03-01',
-            validityTo: '2025-02-28',
-            status: 'Unlocked for Modification'
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetchEntries();
+    }, []);
+
+    const fetchEntries = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getRawMaterialSources();
+            const mappedData = data.map(e => ({
+                id: e.id,
+                rawMaterialType: e.rawMaterialType,
+                source: e.supplierName,
+                approvalReference: e.approvalReference,
+                validityFrom: e.validFrom ? e.validFrom.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
+                validityTo: e.validTo ? e.validTo.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
+                status: e.updatedDate ? 'Verified & Locked' : 'Verification Pending'
+            }));
+            setEntries(mappedData);
+            setError(null);
+        } catch (err) {
+            setError('Failed to fetch raw material sources');
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const initialFormState = {
         rawMaterialType: '',
@@ -53,24 +55,32 @@ const RawMaterialSourceSection = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (editingId) {
-            setEntries(entries.map(entry =>
-                entry.id === editingId
-                    ? { ...formData, id: editingId, status: 'Verification Pending' }
-                    : entry
-            ));
+
+        const rmDto = {
+            id: editingId,
+            rawMaterialType: formData.rawMaterialType,
+            supplierName: formData.source,
+            approvalReference: formData.approvalReference,
+            validFrom: formData.validityFrom ? formData.validityFrom.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
+            validTo: formData.validityTo ? formData.validityTo.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
+            createdBy: 1,
+            updatedBy: editingId ? 1 : null
+        };
+
+        try {
+            setLoading(true);
+            await apiService.saveRawMaterialSource(rmDto);
+            await fetchEntries();
             setEditingId(null);
-        } else {
-            const newEntry = {
-                ...formData,
-                id: Date.now(),
-                status: 'Verification Pending'
-            };
-            setEntries([...entries, newEntry]);
+            setFormData(initialFormState);
+            alert(editingId ? 'Source updated successfully' : 'Source added successfully');
+        } catch (err) {
+            alert(err.message || 'Error saving raw material source');
+        } finally {
+            setLoading(false);
         }
-        setFormData(initialFormState);
     };
 
     const handleEdit = (entry) => {
@@ -83,11 +93,23 @@ const RawMaterialSourceSection = () => {
             validityTo: entry.validityTo
         });
         setEditingId(entry.id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = (id, status) => {
+    const handleDelete = async (id, status) => {
         if (status === 'Verified & Locked') return;
-        setEntries(entries.filter(entry => entry.id !== id));
+        if (window.confirm('Are you sure you want to delete this source?')) {
+            try {
+                setLoading(true);
+                await apiService.deleteRawMaterialSource(id);
+                await fetchEntries();
+                alert('Source deleted successfully');
+            } catch (err) {
+                alert(err.message || 'Error deleting source');
+            } finally {
+                setLoading(false);
+            }
+        }
     };
 
     const getStatusColor = (status) => {
@@ -100,7 +122,12 @@ const RawMaterialSourceSection = () => {
     };
 
     return (
-        <div className="fade-in" style={{ padding: '20px' }}>
+        <div className="fade-in" style={{ padding: '20px', position: 'relative' }}>
+            {loading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="spinner">Loading...</div>
+                </div>
+            )}
             <h3 style={{ color: '#1e293b', marginBottom: '24px', fontSize: '20px', fontWeight: '700' }}>
                 Raw Material Source Declaration
             </h3>

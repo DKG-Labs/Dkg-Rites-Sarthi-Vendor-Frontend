@@ -1,15 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../../services/api';
 
 const MixDesignSection = () => {
-    const [mixDesigns, setMixDesigns] = useState([
-        { id: 1, iden: 'MIX-2024-01', grade: 'M60', authority: 'RDSO', cement: 450, ca1: 700, ca2: 500, fa: 600, water: 160, status: 'Verified & Locked' }
-    ]);
-
+    const [mixDesigns, setMixDesigns] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [newMix, setNewMix] = useState({
         iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending'
     });
-
     const [editingId, setEditingId] = useState(null);
+
+    useEffect(() => {
+        fetchMixDesigns();
+    }, []);
+
+    const fetchMixDesigns = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getMixDesigns();
+            const mappedData = data.map(m => ({
+                id: m.id,
+                iden: m.identification,
+                grade: m.concreteGrade,
+                authority: m.authorityOfApproval,
+                cement: m.cement,
+                ca1: m.ca1,
+                ca2: m.ca2,
+                fa: m.fa,
+                water: m.water,
+                status: m.updatedDate ? 'Verified & Locked' : 'Verification Pending'
+            }));
+            setMixDesigns(mappedData);
+            setError(null);
+        } catch (err) {
+            setError('Failed to fetch mix designs');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const calculateAC = (m) => {
         const totalAgg = Number(m.ca1 || 0) + Number(m.ca2 || 0) + Number(m.fa || 0);
@@ -23,22 +52,42 @@ const MixDesignSection = () => {
         return cement > 0 ? (water / cement).toFixed(2) : '0.00';
     };
 
-    const handleAddMix = () => {
+    const handleAddMix = async () => {
         if (!newMix.iden) {
             alert('Please provide Identification');
             return;
         }
 
-        if (editingId) {
-            setMixDesigns(mixDesigns.map(mix => mix.id === editingId ? { ...newMix, id: editingId } : mix));
-            setEditingId(null);
-        } else {
-            setMixDesigns([...mixDesigns, { ...newMix, id: Date.now() }]);
-        }
+        const mixDto = {
+            id: editingId,
+            identification: newMix.iden,
+            concreteGrade: newMix.grade,
+            authorityOfApproval: newMix.authority,
+            cement: parseFloat(newMix.cement) || 0,
+            ca1: parseFloat(newMix.ca1) || 0,
+            ca2: parseFloat(newMix.ca2) || 0,
+            fa: parseFloat(newMix.fa) || 0,
+            water: parseFloat(newMix.water) || 0,
+            acRatio: parseFloat(calculateAC(newMix)),
+            wcRatio: parseFloat(calculateWC(newMix)),
+            createdBy: 1,
+            updatedBy: editingId ? 1 : null
+        };
 
-        setNewMix({
-            iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending'
-        });
+        try {
+            setLoading(true);
+            await apiService.saveMixDesign(mixDto);
+            await fetchMixDesigns();
+            setEditingId(null);
+            setNewMix({
+                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending'
+            });
+            alert(editingId ? 'Mix design updated successfully' : 'Mix design added successfully');
+        } catch (err) {
+            alert(err.message || 'Error saving mix design');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleEdit = (mix) => {
@@ -48,15 +97,25 @@ const MixDesignSection = () => {
         }
         setNewMix(mix);
         setEditingId(mix.id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = (id, status) => {
+    const handleDelete = async (id, status) => {
         if (status === 'Verified & Locked') {
             alert('Verified & Locked entries cannot be deleted.');
             return;
         }
         if (window.confirm('Are you sure you want to delete this mix design?')) {
-            setMixDesigns(mixDesigns.filter(mix => mix.id !== id));
+            try {
+                setLoading(true);
+                await apiService.deleteMixDesign(id);
+                await fetchMixDesigns();
+                alert('Mix design deleted successfully');
+            } catch (err) {
+                alert(err.message || 'Error deleting mix design');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -73,7 +132,12 @@ const MixDesignSection = () => {
     };
 
     return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="spinner">Loading...</div>
+                </div>
+            )}
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Mix Design Declaration</h3>
 
             {/* Mix Design Form */}

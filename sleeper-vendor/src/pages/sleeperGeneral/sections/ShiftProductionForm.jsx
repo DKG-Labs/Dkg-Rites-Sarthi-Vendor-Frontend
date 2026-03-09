@@ -39,9 +39,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
         shift: 'Day Shift',
-        batchNo: lastBatchNumber + 1,
+        batchNo: (parseInt(lastBatchNumber?.toString()?.replace(/\D/g, '')) || 100) + 1,
         mixDesign: 'M60 - Design A (Active)',
-        timeLbc: getCurrentTime()
+        timeLbc: getCurrentTime(),
+        remarks: ''
     });
 
     const [chambers, setChambers] = useState([{
@@ -751,7 +752,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                             </div>
                             <div>
                                 <label style={labelStyle}>Remarks / Observations</label>
-                                <textarea rows="6" style={{ ...inputStyle, resize: 'none' }} placeholder="Enter any specific observations about this shift production..."></textarea>
+                                <textarea
+                                    rows="6"
+                                    style={{ ...inputStyle, resize: 'none', height: 'auto', padding: '12px 16px' }}
+                                    placeholder="Enter any specific observations about this shift production..."
+                                    value={formHeader.remarks}
+                                    onChange={(e) => setFormHeader({ ...formHeader, remarks: e.target.value })}
+                                ></textarea>
                             </div>
                         </div>
                     </div>
@@ -768,18 +775,50 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                 </button>
                 <button
                     onClick={() => {
-                        const newDeclaration = {
-                            date: formHeader.date,
-                            shift: formHeader.shift,
-                            batchNo: `B-${formHeader.batchNo}`,
-                            unit: formHeader.unit,
-                            total: calculateTotalCast(),
-                            sleeperTypes: Object.keys(getProductionBreakdown()).join(', '),
-                            status: 'Open'
-                        };
-                        onSave(newDeclaration);
-                        alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: B-${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
-                        onBack();
+                        try {
+                            // Formatting the DTO for the backend
+                            const pdDto = {
+                                plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
+                                productionUnit: formHeader.unit,
+                                castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+                                shift: formHeader.shift,
+                                batchNumber: formHeader.batchNo.toString(),
+                                mixDesignReference: formHeader.mixDesign,
+                                lbcTime: formHeader.timeLbc,
+                                totalCastedSleepers: calculateTotalCast(),
+                                totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
+                                totalRft: calculateTotalRFT(),
+                                remarks: formHeader.remarks || '',
+                                createdBy: 1, // Simulated user ID
+                                updatedBy: null,
+                                chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
+                                    chamberNo: parseInt(chamber.chamberNo) || 0,
+                                    benchGroups: chamber.benchGroups.flatMap(group =>
+                                        group.benches.filter(b => b.trim()).map(bench => ({
+                                            benchNo: parseInt(bench) || 0,
+                                            sleeperType: group.sleeperType,
+                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
+                                            rft: getBenchMasterDetails(bench).rft,
+                                            sleepers: generateSleeperIds(bench, group.mouldsPerBench)
+                                        }))
+                                    )
+                                })) : [],
+                                gangs: plantType === 'Long Line' ? longLineEntries.map(entry => ({
+                                    mode: entry.entryMode.toUpperCase(),
+                                    gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
+                                    gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
+                                    gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
+                                    sleeperType: entry.sleeperType,
+                                    mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
+                                })) : []
+                            };
+
+                            onSave(pdDto);
+                            alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: ${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
+                        } catch (err) {
+                            console.error('Error formatting DTO:', err);
+                            alert('Error preparing data for submission. Please check form inputs.');
+                        }
                     }}
                     style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px 32px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(66, 129, 140, 0.4)' }}
                 >

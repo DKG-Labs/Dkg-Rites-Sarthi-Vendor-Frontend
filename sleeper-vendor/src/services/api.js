@@ -355,6 +355,280 @@ export const apiService = {
         }
     },
 
+    // Production Declaration APIs
+    getProductionDeclarations: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/production-declaration/getAll`);
+            if (!response.ok) throw new Error('Failed to fetch production declarations');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getProductionDeclarationById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/production-declaration/${id}`);
+            if (!response.ok) throw new Error(`Failed to fetch production declaration with id ${id}`);
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
+    saveProductionDeclaration: async (pdData) => {
+        try {
+            const isUpdate = pdData.id && !isNaN(pdData.id);
+            const url = isUpdate ? `${BASE_URL}/production-declaration/update/${pdData.id}` : `${BASE_URL}/production-declaration/create`;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(pdData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save production declaration');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deleteProductionDeclaration: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/production-declaration/delete/${id}`, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete production declaration');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    // Plant Profile APIs
+    getPlantProfiles: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/plant-profile`);
+            if (!response.ok) throw new Error('Failed to fetch plant profiles');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getPlantProfileById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/plant-profile/${id}`);
+            if (!response.ok) throw new Error(`Failed to fetch plant profile with id ${id}`);
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
+    savePlantProfile: async (plantData) => {
+        try {
+            const isUpdate = plantData.id && !isNaN(plantData.id);
+            const url = isUpdate ? `${BASE_URL}/plant-profile/${plantData.id}` : `${BASE_URL}/plant-profile`;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(plantData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save plant profile');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deletePlantProfile: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/plant-profile/${id}`, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete plant profile');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    // Mix Design APIs
+    getMixDesigns: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/mix-design`);
+            if (!response.ok) throw new Error('Failed to fetch mix designs');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getMixDesignById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/mix-design/${id}`);
+            if (!response.ok) throw new Error(`Failed to fetch mix design with id ${id}`);
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
+    saveMixDesign: async (mixData) => {
+        try {
+            const isUpdate = mixData.id && !isNaN(mixData.id);
+            const url = isUpdate ? `${BASE_URL}/mix-design/${mixData.id}` : `${BASE_URL}/mix-design`;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(mixData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save mix design');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deleteMixDesign: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/mix-design/${id}`, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete mix design');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    // Raw Material Source APIs
+    getRawMaterialSources: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/raw-material-source`);
+            if (!response.ok) throw new Error('Failed to fetch raw material sources');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    saveRawMaterialSource: async (rmData) => {
+        try {
+            const isUpdate = rmData.id && !isNaN(rmData.id);
+            const url = isUpdate ? `${BASE_URL}/raw-material-source/${rmData.id}` : `${BASE_URL}/raw-material-source`;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(rmData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save raw material source');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deleteRawMaterialSource: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/raw-material-source/${id}`, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete raw material source');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    // Stress Bench Master APIs (Uses different base path without /api)
+    getStressBenches: async () => {
+        try {
+            const url = BASE_URL.replace('/api', '') + '/stress-bench/getAll';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch stress benches');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    saveStressBench: async (benchData) => {
+        try {
+            const isUpdate = benchData.id && !isNaN(benchData.id);
+            const path = isUpdate ? `/stress-bench/update/${benchData.id}` : '/stress-bench/create';
+            const url = BASE_URL.replace('/api', '') + path;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(benchData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save stress bench');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deleteStressBench: async (id) => {
+        try {
+            const url = BASE_URL.replace('/api', '') + `/stress-bench/delete/${id}`;
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete stress bench');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
     // Existing / Legacy APIs
     getScadaRecords: async (page, size, batch) => {
         try {
