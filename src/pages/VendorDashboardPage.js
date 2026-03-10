@@ -813,8 +813,9 @@ const VendorDashboardPage = ({ onBack }) => {
             updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           processInspectionDetails: data.process_lot_heat_mapping.map(lotHeat => ({
+            // Send ALL selected RM IC numbers as comma-separated string per lot row
             rmIcNumber: data.process_rm_ic_numbers && data.process_rm_ic_numbers.length > 0
-              ? data.process_rm_ic_numbers[0]
+              ? data.process_rm_ic_numbers.join(',')
               : null,
             lotNumber: lotHeat.lotNumber,
             heatNumber: lotHeat.heatNumber,
@@ -874,6 +875,10 @@ const VendorDashboardPage = ({ onBack }) => {
             updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           finalInspectionDetails: {
+            // ---- Send ALL selected RM IC and Process IC numbers (new multi-select fields) ----
+            rmIcNumbers: data.final_rm_ic_numbers || [],
+            processIcNumbers: data.final_process_ic_numbers || [],
+            // ---- Legacy single-value fields (backward compat) - first of each list ----
             rmIcNumber: data.final_rm_ic_numbers && data.final_rm_ic_numbers.length > 0
               ? data.final_rm_ic_numbers[0]
               : null,
@@ -891,12 +896,13 @@ const VendorDashboardPage = ({ onBack }) => {
           finalLotDetails: data.final_lots_data ? data.final_lots_data.map(lot => ({
             lotNumber: lot.lotNumber,
             heatNumber: lot.heatNo || '',
-            manufacturer: '', // Manufacturer name not directly available in final_lots_data
-            manufacturerHeat: lot.heatNo || '', // Using heat number as fallback
+            manufacturer: '',
+            manufacturerHeat: lot.heatNo || '',
             offeredQty: parseInt(lot.offeredQty) || 0,
             noOfBags: parseInt(lot.noOfBags) || 0,
+            // Store all selected process IC numbers as comma-separated per lot
             processIcNumber: data.final_process_ic_numbers && data.final_process_ic_numbers.length > 0
-              ? data.final_process_ic_numbers[0]
+              ? data.final_process_ic_numbers.join(',')
               : null
           })) : []
         };
