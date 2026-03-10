@@ -9,6 +9,7 @@ const RawMaterialSource = ({ entries, setEntries }) => {
         docRef: '',
         docDate: ''
     });
+    const [editingEntry, setEditingEntry] = useState(null);
 
     const materialOptions = [
         "Virgin Material", "Carbon Black", "Silica", "Nylon Cord", "Activator",
@@ -35,16 +36,66 @@ const RawMaterialSource = ({ entries, setEntries }) => {
         });
     };
 
+    const handleEdit = (entry) => {
+        setEditingEntry(entry);
+        let name = entry.materialNameRaw || '';
+        let type = entry.materialType || '';
+
+        if (!name && entry.materialName) {
+            const match = entry.materialName.match(/(.*) \((.*)\)/);
+            if (match) {
+                name = match[1];
+                type = match[2];
+            } else {
+                name = entry.materialName;
+            }
+        }
+
+        setFormData({
+            nameOfRawMaterial: name,
+            typeOfRawMaterial: type,
+            supplier: entry.supplier,
+            docRef: entry.docRef,
+            docDate: entry.docDate || ''
+        });
+        setView('form');
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        const newEntry = {
-            id: Date.now(),
-            materialName: `${formData.nameOfRawMaterial} (${formData.typeOfRawMaterial})`,
-            supplier: formData.supplier,
-            docRef: formData.docRef,
-            status: "Pending"
-        };
-        setEntries([...entries, newEntry]);
+
+        if (editingEntry) {
+            const updatedEntries = entries.map(entry => {
+                if (entry.id === editingEntry.id) {
+                    return {
+                        ...entry,
+                        materialNameRaw: formData.nameOfRawMaterial,
+                        materialType: formData.typeOfRawMaterial,
+                        materialName: `${formData.nameOfRawMaterial} (${formData.typeOfRawMaterial})`,
+                        supplier: formData.supplier,
+                        docRef: formData.docRef,
+                        docDate: formData.docDate,
+                        status: "Pending Verification"
+                    };
+                }
+                return entry;
+            });
+            setEntries(updatedEntries);
+            setEditingEntry(null);
+        } else {
+            const newEntry = {
+                id: Date.now(),
+                materialNameRaw: formData.nameOfRawMaterial,
+                materialType: formData.typeOfRawMaterial,
+                materialName: `${formData.nameOfRawMaterial} (${formData.typeOfRawMaterial})`,
+                supplier: formData.supplier,
+                docRef: formData.docRef,
+                docDate: formData.docDate,
+                status: "Pending Verification"
+            };
+            setEntries([...entries, newEntry]);
+        }
+
         setView('list');
         // Reset form
         setFormData({
@@ -64,7 +115,7 @@ const RawMaterialSource = ({ entries, setEntries }) => {
                     <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Establish traceability for virgin material and chemicals</p>
                 </div>
                 {view === 'list' && (
-                    <button className="btn-primary" onClick={() => setView('form')}>
+                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setFormData({ nameOfRawMaterial: '', typeOfRawMaterial: '', supplier: '', docRef: '', docDate: '' }); }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
                         Add New Entry
                     </button>
@@ -80,6 +131,7 @@ const RawMaterialSource = ({ entries, setEntries }) => {
                                 <th>Supplier / Source</th>
                                 <th>Document Reference</th>
                                 <th>Status</th>
+                                <th style={{ textAlign: 'right' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -89,6 +141,25 @@ const RawMaterialSource = ({ entries, setEntries }) => {
                                     <td>{entry.supplier}</td>
                                     <td>{entry.docRef}</td>
                                     <td><span className={`badge ${entry.status === 'Verified' ? 'badge-verified' : 'badge-pending'}`}>{entry.status}</span></td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        {(entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification') && (
+                                            <button
+                                                onClick={() => handleEdit(entry)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    background: 'rgba(66, 129, 140, 0.1)',
+                                                    color: 'var(--primary-color)',
+                                                    border: '1px solid var(--primary-color)',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600'
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -97,12 +168,14 @@ const RawMaterialSource = ({ entries, setEntries }) => {
             ) : (
                 <div className="form-container fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>Add Raw Material Source</h3>
+                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>
+                            {editingEntry ? 'Modify Raw Material Source' : 'Add Raw Material Source'}
+                        </h3>
                         <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.4rem 1rem' }}>Cancel</button>
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-grid">
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                             <div className="form-group">
                                 <label className="form-label">Name of Raw Material</label>
                                 <select
@@ -176,7 +249,7 @@ const RawMaterialSource = ({ entries, setEntries }) => {
 
                         <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button type="submit" className="btn-primary" style={{ padding: '0.8rem 3rem' }}>
-                                Submit Entry
+                                {editingEntry ? 'Update Entry' : 'Submit Entry'}
                             </button>
                         </div>
                     </form>

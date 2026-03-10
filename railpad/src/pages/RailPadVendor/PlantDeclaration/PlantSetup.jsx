@@ -5,6 +5,7 @@ const PlantSetup = ({ entries, setEntries }) => {
     const [numUnits, setNumUnits] = useState(0);
     const [unitSections, setUnitSections] = useState([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [editingEntry, setEditingEntry] = useState(null);
 
     const productOptions = [
         "6.00mm GRSP", "10.00mm GRSP", "6.20mm CGRSP", "10.00mm CGRSP", "6.00mm NCRGRSP", "10.00mm NCRGRSP"
@@ -51,20 +52,54 @@ const PlantSetup = ({ entries, setEntries }) => {
         setUnitSections(updated);
     };
 
+    const handleEdit = (entry) => {
+        setEditingEntry(entry);
+        setNumUnits(1);
+        setUnitSections([{
+            id: entry.id,
+            unitName: entry.unitName,
+            address: entry.address,
+            numLines: entry.numLines,
+            selectedProducts: entry.selectedProducts || []
+        }]);
+        setView('form');
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        const newEntries = unitSections.map(unit => ({
-            id: unit.id || Date.now() + Math.random(),
-            manufacturer: "ABC Industries (VEND001)",
-            unitName: unit.unitName,
-            address: unit.address,
-            numLines: unit.numLines,
-            capacity: unit.selectedProducts.length > 0 ? `${unit.selectedProducts[0].capacity} Pcs/Month` : '-',
-            status: "Pending Verification"
-        }));
+        if (editingEntry) {
+            const updatedEntries = entries.map(entry => {
+                if (entry.id === editingEntry.id) {
+                    const unit = unitSections[0];
+                    return {
+                        ...entry,
+                        unitName: unit.unitName,
+                        address: unit.address,
+                        numLines: unit.numLines,
+                        selectedProducts: unit.selectedProducts,
+                        capacity: unit.selectedProducts.length > 0 ? `${unit.selectedProducts[0].capacity} Pcs/Month` : '-',
+                        status: "Pending Verification"
+                    };
+                }
+                return entry;
+            });
+            setEntries(updatedEntries);
+            setEditingEntry(null);
+        } else {
+            const newEntries = unitSections.map(unit => ({
+                id: unit.id || Date.now() + Math.random(),
+                manufacturer: "ABC Industries (VEND001)",
+                unitName: unit.unitName,
+                address: unit.address,
+                numLines: unit.numLines,
+                selectedProducts: unit.selectedProducts,
+                capacity: unit.selectedProducts.length > 0 ? `${unit.selectedProducts[0].capacity} Pcs/Month` : '-',
+                status: "Pending Verification"
+            }));
+            setEntries([...entries, ...newEntries]);
+        }
 
-        setEntries([...entries, ...newEntries]);
         setIsSubmitted(true);
         setView('list');
         // Reset form
@@ -80,7 +115,7 @@ const PlantSetup = ({ entries, setEntries }) => {
                     <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
                 </div>
                 {view === 'list' && (
-                    <button className="btn-primary" onClick={() => setView('form')}>
+                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setNumUnits(0); setUnitSections([]); }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
                         Add New Entry
                     </button>
@@ -97,6 +132,7 @@ const PlantSetup = ({ entries, setEntries }) => {
                                 <th>No. of Lines</th>
                                 <th>Capacity</th>
                                 <th>Status</th>
+                                <th style={{ textAlign: 'right' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -114,6 +150,25 @@ const PlantSetup = ({ entries, setEntries }) => {
                                             {unit.status}
                                         </span>
                                     </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        {(unit.status === 'Pending Verification' || unit.status === 'Unlocked for Modification') && (
+                                            <button
+                                                onClick={() => handleEdit(unit)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    background: 'rgba(66, 129, 140, 0.1)',
+                                                    color: 'var(--primary-color)',
+                                                    border: '1px solid var(--primary-color)',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600'
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -122,12 +177,14 @@ const PlantSetup = ({ entries, setEntries }) => {
             ) : (
                 <div className="form-container fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>Submit Plant Set Up</h3>
+                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>
+                            {editingEntry ? 'Modify Plant Set Up' : 'Submit Plant Set Up'}
+                        </h3>
                         <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.4rem 1rem' }}>Cancel</button>
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-grid">
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '32px' }}>
                             <div className="form-group">
                                 <label className="form-label">Vendor Name</label>
                                 <input className="form-input" value="ABC Industries" disabled style={{ background: '#f1f5f9' }} />
@@ -136,19 +193,20 @@ const PlantSetup = ({ entries, setEntries }) => {
                                 <label className="form-label">Vendor Code</label>
                                 <input className="form-input" value="VEND001" disabled style={{ background: '#f1f5f9' }} />
                             </div>
-                        </div>
-
-                        <div className="form-group" style={{ maxWidth: '240px', marginBottom: '32px' }}>
-                            <label className="form-label">No. of Units</label>
-                            <input
-                                type="number"
-                                className="form-input"
-                                placeholder="Enter units count"
-                                value={numUnits}
-                                onChange={handleNumUnitsChange}
-                                min="0"
-                                required
-                            />
+                            <div className="form-group">
+                                <label className="form-label">NO. of Units</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    placeholder="Enter units count"
+                                    value={numUnits}
+                                    onChange={handleNumUnitsChange}
+                                    min="0"
+                                    required
+                                    disabled={editingEntry !== null}
+                                    style={{ background: editingEntry !== null ? '#f1f5f9' : 'white' }}
+                                />
+                            </div>
                         </div>
 
                         {unitSections.map((unit, unitIdx) => (
@@ -256,7 +314,7 @@ const PlantSetup = ({ entries, setEntries }) => {
 
                         <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button type="submit" className="btn-primary" style={{ padding: '0.8rem 3rem' }}>
-                                Submit Declaration
+                                {editingEntry ? 'Update Entry' : 'Submit Declaration'}
                             </button>
                         </div>
                     </form>

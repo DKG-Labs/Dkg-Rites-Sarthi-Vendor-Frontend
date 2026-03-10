@@ -34,7 +34,7 @@ const PlantDeclarationDashboard = ({ onBack }) => {
             materialName: "Carbon Black (N-765)",
             supplier: "B-Chem Solutions",
             docRef: "BC/TX/9932",
-            status: "Pending"
+            status: "Pending Verification"
         }
     ]);
 
