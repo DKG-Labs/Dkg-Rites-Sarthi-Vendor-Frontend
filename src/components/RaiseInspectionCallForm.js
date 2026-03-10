@@ -190,13 +190,14 @@ const SectionHeader = ({ title, subtitle }) => (
 );
 
 // Initial form state generator
-const getInitialFormState = (selectedPO = null) => {
+const getInitialFormState = (selectedPO = null, selectedItem = null) => {
   // Find the first PO serial for the selected PO
   const poSerial = selectedPO ? PO_SERIAL_DETAILS.find(p => p.poNo === selectedPO.po_no) : null;
 
   return {
     // === COMMON SECTION (Auto Fetched from IREPS) ===
     po_no: selectedPO?.po_no || '',
+    zone_name: selectedPO?.zone_name || selectedPO?.rlyShortName || 'N/A',
     po_serial_no: '', // Will be set when user selects from dropdown
     po_date: selectedPO?.po_date || '',
     po_description: selectedPO?.description || '',
@@ -213,9 +214,9 @@ const getInitialFormState = (selectedPO = null) => {
     desired_inspection_date: '',
 
     // === QUANTITY TRACKING (Auto Calculated) ===
-    qty_already_inspected_rm: poSerial?.qtyAlreadyInspected?.rm || 0,
-    qty_already_inspected_process: poSerial?.qtyAlreadyInspected?.process || 0,
-    qty_already_inspected_final: poSerial?.qtyAlreadyInspected?.final || 0,
+    qty_already_inspected_rm: selectedItem?.qty_already_inspected_rm || poSerial?.qtyAlreadyInspected?.rm || 0,
+    qty_already_inspected_process: selectedItem?.qty_already_inspected_process || poSerial?.qtyAlreadyInspected?.process || 0,
+    qty_already_inspected_final: selectedItem?.qty_already_inspected_final || poSerial?.qtyAlreadyInspected?.final || 0,
 
     // === RAW MATERIAL STAGE FIELDS ===
     // NEW: Array of heat-TC mappings with auto-fetched details
@@ -315,7 +316,7 @@ export const RaiseInspectionCallForm = ({
   onSubmit,
   isLoading = false
 }) => {
-  const [formData, setFormData] = useState(() => getInitialFormState(selectedPO));
+  const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
   const [selectedPoSerial, setSelectedPoSerial] = useState(selectedItem?.po_serial_no || '');
 
@@ -381,16 +382,16 @@ export const RaiseInspectionCallForm = ({
         po_serial_no: serialNo,
         po_qty: itemData.item_qty || 0,
         po_unit: itemData.item_unit || '',
-        qty_already_inspected_rm: 0,
-        qty_already_inspected_process: 0,
-        qty_already_inspected_final: 0
+        qty_already_inspected_rm: itemData.qty_already_inspected_rm || 0,
+        qty_already_inspected_process: itemData.qty_already_inspected_process || 0,
+        qty_already_inspected_final: itemData.qty_already_inspected_final || 0
       }));
     }
   }, []);
 
   // Reset form when PO or Item changes
   useEffect(() => {
-    setFormData(getInitialFormState(selectedPO));
+    setFormData(getInitialFormState(selectedPO, selectedItem));
     setErrors({});
 
     // Auto-fill PO Serial Number if item is provided
@@ -1027,6 +1028,10 @@ export const RaiseInspectionCallForm = ({
       }));
     }
   }, [formData.rm_heat_tc_mapping, formData.type_of_call, formData.type_of_erc, calculateErcFromMt]);
+
+  // Note: Validation for total quantity against PO Serial Quantity has been removed as per user request.
+
+
 
   // Use availableHeatNumbers from props (fetched from /api/vendor/available-heat-numbers/{vendorCode})
   // This endpoint returns only heat numbers with:
@@ -2058,6 +2063,8 @@ export const RaiseInspectionCallForm = ({
         if (!formData.rm_total_offered_qty_mt || parseFloat(formData.rm_total_offered_qty_mt) <= 0) {
           newErrors.rm_total_offered_qty_mt = 'Total Offered Quantity (MT) must be greater than 0';
         }
+        // Removed PO Serial Quantity validation as per user request
+
 
         // Chemical analysis validations per heat (now per-heat instead of global)
         formData.rm_heat_tc_mapping.forEach((heat, index) => {
@@ -2340,7 +2347,7 @@ export const RaiseInspectionCallForm = ({
   };
 
   const handleReset = () => {
-    setFormData(getInitialFormState(selectedPO));
+    setFormData(getInitialFormState(selectedPO, selectedItem));
     setSelectedPoSerial('');
     setErrors({});
   };
@@ -2417,6 +2424,10 @@ export const RaiseInspectionCallForm = ({
           )}
         </FormField>
 
+        <FormField label="Zone Name" name="zone_name" hint="Auto Fetched" errors={errors}>
+          <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.zone_name} disabled />
+        </FormField>
+
         <FormField label="PO Number" name="po_no" hint="Auto Fetched" errors={errors}>
           <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_no} disabled />
         </FormField>
@@ -2425,7 +2436,7 @@ export const RaiseInspectionCallForm = ({
           <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_date ? formatDate(formData.po_date) : ''} disabled />
         </FormField>
 
-        <FormField label="PO Quantity" name="po_qty" hint="Auto Fetched" errors={errors}>
+        <FormField label="PO Sr No Qty" name="po_qty" hint="Auto Fetched" errors={errors}>
           <input type="text" className="ric-form-input ric-form-input--disabled" value={`${formData.po_qty} ${formData.po_unit}`} disabled />
         </FormField>
 
@@ -2883,7 +2894,7 @@ export const RaiseInspectionCallForm = ({
                           className="ric-form-input"
                           value={heatMapping.chemical_carbon}
                           onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_carbon', e.target.value)}
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           max="100"
                           placeholder="e.g., 0.55"
@@ -2896,7 +2907,7 @@ export const RaiseInspectionCallForm = ({
                           className="ric-form-input"
                           value={heatMapping.chemical_manganese}
                           onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_manganese', e.target.value)}
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           max="100"
                           placeholder="e.g., 0.9"
@@ -2909,7 +2920,7 @@ export const RaiseInspectionCallForm = ({
                           className="ric-form-input"
                           value={heatMapping.chemical_silicon}
                           onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_silicon', e.target.value)}
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           max="100"
                           placeholder="e.g., 1.75"
@@ -3203,7 +3214,7 @@ export const RaiseInspectionCallForm = ({
                         const offeredQty = parseInt(lotHeat.offeredQty) || 0;
 
                         // Format accepted weight for display in label
-                        const acceptedWeightDisplay = heatSummary ? `${parseFloat(heatSummary.acceptedMt).toFixed(2)} MT` : '';
+                        const acceptedWeightDisplay = heatSummary ? `${parseFloat(heatSummary.acceptedMt).toFixed(3)} MT` : '';
 
                         // Calculate available balance for THIS lot
                         // Available = Max ERC - Offered Earlier - (Total offered by OTHER lots using same heat)
@@ -3221,7 +3232,7 @@ export const RaiseInspectionCallForm = ({
 
                         return (
                           <FormField
-                            label={`Decalred Quantity of Lot in Nos. ${acceptedWeightDisplay ? `(Accepted: ${acceptedWeightDisplay})` : ''}`}
+                            label={`Declared Quantity of Lot in Nos. ${acceptedWeightDisplay ? `(Accepted: ${acceptedWeightDisplay})` : ''}`}
                             name={`process_offered_qty_${lotHeat.id}`}
                             required
                             hint={heatSummary ? `Available Future Balance: ${availableBalance} ERCs` : "Select heat number first"}
