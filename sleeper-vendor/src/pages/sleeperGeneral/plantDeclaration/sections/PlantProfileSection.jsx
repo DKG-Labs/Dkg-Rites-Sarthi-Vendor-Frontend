@@ -35,8 +35,9 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
             vendorCode: 'V-10294',
             plantType: formData.type,
             numberOfSheds: parseInt(formData.shedsLines),
-            createdBy: 1,
-            updatedBy: editingId ? 1 : null
+            vendorId: 118,
+            createdBy: 118,
+            updatedBy: editingId ? 118 : null
         };
 
         try {

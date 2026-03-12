@@ -789,7 +789,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                 totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
                                 totalRft: calculateTotalRFT(),
                                 remarks: formHeader.remarks || '',
-                                createdBy: 1, // Simulated user ID
+                                vendorId: 118,
+                                createdBy: 118,
                                 updatedBy: null,
                                 chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
                                     chamberNo: parseInt(chamber.chamberNo) || 0,

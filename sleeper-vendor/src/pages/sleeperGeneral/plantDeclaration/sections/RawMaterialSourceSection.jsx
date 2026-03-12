@@ -65,8 +65,9 @@ const RawMaterialSourceSection = () => {
             approvalReference: formData.approvalReference,
             validFrom: formData.validityFrom ? formData.validityFrom.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
             validTo: formData.validityTo ? formData.validityTo.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
-            createdBy: 1,
-            updatedBy: editingId ? 1 : null
+            vendorId: 118,
+            createdBy: 118,
+            updatedBy: editingId ? 118 : null
         };
 
         try {

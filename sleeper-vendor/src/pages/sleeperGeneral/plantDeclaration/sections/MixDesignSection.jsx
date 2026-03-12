@@ -70,8 +70,9 @@ const MixDesignSection = () => {
             water: parseFloat(newMix.water) || 0,
             acRatio: parseFloat(calculateAC(newMix)),
             wcRatio: parseFloat(calculateWC(newMix)),
-            createdBy: 1,
-            updatedBy: editingId ? 1 : null
+            vendorId: 118,
+            createdBy: 118,
+            updatedBy: editingId ? 118 : null
         };
 
         try {

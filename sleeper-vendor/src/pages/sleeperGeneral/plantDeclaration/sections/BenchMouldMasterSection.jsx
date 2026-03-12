@@ -149,7 +149,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             benchTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : null,
             sleeperCategory: formState.sleeperCategory,
             mouldsPerBench: parseInt(formState.numMouldsPerItem) || 0,
-            createdBy: 1
+            vendorId: 118,
+            createdBy: 118
         };
 
         try {
