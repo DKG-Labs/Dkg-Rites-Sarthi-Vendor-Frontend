@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 
-const CallsRequestedDashboard = () => {
-    const [calls] = useState([
-        { id: 1, callNo: 'IC/SLP/2026/005', poNo: 'PO/SLP/2026/001', date: '2026-02-15', stage: 'Raw Material', qty: 1500, status: 'Pending' },
-        { id: 2, callNo: 'IC/SLP/2026/004', poNo: 'PO/SLP/2026/001', date: '2026-02-12', stage: 'Final', qty: 2000, status: 'Scheduled' },
-        { id: 3, callNo: 'IC/SLP/2026/003', poNo: 'PO/SLP/2026/045', date: '2026-02-10', stage: 'Process', qty: 400, status: 'Under Inspection' },
-    ]);
+const CallsRequestedDashboard = ({ inspectionCalls }) => {
+    const calls = inspectionCalls || [];
 
     return (
         <div className="fade-in">
