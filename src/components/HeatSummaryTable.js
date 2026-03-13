@@ -24,11 +24,21 @@ const HeatSummaryTable = ({ data = [], loading = false, poSerialNo = '' }) => {
 
   // Helper function to format numeric values as integers (no decimals)
   const formatAsInteger = (value) => {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === '') {
       return '0';
     }
     // Convert to number and round down to nearest integer
-    return Math.floor(parseFloat(value)).toString();
+    const num = parseFloat(value);
+    return isNaN(num) ? '0' : Math.floor(num).toString();
+  };
+
+  // Helper function to format numeric values with 3 decimal places
+  const formatToThreeDecimals = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return '0.000';
+    }
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.000' : num.toFixed(3);
   };
 
   return (
@@ -36,7 +46,7 @@ const HeatSummaryTable = ({ data = [], loading = false, poSerialNo = '' }) => {
       <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
         Heat Summary
       </h3>
-      
+
       <div className="heat-summary-table-wrapper">
         <table className="heat-summary-table">
           <thead>
@@ -59,7 +69,7 @@ const HeatSummaryTable = ({ data = [], loading = false, poSerialNo = '' }) => {
               return (
                 <tr key={index}>
                   <td className="heat-no-cell">{row.heatNo}</td>
-                  <td className="numeric-cell">{formatAsInteger(row.acceptedMt)}</td>
+                  <td className="numeric-cell">{formatToThreeDecimals(row.acceptedMt)}</td>
                   <td className="numeric-cell">{formatAsInteger(row.maxErc)}</td>
                   <td className="numeric-cell">{formatAsInteger(row.manufactured)}</td>
                   <td className="numeric-cell">{formatAsInteger(offeredEarlier)}</td>

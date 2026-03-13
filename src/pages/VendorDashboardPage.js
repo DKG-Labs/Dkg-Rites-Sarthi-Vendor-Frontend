@@ -199,6 +199,7 @@ const VendorDashboardPage = ({ onBack }) => {
             po_no: item.poNo || '',
             po_date: item.poDate || '',
             description: item.poDes || '',
+            zone_name: item.rlyShortName || item.rly_short_name || item.rlyCd || 'N/A',
             quantity: item.qty || 0,
             unit: item.unit || '',
             status: 'Fresh PO', // Backend doesn't return status, using default
@@ -318,7 +319,7 @@ const VendorDashboardPage = ({ onBack }) => {
             location: call.placeOfInspection || '',
             status: call.workflowStatus || call.jobStatus || 'Pending',
             // Additional fields for expanded view
-            rlyShortName: call.rlyShortName || 'N/A',
+            rlyShortName: call.rlyShortName || call.rly_short_name || call.rlyCd || 'N/A',
             ercType: call.ercType || 'N/A',
             noOfHeatsRM: call.noOfHeatsRM,
             lotNoProcess: call.lotNoProcess,
@@ -764,7 +765,39 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // ============ RAISE INSPECTION REQUEST HANDLERS ============
   const handleOpenInspectionModal = (po, item, subPO = null) => {
-    setSelectedPOItem({ po, item, subPO });
+    // Calculate already inspected quantities from requestedCalls for this PO Serial
+    const poSerialNo = item.po_serial_no || item.poSerialNo;
+
+    // Filter for completed calls matching the PO serial
+    const completedCalls = requestedCalls.filter(call => {
+      const matchPo = call.poSerialNo === poSerialNo || call.po_serial_no === poSerialNo;
+      // Consider calls that have completed their workflow successfully
+      const isCompleted = [call.status, call.workflowStatus, call.jobStatus].some(s =>
+        s && (s.toUpperCase().includes('APPROVE') || s.toUpperCase().includes('COMPLET') || s.toUpperCase().includes('CERTIFICATE'))
+      );
+      return matchPo && isCompleted;
+    });
+
+    const qty_rm = completedCalls
+      .filter(c => c.stage === 'Raw Material')
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+
+    const qty_process = completedCalls
+      .filter(c => c.stage === 'Process')
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+
+    const qty_final = completedCalls
+      .filter(c => c.stage === 'Final')
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+
+    const enhancedItem = {
+      ...item,
+      qty_already_inspected_rm: qty_rm,
+      qty_already_inspected_process: qty_process,
+      qty_already_inspected_final: qty_final
+    };
+
+    setSelectedPOItem({ po, item: enhancedItem, subPO });
     setIsInspectionModalOpen(true);
   };
 
@@ -813,8 +846,9 @@ const VendorDashboardPage = ({ onBack }) => {
             updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           processInspectionDetails: data.process_lot_heat_mapping.map(lotHeat => ({
+            // Send ALL selected RM IC numbers as comma-separated string per lot row
             rmIcNumber: data.process_rm_ic_numbers && data.process_rm_ic_numbers.length > 0
-              ? data.process_rm_ic_numbers[0]
+              ? data.process_rm_ic_numbers.join(',')
               : null,
             lotNumber: lotHeat.lotNumber,
             heatNumber: lotHeat.heatNumber,
@@ -874,6 +908,10 @@ const VendorDashboardPage = ({ onBack }) => {
             updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
           },
           finalInspectionDetails: {
+            // ---- Send ALL selected RM IC and Process IC numbers (new multi-select fields) ----
+            rmIcNumbers: data.final_rm_ic_numbers || [],
+            processIcNumbers: data.final_process_ic_numbers || [],
+            // ---- Legacy single-value fields (backward compat) - first of each list ----
             rmIcNumber: data.final_rm_ic_numbers && data.final_rm_ic_numbers.length > 0
               ? data.final_rm_ic_numbers[0]
               : null,
@@ -891,12 +929,13 @@ const VendorDashboardPage = ({ onBack }) => {
           finalLotDetails: data.final_lots_data ? data.final_lots_data.map(lot => ({
             lotNumber: lot.lotNumber,
             heatNumber: lot.heatNo || '',
-            manufacturer: '', // Manufacturer name not directly available in final_lots_data
-            manufacturerHeat: lot.heatNo || '', // Using heat number as fallback
+            manufacturer: '',
+            manufacturerHeat: lot.heatNo || '',
             offeredQty: parseInt(lot.offeredQty) || 0,
             noOfBags: parseInt(lot.noOfBags) || 0,
+            // Store all selected process IC numbers as comma-separated per lot
             processIcNumber: data.final_process_ic_numbers && data.final_process_ic_numbers.length > 0
-              ? data.final_process_ic_numbers[0]
+              ? data.final_process_ic_numbers.join(',')
               : null
           })) : []
         };
@@ -1577,6 +1616,7 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'PO Date',
       render: (value) => formatDate(value)
     },
+    { key: 'zone_name', label: 'Zone Name' },
     { key: 'description', label: 'Vendor Name' },
     { key: 'quantity', label: 'Qty' },
     { key: 'unit', label: 'Unit' },
