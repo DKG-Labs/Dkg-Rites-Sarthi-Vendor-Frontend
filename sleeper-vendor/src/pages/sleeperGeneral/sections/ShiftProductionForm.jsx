@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
+const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) => {
     const AVAILABLE_SHEDS = [
         { name: 'Stress Bench A', type: 'Twin', mouldsPerBench: 8 },
         { name: 'Stress Bench B', type: 'Single', mouldsPerBench: 4 },
@@ -66,6 +66,57 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         // Mock logic for auto-population: even benches are RT-8746, odd are RT-8521
         return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
     };
+
+    useEffect(() => {
+        if (initialData) {
+            setPlantType(initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Stress Bench');
+            
+            // Map header
+            const [d, m, y] = (initialData.castingDate || '').split('/');
+            setFormHeader({
+                unit: initialData.productionUnit || '',
+                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (AVAILABLE_SHEDS.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
+                date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
+                shift: initialData.shift || 'Day Shift',
+                batchNo: initialData.batchNumber || '',
+                mixDesign: initialData.mixDesignReference || 'M60 - Design A (Active)',
+                timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
+                remarks: initialData.remarks || ''
+            });
+
+            // Map chambers for Stress Bench
+            if (initialData.plantType === 'STRESS' && initialData.chambers) {
+                const mappedChambers = initialData.chambers.map((c, cIdx) => ({
+                    id: cIdx + 1,
+                    chamberNo: c.chamberNo,
+                    benchGroups: c.benchGroups ? c.benchGroups.map((g, gIdx) => ({
+                        id: Date.now() + cIdx + gIdx,
+                        benches: [g.benchNo.toString()],
+                        mouldsPerBench: g.mouldPerBench,
+                        sleeperType: g.sleeperType
+                    })) : []
+                }));
+                if (mappedChambers.length > 0) setChambers(mappedChambers);
+            }
+
+            // Map gangs for Long Line
+            if (initialData.plantType === 'LONG_LINE' && initialData.gangs) {
+                const mappedEntries = initialData.gangs.map((g, gIdx) => ({
+                    id: Date.now() + gIdx,
+                    entryMode: g.mode?.toLowerCase() || 'range',
+                    fromNo: g.gangFrom?.toString() || '',
+                    toNo: g.gangTo?.toString() || '',
+                    singleNo: g.gangNo?.toString() || '',
+                    mouldsPerGang: g.mouldsPerGang,
+                    sleeperType: g.sleeperType
+                }));
+                if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
+            }
+
+            // Move to Section 1
+            setActiveSections({ 1: true, 2: true, 3: true });
+        }
+    }, [initialData]);
 
     const isGroupPnC = (group) => {
         return group.sleeperType && group.sleeperType.toLowerCase().includes('pnc');
@@ -784,14 +835,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                 shift: formHeader.shift,
                                 batchNumber: formHeader.batchNo.toString(),
                                 mixDesignReference: formHeader.mixDesign,
-                                lbcTime: formHeader.timeLbc,
+                                lbcTime: formHeader.timeLbc?.substring(0, 5),
                                 totalCastedSleepers: calculateTotalCast(),
                                 totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
                                 totalRft: calculateTotalRFT(),
                                 remarks: formHeader.remarks || '',
                                 vendorId: 118,
                                 createdBy: 118,
-                                updatedBy: null,
+                                updatedBy: 118,
                                 chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
                                     chamberNo: parseInt(chamber.chamberNo) || 0,
                                     benchGroups: chamber.benchGroups.flatMap(group =>

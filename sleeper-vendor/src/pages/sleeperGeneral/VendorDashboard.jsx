@@ -7,12 +7,17 @@ import CallsRequestedDashboard from './CallsRequestedDashboard';
 import CallsCompletedDashboard from './CallsCompletedDashboard';
 import FinanceDashboard from './FinanceDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
+import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
+
+import { useLocation } from 'react-router-dom';
 
 const VendorDashboard = () => {
-    const [selectedModule, setSelectedModule] = useState('inventory-management');
+    const location = useLocation();
+    const [selectedModule, setSelectedModule] = useState(location.state?.selectedModule || 'inventory-management');
 
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: 1 },
+        { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
         { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
@@ -26,6 +31,8 @@ const VendorDashboard = () => {
 
     const renderContent = () => {
         switch (selectedModule) {
+            case 'requested-changes':
+                return <VendorIncomingRequests />;
             case 'plant-declaration':
                 return <PlantDeclarationDashboard />;
             case 'production-declaration':
