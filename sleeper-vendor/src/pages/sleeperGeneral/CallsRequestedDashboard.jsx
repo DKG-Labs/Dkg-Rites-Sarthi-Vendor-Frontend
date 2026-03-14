@@ -629,7 +629,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
             callDate: new Date().toLocaleDateString('en-IN'),
             sleeperType: c.sleeperType,
             qtyOffered: Number(c.totalOffered) || 0,
-            batches: Number(c.batchesTouched) || 0,
+            batches: Number(c.batchesSelected) || 0,
             ieName: null, scheduledDate: null,
             status: 'Call Raised',
             history: [{ action: 'Call Raised', date: new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Raised via PO Assigned module' }]
