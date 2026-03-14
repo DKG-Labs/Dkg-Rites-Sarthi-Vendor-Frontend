@@ -16,6 +16,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '1',
                 description: 'Manufacture and supply of prestressed concrete sleepers RT-8746 (BG) as per RDSO drg.',
+                consignee: 'SSE/P-Way/KGP',
                 ordered: 10000,
                 offeredTillNow: 3200,
                 acceptedTillNow: 3000,
@@ -25,6 +26,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '2',
                 description: 'Supply of elastic rail clips ERC MK-III complete with fittings',
+                consignee: 'SSE/P-Way/ADra',
                 ordered: 50000,
                 offeredTillNow: 15000,
                 acceptedTillNow: 14500,
@@ -46,6 +48,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '1',
                 description: 'Manufacture & supply of pre-stressed monoblock concrete sleepers PSC 60Kg (T-2828)',
+                consignee: 'SSE/P-Way/ADI',
                 ordered: 5000,
                 offeredTillNow: 5000,
                 acceptedTillNow: 4980,
@@ -67,6 +70,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '1',
                 description: 'Supply of CST-9 Sleepers with fittings for track renewal works',
+                consignee: 'SSE/P-Way/BBS',
                 ordered: 8000,
                 offeredTillNow: 2500,
                 acceptedTillNow: 2400,
@@ -76,6 +80,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '2',
                 description: 'Supply of GFN Liners and MS Liners for P.Way works',
+                consignee: 'SSE/P-Way/CTC',
                 ordered: 120000,
                 offeredTillNow: 40000,
                 acceptedTillNow: 39500,
@@ -85,6 +90,7 @@ const MOCK_PO_DATA = [
             {
                 srNo: '3',
                 description: 'Manufacture and supply of prestressed concrete sleepers RT-8746 (BG)',
+                consignee: 'SSE/P-Way/KGP',
                 ordered: 15000,
                 offeredTillNow: 0,
                 acceptedTillNow: 0,
@@ -136,10 +142,15 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
                         fontWeight: 800, fontSize: 12, color: '#21808d'
                     }}>{item.srNo}</div>
                 </td>
-                {/* Description */}
                 <td style={{ padding: '10px 12px', maxWidth: 260 }}>
                     <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 500, lineHeight: 1.4 }}>
                         {item.description}
+                    </div>
+                </td>
+                {/* Consignee */}
+                <td style={{ padding: '10px 12px' }}>
+                    <div style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
+                        {item.consignee || '—'}
                     </div>
                 </td>
                 {/* Ordered */}
@@ -313,6 +324,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                         <tr style={{ background: '#fdf8e6' }}>
                                             <th style={thStyle}>SR.</th>
                                             <th style={thStyle}>Description of Stores</th>
+                                            <th style={thStyle}>Consignee</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Qty on Order</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#7c3aed' }}>Offered Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#16a34a' }}>Accepted Till Now</th>

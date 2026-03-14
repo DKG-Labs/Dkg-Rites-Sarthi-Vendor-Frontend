@@ -279,6 +279,34 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             </select>
                         </div>
 
+                        {sleeperType && (
+                            <div style={{ 
+                                marginBottom: 16, 
+                                padding: '8px 14px', 
+                                background: '#fdf8e6', 
+                                border: '1.5px dashed #fcd34d', 
+                                borderRadius: 8,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8
+                            }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+                                    Casted as selected Sleeper Type:
+                                </span>
+                                <span style={{ 
+                                    fontSize: 14, 
+                                    fontWeight: 800, 
+                                    color: '#7c3aed',
+                                    background: '#fff',
+                                    padding: '2px 10px',
+                                    borderRadius: 6,
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}>
+                                    {sleeperType}
+                                </span>
+                            </div>
+                        )}
+
                         {/* Batch Grid */}
                         {sleeperType && batches.length === 0 && (
                             <div style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8', fontSize: 13 }}>
