@@ -8,7 +8,8 @@ const MOCK_PO_DATA = [
         poNo: 'PO/RDSO/SLP/2025/001',
         poDate: '15/01/2025',
         purchasingAuthority: 'DRM/SER/KGP',
-        consignee: 'SSE (Works), Kharagpur',
+        itemCategory: 'Prestressed Concrete Sleepers',
+        uom: 'Nos.',
         totalValue: 42500000,
         status: 'Active',
         srItems: [
@@ -37,7 +38,8 @@ const MOCK_PO_DATA = [
         poNo: 'PO/SER/KGP/2025/045',
         poDate: '01/02/2025',
         purchasingAuthority: 'DRM/SER/ADI',
-        consignee: 'SSE (P.Way), Howrah',
+        itemCategory: 'Monoblock Concrete Sleepers',
+        uom: 'Nos.',
         totalValue: 18750000,
         status: 'Active',
         srItems: [
@@ -57,7 +59,8 @@ const MOCK_PO_DATA = [
         poNo: 'PO/ECoR/BBS/2024/112',
         poDate: '20/11/2024',
         purchasingAuthority: 'DRM/ECoR/BBS',
-        consignee: 'SSE (Works), Bhubaneswar Divn.',
+        itemCategory: 'CST-9 Sleepers & Fittings',
+        uom: 'Nos.',
         totalValue: 31200000,
         status: 'Active',
         srItems: [
@@ -157,15 +160,6 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
                         {item.acceptedTillNow.toLocaleString()}
                     </span>
                 </td>
-                {/* Rejected */}
-                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <span style={{
-                        fontWeight: 600, fontSize: 12,
-                        color: item.rejectedTillNow > 0 ? '#dc2626' : '#94a3b8'
-                    }}>
-                        {item.rejectedTillNow.toLocaleString()}
-                    </span>
-                </td>
                 {/* Due */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <span style={{
@@ -214,6 +208,8 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
     const [expanded, setExpanded] = useState(false);
 
     const activeSrCount = po.srItems.filter(s => s.due > 0).length;
+    // Total ordered quantity = sum of all SR ordered quantities
+    const totalPoQty = po.srItems.reduce((acc, s) => acc + s.ordered, 0);
 
     return (
         <>
@@ -250,9 +246,16 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                 <td style={{ padding: '16px 8px' }}>
                     <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>{po.purchasingAuthority}</div>
                 </td>
-                {/* Consignee */}
+                {/* Item Category */}
                 <td style={{ padding: '16px 8px' }}>
-                    <div style={{ fontSize: 12, color: '#334155' }}>{po.consignee}</div>
+                    <div style={{ fontSize: 12, color: '#334155' }}>{po.itemCategory}</div>
+                </td>
+                {/* PO Quantity */}
+                <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
+                        {totalPoQty.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{po.uom}</div>
                 </td>
                 {/* Total Value */}
                 <td style={{ padding: '16px 8px', textAlign: 'right' }}>
@@ -277,7 +280,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
             {/* Expanded Sub-Table */}
             {expanded && (
                 <tr style={{ borderBottom: isLast ? 'none' : '1px solid #e2e8f0' }}>
-                    <td colSpan={6} style={{ padding: 0 }}>
+                    <td colSpan={7} style={{ padding: 0 }}>
                         <div style={{
                             margin: '0 0 12px 44px',
                             border: '1.5px solid #a7d8dc',
@@ -293,7 +296,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                 display: 'flex', alignItems: 'center', gap: 10
                             }}>
                                 <span style={{ color: '#fff', fontWeight: 700, fontSize: 12 }}>
-                                    SR. No. Items — {po.poNo}
+                                    PO Sr. No. Items — {po.poNo}
                                 </span>
                                 <span style={{
                                     background: 'rgba(255,255,255,0.2)', color: '#fff',
@@ -313,7 +316,6 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Qty on Order</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#7c3aed' }}>Offered Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#16a34a' }}>Accepted Till Now</th>
-                                            <th style={{ ...thStyle, textAlign: 'center', color: '#dc2626' }}>Rejected Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Sleepers Due</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
                                         </tr>
@@ -364,7 +366,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
         return MOCK_PO_DATA.filter(po =>
             po.poNo.toLowerCase().includes(q) ||
             po.purchasingAuthority.toLowerCase().includes(q) ||
-            po.consignee.toLowerCase().includes(q)
+            po.itemCategory.toLowerCase().includes(q)
         );
     }, [search]);
 
@@ -416,7 +418,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                     }}>🔍</span>
                     <input
                         type="text"
-                        placeholder="Search PO No., Authority, Consignee..."
+                        placeholder="Search PO No., Authority, Item Category..."
                         value={search}
                         onChange={e => { setSearch(e.target.value); setPage(1); }}
                         style={{
@@ -448,13 +450,14 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
                         <thead>
                             <tr style={{ background: '#fdf8e6', borderBottom: '2px solid #e2e8f0' }}>
                                 <th style={thStyle}></th>
-                                <th style={thStyle}>PO No. & Date</th>
+                                <th style={thStyle}>PO No. &amp; Date</th>
                                 <th style={thStyle}>Purchasing Authority</th>
-                                <th style={thStyle}>Consignee</th>
+                                <th style={thStyle}>Item Category</th>
+                                <th style={{ ...thStyle, textAlign: 'center' }}>PO Quantity</th>
                                 <th style={{ ...thStyle, textAlign: 'right' }}>Total PO Value</th>
                                 <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
                             </tr>
@@ -462,7 +465,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                         <tbody>
                             {paginated.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
                                         No POs found matching your search.
                                     </td>

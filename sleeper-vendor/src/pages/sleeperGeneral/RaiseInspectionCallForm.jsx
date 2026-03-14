@@ -5,37 +5,51 @@ const MOCK_BATCHES = {
     'RT-8746': [
         {
             batchNo: '2025/A/14',
-            date: '2026-01-12',
-            totalCast: 120,
+            castDate: '2026-01-12',
+            totalCasted: 120,
+            castedAsType: 'RT-8746',
+            previouslyOffered: 30,
             goodSleepers: 108,
             badSleepers: 12,
-            sleeperIds: Array.from({ length: 108 }, (_, i) => `2025/A/14/${String.fromCharCode(65 + Math.floor(i / 26))}${i + 1}`)
+            // Good sleeper IDs
+            goodSleeperIds: Array.from({ length: 108 }, (_, i) => `2025/A/14/G${i + 1}`),
+            // Bad sleeper IDs
+            badSleeperIds: Array.from({ length: 12 }, (_, i) => `2025/A/14/B${i + 1}`),
         },
         {
             batchNo: '2025/B/22',
-            date: '2026-01-18',
-            totalCast: 200,
+            castDate: '2026-01-18',
+            totalCasted: 200,
+            castedAsType: 'RT-8746',
+            previouslyOffered: 50,
             goodSleepers: 185,
             badSleepers: 15,
-            sleeperIds: Array.from({ length: 185 }, (_, i) => `2025/B/22/${String.fromCharCode(65 + Math.floor(i / 26))}${i + 1}`)
+            goodSleeperIds: Array.from({ length: 185 }, (_, i) => `2025/B/22/G${i + 1}`),
+            badSleeperIds: Array.from({ length: 15 }, (_, i) => `2025/B/22/B${i + 1}`),
         },
         {
             batchNo: '2025/C/07',
-            date: '2026-01-25',
-            totalCast: 150,
+            castDate: '2026-01-25',
+            totalCasted: 150,
+            castedAsType: 'RT-8746',
+            previouslyOffered: 10,
             goodSleepers: 143,
             badSleepers: 7,
-            sleeperIds: Array.from({ length: 143 }, (_, i) => `2025/C/07/${String.fromCharCode(65 + Math.floor(i / 26))}${i + 1}`)
+            goodSleeperIds: Array.from({ length: 143 }, (_, i) => `2025/C/07/G${i + 1}`),
+            badSleeperIds: Array.from({ length: 7 }, (_, i) => `2025/C/07/B${i + 1}`),
         },
     ],
     'PSC-60KG': [
         {
             batchNo: '2025/D/03',
-            date: '2026-01-10',
-            totalCast: 90,
+            castDate: '2026-01-10',
+            totalCasted: 90,
+            castedAsType: 'PSC-60KG',
+            previouslyOffered: 5,
             goodSleepers: 88,
             badSleepers: 2,
-            sleeperIds: Array.from({ length: 88 }, (_, i) => `2025/D/03/${String.fromCharCode(65 + Math.floor(i / 26))}${i + 1}`)
+            goodSleeperIds: Array.from({ length: 88 }, (_, i) => `2025/D/03/G${i + 1}`),
+            badSleeperIds: Array.from({ length: 2 }, (_, i) => `2025/D/03/B${i + 1}`),
         },
     ]
 };
@@ -61,16 +75,16 @@ const SectionHeader = ({ label, step, color = '#21808d' }) => (
     </div>
 );
 
-const StatBox = ({ label, value, highlight }) => (
+const StatBox = ({ label, value, highlight, color }) => (
     <div style={{
         background: highlight ? '#fef2f2' : '#f8fafc',
         border: `1px solid ${highlight ? '#fca5a5' : '#e2e8f0'}`,
-        borderRadius: 10, padding: '10px 14px', minWidth: 120,
+        borderRadius: 10, padding: '10px 14px', minWidth: 130, flex: '1 1 130px',
     }}>
         <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 4 }}>{label}</div>
         <div style={{
             fontSize: 20, fontWeight: 800,
-            color: highlight ? '#dc2626' : '#0f172a', lineHeight: 1
+            color: color || (highlight ? '#dc2626' : '#0f172a'), lineHeight: 1
         }}>{value}</div>
     </div>
 );
@@ -81,71 +95,81 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
     // Section B state
     const [sleeperType, setSleeperType] = useState('');
-    const [batchSelections, setBatchSelections] = useState({}); // { batchNo: { mode: 'all'|'partial'|'none', selected: Set<id> } }
+    const [batchSelections, setBatchSelections] = useState({}); // { batchNo: { goodSelected: Set<id>, badIncluded: boolean } }
     const [expandedBatch, setExpandedBatch] = useState(null);
 
     const batches = sleeperType ? (MOCK_BATCHES[sleeperType] || []) : [];
 
+    // Eligible for offering = goodSleepers - previouslyOffered (min 0)
+    const getEligible = (batch) => Math.max(0, batch.goodSleepers - batch.previouslyOffered);
+
     // ── Computed Summary ──────────────────────────────────────────────────────
     const summary = useMemo(() => {
-        let batchesTouched = 0;
-        let totalCast = 0;
-        let totalBad = 0;
-        let totalOffered = 0;
+        let batchesSelected = 0;
+        let totalSleeperCount = 0;
+        let totalPassedCount = 0;
+        let totalRejectedCount = 0;
 
         batches.forEach(b => {
             const sel = batchSelections[b.batchNo];
-            if (!sel || sel.mode === 'none') return;
-            batchesTouched++;
-            totalCast += b.totalCast;
-            totalBad += b.badSleepers;
-            if (sel.mode === 'all') totalOffered += b.goodSleepers;
-            else totalOffered += sel.selected.size;
+            if (!sel) return;
+            const goodCount = sel.goodSelected ? sel.goodSelected.size : 0;
+            const badCount = b.badSleepers; // bad sleepers always included if batch is touched
+            if (goodCount === 0 && !sel.batchTouched) return;
+            if (goodCount > 0 || sel.batchTouched) {
+                batchesSelected++;
+                totalSleeperCount += goodCount + badCount;
+                totalPassedCount += goodCount;
+                totalRejectedCount += badCount;
+            }
         });
 
         const due = srItem.due;
-        const exceedsCap = totalOffered > due;
-        const afterOffering = due - totalOffered;
+        const exceedsCap = totalPassedCount > due;
+        const afterOffering = due - totalPassedCount;
 
-        return { batchesTouched, totalCast, totalBad, totalOffered, exceedsCap, afterOffering };
+        return { batchesSelected, totalSleeperCount, totalPassedCount, totalRejectedCount, exceedsCap, afterOffering };
     }, [batchSelections, batches, srItem]);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
-    const handleOfferAll = (batchNo, goodSleepers, sleeperIds) => {
+    const handleOfferAllGood = (batchNo, batch) => {
+        const eligible = getEligible(batch);
         setBatchSelections(prev => ({
             ...prev,
-            [batchNo]: { mode: 'all', selected: new Set(sleeperIds.slice(0, goodSleepers)) }
+            [batchNo]: {
+                goodSelected: new Set(batch.goodSleeperIds.slice(0, eligible)),
+                batchTouched: true
+            }
         }));
     };
 
     const handleClearBatch = (batchNo) => {
-        setBatchSelections(prev => ({ ...prev, [batchNo]: { mode: 'none', selected: new Set() } }));
+        setBatchSelections(prev => ({ ...prev, [batchNo]: { goodSelected: new Set(), batchTouched: false } }));
     };
 
-    const handleToggleSleeper = (batchNo, sleeperId, sleeperIds, goodSleepers) => {
+    const handleToggleGoodSleeper = (batchNo, sleeperId) => {
         setBatchSelections(prev => {
-            const cur = prev[batchNo] || { mode: 'partial', selected: new Set() };
-            const newSet = new Set(cur.selected);
+            const cur = prev[batchNo] || { goodSelected: new Set(), batchTouched: false };
+            const newSet = new Set(cur.goodSelected);
             if (newSet.has(sleeperId)) newSet.delete(sleeperId);
             else newSet.add(sleeperId);
             return {
                 ...prev,
-                [batchNo]: { mode: newSet.size === goodSleepers ? 'all' : 'partial', selected: newSet }
+                [batchNo]: { goodSelected: newSet, batchTouched: newSet.size > 0 }
             };
         });
     };
 
     const handleToggleExpand = (batchNo) => {
         setExpandedBatch(prev => prev === batchNo ? null : batchNo);
-        // Ensure partial mode entry if not already set
         setBatchSelections(prev => {
-            if (!prev[batchNo]) return { ...prev, [batchNo]: { mode: 'partial', selected: new Set() } };
+            if (!prev[batchNo]) return { ...prev, [batchNo]: { goodSelected: new Set(), batchTouched: false } };
             return prev;
         });
     };
 
-    const getBatchMode = (batchNo) => batchSelections[batchNo]?.mode || 'none';
-    const getBatchSelected = (batchNo) => batchSelections[batchNo]?.selected || new Set();
+    const getGoodSelected = (batchNo) => batchSelections[batchNo]?.goodSelected || new Set();
+    const isBatchTouched = (batchNo) => batchSelections[batchNo]?.batchTouched || false;
 
     // ── Styles ────────────────────────────────────────────────────────────────
     const overlayStyle = {
@@ -156,7 +180,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     };
     const modalStyle = {
         background: '#fff', borderRadius: 16,
-        width: '100%', maxWidth: 860,
+        width: '100%', maxWidth: 1080,
         maxHeight: '92vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 25px 50px rgba(0,0,0,0.25)', overflow: 'hidden',
         animation: 'modalFadeIn 0.25s ease-out'
@@ -168,7 +192,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 {/* ── Header ── */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                    padding: '18px 24px', flexShrink: 0,
+                    padding: '18px 28px', flexShrink: 0,
                     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
                 }}>
                     <div>
@@ -191,7 +215,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 </div>
 
                 {/* ── Scrollable Body ── */}
-                <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px 0' }}>
+                <div style={{ overflowY: 'auto', flex: 1, padding: '20px 28px 0' }}>
 
                     {/* ════ SECTION A ════ */}
                     <div style={{
@@ -222,10 +246,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         </div>
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                             <StatBox label="Quantity on Order" value={srItem.ordered.toLocaleString()} />
-                            <StatBox label="Offered Till Now" value={srItem.offeredTillNow.toLocaleString()} />
-                            <StatBox label="Accepted Till Now" value={srItem.acceptedTillNow.toLocaleString()} />
-                            <StatBox label="Rejected Till Now" value={srItem.rejectedTillNow.toLocaleString()} />
-                            <StatBox label="Sleepers Due for Dispatch" value={srItem.due.toLocaleString()} highlight={srItem.due === 0} />
+                            <StatBox label="Cumm. Qty Offered Previously" value={srItem.offeredTillNow.toLocaleString()} color="#7c3aed" />
+                            <StatBox label="Qty. Passed Previously" value={srItem.acceptedTillNow.toLocaleString()} color="#16a34a" />
+                            <StatBox label="Qty Pending" value={srItem.due.toLocaleString()} highlight={srItem.due === 0} />
                         </div>
                     </div>
 
@@ -264,61 +287,85 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         )}
 
                         {sleeperType && batches.map(batch => {
-                            const mode = getBatchMode(batch.batchNo);
-                            const selected = getBatchSelected(batch.batchNo);
+                            const goodSelected = getGoodSelected(batch.batchNo);
                             const isExpanded = expandedBatch === batch.batchNo;
-                            const isActive = mode !== 'none';
+                            const isActive = isBatchTouched(batch.batchNo);
+                            const eligible = getEligible(batch);
+                            const allGoodOffered = goodSelected.size === eligible && eligible > 0;
 
                             return (
                                 <div key={batch.batchNo} style={{
                                     border: `1.5px solid ${isActive ? '#21808d' : '#e2e8f0'}`,
-                                    borderRadius: 10, marginBottom: 12, overflow: 'hidden',
+                                    borderRadius: 10, marginBottom: 14, overflow: 'hidden',
                                     background: isActive ? 'rgba(33,128,141,0.03)' : '#fff',
                                     transition: 'all 0.2s'
                                 }}>
-                                    {/* Batch Row */}
+                                    {/* Batch Summary Row */}
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '1fr 100px 90px 90px auto',
+                                        gridTemplateColumns: '1.6fr 110px 130px 120px 120px auto',
                                         gap: 8, alignItems: 'center',
-                                        padding: '12px 16px', flexWrap: 'wrap'
+                                        padding: '14px 16px',
                                     }}>
-                                        {/* Batch info */}
+                                        {/* Batch No & Cast Date */}
                                         <div>
-                                            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                                                {isActive && <span style={{ color: '#21808d', marginRight: 6 }}>✓</span>}
+                                            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {isActive && <span style={{ color: '#21808d' }}>✓</span>}
                                                 Batch {batch.batchNo}
                                             </div>
                                             <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                                                Cast: {batch.date}
+                                                Cast Date: {batch.castDate}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 1, fontWeight: 600 }}>
+                                                Type: {batch.castedAsType}
                                             </div>
                                         </div>
-                                        {/* Stats */}
+
+                                        {/* Total Casted */}
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>TOTAL CAST</div>
-                                            <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{batch.totalCast}</div>
+                                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Total Casted</div>
+                                            <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginTop: 2 }}>{batch.totalCasted}</div>
                                         </div>
+
+                                        {/* Good / Bad */}
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>GOOD</div>
-                                            <div style={{ fontWeight: 700, fontSize: 15, color: '#166534' }}>{batch.goodSleepers}</div>
+                                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Good / Bad</div>
+                                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                                                <span style={{ fontWeight: 700, fontSize: 13, color: '#166534', background: '#f0fdf4', padding: '2px 8px', borderRadius: 6 }}>
+                                                    ✓ {batch.goodSleepers}
+                                                </span>
+                                                <span style={{ fontWeight: 700, fontSize: 13, color: '#dc2626', background: '#fef2f2', padding: '2px 8px', borderRadius: 6 }}>
+                                                    ✕ {batch.badSleepers}
+                                                </span>
+                                            </div>
                                         </div>
+
+                                        {/* Previously Offered */}
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: 11, color: '#f87171', fontWeight: 600 }}>BAD</div>
-                                            <div style={{ fontWeight: 700, fontSize: 15, color: '#dc2626' }}>{batch.badSleepers}</div>
+                                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Previously Offered</div>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: '#7c3aed' }}>{batch.previouslyOffered}</div>
                                         </div>
+
+                                        {/* Eligible for Offering */}
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Eligible Now</div>
+                                            <div style={{ fontWeight: 800, fontSize: 14, color: eligible > 0 ? '#0f172a' : '#94a3b8' }}>{eligible}</div>
+                                        </div>
+
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
                                             <button
-                                                onClick={() => mode === 'all' ? handleClearBatch(batch.batchNo) : handleOfferAll(batch.batchNo, batch.goodSleepers, batch.sleeperIds)}
+                                                disabled={eligible === 0}
+                                                onClick={() => allGoodOffered ? handleClearBatch(batch.batchNo) : handleOfferAllGood(batch.batchNo, batch)}
                                                 style={{
                                                     padding: '6px 12px', borderRadius: 20, fontSize: 11,
-                                                    fontWeight: 700, cursor: 'pointer', border: 'none',
-                                                    background: mode === 'all' ? '#21808d' : '#f0f9fa',
-                                                    color: mode === 'all' ? '#fff' : '#21808d',
+                                                    fontWeight: 700, cursor: eligible === 0 ? 'not-allowed' : 'pointer', border: 'none',
+                                                    background: allGoodOffered ? '#21808d' : (eligible === 0 ? '#f1f5f9' : '#f0f9fa'),
+                                                    color: allGoodOffered ? '#fff' : (eligible === 0 ? '#94a3b8' : '#21808d'),
                                                     transition: 'all 0.2s', whiteSpace: 'nowrap'
                                                 }}
                                             >
-                                                {mode === 'all' ? '✓ All Offered' : 'Offer All'}
+                                                {allGoodOffered ? '✓ All Offered' : 'Offer All'}
                                             </button>
                                             <button
                                                 onClick={() => handleToggleExpand(batch.batchNo)}
@@ -331,47 +378,92 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                     transition: 'all 0.2s', whiteSpace: 'nowrap'
                                                 }}
                                             >
-                                                {isExpanded ? '▲ Collapse' : `▼ Offer Selected${mode === 'partial' && selected.size > 0 ? ` (${selected.size})` : ''}`}
+                                                {isExpanded ? '▲ Collapse' : `▼ Select${goodSelected.size > 0 ? ` (${goodSelected.size})` : ''}`}
                                             </button>
                                         </div>
                                     </div>
 
-                                    {/* Expanded Sleeper List */}
+                                    {/* Expanded Sleeper List — shows GOOD & BAD both */}
                                     {isExpanded && (
                                         <div style={{
                                             borderTop: '1px solid #e2e8f0',
-                                            padding: '12px 16px',
+                                            padding: '14px 16px',
                                             background: '#fff'
                                         }}>
-                                            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 10 }}>
-                                                SELECT INDIVIDUAL SLEEPERS — {selected.size} of {batch.goodSleepers} selected
+                                            {/* Good Sleepers */}
+                                            <div style={{ marginBottom: 12 }}>
+                                                <div style={{ fontSize: 11, color: '#166534', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                    ✓ Good Sleepers — {goodSelected.size} of {eligible} selected (eligible: {eligible})
+                                                </div>
+                                                <div style={{
+                                                    maxHeight: 180, overflowY: 'auto',
+                                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                                    gap: 5
+                                                }}>
+                                                    {batch.goodSleeperIds.map((sid, idx) => {
+                                                        const isEligible = idx < eligible;
+                                                        const isChecked = goodSelected.has(sid);
+                                                        return (
+                                                            <label key={sid} style={{
+                                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                                cursor: isEligible ? 'pointer' : 'not-allowed',
+                                                                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                                                                background: isChecked ? 'rgba(33,128,141,0.08)' : (isEligible ? '#f8fafc' : '#f1f5f9'),
+                                                                border: `1px solid ${isChecked ? '#21808d' : '#e2e8f0'}`,
+                                                                color: isEligible ? '#0f172a' : '#94a3b8',
+                                                                transition: 'all 0.15s', opacity: isEligible ? 1 : 0.5
+                                                            }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isChecked}
+                                                                    disabled={!isEligible}
+                                                                    onChange={() => isEligible && handleToggleGoodSleeper(batch.batchNo, sid)}
+                                                                    style={{ width: 13, height: 13, flexShrink: 0 }}
+                                                                />
+                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {sid}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                            <div style={{
-                                                maxHeight: 200, overflowY: 'auto',
-                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                                                gap: 6
-                                            }}>
-                                                {batch.sleeperIds.slice(0, batch.goodSleepers).map(sid => (
-                                                    <label key={sid} style={{
-                                                        display: 'flex', alignItems: 'center', gap: 6,
-                                                        cursor: 'pointer', padding: '4px 8px',
-                                                        borderRadius: 6, fontSize: 11, fontWeight: 500,
-                                                        background: selected.has(sid) ? 'rgba(33,128,141,0.08)' : '#f8fafc',
-                                                        border: `1px solid ${selected.has(sid) ? '#21808d' : '#e2e8f0'}`,
-                                                        color: '#0f172a', transition: 'all 0.15s'
+
+                                            {/* Bad Sleepers — pre-selected, cannot be unselected */}
+                                            {batch.badSleepers > 0 && (
+                                                <div>
+                                                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        ✕ Bad Sleepers — {batch.badSleepers} (always included, cannot be deselected)
+                                                    </div>
+                                                    <div style={{
+                                                        maxHeight: 120, overflowY: 'auto',
+                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                                        gap: 5
                                                     }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selected.has(sid)}
-                                                            onChange={() => handleToggleSleeper(batch.batchNo, sid, batch.sleeperIds, batch.goodSleepers)}
-                                                            style={{ width: 14, height: 14, flexShrink: 0 }}
-                                                        />
-                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {sid}
-                                                        </span>
-                                                    </label>
-                                                ))}
-                                            </div>
+                                                        {batch.badSleeperIds.map(sid => (
+                                                            <label key={sid} style={{
+                                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                                cursor: 'not-allowed',
+                                                                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                                                                background: 'rgba(220,38,38,0.06)',
+                                                                border: '1px solid #fca5a5',
+                                                                color: '#dc2626', transition: 'all 0.15s'
+                                                            }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={true}
+                                                                    disabled={true}
+                                                                    readOnly
+                                                                    style={{ width: 13, height: 13, flexShrink: 0, accentColor: '#dc2626' }}
+                                                                />
+                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {sid}
+                                                                </span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -388,13 +480,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         <SectionHeader step="C" label="Combined Summary & System Validations" color={summary.exceedsCap ? '#dc2626' : '#16a34a'} />
 
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-                            <StatBox label="Batches Touched" value={summary.batchesTouched} />
-                            <StatBox label="Combined Total Cast" value={summary.totalCast.toLocaleString()} />
-                            <StatBox label="Combined Bad Sleepers" value={summary.totalBad.toLocaleString()} />
+                            <StatBox label="Batches Selected for Offering" value={summary.batchesSelected} />
+                            <StatBox label="Sleepers Selected for Offering" value={summary.totalSleeperCount.toLocaleString()} />
                             <StatBox
-                                label="Total Good Offered (This Call)"
-                                value={summary.totalOffered.toLocaleString()}
+                                label="No. of Passed Sleepers"
+                                value={summary.totalPassedCount.toLocaleString()}
+                                color="#16a34a"
                                 highlight={summary.exceedsCap}
+                            />
+                            <StatBox
+                                label="No. of Rejected Sleepers"
+                                value={summary.totalRejectedCount.toLocaleString()}
+                                color={summary.totalRejectedCount > 0 ? '#dc2626' : undefined}
                             />
                         </div>
 
@@ -406,9 +503,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 color: '#dc2626', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center'
                             }}>
                                 <span style={{ fontSize: 16 }}>⚠️</span>
-                                Offered quantity ({summary.totalOffered}) cannot exceed sleepers due for dispatch ({srItem.due}). Please reduce your selection.
+                                Offered quantity ({summary.totalPassedCount}) cannot exceed sleepers due for dispatch ({srItem.due}). Please reduce your selection.
                             </div>
-                        ) : summary.totalOffered > 0 ? (
+                        ) : summary.totalPassedCount > 0 ? (
                             <div style={{
                                 background: '#f0fdf4', border: '1px solid #bbf7d0',
                                 borderRadius: 8, padding: '10px 14px', fontSize: 12,
@@ -433,13 +530,13 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
                 {/* ── Footer ── */}
                 <div style={{
-                    padding: '14px 24px', background: '#f8fafc',
+                    padding: '14px 28px', background: '#f8fafc',
                     borderTop: '1px solid #e2e8f0', flexShrink: 0,
                     display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center'
                 }}>
                     <div style={{ flex: 1, fontSize: 11, color: '#94a3b8' }}>
-                        {summary.totalOffered > 0
-                            ? `${summary.totalOffered.toLocaleString()} sleeper(s) from ${summary.batchesTouched} batch(es) selected`
+                        {summary.totalSleeperCount > 0
+                            ? `${summary.totalSleeperCount.toLocaleString()} sleeper(s) from ${summary.batchesSelected} batch(es) selected`
                             : 'No sleepers selected yet'}
                     </div>
                     <button onClick={onClose} style={{
@@ -449,28 +546,29 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         Cancel
                     </button>
                     <button
-                        disabled={summary.totalOffered === 0 || summary.exceedsCap || !sleeperType}
+                        disabled={summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType}
                         onClick={() => {
                             if (onSubmitInspectionCall) {
                                 onSubmitInspectionCall({
                                     poNo,
                                     srNo: srItem.srNo,
                                     sleeperType,
-                                    totalOffered: summary.totalOffered,
-                                    batchesTouched: summary.batchesTouched,
+                                    totalOffered: summary.totalPassedCount,
+                                    totalRejected: summary.totalRejectedCount,
+                                    batchesSelected: summary.batchesSelected,
                                 });
                             } else {
-                                alert(`✅ Inspection Call submitted!\n\nPO: ${poNo} | SR: ${srItem.srNo}\nSleepers Offered: ${summary.totalOffered}\nBatches: ${summary.batchesTouched}\n\nThis call has been pushed to the IE Dashboard.`);
+                                alert(`✅ Inspection Call submitted!\n\nPO: ${poNo} | SR: ${srItem.srNo}\nPassed Sleepers: ${summary.totalPassedCount}\nRejected Sleepers: ${summary.totalRejectedCount}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
                             }
                             onClose();
                         }}
                         style={{
                             padding: '9px 24px', borderRadius: 8, border: 'none',
-                            background: (summary.totalOffered === 0 || summary.exceedsCap || !sleeperType)
+                            background: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType)
                                 ? '#e2e8f0' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                            color: (summary.totalOffered === 0 || summary.exceedsCap || !sleeperType) ? '#94a3b8' : '#fff',
+                            color: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType) ? '#94a3b8' : '#fff',
                             fontWeight: 700, fontSize: 13, cursor:
-                                (summary.totalOffered === 0 || summary.exceedsCap || !sleeperType) ? 'not-allowed' : 'pointer',
+                                (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType) ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s'
                         }}
                     >
