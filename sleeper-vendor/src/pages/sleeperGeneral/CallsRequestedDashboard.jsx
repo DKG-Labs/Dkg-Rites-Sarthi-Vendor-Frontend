@@ -234,7 +234,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             { label: 'SR No.', value: call.srNo },
                             { label: 'Call Date', value: call.callDate },
                             { label: 'Sleeper Type', value: call.sleeperType },
-                            { label: 'Qty Offered', value: `${call.qtyOffered.toLocaleString()} Nos.` },
+                            { label: 'Qty Offered', value: `${(Number(call.qtyOffered) || 0).toLocaleString()} Nos.` },
                             { label: 'Batches', value: `${call.batches}` },
                         ].map(m => (
                             <div key={m.label}>
@@ -628,8 +628,8 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
             poNo: c.poNo, srNo: c.srNo,
             callDate: new Date().toLocaleDateString('en-IN'),
             sleeperType: c.sleeperType,
-            qtyOffered: c.totalOffered,
-            batches: c.batchesTouched,
+            qtyOffered: Number(c.totalOffered) || 0,
+            batches: Number(c.batchesTouched) || 0,
             ieName: null, scheduledDate: null,
             status: 'Call Raised',
             history: [{ action: 'Call Raised', date: new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Raised via PO Assigned module' }]
@@ -819,7 +819,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
                                             {/* Sleeper Info */}
                                             <td style={{ padding: '14px 16px' }}>
                                                 <div style={{ fontWeight: 700, fontSize: 12, color: '#7c3aed' }}>{call.sleeperType}</div>
-                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{call.qtyOffered.toLocaleString()} Nos.</div>
+                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{(Number(call.qtyOffered) || 0).toLocaleString()} Nos.</div>
                                                 <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{call.batches} batch{call.batches !== 1 ? 'es' : ''}</div>
                                             </td>
 
