@@ -99,83 +99,71 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
             {/* Form Section - Always visible to maintain layout */}
             <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                {profiles.length >= 2 && !editingId ? (
-                    <div style={{ textAlign: 'center', padding: '20px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                        <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}>✅</span>
-                        <p style={{ margin: 0, color: '#64748b', fontWeight: '500' }}>
-                            Maximum limit of 2 plant profiles reached.
-                        </p>
-                        <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                            Modify or delete an existing profile to add a new one.
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        <h4 style={{ marginTop: 0, marginBottom: '20px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
-                            {editingId ? 'Modify Plant Profile' : 'Add New Plant Profile'}
-                        </h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
-                                <input type="text" disabled value="M/s ABC Sleepers - Nagpur Plant" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
-                                <input type="text" disabled value="V-10294" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>
-                                <select
-                                    name="type"
-                                    value={formData.type}
-                                    onChange={handleInputChange}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-                                >
-                                    <option value="Stress Bench">Stress Bench</option>
-                                    <option value="Longline">Longline</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Lines'}
-                                </label>
-                                <input
-                                    type="number"
-                                    name="shedsLines"
-                                    value={formData.shedsLines}
-                                    onChange={handleInputChange}
-                                    placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'lines'}`}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-                                />
-                            </div>
+                <>
+                    <h4 style={{ marginTop: 0, marginBottom: '20px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
+                        {editingId ? 'Modify Plant Profile' : 'Add New Plant Profile'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
+                            <input type="text" disabled value="M/s ABC Sleepers - Nagpur Plant" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
                         </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
+                            <input type="text" disabled value="V-10294" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>
+                            <select
+                                name="type"
+                                value={formData.type}
+                                onChange={handleInputChange}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                            >
+                                <option value="Stress Bench">Stress Bench</option>
+                                <option value="Longline">Longline</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                                {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Lines'}
+                            </label>
+                            <input
+                                type="number"
+                                name="shedsLines"
+                                value={formData.shedsLines}
+                                onChange={handleInputChange}
+                                placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'lines'}`}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                            />
+                        </div>
+                    </div>
 
-                        <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                    <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleSave(); }}
+                            style={{ background: '#42818c', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                        >
+                            {editingId ? 'Update Profile' : 'Add Profile'}
+                        </button>
+                        {editingId && (
                             <button
                                 type="button"
-                                onClick={(e) => { e.preventDefault(); handleSave(); }}
-                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                                onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench', shedsLines: '' }); }}
+                                style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
                             >
-                                {editingId ? 'Update Profile' : 'Add Profile'}
+                                Cancel
                             </button>
-                            {editingId && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench', shedsLines: '' }); }}
-                                    style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                    Cancel
-                                </button>
-                            )}
-                        </div>
-                    </>
-                )}
+                        )}
+                    </div>
+                </>
             </div>
 
             {/* List Section */}
             <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h4 style={{ margin: 0, color: '#475569', fontSize: '14px' }}>Added Plant Profiles ({profiles.length}/2)</h4>
+                    <h4 style={{ margin: 0, color: '#475569', fontSize: '14px' }}>Added Plant Profiles ({profiles.length})</h4>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
