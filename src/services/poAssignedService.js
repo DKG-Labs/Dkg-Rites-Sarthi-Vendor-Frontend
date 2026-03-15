@@ -13,11 +13,11 @@ const poAssignedService = {
    * @param {number|null} vendorId - Optional vendor ID to filter POs
    * @returns {Promise} API response with PO data
    */
-  getPoAssigned: async (vendorId = null) => {
+  getPoAssigned: async (vendorId = null, vendorType = 'ERC') => {
     try {
       const endpoint = vendorId
-        ? `/vendor/po-assigned?vendorId=${vendorId}`
-        : '/vendor/po-assigned';
+        ? `/vendor/po-assigned?vendorId=${vendorId}&vendorType=${vendorType}`
+        : `/vendor/po-assigned?vendorType=${vendorType}`;
 
       const response = await httpClient.get(endpoint);
       return response; // Return full response object with success and data
@@ -30,11 +30,12 @@ const poAssignedService = {
   /**
    * Get PO count for a vendor
    * @param {number} vendorId - Vendor ID
+   * @param {string} vendorType - Vendor Type
    * @returns {Promise} API response with PO count
    */
-  getPoCount: async (vendorId) => {
+  getPoCount: async (vendorId, vendorType = 'ERC') => {
     try {
-      const endpoint = `/vendor/po-assigned/count?vendorId=${vendorId}`;
+      const endpoint = `/vendor/po-assigned/count?vendorId=${vendorId}&vendorType=${vendorType}`;
       const response = await httpClient.get(endpoint);
       return response.data;
     } catch (error) {
