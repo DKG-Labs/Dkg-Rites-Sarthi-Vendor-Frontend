@@ -427,18 +427,6 @@ export const apiService = {
         }
     },
 
-    getPlantProfileById: async (id) => {
-        try {
-            const response = await fetch(`${BASE_URL}/plant-profile/${id}`);
-            if (!response.ok) throw new Error(`Failed to fetch plant profile with id ${id}`);
-            const data = await response.json();
-            return data.responseData;
-        } catch (error) {
-            console.error('API Error:', error);
-            return null;
-        }
-    },
-
     savePlantProfile: async (plantData) => {
         try {
             const isUpdate = plantData.id && !isNaN(plantData.id);
@@ -483,18 +471,6 @@ export const apiService = {
         } catch (error) {
             console.error('API Error:', error);
             return [];
-        }
-    },
-
-    getMixDesignById: async (id) => {
-        try {
-            const response = await fetch(`${BASE_URL}/mix-design/${id}`);
-            if (!response.ok) throw new Error(`Failed to fetch mix design with id ${id}`);
-            const data = await response.json();
-            return data.responseData;
-        } catch (error) {
-            console.error('API Error:', error);
-            return null;
         }
     },
 
@@ -687,6 +663,171 @@ export const apiService = {
         } catch (error) {
             console.error('API Error:', error);
             return null;
+        }
+    },
+
+    // Workflow APIs
+    getAllPendingWorkflowTransitions: async (roleName = 'IE') => {
+        try {
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/allPendingWorkflowTransition?roleName=${roleName}`);
+            if (!response.ok) throw new Error('Failed to fetch pending transitions');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    performTransitionAction: async (actionData) => {
+        try {
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/performTransitionAction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(actionData)
+            });
+            if (!response.ok) throw new Error('Failed to perform transition action');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getWorkflowHistory: async (requestId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/WorkflowTransitionHistory?requestId=${requestId}`);
+            if (!response.ok) throw new Error('Failed to fetch workflow history');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    // Module Specific Getters for Edit Flow
+    getPlantProfileById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/plant-profile/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getBenchMouldMasterById: async (id) => {
+        try {
+            const url = BASE_URL.replace('/api', '') + `/stress-bench/${id}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getRawMaterialSourceById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/raw-material-source/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getMixDesignById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/mix-design/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getHtsWireRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/hts-wire/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getCementRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/cement/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getAdmixtureRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/admixture/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getAggregateRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/aggregates/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getSgciRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/sgci-insert/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getDowelRecordById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/dowel/${id}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    updateCementInventory: async (id, data) => {
+        try {
+            const response = await fetch(`${BASE_URL}/cement/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to update cement inventory');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
         }
     }
 };
