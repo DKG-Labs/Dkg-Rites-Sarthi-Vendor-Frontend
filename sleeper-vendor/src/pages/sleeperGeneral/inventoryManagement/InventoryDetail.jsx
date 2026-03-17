@@ -117,30 +117,30 @@ const InventoryDetail = ({ material, onBack }) => {
             case 'cement':
                 return [
                     'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.',
-                    'Total Quantity (Kg)', 'Batch Numbers'
+                    'Total Quantity (Kg)', 'Batch Numbers', 'Status'
                 ];
             case 'hts-wire':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.', 'Total Quantity (Kg)', 'Coil Details'
+                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.', 'Total Quantity (Kg)', 'Coil Details', 'Status'
                 ];
             case 'dowel':
                 return [
-                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Quantity (Nos.)', 'RITES IC No.'
+                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Quantity (Nos.)', 'RITES IC No.', 'Status'
                 ];
             case 'aggregates':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Source', 'Challan No.', 'Total Quantity (Kg)'
+                    'Date of Receipt', 'Grade/Spec', 'Source', 'Challan No.', 'Total Quantity (Kg)', 'Status'
                 ];
             case 'admixture':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Total Quantity (Kg)', 'Lot/MTC No.'
+                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Total Quantity (Kg)', 'Lot/MTC No.', 'Status'
                 ];
             case 'sgci-insert':
                 return [
-                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.'
+                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.', 'Status'
                 ];
             default:
-                return ['Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Quantity'];
+                return ['Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Quantity', 'Status'];
         }
     };
 
@@ -160,6 +160,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>
                             {entry.batchDetails?.map(b => `${b.mtcNo} (W${b.weekNo})`).join(', ') || '-'}
                         </td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             case 'hts-wire': {
@@ -178,6 +183,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={{ ...tdStyle, maxWidth: '220px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                             {coilSummary}
                         </td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             }
@@ -190,6 +200,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.invoiceNumber}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Nos.</span></td>
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             case 'aggregates':
@@ -200,6 +215,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.source}</td>
                         <td style={tdStyle}>{entry.challanNumber}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             case 'admixture':
@@ -210,6 +230,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.manufacturer}</td>
                         <td style={boldStyle}>{entry.totalQuantity} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>{entry.lotNo} / {entry.mtcNo}</td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             case 'sgci-insert':
@@ -221,6 +246,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.invoiceNumber}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Nos.</span></td>
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
             default:
@@ -230,6 +260,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.gradeSpec || entry.details?.grade || '-'}</td>
                         <td style={tdStyle}>{entry.manufacturer || entry.details?.manufacturer}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived || entry.qty}</td>
+                        <td style={tdStyle}>
+                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                {entry.status || 'Created'}
+                            </span>
+                        </td>
                     </>
                 );
         }

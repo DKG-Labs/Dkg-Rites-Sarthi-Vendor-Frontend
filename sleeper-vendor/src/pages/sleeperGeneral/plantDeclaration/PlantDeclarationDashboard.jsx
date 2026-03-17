@@ -24,7 +24,7 @@ const PlantDeclarationDashboard = () => {
                 vendorCode: p.vendorCode,
                 type: p.plantType,
                 shedsLines: p.numberOfSheds,
-                status: p.updatedDate ? 'Verified & Locked' : 'Verification Pending'
+                status: p.status || (p.updatedDate ? 'Verified & Locked' : 'Verification Pending')
             }));
             setProfiles(mappedData);
         } catch (err) {
