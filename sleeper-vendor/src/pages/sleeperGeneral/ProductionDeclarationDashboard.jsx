@@ -173,14 +173,14 @@ const ProductionDeclarationDashboard = () => {
                                         <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{item.plantType}</td>
                                         <td style={{ padding: '16px 20px', fontSize: '14px' }}>
                                             <span style={{
-                                                background: '#f0fdf4',
-                                                color: '#166534',
+                                                background: item.status === 'Verified' ? '#f0fdf4' : '#f0f9fa',
+                                                color: item.status === 'Verified' ? '#166534' : '#42818c',
                                                 padding: '4px 10px',
                                                 borderRadius: '20px',
                                                 fontSize: '11px',
                                                 fontWeight: '700'
                                             }}>
-                                                OPEN
+                                                {(item.status || 'Created').toUpperCase()}
                                             </span>
                                         </td>
                                         <td style={{ padding: '16px 20px' }}>
