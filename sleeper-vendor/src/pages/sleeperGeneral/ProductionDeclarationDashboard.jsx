@@ -22,6 +22,19 @@ const ProductionDeclarationDashboard = () => {
         }
     };
 
+    const getStatusStyle = (status) => {
+        if (status === 'Verified & Locked' || status === 'Locked' || status === 'Completed') {
+            return { background: '#f0fdf4', color: '#166534' };
+        }
+        return { background: '#fef3c7', color: '#92400e' }; // Amber for pending
+    };
+
+    const getStatusLabel = (status) => {
+        if (!status || status === 'Created' || status === 'Pending') return 'Pending for verification';
+        if (status === 'Completed' || status === 'Locked') return 'Verified & Locked';
+        return status;
+    };
+
     useEffect(() => {
         fetchDeclarations();
     }, []);
@@ -173,14 +186,13 @@ const ProductionDeclarationDashboard = () => {
                                         <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{item.plantType}</td>
                                         <td style={{ padding: '16px 20px', fontSize: '14px' }}>
                                             <span style={{
-                                                background: item.status === 'Verified' ? '#f0fdf4' : '#f0f9fa',
-                                                color: item.status === 'Verified' ? '#166534' : '#42818c',
+                                                ...getStatusStyle(item.status),
                                                 padding: '4px 10px',
                                                 borderRadius: '20px',
                                                 fontSize: '11px',
                                                 fontWeight: '700'
                                             }}>
-                                                {(item.status || 'Created').toUpperCase()}
+                                                {getStatusLabel(item.status).toUpperCase()}
                                             </span>
                                         </td>
                                         <td style={{ padding: '16px 20px' }}>

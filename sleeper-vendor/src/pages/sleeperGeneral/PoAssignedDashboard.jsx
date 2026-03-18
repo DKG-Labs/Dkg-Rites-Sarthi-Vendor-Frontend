@@ -282,7 +282,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                     <StatusBadge status={po.status} />
                     {activeSrCount > 0 && (
                         <div style={{ fontSize: 10, color: '#21808d', fontWeight: 600, marginTop: 4 }}>
-                            {activeSrCount} pending SR{activeSrCount > 1 ? 's' : ''}
+                            {activeSrCount} pending for verification SR{activeSrCount > 1 ? 's' : ''}
                         </div>
                     )}
                 </td>
@@ -412,7 +412,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                             borderRadius: 12, padding: '8px 16px', textAlign: 'center'
                         }}>
                             <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{pendingCalls}</div>
-                            <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING CALLS</div>
+                            <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING FOR VERIFICATION</div>
                         </div>
                     </div>
                 </div>

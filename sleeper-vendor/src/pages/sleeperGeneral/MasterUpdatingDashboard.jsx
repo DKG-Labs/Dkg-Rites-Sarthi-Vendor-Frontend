@@ -4,7 +4,7 @@ const MasterUpdatingDashboard = () => {
     const [masters] = useState([
         { id: 1, type: 'Plant Unit', name: 'Sleeper Unit - 1', location: 'Industrial Area, Ph-II', status: 'Active' },
         { id: 2, type: 'Consignee', name: 'Northern Railway', location: 'New Delhi', status: 'Active' },
-        { id: 3, type: 'Material Source', name: 'Cement Supplier X', location: 'Zonal Region', status: 'Verified' },
+        { id: 3, type: 'Material Source', name: 'Cement Supplier X', location: 'Zonal Region', status: 'Verified & Locked' },
     ]);
 
     return (

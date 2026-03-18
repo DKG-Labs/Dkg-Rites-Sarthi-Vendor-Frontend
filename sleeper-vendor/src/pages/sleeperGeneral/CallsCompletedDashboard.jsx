@@ -11,7 +11,7 @@ const CallsCompletedDashboard = () => {
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                    <h2 style={{ margin: '0 0 4px 0', color: '#1e293b', fontSize: '24px', fontWeight: '800' }}>Completed Inspections</h2>
+                    <h2 style={{ margin: '0 0 4px 0', color: '#1e293b', fontSize: '24px', fontWeight: '800' }}>Verified & Locked Inspections</h2>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>View inspection certificates and acceptance details</p>
                 </div>
             </div>

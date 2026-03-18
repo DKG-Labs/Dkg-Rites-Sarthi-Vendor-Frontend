@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../../services/api';
 
 const STATUSES = {
-    PENDING: 'Verification Pending',
+    PENDING: 'Pending for verification',
     LOCKED: 'Verified & Locked',
     UNLOCKED: 'Unlocked for Modification'
 };
@@ -20,12 +20,13 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'shedsLines' && value < 0) return;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSave = async () => {
-        if (!formData.shedsLines) {
-            alert('Please enter number of sheds/lines');
+        if (!formData.shedsLines || parseInt(formData.shedsLines) < 0) {
+            alert('Please enter a valid non-negative number of sheds/gangs');
             return;
         }
 
@@ -126,14 +127,15 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Lines'}
+                                {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Gangs'}
                             </label>
                             <input
                                 type="number"
                                 name="shedsLines"
+                                min="0"
                                 value={formData.shedsLines}
                                 onChange={handleInputChange}
-                                placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'lines'}`}
+                                placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'gangs'}`}
                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
                             />
                         </div>
@@ -189,7 +191,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                                     <tr key={profile.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                         <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
                                         <td style={{ padding: '16px', color: '#475569' }}>
-                                            {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
+                                            {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Gangs'}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{

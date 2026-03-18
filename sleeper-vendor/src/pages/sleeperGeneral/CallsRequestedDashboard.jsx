@@ -20,7 +20,7 @@ const STATUS_CONFIG = {
     'Call Assigned to IE': {
         bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0',
         dot: '#22c55e', canModify: true, canWithdraw: true, needsWorkflow: true,
-        icon: '👷', description: 'Verified & assigned to IE'
+        icon: '👷', description: 'Locked & assigned to IE'
     },
     'Scheduled by IE': {
         bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe',
@@ -42,10 +42,10 @@ const STATUS_CONFIG = {
         dot: '#ef4444', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '❌', description: 'Call cancelled'
     },
-    'Inspection Completed': {
+    'Locked': {
         bg: '#f0fdf4', color: '#166534', border: '#86efac',
         dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
-        icon: '✅', description: 'Moved to Completed Calls'
+        icon: '✅', description: 'Moved to Verified & Locked Calls'
     },
 };
 
@@ -166,9 +166,9 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     if (!call) return null;
     const cfg = STATUS_CONFIG[call.status] || {};
     const isReturned = call.status === 'Returned by Call Desk';
-    const locked = call.status === 'Under Inspection' || call.status === 'Cancelled' || call.status === 'Inspection Completed';
+    const locked = call.status === 'Under Inspection' || call.status === 'Cancelled' || call.status === 'Locked';
     const statusLabel = (call.status === 'Scheduled by IE' && call.scheduledDate)
-        ? `Scheduled (${call.scheduledDate})` : call.status;
+        ? `Scheduled (${call.scheduledDate})` : (call.status === 'Locked' ? 'Verified & Locked' : call.status);
 
     return (
         <div
@@ -728,7 +728,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[
                         { label: 'Total Active', val: displayCalls.length, bg: '#f0f9fa', color: '#21808d', border: '#a7d8dc' },
-                        { label: 'Pending Review', val: (statusCounts['Call Raised'] || 0) + (statusCounts['Resubmitted'] || 0), bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                        { label: 'Pending for verification', val: (statusCounts['Call Raised'] || 0) + (statusCounts['Resubmitted'] || 0), bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
                         { label: 'Needs Action', val: statusCounts['Returned by Call Desk'] || 0, bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
                     ].map(s => (
                         <div key={s.label} style={{

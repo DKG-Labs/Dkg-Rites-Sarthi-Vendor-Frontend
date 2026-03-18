@@ -6,7 +6,7 @@ const MixDesignSection = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [newMix, setNewMix] = useState({
-        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending'
+        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification'
     });
     const [editingId, setEditingId] = useState(null);
 
@@ -28,7 +28,7 @@ const MixDesignSection = () => {
                 ca2: m.ca2,
                 fa: m.fa,
                 water: m.water,
-                status: m.status || (m.updatedDate ? 'Verified & Locked' : 'Verification Pending')
+                status: (m.status === 'Pending' ? 'Pending for verification' : (m.status === 'Completed' || m.status === 'Locked' ? 'Verified & Locked' : (m.status || (m.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setMixDesigns(mappedData);
             setError(null);
@@ -81,7 +81,7 @@ const MixDesignSection = () => {
             await fetchMixDesigns();
             setEditingId(null);
             setNewMix({
-                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending'
+                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification'
             });
             alert(editingId ? 'Mix design updated successfully' : 'Mix design added successfully');
         } catch (err) {
@@ -92,7 +92,7 @@ const MixDesignSection = () => {
     };
 
     const handleEdit = (mix) => {
-        if (mix.status === 'Verified & Locked') {
+        if (mix.status === 'Verified & Locked' || mix.status === 'Locked') {
             alert('Verified & Locked entries cannot be edited.');
             return;
         }
@@ -102,7 +102,7 @@ const MixDesignSection = () => {
     };
 
     const handleDelete = async (id, status) => {
-        if (status === 'Verified & Locked') {
+        if (status === 'Verified & Locked' || status === 'Locked') {
             alert('Verified & Locked entries cannot be deleted.');
             return;
         }
@@ -123,10 +123,11 @@ const MixDesignSection = () => {
     const getStatusStyle = (status) => {
         switch (status) {
             case 'Verified & Locked':
+            case 'Locked':
                 return { background: '#ecfdf5', color: '#059669', border: '1px solid #10b981' };
             case 'Unlocked for Modification':
                 return { background: '#fffbeb', color: '#d97706', border: '1px solid #f59e0b' };
-            case 'Verification Pending':
+            case 'Pending for verification':
             default:
                 return { background: '#eff6ff', color: '#2563eb', border: '1px solid #3b82f6' };
         }
@@ -246,7 +247,7 @@ const MixDesignSection = () => {
                         <button
                             onClick={() => {
                                 setEditingId(null);
-                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Verification Pending' });
+                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification' });
                             }}
                             style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                         >
@@ -309,13 +310,13 @@ const MixDesignSection = () => {
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <button
                                             onClick={() => handleEdit(mix)}
-                                            disabled={mix.status === 'Verified & Locked'}
+                                            disabled={mix.status === 'Verified & Locked' || mix.status === 'Locked'}
                                             style={{
                                                 padding: '4px 8px',
                                                 background: '#f8fafc',
                                                 border: '1px solid #e2e8f0',
                                                 borderRadius: '4px',
-                                                cursor: mix.status === 'Verified & Locked' ? 'not-allowed' : 'pointer',
+                                                cursor: (mix.status === 'Verified & Locked' || mix.status === 'Locked') ? 'not-allowed' : 'pointer',
                                                 color: '#64748b'
                                             }}
                                         >
@@ -323,13 +324,13 @@ const MixDesignSection = () => {
                                         </button>
                                         <button
                                             onClick={() => handleDelete(mix.id, mix.status)}
-                                            disabled={mix.status === 'Verified & Locked'}
+                                            disabled={mix.status === 'Verified & Locked' || mix.status === 'Locked'}
                                             style={{
                                                 padding: '4px 8px',
                                                 background: '#fef2f2',
                                                 border: '1px solid #fee2e2',
                                                 borderRadius: '4px',
-                                                cursor: mix.status === 'Verified & Locked' ? 'not-allowed' : 'pointer',
+                                                cursor: (mix.status === 'Verified & Locked' || mix.status === 'Locked') ? 'not-allowed' : 'pointer',
                                                 color: '#ef4444'
                                             }}
                                         >

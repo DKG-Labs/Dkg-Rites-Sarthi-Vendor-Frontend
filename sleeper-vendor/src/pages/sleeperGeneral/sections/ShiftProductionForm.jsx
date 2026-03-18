@@ -39,7 +39,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
         shift: 'Day Shift',
-        batchNo: (parseInt(lastBatchNumber?.toString()?.replace(/\D/g, '')) || 100) + 1,
+        batchNo: '',
         mixDesign: 'M60 - Design A (Active)',
         timeLbc: getCurrentTime(),
         remarks: ''
@@ -364,7 +364,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             </div>
 
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Long Line No.)'}</label>
+                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Gang No.)'}</label>
                                 <select
                                     style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
                                     value={formHeader.unit}
@@ -422,7 +422,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     onChange={(e) => setFormHeader({ ...formHeader, batchNo: e.target.value })}
                                     style={inputStyle}
                                 />
-                                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>Auto-suggested: Last Batch + 1</span>
+
                             </div>
                             <div>
                                 <label style={labelStyle}>Mix Design Reference</label>

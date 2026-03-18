@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+
 import { apiService } from '../../../services/api';
 
 const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
@@ -36,6 +38,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
         return dateStr;
     };
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState(() => {
         if (initialData) {
             const base = {
@@ -312,10 +315,33 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+
         const finalDetails = { ...formData.details };
 
         try {
             if (material.id === 'hts-wire') {
+                // Auto-include pending coil entry if fields are filled but not "Added"
+                let currentCoilEntries = [...(finalDetails.coilEntries || [])];
+                const rangeFrom = finalDetails._rangeFrom;
+                const rangeTo = finalDetails._rangeTo;
+                const singleCoil = finalDetails._singleCoil;
+                const entryLotNo = finalDetails._lotNo;
+                const entryQty = finalDetails._qty;
+                const inputMode = finalDetails._inputMode || 'range';
+
+                const canAddPending = inputMode === 'range'
+                    ? (rangeFrom && rangeTo && parseInt(rangeTo) >= parseInt(rangeFrom) && entryLotNo && entryQty)
+                    : (singleCoil && entryLotNo && entryQty);
+
+                if (canAddPending) {
+                    const pendingEntry = inputMode === 'range'
+                        ? { type: 'range', coilFrom: rangeFrom, coilTo: rangeTo, lotNo: entryLotNo, qty: entryQty }
+                        : { type: 'single', coilNo: singleCoil, lotNo: entryLotNo, qty: entryQty };
+                    currentCoilEntries.push(pendingEntry);
+                }
+
                 const payload = {
                     id: initialData?.id,
                     dateOfReceipt: formatDateForBackend(formData.date),
@@ -330,14 +356,14 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     vendorId: 118,
                     createdBy: 118,
                     updatedBy: 118,
-                    coilDetails: finalDetails.coilEntries?.map(c => ({
+                    coilDetails: currentCoilEntries.map(c => ({
                         coilFrom: c.coilFrom || null,
                         coilTo: c.coilTo || null,
                         coilNo: c.coilNo || null,
                         lotNo: c.lotNo,
                         qtyKg: parseFloat(c.qty),
                         entryType: c.type?.toUpperCase() || 'SINGLE'
-                    })) || []
+                    }))
                 };
                 await apiService.saveHtsWire(payload);
             } else if (material.id === 'cement') {
@@ -425,7 +451,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 // Mock behavior for others
                 onSubmit({
                     id: initialData?.id || `INV-${material.id.toUpperCase().substring(0, 3)}-${Math.floor(Math.random() * 10000)}`,
-                    status: initialData?.status || 'Unverified',
+                    status: initialData?.status || 'Pending for verification',
                     ...formData,
                     details: {
                         ...finalDetails,
@@ -439,6 +465,8 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
             onSubmit(); // Trigger refresh in parent
         } catch (error) {
             alert('Error saving inventory: ' + error.message);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -947,16 +975,32 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
         }
     };
 
-    return (
+    return createPortal(
         <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px'
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)', 
+            backdropFilter: 'blur(4px)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 1000, 
+            padding: '20px'
         }}>
-            <div className="fade-in" style={{
-                background: 'white', borderRadius: '32px', width: '100%', maxWidth: '750px',
-                maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                display: 'flex', flexDirection: 'column'
+            <div style={{
+                background: 'white', 
+                borderRadius: '32px', 
+                width: '100%', 
+                maxWidth: '750px',
+                maxHeight: '90vh', 
+                overflowY: 'auto', 
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                display: 'flex', 
+                flexDirection: 'column',
+                animation: 'modalFadeIn 0.3s ease-out'
             }}>
                 <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
                     <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>
@@ -972,13 +1016,14 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     {renderFields()}
                     <div style={{ marginTop: '32px', display: 'flex', gap: '12px', background: 'white', pt: '16px' }}>
                         <button type="button" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', color: '#64748b' }}>Cancel</button>
-                        <button type="submit" style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#42818c', color: 'white', fontWeight: '700', boxShadow: '0 10px 15px -3px rgba(66, 129, 140, 0.2)' }}>
-                            {initialData ? 'Update Inventory' : 'Save Inventory'}
+                        <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#42818c', color: 'white', fontWeight: '700', boxShadow: isSubmitting ? 'none' : '0 10px 15px -3px rgba(66, 129, 140, 0.2)', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
+                            {isSubmitting ? 'Saving...' : (initialData ? 'Update Inventory' : 'Save Inventory')}
                         </button>
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

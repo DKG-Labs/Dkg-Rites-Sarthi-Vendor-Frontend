@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../../services/api';
 
 const STATUSES = {
-    PENDING: 'Verification Pending',
+    PENDING: 'Pending for verification',
     LOCKED: 'Verified & Locked',
     UNLOCKED: 'Unlocked for Modification'
 };
@@ -185,7 +185,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
     const handleEdit = (entry) => {
         if (entry.status === STATUSES.LOCKED) {
-            alert("Verified & Locked entries cannot be modified.");
+            alert("Locked entries cannot be modified.");
             return;
         }
         setFormState({
@@ -206,7 +206,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
     const handleDelete = async (id, status) => {
         if (status === STATUSES.LOCKED) {
-            alert("Verified & Locked entries cannot be deleted.");
+            alert("Locked entries cannot be deleted.");
             return;
         }
         if (window.confirm("Are you sure you want to delete this entry?")) {
@@ -322,7 +322,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     }}>
                         <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
                             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Total {isLongLine ? 'Lines' : 'Benches'}
+                                Total {isLongLine ? 'Gangs' : 'Benches'}
                             </div>
                             <div style={{ fontSize: '20px', fontWeight: '700', color: '#42818c' }}>{totalItems}</div>
                         </div>
@@ -361,86 +361,108 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             <h4 style={{ color: '#42818c', margin: 0, fontSize: '16px' }}>
                                 {isLongLine ? 'Longline Entry Form' : 'Stress Bench Entry Form'}
                             </h4>
-                            <div style={{ display: 'flex', gap: '16px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                                    <input
-                                        type="radio"
-                                        checked={formState.entryMode === 'range'}
-                                        onChange={() => setFormState(prev => ({ ...prev, entryMode: 'range' }))}
-                                    /> Range
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                                    <input
-                                        type="radio"
-                                        checked={formState.entryMode === 'single'}
-                                        onChange={() => setFormState(prev => ({ ...prev, entryMode: 'single' }))}
-                                    /> Single
-                                </label>
-                            </div>
                         </div>
 
-                        {/* Row 1: Bench/Line number inputs + No. of Benches/Lines + Sleeper Category */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '20px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            flexWrap: 'wrap', 
+                            gap: '12px', 
+                            alignItems: 'flex-end', 
+                            marginBottom: formState.sleeperCategory === 'PnC' ? '24px' : '0' 
+                        }}>
+                            {/* Entry Mode */}
+                            <div style={{ minWidth: '125px' }}>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Entry Mode</label>
+                                <div style={{ display: 'flex', gap: '8px', height: '40px', alignItems: 'center' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                                        <input
+                                            type="radio"
+                                            checked={formState.entryMode === 'range'}
+                                            onChange={() => setFormState(prev => ({ ...prev, entryMode: 'range' }))}
+                                        /> Range
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                                        <input
+                                            type="radio"
+                                            checked={formState.entryMode === 'single'}
+                                            onChange={() => setFormState(prev => ({ ...prev, entryMode: 'single' }))}
+                                        /> Single
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Bench/Gang No Inputs */}
                             {formState.entryMode === 'range' ? (
                                 <>
-                                    <div>
+                                    <div style={{ flex: 1, minWidth: '100px' }}>
                                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Line No. From' : 'Bench No. From'}
+                                            {isLongLine ? 'Gang From' : 'Bench From'}
                                         </label>
-                                        <input
+                                         <input
                                             type="number"
+                                            min="0"
                                             value={formState.fromNo}
-                                            onChange={(e) => setFormState(prev => ({ ...prev, fromNo: e.target.value }))}
-                                            placeholder="Enter Start"
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val < 0) return;
+                                                setFormState(prev => ({ ...prev, fromNo: val }));
+                                            }}
+                                            placeholder="Start"
                                             style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                         />
                                     </div>
-                                    <div>
+                                    <div style={{ flex: 1, minWidth: '100px' }}>
                                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Line No. To' : 'Bench No. To'}
+                                            {isLongLine ? 'Gang To' : 'Bench To'}
                                         </label>
                                         <input
                                             type="number"
+                                            min="0"
                                             value={formState.toNo}
-                                            onChange={(e) => setFormState(prev => ({ ...prev, toNo: e.target.value }))}
-                                            placeholder="Enter End"
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val < 0) return;
+                                                setFormState(prev => ({ ...prev, toNo: val }));
+                                            }}
+                                            placeholder="End"
                                             style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                 </>
                             ) : (
-                                <>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Line No.' : 'Bench No.'}
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={formState.singleNo}
-                                            onChange={(e) => setFormState(prev => ({ ...prev, singleNo: e.target.value }))}
-                                            placeholder="Enter No."
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                        />
-                                    </div>
-                                    {/* placeholder to keep grid alignment */}
-                                    <div />
-                                </>
+                                <div style={{ flex: 1, minWidth: '100px' }}>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                                        {isLongLine ? 'Gang No.' : 'Bench No.'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={formState.singleNo}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val < 0) return;
+                                            setFormState(prev => ({ ...prev, singleNo: val }));
+                                        }}
+                                        placeholder="No."
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                                    />
+                                </div>
                             )}
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    No. of {isLongLine ? 'Lines' : 'Benches'}
-                                </label>
+                            {/* Count */}
+                            <div style={{ width: '80px' }}>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Count</label>
                                 <input
                                     type="text"
                                     readOnly
                                     value={formState.numItems}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', boxSizing: 'border-box', textAlign: 'center' }}
                                 />
                             </div>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Sleeper Category</label>
+                            {/* Category */}
+                            <div style={{ flex: 1.5, minWidth: '130px' }}>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Category</label>
                                 <select
                                     value={formState.sleeperCategory}
                                     onChange={(e) => setFormState(prev => ({ ...prev, sleeperCategory: e.target.value }))}
@@ -458,13 +480,11 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     <option value="PnC">PnC</option>
                                 </select>
                             </div>
-                        </div>
 
-                        {/* Row 2: Basic Properties */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: formState.sleeperCategory === 'PnC' ? '24px' : '0' }}>
-                            <div>
+                            {/* Moulds */}
+                            <div style={{ flex: 1.2, minWidth: '120px' }}>
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    No. of Moulds {isLongLine ? '(per Line)' : '(per Bench)'}
+                                    Moulds{isLongLine ? '/Gang' : '/Bench'}
                                 </label>
                                 {formState.sleeperCategory === 'Wider Base' ? (
                                     <select
@@ -472,65 +492,65 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                         onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
                                         style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                     >
-                                        <option value="">Select No. of Moulds</option>
+                                        <option value="">Select</option>
                                         <option value="4">4</option>
                                         <option value="8">8</option>
                                     </select>
                                 ) : (
                                     <input
                                         type="number"
+                                        min="0"
                                         value={formState.numMouldsPerItem}
-                                        onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
-                                        placeholder="Enter integer"
-                                        readOnly={!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC'}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #cbd5e1',
-                                            background: (!isLongLine && !formState.isEditing && formState.sleeperCategory !== 'PnC') ? '#f8fafc' : '#fff',
-                                            boxSizing: 'border-box'
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val < 0) return;
+                                            setFormState(prev => ({ ...prev, numMouldsPerItem: val }));
                                         }}
+                                        placeholder="Qty"
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                     />
                                 )}
                             </div>
 
+                            {/* RFT */}
                             {formState.sleeperCategory === 'PnC' && (
-                                <div>
+                                <div style={{ flex: 1, minWidth: '90px' }}>
                                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
                                     <input
                                         type="number"
+                                        min="0"
                                         value={formState.rft}
-                                        onChange={(e) => setFormState(prev => ({ ...prev, rft: e.target.value }))}
-                                        placeholder="Enter RFT"
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val < 0) return;
+                                            setFormState(prev => ({ ...prev, rft: val }));
+                                        }}
+                                        placeholder="RFT"
                                         style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
                                     />
                                 </div>
                             )}
 
-                            {/* Spacer columns */}
-                            <div />
-
-                            {formState.sleeperCategory !== 'PnC' && (
-                                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                    <button
-                                        onClick={handleSave}
-                                        style={{
-                                            width: '100%',
-                                            background: '#42818c',
-                                            color: 'white',
-                                            border: 'none',
-                                            padding: '11px 24px',
-                                            borderRadius: '8px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            transition: 'opacity 0.2s'
-                                        }}
-                                    >
-                                        {formState.isEditing ? 'Update Entry' : 'Add to List'}
-                                    </button>
-                                </div>
-                            )}
+                            {/* Action Button */}
+                            <div style={{ minWidth: '130px' }}>
+                                <button
+                                    onClick={handleSave}
+                                    style={{
+                                        width: '100%',
+                                        background: '#42818c',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '11px 16px',
+                                        borderRadius: '8px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        boxShadow: '0 2px 4px rgba(66, 129, 140, 0.2)'
+                                    }}
+                                >
+                                    {formState.isEditing ? 'Update' : 'Add to List'}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Row 3: PnC Sleeper Names Grid */}
@@ -603,27 +623,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             </div>
                         )}
 
-                        {/* Row 4: PnC Action Button */}
-                        {formState.sleeperCategory === 'PnC' && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <button
-                                    onClick={handleSave}
-                                    style={{
-                                        background: '#42818c',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '11px 32px',
-                                        borderRadius: '8px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: '0 2px 4px rgba(66, 129, 140, 0.2)'
-                                    }}
-                                >
-                                    {formState.isEditing ? 'Update Entry' : 'Add to List'}
-                                </button>
-                            </div>
-                        )}
+
 
                     </div>
 

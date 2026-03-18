@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 const FinanceDashboard = () => {
     const [payments] = useState([
         { id: 1, callNo: 'IC/SLP/2026/001', type: 'Inspection', amount: 150000, date: '2026-01-22', status: 'Approved', ref: 'TXN-908756' },
-        { id: 2, callNo: 'IC/SLP/2026/002', type: 'Cancellation', amount: 25000, date: '2026-01-28', status: 'Pending', ref: 'TXN-909812' },
+        { id: 2, callNo: 'IC/SLP/2026/002', type: 'Cancellation', amount: 25000, date: '2026-01-28', status: 'Pending for verification', ref: 'TXN-909812' },
         { id: 3, callNo: 'IC/SLP/2026/003', type: 'Inspection', amount: 120000, date: '2026-02-08', status: 'Under Verification', ref: 'TXN-910243' },
     ]);
 
@@ -51,8 +51,8 @@ const FinanceDashboard = () => {
                                 </td>
                                 <td style={{ padding: '20px', textAlign: 'center' }}>
                                     <span style={{
-                                        background: payment.status === 'Approved' ? '#f0fdf4' : payment.status === 'Pending' ? '#fff1f2' : '#f0f9ff',
-                                        color: payment.status === 'Approved' ? '#166534' : payment.status === 'Pending' ? '#9f1239' : '#0369a1',
+                                        background: payment.status === 'Approved' ? '#f0fdf4' : payment.status === 'Pending for verification' ? '#fff1f2' : '#f0f9ff',
+                                        color: payment.status === 'Approved' ? '#166534' : payment.status === 'Pending for verification' ? '#9f1239' : '#0369a1',
                                         padding: '6px 12px',
                                         borderRadius: '20px',
                                         fontSize: '11px',

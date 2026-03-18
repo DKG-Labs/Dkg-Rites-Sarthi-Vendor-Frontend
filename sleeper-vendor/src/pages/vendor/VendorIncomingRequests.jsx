@@ -107,10 +107,10 @@ const VendorIncomingRequests = () => {
                                             borderRadius: '9999px', 
                                             fontSize: '12px', 
                                             fontWeight: '600',
-                                            background: '#fef9c3',
-                                            color: '#854d0e'
+                                            background: row.action === 'REQUEST_BACK' ? '#fef2f2' : (row.status === 'Completed' ? '#dcfce7' : '#fef9c3'),
+                                            color: row.action === 'REQUEST_BACK' ? '#991b1b' : (row.status === 'Completed' ? '#166534' : '#854d0e')
                                         }}>
-                                            {row.status}
+                                            {row.action === 'REQUEST_BACK' ? 'Return for modification' : (row.status === 'Pending' ? 'Pending for verification' : (row.status === 'Completed' ? 'Verified & Locked' : row.status))}
                                         </span>
                                     </td>
                                     <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '14px' }}>{row.remarks || 'No remarks'}</td>
@@ -214,11 +214,11 @@ const VendorIncomingRequests = () => {
                                                     <span style={{ 
                                                         padding: '2px 8px', 
                                                         borderRadius: '4px', 
-                                                        background: h.status?.includes('REJECT') || h.status?.includes('BACK') ? '#fef2f2' : '#f0f9ff',
-                                                        color: h.status?.includes('REJECT') || h.status?.includes('BACK') ? '#991b1b' : '#075985',
+                                                        background: h.status?.includes('REJECT') || h.status?.includes('BACK') || h.action === 'REQUEST_BACK' ? '#fef2f2' : (h.status === 'Completed' ? '#dcfce7' : '#f0f9ff'),
+                                                        color: h.status?.includes('REJECT') || h.status?.includes('BACK') || h.action === 'REQUEST_BACK' ? '#991b1b' : (h.status === 'Completed' ? '#166534' : '#075985'),
                                                         fontWeight: '500'
                                                     }}>
-                                                        {h.status}
+                                                        {h.action === 'REQUEST_BACK' ? 'Return for modification' : h.status}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '12px', fontSize: '13px', color: '#64748b' }}>

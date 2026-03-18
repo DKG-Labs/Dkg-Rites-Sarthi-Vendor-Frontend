@@ -41,7 +41,7 @@ const InventoryDetail = ({ material, onBack }) => {
     }, [material.id]);
 
     const getMockEntries = (type) => {
-        const common = { status: 'Unverified', dateOfReceipt: '2026-02-12' };
+        const common = { status: 'Pending for verification', dateOfReceipt: '2026-02-12' };
         switch (type) {
             case 'aggregates':
                 return [{
@@ -78,10 +78,10 @@ const InventoryDetail = ({ material, onBack }) => {
         get balance() { return this.procured - this.used; }
     };
 
-    const handleFormSubmit = async () => {
-        await fetchEntries();
+    const handleFormSubmit = () => {
         setShowForm(false);
         setEditingEntry(null);
+        fetchEntries();
     };
 
     const handleEdit = (entry) => {
@@ -110,6 +110,13 @@ const InventoryDetail = ({ material, onBack }) => {
                 alert('Delete failed: ' + error.message);
             }
         }
+    };
+
+    const getStatusLabel = (status) => {
+        if (!status || status === 'Created') return 'Pending for verification';
+        if (status === 'Pending') return 'Pending for verification';
+        if (status === 'Completed' || status === 'Locked') return 'Verified & Locked';
+        return status;
     };
 
     const getColumns = () => {
@@ -162,7 +169,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         </td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -185,7 +192,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         </td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -202,7 +209,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -217,7 +224,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -232,7 +239,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.lotNo} / {entry.mtcNo}</td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -248,7 +255,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>
@@ -262,7 +269,7 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={boldStyle}>{entry.totalQtyReceived || entry.qty}</td>
                         <td style={tdStyle}>
                             <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                {entry.status || 'Created'}
+                                {getStatusLabel(entry.status)}
                             </span>
                         </td>
                     </>

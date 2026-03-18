@@ -34,7 +34,7 @@ const VendorDashboard = () => {
                     stage: 'Final',
                     totalOffered: newCall.totalOffered,
                     batchesSelected: newCall.batchesSelected,
-                    status: 'Pending',
+                    status: 'Pending for verification',
                 },
                 ...prev,
             ];
@@ -43,14 +43,14 @@ const VendorDashboard = () => {
         setSelectedModule('calls-requested');
     };
 
-    // Pending = only "Pending" status calls
-    const pendingCount = inspectionCalls.filter(c => c.status === 'Pending').length;
+    // Pending = only "Pending for verification" status calls
+    const pendingCount = inspectionCalls.filter(c => c.status === 'Pending for verification').length;
 
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: 1 },
         { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
-        { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
+        { id: 'calls-completed', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
         { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', count: 2 },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },

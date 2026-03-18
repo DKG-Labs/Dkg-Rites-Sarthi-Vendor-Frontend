@@ -248,7 +248,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             <StatBox label="Quantity on Order" value={srItem.ordered.toLocaleString()} />
                             <StatBox label="Cumm. Qty Offered Previously" value={srItem.offeredTillNow.toLocaleString()} color="#7c3aed" />
                             <StatBox label="Qty. Passed Previously" value={srItem.acceptedTillNow.toLocaleString()} color="#16a34a" />
-                            <StatBox label="Qty Pending" value={srItem.due.toLocaleString()} highlight={srItem.due === 0} />
+                            <StatBox label="Qty Pending for Verification" value={srItem.due.toLocaleString()} highlight={srItem.due === 0} />
                         </div>
                     </div>
 

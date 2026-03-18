@@ -27,7 +27,7 @@ const RawMaterialSourceSection = () => {
                 approvalReference: e.approvalReference,
                 validityFrom: e.validFrom ? e.validFrom.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
                 validityTo: e.validTo ? e.validTo.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
-                status: e.status || (e.updatedDate ? 'Verified & Locked' : 'Verification Pending')
+                status: (e.status === 'Pending' ? 'Pending for verification' : (e.status === 'Completed' || e.status === 'Locked' ? 'Verified & Locked' : (e.status || (e.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setEntries(mappedData);
             setError(null);
@@ -85,7 +85,7 @@ const RawMaterialSourceSection = () => {
     };
 
     const handleEdit = (entry) => {
-        if (entry.status === 'Verified & Locked') return;
+        if (entry.status === 'Verified & Locked' || entry.status === 'Locked') return;
         setFormData({
             rawMaterialType: entry.rawMaterialType,
             source: entry.source,
@@ -98,7 +98,7 @@ const RawMaterialSourceSection = () => {
     };
 
     const handleDelete = async (id, status) => {
-        if (status === 'Verified & Locked') return;
+        if (status === 'Verified & Locked' || status === 'Locked') return;
         if (window.confirm('Are you sure you want to delete this source?')) {
             try {
                 setLoading(true);
@@ -115,8 +115,9 @@ const RawMaterialSourceSection = () => {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'Verified & Locked': return '#10b981';
-            case 'Verification Pending': return '#f59e0b';
+            case 'Verified & Locked':
+            case 'Locked': return '#10b981';
+            case 'Pending for verification': return '#f59e0b';
             case 'Unlocked for Modification': return '#3b82f6';
             default: return '#64748b';
         }
@@ -370,16 +371,16 @@ const RawMaterialSourceSection = () => {
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                             <button
                                                 onClick={() => handleEdit(entry)}
-                                                disabled={entry.status === 'Verified & Locked'}
+                                                disabled={entry.status === 'Verified & Locked' || entry.status === 'Locked'}
                                                 style={{
                                                     padding: '6px 12px',
                                                     borderRadius: '6px',
                                                     fontSize: '12px',
                                                     fontWeight: '600',
-                                                    cursor: entry.status === 'Verified & Locked' ? 'not-allowed' : 'pointer',
-                                                    background: entry.status === 'Verified & Locked' ? '#f1f5f9' : '#fff',
-                                                    color: entry.status === 'Verified & Locked' ? '#94a3b8' : '#42818c',
-                                                    border: `1px solid ${entry.status === 'Verified & Locked' ? '#e2e8f0' : '#42818c'}`,
+                                                    cursor: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? 'not-allowed' : 'pointer',
+                                                    background: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#f1f5f9' : '#fff',
+                                                    color: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#94a3b8' : '#42818c',
+                                                    border: `1px solid ${(entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#e2e8f0' : '#42818c'}`,
                                                     transition: 'all 0.2s'
                                                 }}
                                             >
@@ -387,16 +388,16 @@ const RawMaterialSourceSection = () => {
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(entry.id, entry.status)}
-                                                disabled={entry.status === 'Verified & Locked'}
+                                                disabled={entry.status === 'Verified & Locked' || entry.status === 'Locked'}
                                                 style={{
                                                     padding: '6px 12px',
                                                     borderRadius: '6px',
                                                     fontSize: '12px',
                                                     fontWeight: '600',
-                                                    cursor: entry.status === 'Verified & Locked' ? 'not-allowed' : 'pointer',
-                                                    background: entry.status === 'Verified & Locked' ? '#f1f5f9' : '#fff',
-                                                    color: entry.status === 'Verified & Locked' ? '#94a3b8' : '#ef4444',
-                                                    border: `1px solid ${entry.status === 'Verified & Locked' ? '#e2e8f0' : '#ef4444'}`,
+                                                    cursor: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? 'not-allowed' : 'pointer',
+                                                    background: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#f1f5f9' : '#fff',
+                                                    color: (entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#94a3b8' : '#ef4444',
+                                                    border: `1px solid ${(entry.status === 'Verified & Locked' || entry.status === 'Locked') ? '#e2e8f0' : '#ef4444'}`,
                                                     transition: 'all 0.2s'
                                                 }}
                                             >
@@ -412,7 +413,7 @@ const RawMaterialSourceSection = () => {
             </div>
 
             <div style={{ marginTop: '24px', textAlign: 'right', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
-                * New entries are set to 'Verification Pending' by default. Locked entries cannot be modified or deleted.
+                * New entries are set to 'Pending for verification' by default. Verified & Locked entries cannot be modified or deleted.
             </div>
         </div>
     );
