@@ -605,6 +605,56 @@ export const apiService = {
         }
     },
 
+    // Longline Bench APIs
+    getLongLines: async () => {
+        try {
+            const url = BASE_URL.replace('/api', '') + '/longLine-bench/all';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch longlines');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    saveLongLine: async (longlineData) => {
+        try {
+            const isUpdate = longlineData.id && !isNaN(longlineData.id);
+            const path = isUpdate ? `/longLine-bench/update/${longlineData.id}` : '/longLine-bench/create';
+            const url = BASE_URL.replace('/api', '') + path;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(longlineData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Failed to save longline');
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    deleteLongLine: async (id) => {
+        try {
+            const url = BASE_URL.replace('/api', '') + `/longLine-bench/delete/${id}`;
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete longline');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
     // Existing / Legacy APIs
     getScadaRecords: async (page, size, batch) => {
         try {

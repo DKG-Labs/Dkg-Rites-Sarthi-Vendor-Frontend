@@ -41,6 +41,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     useEffect(() => {
         if (activeTabId === 'shed-1') {
             fetchStressBenches();
+        } else if (activeTabId === 'line-1') {
+            fetchLongLines();
         }
     }, [activeTabId]);
 
@@ -58,11 +60,35 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numMouldsPerItem: b.mouldsPerBench || 0,
                 totalMoulds: (b.noOfBenches || 1) * (b.mouldsPerBench || 0),
                 sleeperCategory: b.sleeperCategory,
-                status: b.status === 'NOT_STARTED' ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
+                status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
             }));
             setTabEntries(prev => ({ ...prev, 'shed-1': mappedData }));
         } catch (err) {
             console.error('Error fetching stress benches:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchLongLines = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getLongLines();
+            const mappedData = data.map(b => ({
+                id: b.id,
+                entryMode: b.entryType?.toLowerCase() || 'single',
+                fromNo: b.lineFrom || '',
+                toNo: b.lineTo || '',
+                singleNo: b.lineFrom || '', 
+                numItems: b.noOfLines || 1,
+                numMouldsPerItem: b.mouldsPerLine || 0,
+                totalMoulds: (b.noOfLines || 1) * (b.mouldsPerLine || 0),
+                sleeperCategory: b.sleeperCategory,
+                status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
+            }));
+            setTabEntries(prev => ({ ...prev, 'line-1': mappedData }));
+        } catch (err) {
+            console.error('Error fetching longlines:', err);
         } finally {
             setLoading(false);
         }
@@ -127,36 +153,45 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTabId, formState.isEditing]);
 
-    // Enforce same sleeper category for Long Line if entries exist
-    useEffect(() => {
-        if (isLongLine && tabEntries[activeTabId]?.length > 0 && !formState.isEditing) {
-            const existingCategory = tabEntries[activeTabId][0].sleeperCategory;
-            setFormState(prev => ({ ...prev, sleeperCategory: existingCategory }));
-        }
-    }, [activeTabId, isLongLine, tabEntries, formState.isEditing]);
 
     const handleSave = async () => {
         if (formState.numItems <= 0) {
-            alert("Please enter valid Bench/Gang numbers.");
+            alert(`Please enter valid ${isLongLine ? 'Gang' : 'Bench'} numbers.`);
             return;
         }
 
-        const benchDto = {
+        const commonPayload = {
             id: formState.isEditing ? formState.editingId : null,
             entryType: formState.entryMode.toUpperCase(),
+            sleeperCategory: formState.sleeperCategory,
+            vendorId: 118,
+            createdBy: 118,
+            updatedBy: formState.isEditing ? 118 : null
+        };
+
+        const payload = isLongLine ? {
+            ...commonPayload,
+            lineFrom: formState.entryMode === 'single' ? parseInt(formState.singleNo) : parseInt(formState.fromNo),
+            lineTo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : parseInt(formState.toNo),
+            noOfLines: formState.numItems,
+            mouldsPerLine: parseInt(formState.numMouldsPerItem) || 0
+        } : {
+            ...commonPayload,
             benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
             benchFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : null,
             benchTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : null,
-            sleeperCategory: formState.sleeperCategory,
-            mouldsPerBench: parseInt(formState.numMouldsPerItem) || 0,
-            vendorId: 118,
-            createdBy: 118
+            mouldsPerBench: parseInt(formState.numMouldsPerItem) || 0
         };
 
         try {
             setLoading(true);
-            await apiService.saveStressBench(benchDto);
-            await fetchStressBenches();
+            if (isLongLine) {
+                await apiService.saveLongLine(payload);
+                await fetchLongLines();
+            } else {
+                await apiService.saveStressBench(payload);
+                await fetchStressBenches();
+            }
 
             // Reset form
             setFormState({
@@ -175,9 +210,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 editingId: null,
                 status: STATUSES.PENDING
             });
-            alert(formState.isEditing ? 'Bench updated successfully' : 'Bench added successfully');
+            alert(formState.isEditing ? `${isLongLine ? 'Gang' : 'Bench'} updated successfully` : `${isLongLine ? 'Gang' : 'Bench'} added successfully`);
         } catch (err) {
-            alert(err.message || 'Error saving stress bench');
+            alert(err.message || `Error saving ${isLongLine ? 'longline' : 'stress bench'}`);
         } finally {
             setLoading(false);
         }
@@ -212,8 +247,13 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         if (window.confirm("Are you sure you want to delete this entry?")) {
             try {
                 setLoading(true);
-                await apiService.deleteStressBench(id);
-                await fetchStressBenches();
+                if (isLongLine) {
+                    await apiService.deleteLongLine(id);
+                    await fetchLongLines();
+                } else {
+                    await apiService.deleteStressBench(id);
+                    await fetchStressBenches();
+                }
                 alert('Entry deleted successfully');
             } catch (err) {
                 alert(err.message || 'Error deleting entry');
@@ -466,13 +506,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                 <select
                                     value={formState.sleeperCategory}
                                     onChange={(e) => setFormState(prev => ({ ...prev, sleeperCategory: e.target.value }))}
-                                    disabled={isLongLine && currentEntries.length > 0 && !formState.isEditing}
                                     style={{
                                         width: '100%',
                                         padding: '10px',
                                         borderRadius: '8px',
                                         border: '1px solid #cbd5e1',
-                                        background: (isLongLine && currentEntries.length > 0 && !formState.isEditing) ? '#f8fafc' : '#fff',
+                                        background: '#fff',
                                         boxSizing: 'border-box'
                                     }}
                                 >
@@ -630,7 +669,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     {/* Entry List */}
                     {currentEntries.length > 0 && (
                         <div style={{ marginTop: '24px', background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <h4 style={{ color: '#42818c', marginTop: 0, marginBottom: '20px', fontSize: '15px', fontWeight: '700' }}>Entered Data List</h4>
+                            <h4 style={{ color: '#42818c', marginTop: 0, marginBottom: '20px', fontSize: '15px', fontWeight: '700' }}>
+                                {isLongLine ? 'Entered Gang Details' : 'Entered Bench Details'}
+                            </h4>
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                     <thead style={{ background: '#f8fafc' }}>
