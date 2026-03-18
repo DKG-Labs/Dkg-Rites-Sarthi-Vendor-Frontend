@@ -24,7 +24,7 @@ const PlantDeclarationDashboard = () => {
                 vendorCode: p.vendorCode,
                 type: p.plantType,
                 shedsLines: p.numberOfSheds,
-                status: (p.status === 'Pending' ? 'Pending for verification' : (p.status === 'Completed' || p.status === 'Locked' ? 'Verified & Locked' : (p.status || (p.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
+                status: (p.status === 'Pending' || p.status === 'NOT_STARTED' ? 'Pending for verification' : (p.status === 'Completed' || p.status === 'completed' || p.status === 'COMPLETED' || p.status === 'Locked' ? 'Verified & Locked' : (p.status || (p.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setProfiles(mappedData);
         } catch (err) {

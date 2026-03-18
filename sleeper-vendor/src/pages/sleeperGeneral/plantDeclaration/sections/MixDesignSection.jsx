@@ -28,7 +28,7 @@ const MixDesignSection = () => {
                 ca2: m.ca2,
                 fa: m.fa,
                 water: m.water,
-                status: (m.status === 'Pending' ? 'Pending for verification' : (m.status === 'Completed' || m.status === 'Locked' ? 'Verified & Locked' : (m.status || (m.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
+                status: (m.status === 'Pending' || m.status === 'NOT_STARTED' ? 'Pending for verification' : (m.status === 'Completed' || m.status === 'completed' || m.status === 'COMPLETED' || m.status === 'Locked' ? 'Verified & Locked' : (m.status || (m.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setMixDesigns(mappedData);
             setError(null);

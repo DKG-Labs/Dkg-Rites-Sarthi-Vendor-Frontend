@@ -58,7 +58,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numMouldsPerItem: b.mouldsPerBench || 0,
                 totalMoulds: (b.noOfBenches || 1) * (b.mouldsPerBench || 0),
                 sleeperCategory: b.sleeperCategory,
-                status: b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)
+                status: b.status === 'NOT_STARTED' ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
             }));
             setTabEntries(prev => ({ ...prev, 'shed-1': mappedData }));
         } catch (err) {

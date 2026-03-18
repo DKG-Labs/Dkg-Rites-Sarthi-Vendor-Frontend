@@ -27,7 +27,7 @@ const RawMaterialSourceSection = () => {
                 approvalReference: e.approvalReference,
                 validityFrom: e.validFrom ? e.validFrom.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
                 validityTo: e.validTo ? e.validTo.split('/').reverse().join('-') : '', // DD/MM/YYYY to YYYY-MM-DD
-                status: (e.status === 'Pending' ? 'Pending for verification' : (e.status === 'Completed' || e.status === 'Locked' ? 'Verified & Locked' : (e.status || (e.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
+                status: (e.status === 'Pending' || e.status === 'NOT_STARTED' ? 'Pending for verification' : (e.status === 'Completed' || e.status === 'completed' || e.status === 'COMPLETED' || e.status === 'Locked' ? 'Verified & Locked' : (e.status || (e.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setEntries(mappedData);
             setError(null);
