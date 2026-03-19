@@ -77,9 +77,9 @@ const App = () => {
   return (
     !isAuthenticated() ? (
       <LoginPage />
-    ) : user?.roleName === 'SLEEPER_VENDOR' ? (
+    ) : user?.roleName?.includes('SLEEPER_VENDOR') ? (
       <SleeperVendorHost />
-    ) : user?.roleName === 'RAILPAD_USER' ? (
+    ) : user?.roleName?.includes('RAILPAD_USER') ? (
       <RailpadHost />
     ) : (
       <div>

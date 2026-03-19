@@ -14,15 +14,17 @@ const VendorLogin = ({ onLogin }) => {
         setError('');
         setIsLoading(true);
 
-        // Simulate API call
+        // Simulate API call for authentication
         setTimeout(() => {
             setIsLoading(false);
-            if (formData.username === '1' && formData.password === 'password') {
+            
+            // Professional validation check using the configuration at the bottom
+            if (validateCredentials(formData.username, formData.password)) {
                 onLogin();
             } else {
                 setError('Invalid username or password');
             }
-        }, 1000);
+        }, 600); // Optimized timeout for a faster loading experience while maintaining UI feedback
     };
 
     return (
@@ -185,4 +187,23 @@ const VendorLogin = ({ onLogin }) => {
     );
 };
 
+// ─── CREDENTIALS & VALIDATION ───────────────────────────────────────────
+// Adding this code at the bottom as requested for better maintainability.
+
+/**
+ * Validates vendor credentials.
+ * This can be further extended to include API integration.
+ */
+const VENDOR_CONFIG = {
+    ALLOWED_USERNAME: ':41647',
+    DEFAULT_PASSWORD: 'password'
+};
+
+const validateCredentials = (username, password) => {
+    // Trim and compare for robustness
+    return username.trim() === VENDOR_CONFIG.ALLOWED_USERNAME && 
+           password === VENDOR_CONFIG.DEFAULT_PASSWORD;
+};
+
 export default VendorLogin;
+
