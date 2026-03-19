@@ -608,7 +608,7 @@ export const apiService = {
     // Longline Bench APIs
     getLongLines: async () => {
         try {
-            const url = BASE_URL.replace('/api', '') + '/longLine-bench/all';
+            const url = `${BASE_URL}/longLine-bench/all`;
             const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch longlines');
             const data = await response.json();
@@ -623,7 +623,7 @@ export const apiService = {
         try {
             const isUpdate = longlineData.id && !isNaN(longlineData.id);
             const path = isUpdate ? `/longLine-bench/update/${longlineData.id}` : '/longLine-bench/create';
-            const url = BASE_URL.replace('/api', '') + path;
+            const url = `${BASE_URL}${path}`;
             const method = isUpdate ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -642,7 +642,7 @@ export const apiService = {
 
     deleteLongLine: async (id) => {
         try {
-            const url = BASE_URL.replace('/api', '') + `/longLine-bench/delete/${id}`;
+            const url = `${BASE_URL}/longLine-bench/delete/${id}`;
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: { 'accept': '*/*' }

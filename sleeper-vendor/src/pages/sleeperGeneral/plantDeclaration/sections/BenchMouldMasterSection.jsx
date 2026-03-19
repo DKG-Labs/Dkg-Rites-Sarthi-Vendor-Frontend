@@ -76,14 +76,14 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             const data = await apiService.getLongLines();
             const mappedData = data.map(b => ({
                 id: b.id,
-                entryMode: b.entryType?.toLowerCase() || 'single',
-                fromNo: b.lineFrom || '',
-                toNo: b.lineTo || '',
-                singleNo: b.lineFrom || '', 
-                numItems: b.noOfLines || 1,
-                numMouldsPerItem: b.mouldsPerLine || 0,
-                totalMoulds: (b.noOfLines || 1) * (b.mouldsPerLine || 0),
-                sleeperCategory: b.sleeperCategory,
+                entryMode: b.entryMode?.toLowerCase() || 'single',
+                fromNo: b.gangFrom || '',
+                toNo: b.gangTo || '',
+                singleNo: b.gangNo || '', 
+                numItems: b.count || 1,
+                numMouldsPerItem: b.mouldsPerGang || 0,
+                totalMoulds: (b.count || 1) * (b.mouldsPerGang || 0),
+                sleeperCategory: b.category,
                 status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
             }));
             setTabEntries(prev => ({ ...prev, 'line-1': mappedData }));
@@ -170,11 +170,16 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         };
 
         const payload = isLongLine ? {
-            ...commonPayload,
-            lineFrom: formState.entryMode === 'single' ? parseInt(formState.singleNo) : parseInt(formState.fromNo),
-            lineTo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : parseInt(formState.toNo),
-            noOfLines: formState.numItems,
-            mouldsPerLine: parseInt(formState.numMouldsPerItem) || 0
+            id: formState.isEditing ? formState.editingId : null,
+            entryMode: formState.entryMode.toUpperCase(),
+            gangFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : 0,
+            gangTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : 0,
+            gangNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : 0,
+            count: formState.numItems,
+            mouldsPerGang: parseInt(formState.numMouldsPerItem) || 0,
+            category: formState.sleeperCategory,
+            createdBy: 118,
+            updatedBy: 118
         } : {
             ...commonPayload,
             benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
