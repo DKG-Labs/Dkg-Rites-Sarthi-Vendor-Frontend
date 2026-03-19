@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlantDeclarationDashboard from './plantDeclaration/PlantDeclarationDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclarationDashboard';
 import InventoryManagementDashboard from './inventoryManagement/InventoryManagementDashboard';
@@ -13,7 +13,13 @@ import { useLocation } from 'react-router-dom';
 
 const VendorDashboard = () => {
     const location = useLocation();
-    const [selectedModule, setSelectedModule] = useState(location.state?.selectedModule || 'inventory-management');
+    const [selectedModule, setSelectedModule] = useState(() => {
+        return sessionStorage.getItem('sleeperVendorActiveModule') || location.state?.selectedModule || 'inventory-management';
+    });
+
+    useEffect(() => {
+        sessionStorage.setItem('sleeperVendorActiveModule', selectedModule);
+    }, [selectedModule]);
 
     // ── Shared Inspection Calls State (lifted up) ─────────────────────────────
     const [inspectionCalls, setInspectionCalls] = useState([]);

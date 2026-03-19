@@ -1,105 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import RaiseInspectionCallForm from './RaiseInspectionCallForm';
+import { apiService } from '../../services/api';
 
-// ─── Mock IREPS PO Master Data ────────────────────────────────────────────────
-const MOCK_PO_DATA = [
-    {
-        id: 1,
-        poNo: 'PO/RDSO/SLP/2025/001',
-        poDate: '15/01/2025',
-        purchasingAuthority: 'DRM/SER/KGP',
-        itemCategory: 'Prestressed Concrete Sleepers',
-        uom: 'Nos.',
-        totalValue: 42500000,
-        status: 'Active',
-        srItems: [
-            {
-                srNo: '1',
-                description: 'Manufacture and supply of prestressed concrete sleepers RT-8746 (BG) as per RDSO drg.',
-                consignee: 'SSE/P-Way/KGP',
-                ordered: 10000,
-                offeredTillNow: 3200,
-                acceptedTillNow: 3000,
-                rejectedTillNow: 120,
-                due: 7000
-            },
-            {
-                srNo: '2',
-                description: 'Supply of elastic rail clips ERC MK-III complete with fittings',
-                consignee: 'SSE/P-Way/ADra',
-                ordered: 50000,
-                offeredTillNow: 15000,
-                acceptedTillNow: 14500,
-                rejectedTillNow: 300,
-                due: 35500
-            }
-        ]
-    },
-    {
-        id: 2,
-        poNo: 'PO/SER/KGP/2025/045',
-        poDate: '01/02/2025',
-        purchasingAuthority: 'DRM/SER/ADI',
-        itemCategory: 'Monoblock Concrete Sleepers',
-        uom: 'Nos.',
-        totalValue: 18750000,
-        status: 'Active',
-        srItems: [
-            {
-                srNo: '1',
-                description: 'Manufacture & supply of pre-stressed monoblock concrete sleepers PSC 60Kg (T-2828)',
-                consignee: 'SSE/P-Way/ADI',
-                ordered: 5000,
-                offeredTillNow: 5000,
-                acceptedTillNow: 4980,
-                rejectedTillNow: 20,
-                due: 0
-            }
-        ]
-    },
-    {
-        id: 3,
-        poNo: 'PO/ECoR/BBS/2024/112',
-        poDate: '20/11/2024',
-        purchasingAuthority: 'DRM/ECoR/BBS',
-        itemCategory: 'CST-9 Sleepers & Fittings',
-        uom: 'Nos.',
-        totalValue: 31200000,
-        status: 'Active',
-        srItems: [
-            {
-                srNo: '1',
-                description: 'Supply of CST-9 Sleepers with fittings for track renewal works',
-                consignee: 'SSE/P-Way/BBS',
-                ordered: 8000,
-                offeredTillNow: 2500,
-                acceptedTillNow: 2400,
-                rejectedTillNow: 60,
-                due: 5600
-            },
-            {
-                srNo: '2',
-                description: 'Supply of GFN Liners and MS Liners for P.Way works',
-                consignee: 'SSE/P-Way/CTC',
-                ordered: 120000,
-                offeredTillNow: 40000,
-                acceptedTillNow: 39500,
-                rejectedTillNow: 200,
-                due: 80500
-            },
-            {
-                srNo: '3',
-                description: 'Manufacture and supply of prestressed concrete sleepers RT-8746 (BG)',
-                consignee: 'SSE/P-Way/KGP',
-                ordered: 15000,
-                offeredTillNow: 0,
-                acceptedTillNow: 0,
-                rejectedTillNow: 0,
-                due: 15000
-            }
-        ]
-    }
-];
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -122,7 +24,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0 }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
 
@@ -140,35 +42,35 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
                         background: '#f0f9fa', border: '1.5px solid #a7d8dc',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontWeight: 800, fontSize: 12, color: '#21808d'
-                    }}>{item.srNo}</div>
+                    }}>{item.itemSrNo || item.srNo || (item.poSerialNo ? item.poSerialNo.split('/').pop() : '') || (idx + 1)}</div>
                 </td>
                 <td style={{ padding: '10px 12px', maxWidth: 260 }}>
                     <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 500, lineHeight: 1.4 }}>
-                        {item.description}
+                        {item.poDes || item.description || 'N/A'}
                     </div>
                 </td>
                 {/* Consignee */}
                 <td style={{ padding: '10px 12px' }}>
                     <div style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
-                        {item.consignee || '—'}
+                        {item.conigness || item.consignee || '—'}
                     </div>
                 </td>
                 {/* Ordered */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                        {item.ordered.toLocaleString()}
+                        {(item.orderedQty || item.ordered || 0).toLocaleString()}
                     </span>
                 </td>
                 {/* Offered */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <span style={{ fontWeight: 600, fontSize: 12, color: '#7c3aed' }}>
-                        {item.offeredTillNow.toLocaleString()}
+                        {(item.offeredTillNow || 0).toLocaleString()}
                     </span>
                 </td>
                 {/* Accepted */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <span style={{ fontWeight: 600, fontSize: 12, color: '#16a34a' }}>
-                        {item.acceptedTillNow.toLocaleString()}
+                        {(item.acceptedTillNow || 0).toLocaleString()}
                     </span>
                 </td>
                 {/* Due */}
@@ -179,7 +81,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
                         background: item.due === 0 ? '#f0fdf4' : '#fefce8',
                         padding: '2px 8px', borderRadius: 6
                     }}>
-                        {item.due.toLocaleString()}
+                        {(item.due || 0).toLocaleString()}
                     </span>
                 </td>
                 {/* Action */}
@@ -218,9 +120,22 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall }) => {
 const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const activeSrCount = po.srItems.filter(s => s.due > 0).length;
+    // Sort items by their embedded SR No / Serial suffix
+    const items = [...(po.poItem || po.srItems || [])].sort((a, b) => {
+        const getNum = (obj) => {
+            if (obj.itemSrNo) return parseInt(obj.itemSrNo, 10) || 0;
+            if (obj.srNo) return parseInt(obj.srNo, 10) || 0;
+            if (obj.poSerialNo) {
+                const parts = obj.poSerialNo.split('/');
+                return parseInt(parts[parts.length - 1], 10) || 0;
+            }
+            return 0;
+        };
+        return getNum(a) - getNum(b);
+    });
+    const activeSrCount = items.filter(s => s.due > 0).length;
     // Total ordered quantity = sum of all SR ordered quantities
-    const totalPoQty = po.srItems.reduce((acc, s) => acc + s.ordered, 0);
+    const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
 
     return (
         <>
@@ -255,31 +170,31 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                 </td>
                 {/* Purchasing Authority */}
                 <td style={{ padding: '16px 8px' }}>
-                    <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>{po.purchasingAuthority}</div>
+                    <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>{po.rlyShortName || po.purchasingAuthority || 'N/A'}</div>
                 </td>
                 {/* Item Category */}
                 <td style={{ padding: '16px 8px' }}>
-                    <div style={{ fontSize: 12, color: '#334155' }}>{po.itemCategory}</div>
+                    <div style={{ fontSize: 12, color: '#334155' }}>{po.itemCategory || po.poDes || 'N/A'}</div>
                 </td>
                 {/* PO Quantity */}
                 <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
-                        {totalPoQty.toLocaleString()}
+                        {(totalPoQty || 0).toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{po.uom}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{po.unit || po.uom || 'Nos.'}</div>
                 </td>
                 {/* Total Value */}
                 <td style={{ padding: '16px 8px', textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
-                        ₹{(po.totalValue / 100000).toFixed(2)}L
+                        ₹{((po.totalValue || 0) / 100000).toFixed(2)}L
                     </div>
                     <div style={{ fontSize: 10, color: '#94a3b8' }}>
-                        {po.srItems.length} SR Item{po.srItems.length > 1 ? 's' : ''}
+                        {items.length} SR Item{items.length > 1 ? 's' : ''}
                     </div>
                 </td>
                 {/* Status */}
                 <td style={{ padding: '16px 8px', textAlign: 'center' }}>
-                    <StatusBadge status={po.status} />
+                    <StatusBadge status={po.status || 'Active'} />
                     {activeSrCount > 0 && (
                         <div style={{ fontSize: 10, color: '#21808d', fontWeight: 600, marginTop: 4 }}>
                             {activeSrCount} pending for verification SR{activeSrCount > 1 ? 's' : ''}
@@ -313,7 +228,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                     background: 'rgba(255,255,255,0.2)', color: '#fff',
                                     padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700
                                 }}>
-                                    {po.srItems.length} items
+                                    {items.length} items
                                 </span>
                             </div>
 
@@ -333,13 +248,14 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {po.srItems.map((item, idx) => (
+                                        {items.map((item, idx) => (
                                             <SrItemRow
-                                                key={item.srNo}
+                                                key={item.itemSrNo || item.srNo || idx}
                                                 item={item}
                                                 poNo={po.poNo}
-                                                isLast={idx === po.srItems.length - 1}
+                                                isLast={idx === items.length - 1}
                                                 onSubmitInspectionCall={onSubmitInspectionCall}
+                                                idx={idx}
                                             />
                                         ))}
                                     </tbody>
@@ -368,19 +284,39 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
     const [perPage, setPerPage] = useState(10);
     const [page, setPage] = useState(1);
 
+    const [poDataList, setPoDataList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        const fetchPos = async () => {
+            setLoading(true);
+            try {
+                const data = await apiService.getVendorPOs();
+                setPoDataList(data);
+            } catch(e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPos();
+    }, []);
+
     // Summary stats
-    const activePOs = MOCK_PO_DATA.filter(p => p.status === 'Active').length;
-    const pendingCalls = MOCK_PO_DATA.reduce((acc, po) =>
-        acc + po.srItems.filter(s => s.due > 0).length, 0);
+    const activePOs = poDataList.filter(p => (p.status || 'Active') === 'Active').length;
+    const pendingCalls = poDataList.reduce((acc, po) =>
+        acc + (po.poItem || po.srItems || []).filter(s => (s.due || 0) > 0).length, 0);
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        return MOCK_PO_DATA.filter(po =>
-            po.poNo.toLowerCase().includes(q) ||
-            po.purchasingAuthority.toLowerCase().includes(q) ||
-            po.itemCategory.toLowerCase().includes(q)
+        return poDataList.filter(po =>
+            (po.poNo && po.poNo.toLowerCase().includes(q)) ||
+            (po.rlyShortName && po.rlyShortName.toLowerCase().includes(q)) ||
+            (po.purchasingAuthority && po.purchasingAuthority.toLowerCase().includes(q)) ||
+            (po.itemCategory && po.itemCategory.toLowerCase().includes(q)) ||
+            (po.poDes && po.poDes.toLowerCase().includes(q))
         );
-    }, [search]);
+    }, [search, poDataList]);
 
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
@@ -475,7 +411,13 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginated.length === 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                        Loading PO Data...
+                                    </td>
+                                </tr>
+                            ) : paginated.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
@@ -485,7 +427,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                             ) : (
                                 paginated.map((po, idx) => (
                                     <PoRow
-                                        key={po.id}
+                                        key={po.poNo || idx}
                                         po={po}
                                         index={idx}
                                         isLast={idx === paginated.length - 1}

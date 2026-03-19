@@ -1,5 +1,5 @@
-const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-
+// const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
+const BASE_URL = 'http://localhost:8080/sarthi-backend/api';
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -692,6 +692,57 @@ export const apiService = {
         } catch (error) {
             console.error('API Error:', error);
             throw error;
+        }
+    },
+
+    submitSleeperInspectionCall: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/submit-inspection-call`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Failed to submit inspection call');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getVendorInspectionCalls: async (userId = 118) => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${userId}`);
+            if (!response.ok) throw new Error('Failed to fetch inspection calls');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getCompletedBatches: async (sleeperType, userId = ':41647') => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(userId)}`);
+            if (!response.ok) throw new Error('Failed to fetch completed batches');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getVendorPOs: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=:41647&vendorType=Sleeper`);
+            if (!response.ok) throw new Error('Failed to fetch POs');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
         }
     },
 

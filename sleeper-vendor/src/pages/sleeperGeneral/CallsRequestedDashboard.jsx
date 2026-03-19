@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/api';
 
 // ─── Status Configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -613,12 +614,47 @@ const FilterTab = ({ label, count, active, color, onClick }) => (
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
-    const [calls, setCalls] = useState(MOCK_CALLS);
+    const [calls, setCalls] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('All');
     const [selectedCall, setSelectedCall] = useState(null);
     const [workflowModal, setWorkflowModal] = useState(null);
     const [withdrawSimpleModal, setWithdrawSimpleModal] = useState(null);
     const [toast, setToast] = useState(null);
+
+    useEffect(() => {
+        const fetchCalls = async () => {
+            setIsLoading(true);
+            try {
+                // Fetch calls for user 118 (or grab from AuthContext if available)
+                const data = await apiService.getVendorInspectionCalls(118);
+                const mappedCalls = data.map(c => {
+                    const status = c.status === "Pending for verification" ? "Call Raised" : (c.status || "Call Raised");
+                    return {
+                        id: c.id,
+                        callNo: c.callNo || `IC/SLP/${c.id}`,
+                        poNo: c.poNo,
+                        srNo: c.srNo,
+                        callDate: c.callDate,
+                        sleeperType: c.sleeperType,
+                        qtyOffered: c.qtyOffered || 0,
+                        batches: c.batches || 0,
+                        ieName: null, 
+                        scheduledDate: null,
+                        status: status,
+                        history: [{ action: status, date: c.callDate, by: 'Vendor', note: 'Initial submission' }]
+                    };
+                });
+                // Sort by ID descending (newest first)
+                setCalls(mappedCalls.sort((a, b) => b.id - a.id));
+            } catch (err) {
+                console.error("Failed to load inspection calls", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchCalls();
+    }, []);
 
     // Merge in prop calls from PO Assigned raise
     const allCalls = [
@@ -756,13 +792,16 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
                 ))}
             </div>
 
-            {/* ── Table ── */}
             <div style={{
                 background: '#fff', borderRadius: 16,
                 border: '1px solid #e2e8f0', overflow: 'hidden',
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
-                {filtered.length === 0 ? (
+                {isLoading ? (
+                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>Loading inspection calls...</div>
+                    </div>
+                ) : filtered.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>No calls with status "{filterStatus}"</div>

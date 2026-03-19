@@ -29,9 +29,9 @@ const AppInner = ({ onLogout, onLogin, isAuthenticated }) => {
   };
 
   return (
-    <MainLayout 
-      activeItem={getActiveItem()} 
-      onItemClick={handleItemClick} 
+    <MainLayout
+      activeItem={getActiveItem()}
+      onItemClick={handleItemClick}
       onLogout={onLogout}
     >
       <Routes>
@@ -64,10 +64,10 @@ const App = () => {
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppInner 
-        isAuthenticated={isAuthenticated} 
-        onLogin={handleLogin} 
-        onLogout={handleLogout} 
+      <AppInner
+        isAuthenticated={isAuthenticated}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
       />
     </BrowserRouter>
   );

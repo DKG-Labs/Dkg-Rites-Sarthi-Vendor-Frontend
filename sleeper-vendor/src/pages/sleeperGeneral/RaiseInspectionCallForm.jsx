@@ -1,13 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { apiService } from '../../services/api';
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const MOCK_BATCHES = {
-    'RT-8746': [
+    'RT8746': [
         {
             batchNo: '2025/A/14',
             castDate: '2026-01-12',
             totalCasted: 120,
-            castedAsType: 'RT-8746',
+            castedAsType: 'RT8746',
             previouslyOffered: 30,
             goodSleepers: 108,
             badSleepers: 12,
@@ -20,7 +22,7 @@ const MOCK_BATCHES = {
             batchNo: '2025/B/22',
             castDate: '2026-01-18',
             totalCasted: 200,
-            castedAsType: 'RT-8746',
+            castedAsType: 'RT8746',
             previouslyOffered: 50,
             goodSleepers: 185,
             badSleepers: 15,
@@ -31,7 +33,7 @@ const MOCK_BATCHES = {
             batchNo: '2025/C/07',
             castDate: '2026-01-25',
             totalCasted: 150,
-            castedAsType: 'RT-8746',
+            castedAsType: 'RT8746',
             previouslyOffered: 10,
             goodSleepers: 143,
             badSleepers: 7,
@@ -39,22 +41,23 @@ const MOCK_BATCHES = {
             badSleeperIds: Array.from({ length: 7 }, (_, i) => `2025/C/07/B${i + 1}`),
         },
     ],
-    'PSC-60KG': [
+    'RT-8521': [
         {
             batchNo: '2025/D/03',
             castDate: '2026-01-10',
             totalCasted: 90,
-            castedAsType: 'PSC-60KG',
+            castedAsType: 'RT-8521',
             previouslyOffered: 5,
             goodSleepers: 88,
             badSleepers: 2,
             goodSleeperIds: Array.from({ length: 88 }, (_, i) => `2025/D/03/G${i + 1}`),
             badSleeperIds: Array.from({ length: 2 }, (_, i) => `2025/D/03/B${i + 1}`),
         },
-    ]
+    ],
+    'RT-8746 (PnC)': []
 };
 
-const SLEEPER_TYPES = ['RT-8746', 'PSC-60KG'];
+const SLEEPER_TYPES = ['RT-8521', 'RT8746', 'RT-8746 (PnC)'];
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 const SectionHeader = ({ label, step, color = '#21808d' }) => (
@@ -95,10 +98,51 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
     // Section B state
     const [sleeperType, setSleeperType] = useState('');
+    const [batches, setBatches] = useState([]);
+    const [isLoadingBatches, setIsLoadingBatches] = useState(false);
     const [batchSelections, setBatchSelections] = useState({}); // { batchNo: { goodSelected: Set<id>, badIncluded: boolean } }
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedBatch, setExpandedBatch] = useState(null);
 
-    const batches = sleeperType ? (MOCK_BATCHES[sleeperType] || []) : [];
+    useEffect(() => {
+        if (!sleeperType) {
+            setBatches([]);
+            return;
+        }
+
+        const fetchBatches = async () => {
+            setIsLoadingBatches(true);
+            try {
+                const data = await apiService.getCompletedBatches(sleeperType);
+                
+                const mappedBatches = data.map(b => {
+                    const uniqueGood = b.goodSleepers ? Array.from(new Set(b.goodSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
+                    const uniqueBad = b.badSleepers ? Array.from(new Set(b.badSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
+                    
+                    return {
+                        batchNo: b.batchNumber || b.batchId.toString(),
+                        castDate: b.castDate || 'N/A',
+                        totalCasted: b.totalSleepers || 0,
+                        castedAsType: sleeperType,
+                        previouslyOffered: 0, // Fallback for now
+                        goodSleepers: uniqueGood.length,
+                        badSleepers: uniqueBad.length,
+                        goodSleeperIds: uniqueGood,
+                        badSleeperIds: uniqueBad,
+                    };
+                });
+                
+                setBatches(mappedBatches);
+            } catch (err) {
+                console.error("Failed to fetch batches", err);
+                setBatches([]);
+            } finally {
+                setIsLoadingBatches(false);
+            }
+        };
+
+        fetchBatches();
+    }, [sleeperType]);
 
     // Eligible for offering = goodSleepers - previouslyOffered (min 0)
     const getEligible = (batch) => Math.max(0, batch.goodSleepers - batch.previouslyOffered);
@@ -124,11 +168,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
             }
         });
 
-        const due = srItem.due;
-        const exceedsCap = totalPassedCount > due;
-        const afterOffering = due - totalPassedCount;
+        const due = srItem.due !== undefined ? srItem.due : null;
+        const exceedsCap = due !== null ? totalPassedCount > due : false;
+        const afterOffering = due !== null ? due - totalPassedCount : null;
 
-        return { batchesSelected, totalSleeperCount, totalPassedCount, totalRejectedCount, exceedsCap, afterOffering };
+        return { batchesSelected, totalSleeperCount, totalPassedCount, totalRejectedCount, exceedsCap, afterOffering, due };
     }, [batchSelections, batches, srItem]);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -186,7 +230,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         animation: 'modalFadeIn 0.25s ease-out'
     };
 
-    return (
+    return createPortal(
         <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
             <div style={modalStyle}>
                 {/* ── Header ── */}
@@ -200,7 +244,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             RAISE FINAL INSPECTION CALL
                         </div>
                         <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>
-                            {poNo} — SR. No. {srItem.srNo}
+                            {poNo} — SR. No. {srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A')}
                         </div>
                         <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 }}>
                             {srItem.description}
@@ -232,7 +276,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             </div>
                             <div style={{ flex: 1, minWidth: 120 }}>
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>SR. NO.</div>
-                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{srItem.srNo}</div>
+                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A')}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: 120 }}>
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>CALL DATE</div>
@@ -245,10 +289,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             PO Status Tracker
                         </div>
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <StatBox label="Quantity on Order" value={srItem.ordered.toLocaleString()} />
-                            <StatBox label="Cumm. Qty Offered Previously" value={srItem.offeredTillNow.toLocaleString()} color="#7c3aed" />
-                            <StatBox label="Qty. Passed Previously" value={srItem.acceptedTillNow.toLocaleString()} color="#16a34a" />
-                            <StatBox label="Qty Pending for Verification" value={srItem.due.toLocaleString()} highlight={srItem.due === 0} />
+                            <StatBox label="Quantity on Order" value={(srItem.orderedQty || srItem.ordered || 0).toLocaleString()} />
+                            <StatBox label="Cumm. Qty Offered Previously" value={(srItem.offeredTillNow || 0).toLocaleString()} color="#7c3aed" />
+                            <StatBox label="Qty. Passed Previously" value={(srItem.acceptedTillNow || 0).toLocaleString()} color="#16a34a" />
+                            <StatBox label="Qty Pending for Verification" value={(srItem.due || 0).toLocaleString()} highlight={(srItem.due || 0) === 0} />
                         </div>
                     </div>
 
@@ -308,13 +352,19 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         )}
 
                         {/* Batch Grid */}
-                        {sleeperType && batches.length === 0 && (
+                        {sleeperType && isLoadingBatches && (
+                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#64748b', fontSize: 13, fontWeight: 600 }}>
+                                Fetching completed batches...
+                            </div>
+                        )}
+
+                        {sleeperType && !isLoadingBatches && batches.length === 0 && (
                             <div style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8', fontSize: 13 }}>
                                 No eligible batches found for {sleeperType}
                             </div>
                         )}
 
-                        {sleeperType && batches.map(batch => {
+                        {sleeperType && !isLoadingBatches && batches.map(batch => {
                             const goodSelected = getGoodSelected(batch.batchNo);
                             const isExpanded = expandedBatch === batch.batchNo;
                             const isActive = isBatchTouched(batch.batchNo);
@@ -432,7 +482,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                         const isEligible = idx < eligible;
                                                         const isChecked = goodSelected.has(sid);
                                                         return (
-                                                            <label key={sid} style={{
+                                                            <label key={`${sid}-idx-${idx}`} style={{
                                                                 display: 'flex', alignItems: 'center', gap: 6,
                                                                 cursor: isEligible ? 'pointer' : 'not-allowed',
                                                                 padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
@@ -468,8 +518,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
                                                         gap: 5
                                                     }}>
-                                                        {batch.badSleeperIds.map(sid => (
-                                                            <label key={sid} style={{
+                                                        {batch.badSleeperIds.map((sid, idx) => (
+                                                            <label key={`${sid}-idx-${idx}`} style={{
                                                                 display: 'flex', alignItems: 'center', gap: 6,
                                                                 cursor: 'not-allowed',
                                                                 padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
@@ -531,7 +581,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 color: '#dc2626', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center'
                             }}>
                                 <span style={{ fontSize: 16 }}>⚠️</span>
-                                Offered quantity ({summary.totalPassedCount}) cannot exceed sleepers due for dispatch ({srItem.due}). Please reduce your selection.
+                                Offered quantity ({summary.totalPassedCount}) cannot exceed sleepers due for dispatch ({summary.due}). Please reduce your selection.
                             </div>
                         ) : summary.totalPassedCount > 0 ? (
                             <div style={{
@@ -539,10 +589,12 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 borderRadius: 8, padding: '10px 14px', fontSize: 12,
                                 color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8
                             }}>
-                                <span>✓ Quantity within valid range</span>
-                                <span style={{ fontWeight: 700 }}>
-                                    Sleepers Due After This Offering: <span style={{ fontSize: 15 }}>{summary.afterOffering.toLocaleString()}</span>
-                                </span>
+                                <span>✓ Quantity selected</span>
+                                {summary.afterOffering !== null && (
+                                    <span style={{ fontWeight: 700 }}>
+                                        Sleepers Due After This Offering: <span style={{ fontSize: 15 }}>{summary.afterOffering.toLocaleString()}</span>
+                                    </span>
+                                )}
                             </div>
                         ) : (
                             <div style={{
@@ -574,37 +626,68 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         Cancel
                     </button>
                     <button
-                        disabled={summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType}
-                        onClick={() => {
-                            if (onSubmitInspectionCall) {
-                                onSubmitInspectionCall({
+                        disabled={summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType || isSubmitting}
+                        onClick={async () => {
+                            setIsSubmitting(true);
+                            try {
+                                const payload = {
                                     poNo,
-                                    srNo: srItem.srNo,
+                                    srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType,
                                     totalOffered: summary.totalPassedCount,
                                     totalRejected: summary.totalRejectedCount,
-                                    batchesSelected: summary.batchesSelected,
-                                });
-                            } else {
-                                alert(`✅ Inspection Call submitted!\n\nPO: ${poNo} | SR: ${srItem.srNo}\nPassed Sleepers: ${summary.totalPassedCount}\nRejected Sleepers: ${summary.totalRejectedCount}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
+                                    createdBy: 118,
+                                    batchesSelected: []
+                                };
+                                
+                                for (const [batchNo, selection] of Object.entries(batchSelections)) {
+                                    if (selection.batchTouched && selection.goodSelected && selection.goodSelected.size > 0) {
+                                        const batch = batches.find(b => b.batchNo === batchNo);
+                                        const badSleepers = batch ? batch.badSleeperIds : [];
+                                        payload.batchesSelected.push({
+                                            batchNo,
+                                            goodSleepers: Array.from(selection.goodSelected),
+                                            badSleepers: badSleepers || []
+                                        });
+                                    }
+                                }
+
+                                await apiService.submitSleeperInspectionCall(payload);
+                                
+                                if (onSubmitInspectionCall) {
+                                    onSubmitInspectionCall({
+                                        poNo: payload.poNo,
+                                        srNo: payload.srNo,
+                                        sleeperType: payload.sleeperType,
+                                        totalOffered: payload.totalOffered,
+                                        totalRejected: payload.totalRejected,
+                                        batchesSelected: summary.batchesSelected,
+                                    });
+                                } else {
+                                    alert(`✅ Inspection Call submitted!\n\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
+                                }
+                                onClose();
+                            } catch (error) {
+                                alert("Failed to submit inspection call. Please try again.");
+                                setIsSubmitting(false);
                             }
-                            onClose();
                         }}
                         style={{
                             padding: '9px 24px', borderRadius: 8, border: 'none',
-                            background: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType)
+                            background: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType || isSubmitting)
                                 ? '#e2e8f0' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                            color: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType) ? '#94a3b8' : '#fff',
+                            color: (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType || isSubmitting) ? '#94a3b8' : '#fff',
                             fontWeight: 700, fontSize: 13, cursor:
-                                (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType) ? 'not-allowed' : 'pointer',
+                                (summary.totalPassedCount === 0 || summary.exceedsCap || !sleeperType || isSubmitting) ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s'
                         }}
                     >
-                        Submit Inspection Call
+                        {isSubmitting ? 'Submitting...' : 'Submit Inspection Call'}
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
