@@ -558,7 +558,7 @@ export const apiService = {
     // Stress Bench Master APIs (Uses different base path without /api)
     getStressBenches: async () => {
         try {
-            const url = BASE_URL.replace('/api', '') + '/stress-bench/getAll';
+            const url = `${BASE_URL}/stress-bench/getAll`;
             const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch stress benches');
             const data = await response.json();
@@ -573,7 +573,7 @@ export const apiService = {
         try {
             const isUpdate = benchData.id && !isNaN(benchData.id);
             const path = isUpdate ? `/stress-bench/update/${benchData.id}` : '/stress-bench/create';
-            const url = BASE_URL.replace('/api', '') + path;
+            const url = `${BASE_URL}${path}`;
             const method = isUpdate ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -592,7 +592,7 @@ export const apiService = {
 
     deleteStressBench: async (id) => {
         try {
-            const url = BASE_URL.replace('/api', '') + `/stress-bench/delete/${id}`;
+            const url = `${BASE_URL}/stress-bench/delete/${id}`;
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: { 'accept': '*/*' }
@@ -819,7 +819,7 @@ export const apiService = {
 
     getBenchMouldMasterById: async (id) => {
         try {
-            const url = BASE_URL.replace('/api', '') + `/stress-bench/${id}`;
+            const url = `${BASE_URL}/stress-bench/${id}`;
             const response = await fetch(url);
             const data = await response.json();
             return data;

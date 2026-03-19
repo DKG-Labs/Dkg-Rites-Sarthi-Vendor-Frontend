@@ -84,6 +84,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numMouldsPerItem: b.mouldsPerGang || 0,
                 totalMoulds: (b.count || 1) * (b.mouldsPerGang || 0),
                 sleeperCategory: b.category,
+                rft: b.rft || '',
+                sleeperNames: b.sleepers || [],
                 status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
             }));
             setTabEntries(prev => ({ ...prev, 'line-1': mappedData }));
@@ -178,6 +180,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
             count: formState.numItems,
             mouldsPerGang: parseInt(formState.numMouldsPerItem) || 0,
             category: formState.sleeperCategory,
+            rft: formState.rft || '',
+            sleepers: formState.sleeperNames || [],
             createdBy: 118,
             updatedBy: 118
         } : {
@@ -704,8 +708,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                                 <td style={{ padding: '12px', color: '#1e293b' }}>
                                                     {entry.sleeperCategory}
                                                     {entry.sleeperCategory === 'PnC' && (
-                                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                                                            RFT: {entry.rft}m | {entry.sleeperNames?.filter(Boolean).length} Names
+                                                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', maxWidth: '220px', lineHeight: '1.4' }}>
+                                                            {entry.rft ? `RFT: ${entry.rft}m | ` : ''}
+                                                            <span style={{ color: '#42818c', fontWeight: 'bold' }}>Sleepers: </span>
+                                                            {entry.sleeperNames && entry.sleeperNames.filter(n => n && n.trim() !== '').length > 0
+                                                                ? entry.sleeperNames.filter(n => n && n.trim() !== '').join(', ')
+                                                                : 'None'}
                                                         </div>
                                                     )}
                                                 </td>
