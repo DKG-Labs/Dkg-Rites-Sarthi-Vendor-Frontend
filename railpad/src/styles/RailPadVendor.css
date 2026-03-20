@@ -1,16 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&display=swap');
 
 :root {
-    --primary-color: #21808d;
-    --primary-hover: #134252;
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --primary-light: #f0f7ff;
     --bg-color: #f8fafc;
     --sidebar-bg: #ffffff;
     --card-bg: #ffffff;
-    --text-main: #13343b;
-    --text-muted: #626c71;
-    --border-color: rgba(94, 82, 64, 0.15);
-    --accent-bg: rgba(33, 128, 141, 0.04);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e5e7eb;
+    --accent-bg: rgba(59, 130, 246, 0.05);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --font-primary: 'Inter', -apple-system, system-ui, sans-serif;
     --font-secondary: 'Outfit', sans-serif;
@@ -25,10 +26,9 @@
 
 .railpad-container {
     padding: 24px;
+    background: #f8fafc;
     min-height: 100vh;
-    background-color: var(--bg-color);
     font-family: var(--font-primary);
-    color: var(--text-main);
 }
 
 /* Header */
@@ -40,34 +40,86 @@
 }
 
 .dashboard-title h1 {
-    font-size: var(--fs-2xl);
+    font-size: 32px;
     font-weight: 800;
-    color: #1e293b;
-    margin: 0 0 8px 0;
+    color: #0f172a;
     letter-spacing: -0.025em;
+    margin: 0;
     font-family: var(--font-secondary);
 }
 
 .dashboard-title p {
     margin: 0;
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
+    color: #64748b;
+    font-size: 15px;
 }
 
 /* Module Grid */
 .grid-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 300px));
-    gap: 20px;
-    margin-bottom: 40px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
-/* Tab Cards (Module Cards) */
-.main-card,
+/* Tab Cards (Module Cards & Sub-cards) */
+.main-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 85px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.main-card:hover {
+    border-color: #3b82f6;
+    background: #f8fafc;
+}
+
+.main-card.active {
+    background: #f0f7ff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.main-card h3 {
+    font-weight: 700;
+    font-size: 13px;
+    color: #111827;
+    margin: 0;
+}
+
+.main-card.active h3 {
+    color: #1e40af;
+}
+
+.main-card p {
+    font-size: 10px;
+    color: #6b7280;
+    margin: 2px 0 0 0;
+}
+
+.main-card.active p {
+    color: #3b82f6;
+}
+
+/* Sub-card (Tabs) specific design from image */
 .ie-tab-card {
     background: white;
     border: 2px solid #e2e8f0;
-    border-radius: 32px;
+    border-radius: 32px; /* Very rounded corners */
     padding: 24px 20px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -77,39 +129,39 @@
     justify-content: center;
     gap: 8px;
     text-align: center;
+    height: 95px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.main-card:hover,
 .ie-tab-card:hover {
-    border-color: var(--primary-color);
+    border-color: #42818c;
+    background: #f0f9fa;
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(33, 128, 141, 0.05);
 }
 
-.main-card.active,
 .ie-tab-card.active {
     background: #f0f9fa;
     border-color: #42818c;
     box-shadow: 0 10px 15px -3px rgba(66, 129, 140, 0.05);
+    transform: translateY(-2px);
 }
 
-.main-card h3,
-.ie-tab-card h3 {
+.ie-tab-card h3,
+.ie-tab-title {
     font-weight: 800;
     font-size: var(--fs-md);
-    color: #42818c;
+    color: #42818c; /* Teal title */
     letter-spacing: -0.01em;
     margin: 0;
 }
 
-.main-card p,
 .ie-tab-card p,
 .ie-tab-subtitle {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: 12px;
+    color: #64748b; /* Muted subtitle */
     font-weight: 500;
     margin: 0;
-    text-align: center;
 }
 
 /* Content Area */
