@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
+const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) => {
     const AVAILABLE_SHEDS = [
         { name: 'Stress Bench A', type: 'Twin', mouldsPerBench: 8 },
         { name: 'Stress Bench B', type: 'Single', mouldsPerBench: 4 },
@@ -39,9 +39,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
         shift: 'Day Shift',
-        batchNo: lastBatchNumber + 1,
+        batchNo: '',
         mixDesign: 'M60 - Design A (Active)',
-        timeLbc: getCurrentTime()
+        timeLbc: getCurrentTime(),
+        remarks: ''
     });
 
     const [chambers, setChambers] = useState([{
@@ -65,6 +66,57 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
         // Mock logic for auto-population: even benches are RT-8746, odd are RT-8521
         return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
     };
+
+    useEffect(() => {
+        if (initialData) {
+            setPlantType(initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Stress Bench');
+            
+            // Map header
+            const [d, m, y] = (initialData.castingDate || '').split('/');
+            setFormHeader({
+                unit: initialData.productionUnit || '',
+                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (AVAILABLE_SHEDS.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
+                date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
+                shift: initialData.shift || 'Day Shift',
+                batchNo: initialData.batchNumber || '',
+                mixDesign: initialData.mixDesignReference || 'M60 - Design A (Active)',
+                timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
+                remarks: initialData.remarks || ''
+            });
+
+            // Map chambers for Stress Bench
+            if (initialData.plantType === 'STRESS' && initialData.chambers) {
+                const mappedChambers = initialData.chambers.map((c, cIdx) => ({
+                    id: cIdx + 1,
+                    chamberNo: c.chamberNo,
+                    benchGroups: c.benchGroups ? c.benchGroups.map((g, gIdx) => ({
+                        id: Date.now() + cIdx + gIdx,
+                        benches: [g.benchNo.toString()],
+                        mouldsPerBench: g.mouldPerBench,
+                        sleeperType: g.sleeperType
+                    })) : []
+                }));
+                if (mappedChambers.length > 0) setChambers(mappedChambers);
+            }
+
+            // Map gangs for Long Line
+            if (initialData.plantType === 'LONG_LINE' && initialData.gangs) {
+                const mappedEntries = initialData.gangs.map((g, gIdx) => ({
+                    id: Date.now() + gIdx,
+                    entryMode: g.mode?.toLowerCase() || 'range',
+                    fromNo: g.gangFrom?.toString() || '',
+                    toNo: g.gangTo?.toString() || '',
+                    singleNo: g.gangNo?.toString() || '',
+                    mouldsPerGang: g.mouldsPerGang,
+                    sleeperType: g.sleeperType
+                }));
+                if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
+            }
+
+            // Move to Section 1
+            setActiveSections({ 1: true, 2: true, 3: true });
+        }
+    }, [initialData]);
 
     const isGroupPnC = (group) => {
         return group.sleeperType && group.sleeperType.toLowerCase().includes('pnc');
@@ -312,7 +364,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                             </div>
 
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Long Line No.)'}</label>
+                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Gang No.)'}</label>
                                 <select
                                     style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
                                     value={formHeader.unit}
@@ -370,7 +422,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                                     onChange={(e) => setFormHeader({ ...formHeader, batchNo: e.target.value })}
                                     style={inputStyle}
                                 />
-                                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>Auto-suggested: Last Batch + 1</span>
+
                             </div>
                             <div>
                                 <label style={labelStyle}>Mix Design Reference</label>
@@ -751,7 +803,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                             </div>
                             <div>
                                 <label style={labelStyle}>Remarks / Observations</label>
-                                <textarea rows="6" style={{ ...inputStyle, resize: 'none' }} placeholder="Enter any specific observations about this shift production..."></textarea>
+                                <textarea
+                                    rows="6"
+                                    style={{ ...inputStyle, resize: 'none', height: 'auto', padding: '12px 16px' }}
+                                    placeholder="Enter any specific observations about this shift production..."
+                                    value={formHeader.remarks}
+                                    onChange={(e) => setFormHeader({ ...formHeader, remarks: e.target.value })}
+                                ></textarea>
                             </div>
                         </div>
                     </div>
@@ -768,18 +826,51 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber }) => {
                 </button>
                 <button
                     onClick={() => {
-                        const newDeclaration = {
-                            date: formHeader.date,
-                            shift: formHeader.shift,
-                            batchNo: `B-${formHeader.batchNo}`,
-                            unit: formHeader.unit,
-                            total: calculateTotalCast(),
-                            sleeperTypes: Object.keys(getProductionBreakdown()).join(', '),
-                            status: 'Open'
-                        };
-                        onSave(newDeclaration);
-                        alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: B-${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
-                        onBack();
+                        try {
+                            // Formatting the DTO for the backend
+                            const pdDto = {
+                                plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
+                                productionUnit: formHeader.unit,
+                                castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+                                shift: formHeader.shift,
+                                batchNumber: formHeader.batchNo.toString(),
+                                mixDesignReference: formHeader.mixDesign,
+                                lbcTime: formHeader.timeLbc?.substring(0, 5),
+                                totalCastedSleepers: calculateTotalCast(),
+                                totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
+                                totalRft: calculateTotalRFT(),
+                                remarks: formHeader.remarks || '',
+                                vendorId: 118,
+                                createdBy: 118,
+                                updatedBy: 118,
+                                chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
+                                    chamberNo: parseInt(chamber.chamberNo) || 0,
+                                    benchGroups: chamber.benchGroups.flatMap(group =>
+                                        group.benches.filter(b => b.trim()).map(bench => ({
+                                            benchNo: parseInt(bench) || 0,
+                                            sleeperType: group.sleeperType,
+                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
+                                            rft: getBenchMasterDetails(bench).rft,
+                                            sleepers: generateSleeperIds(bench, group.mouldsPerBench)
+                                        }))
+                                    )
+                                })) : [],
+                                gangs: plantType === 'Long Line' ? longLineEntries.map(entry => ({
+                                    mode: entry.entryMode.toUpperCase(),
+                                    gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
+                                    gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
+                                    gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
+                                    sleeperType: entry.sleeperType,
+                                    mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
+                                })) : []
+                            };
+
+                            onSave(pdDto);
+                            alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: ${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
+                        } catch (err) {
+                            console.error('Error formatting DTO:', err);
+                            alert('Error preparing data for submission. Please check form inputs.');
+                        }
                     }}
                     style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px 32px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(66, 129, 140, 0.4)' }}
                 >

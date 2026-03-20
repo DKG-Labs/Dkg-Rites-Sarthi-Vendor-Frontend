@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlantDeclarationDashboard from './plantDeclaration/PlantDeclarationDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclarationDashboard';
 import InventoryManagementDashboard from './inventoryManagement/InventoryManagementDashboard';
@@ -7,14 +7,56 @@ import CallsRequestedDashboard from './CallsRequestedDashboard';
 import CallsCompletedDashboard from './CallsCompletedDashboard';
 import FinanceDashboard from './FinanceDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
+import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
+
+import { useLocation } from 'react-router-dom';
 
 const VendorDashboard = () => {
-    const [selectedModule, setSelectedModule] = useState('inventory-management');
+    const location = useLocation();
+    const [selectedModule, setSelectedModule] = useState(() => {
+        return sessionStorage.getItem('sleeperVendorActiveModule') || location.state?.selectedModule || 'inventory-management';
+    });
+
+    useEffect(() => {
+        sessionStorage.setItem('sleeperVendorActiveModule', selectedModule);
+    }, [selectedModule]);
+
+    // ── Shared Inspection Calls State (lifted up) ─────────────────────────────
+    const [inspectionCalls, setInspectionCalls] = useState([]);
+
+    /** Called by RaiseInspectionCallForm → PoAssignedDashboard → here */
+    const handleSubmitInspectionCall = (newCall) => {
+        setInspectionCalls(prev => {
+            const nextId = Math.max(0, ...prev.map(c => c.id)) + 1;
+            const nextCallNo = `IC/SLP/2026/${String(nextId + 5).padStart(3, '0')}`;
+            return [
+                {
+                    id: nextId,
+                    callNo: nextCallNo,
+                    poNo: newCall.poNo,
+                    srNo: newCall.srNo,
+                    date: new Date().toLocaleDateString('en-IN'),
+                    sleeperType: newCall.sleeperType,
+                    stage: 'Final',
+                    totalOffered: newCall.totalOffered,
+                    batchesSelected: newCall.batchesSelected,
+                    status: 'Pending for verification',
+                },
+                ...prev,
+            ];
+        });
+        // Switch to Requested Calls tab so user sees it immediately
+        setSelectedModule('calls-requested');
+    };
+
+    // Pending = only "Pending for verification" status calls
+    const pendingCount = inspectionCalls.filter(c => c.status === 'Pending for verification').length;
 
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: 1 },
+        { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
-        { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
+        { id: 'calls-completed', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
         { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', count: 2 },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
@@ -23,9 +65,10 @@ const VendorDashboard = () => {
         { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', count: 3 }
     ];
 
-
     const renderContent = () => {
         switch (selectedModule) {
+            case 'requested-changes':
+                return <VendorIncomingRequests />;
             case 'plant-declaration':
                 return <PlantDeclarationDashboard />;
             case 'production-declaration':
@@ -33,9 +76,9 @@ const VendorDashboard = () => {
             case 'inventory-management':
                 return <InventoryManagementDashboard />;
             case 'po-assigned':
-                return <PoAssignedDashboard />;
+                return <PoAssignedDashboard onSubmitInspectionCall={handleSubmitInspectionCall} />;
             case 'calls-requested':
-                return <CallsRequestedDashboard />;
+                return <CallsRequestedDashboard inspectionCalls={inspectionCalls} />;
             case 'calls-completed':
                 return <CallsCompletedDashboard />;
             case 'finance':
@@ -52,13 +95,13 @@ const VendorDashboard = () => {
                 );
         }
     };
+
     return (
         <div className="dashboard-container" style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
             <header style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h1 style={{
-
                             fontSize: '32px',
                             fontWeight: '800',
                             color: '#0f172a',

@@ -18,7 +18,7 @@ export const MOCK_INVENTORY = {
             ],
             qty: '200 MT',
             totalQtyKg: '200000',
-            status: 'Unverified'
+            status: 'Pending for verification'
         },
         {
             id: 'INV-CEM-002',
@@ -33,7 +33,7 @@ export const MOCK_INVENTORY = {
             ],
             qty: '150 MT',
             totalQtyKg: '150000',
-            status: 'Verified',
+            status: 'Verified & Locked',
             verifiedBy: 'John Doe (IE)',
             verifiedAt: '2026-01-08 10:30 AM'
         },
@@ -56,7 +56,7 @@ export const MOCK_INVENTORY = {
             ],
             relaxationTestDate: '2026-01-07',
             qty: '25.5 MT',
-            status: 'Unverified'
+            status: 'Pending for verification'
         },
         {
             id: 'HTS-COIL-002',
@@ -74,7 +74,7 @@ export const MOCK_INVENTORY = {
             ],
             relaxationTestDate: '2026-01-08',
             qty: '40.2 MT',
-            status: 'Verified',
+            status: 'Verified & Locked',
             verifiedBy: 'Jane Smith (IE)',
             verifiedAt: '2026-01-12 02:15 PM'
         },
@@ -88,7 +88,7 @@ export const MOCK_INVENTORY = {
             aggregateType: 'CA1 (20mm)',
             source: 'Pathankot Quarry',
             qty: '500 MT',
-            status: 'Verified',
+            status: 'Verified & Locked',
             verifiedBy: 'John Doe (IE)',
             verifiedAt: '2026-01-03 09:00 AM'
         },
@@ -100,7 +100,7 @@ export const MOCK_INVENTORY = {
             aggregateType: 'FA (River Sand)',
             source: 'Haridwar Source',
             qty: '800 MT',
-            status: 'Unverified'
+            status: 'Pending for verification'
         },
     ],
     ADMIXTURE: [
@@ -114,7 +114,7 @@ export const MOCK_INVENTORY = {
             lotNo: 'ADM-LOT-22',
             mtcNo: 'MTC-ADM-11',
             qty: '2000 Kgs',
-            status: 'Unverified'
+            status: 'Pending for verification'
         },
     ],
     SGCI: [
@@ -129,7 +129,7 @@ export const MOCK_INVENTORY = {
             ritesIcNo: 'RITES/SG/882',
             ritesIcDate: '2025-12-28',
             qty: '5000 Nos',
-            status: 'Verified',
+            status: 'Verified & Locked',
             verifiedBy: 'John Doe (IE)',
             verifiedAt: '2026-01-02 11:45 AM'
         },
@@ -146,7 +146,7 @@ export const MOCK_INVENTORY = {
             ritesIcNo: 'RITES/DW/551',
             ritesIcDate: '2026-01-05',
             qty: '10000 Nos',
-            status: 'Unverified'
+            status: 'Pending for verification'
         },
     ]
 };

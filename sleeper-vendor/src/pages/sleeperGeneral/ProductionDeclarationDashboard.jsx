@@ -1,25 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ShiftProductionForm from './sections/ShiftProductionForm';
+import { apiService } from '../../services/api';
 
 const ProductionDeclarationDashboard = () => {
     const [showForm, setShowForm] = useState(false);
-    const [declarations, setDeclarations] = useState([
-        { date: '2026-02-10', shift: 'Day Shift', batchNo: 'B-102', unit: 'Shed A', total: 400, sleeperTypes: 'RT-8746, RT-8521', status: 'Open' },
-        { date: '2026-02-09', shift: 'Night Shift', batchNo: 'B-101', unit: 'Shed B', total: 380, sleeperTypes: 'RT-8746', status: 'Locked' },
-        { date: '2026-02-08', shift: 'A (08:00 - 20:00)', batchNo: 'B-100', unit: 'Shed A', total: 420, sleeperTypes: 'RT-8521', status: 'Locked' },
-        { date: '2026-02-07', shift: 'B (20:00 - 08:00)', batchNo: 'B-099', unit: 'Line 1', total: 350, sleeperTypes: 'RT-8746', status: 'Locked' },
-        { id: 4, date: '2026-02-06', shift: 'General', batchNo: 'B-098', unit: 'Shed A', total: 400, sleeperTypes: 'RT-8746', status: 'Locked' },
-    ]);
+    const [declarations, setDeclarations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const handleSaveProduction = (newEntry) => {
-        setDeclarations([newEntry, ...declarations]);
+    const fetchDeclarations = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getProductionDeclarations();
+            setDeclarations(data || []);
+            setError(null);
+        } catch (err) {
+            console.error('Failed to fetch declarations:', err);
+            setError('Failed to load production declarations.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getStatusStyle = (status) => {
+        if (status === 'Verified & Locked' || status === 'Locked' || status === 'Completed') {
+            return { background: '#f0fdf4', color: '#166534' };
+        }
+        return { background: '#fef3c7', color: '#92400e' }; // Amber for pending
+    };
+
+    const getStatusLabel = (status) => {
+        if (!status || status === 'Created' || status === 'Pending') return 'Pending for verification';
+        if (status === 'Completed' || status === 'Locked') return 'Verified & Locked';
+        return status;
+    };
+
+    useEffect(() => {
+        fetchDeclarations();
+    }, []);
+
+    const handleSaveProduction = async (pdData) => {
+        try {
+            await apiService.saveProductionDeclaration(pdData);
+            fetchDeclarations(); // Refresh list
+            setShowForm(false);
+        } catch (err) {
+            console.error('Failed to save declaration:', err);
+            alert('Failed to save declaration: ' + (err.message || 'Unknown error'));
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this declaration?')) return;
+        try {
+            await apiService.deleteProductionDeclaration(id);
+            fetchDeclarations(); // Refresh list
+        } catch (err) {
+            console.error('Failed to delete declaration:', err);
+            alert('Failed to delete declaration.');
+        }
     };
 
     if (showForm) {
         return <ShiftProductionForm
             onBack={() => setShowForm(false)}
             onSave={handleSaveProduction}
-            lastBatchNumber={declarations.length > 0 ? parseInt(declarations[0].batchNo.split('-')[1]) : 100}
+            lastBatchNumber={declarations.length > 0 ? declarations[0].batchNumber : '100'}
         />;
     }
 
@@ -45,7 +91,7 @@ const ProductionDeclarationDashboard = () => {
                     <p style={{ margin: '0 0 8px 0', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total Sleepers Cast</p>
                     <p style={{ margin: '0 0 4px 0', color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>Current Month</p>
                     <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900' }}>
-                        {(declarations.reduce((acc, d) => acc + d.total, 0)).toLocaleString()}
+                        {(declarations.reduce((acc, d) => acc + (d.totalCastedSleepers || 0), 0)).toLocaleString()}
                     </h2>
                 </div>
                 <div style={{
@@ -61,7 +107,7 @@ const ProductionDeclarationDashboard = () => {
                     <p style={{ margin: '0 0 8px 0', color: '#42818c', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Last Batch Declared</p>
                     <p style={{ margin: '0 0 4px 0', color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>Batch No. & Date</p>
                     <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900' }}>
-                        {declarations[0]?.batchNo} <span style={{ fontSize: '14px', fontWeight: '500', color: '#64748b' }}>({declarations[0]?.date})</span>
+                        {declarations[0]?.batchNumber || 'N/A'} <span style={{ fontSize: '14px', fontWeight: '500', color: '#64748b' }}>({declarations[0]?.castingDate || 'N/A'})</span>
                     </h2>
                 </div>
                 <div style={{
@@ -105,79 +151,75 @@ const ProductionDeclarationDashboard = () => {
 
             {/* Declarations Table */}
             <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                        <tr>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Date & Shift</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Line/Shed No.</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Batch No.</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Total Casted</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Sleeper Types</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Status</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {declarations.map((item, index) => (
-                            <tr key={index} style={{ borderBottom: index === declarations.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
-                                    <div style={{ fontWeight: '600' }}>{item.date}</div>
-                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{item.shift}</div>
-                                </td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>{item.unit}</td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '700' }}>{item.batchNo}</td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>{item.total}</td>
-                                <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', maxWidth: '200px' }}>{item.sleeperTypes}</td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px' }}>
-                                    <span style={{
-                                        background: item.status === 'Locked' ? '#fee2e2' : '#f0fdf4',
-                                        color: item.status === 'Locked' ? '#b91c1c' : '#166534',
-                                        padding: '4px 10px',
-                                        borderRadius: '20px',
-                                        fontSize: '11px',
-                                        fontWeight: '700'
-                                    }}>
-                                        {item.status}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '16px 20px' }}>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button
-                                            disabled={item.status === 'Locked'}
-                                            style={{
-                                                border: 'none',
-                                                background: item.status === 'Locked' ? '#f1f5f9' : '#e2e8f0',
-                                                color: item.status === 'Locked' ? '#94a3b8' : '#475569',
-                                                padding: '6px 10px',
-                                                borderRadius: '6px',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: item.status === 'Locked' ? 'not-allowed' : 'pointer'
-                                            }}
-                                        >
-                                            Modify
-                                        </button>
-                                        <button
-                                            disabled={item.status === 'Locked'}
-                                            style={{
-                                                border: 'none',
-                                                background: item.status === 'Locked' ? '#f1f5f9' : '#fee2e2',
-                                                color: item.status === 'Locked' ? '#94a3b8' : '#b91c1c',
-                                                padding: '6px 10px',
-                                                borderRadius: '6px',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: item.status === 'Locked' ? 'not-allowed' : 'pointer'
-                                            }}
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </td>
+                {loading ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading production declarations...</div>
+                ) : error ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>{error}</div>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <tr>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Date & Shift</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Line/Shed No.</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Batch No.</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Total Casted</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Type</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Status</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {declarations.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No production declarations found.</td>
+                                </tr>
+                            ) : (
+                                declarations.map((item, index) => (
+                                    <tr key={item.id || index} style={{ borderBottom: index === declarations.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
+                                            <div style={{ fontWeight: '600' }}>{item.castingDate}</div>
+                                            <div style={{ fontSize: '11px', color: '#64748b' }}>{item.shift}</div>
+                                        </td>
+                                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>{item.productionUnit}</td>
+                                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '700' }}>{item.batchNumber}</td>
+                                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>{item.totalCastedSleepers}</td>
+                                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{item.plantType}</td>
+                                        <td style={{ padding: '16px 20px', fontSize: '14px' }}>
+                                            <span style={{
+                                                ...getStatusStyle(item.status),
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                fontSize: '11px',
+                                                fontWeight: '700'
+                                            }}>
+                                                {getStatusLabel(item.status).toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '16px 20px' }}>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: '#fee2e2',
+                                                        color: '#b91c1c',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );

@@ -92,7 +92,7 @@ const LoginPage = () => {
     // Static credentials for RailPad application
     if (userId.toLowerCase() === 'railpad' && password === 'password') {
       const railpadUser = {
-        roleName: 'RAILPAD_USER',
+        roleName: ['RAILPAD_USER'],
         userId: 'railpad',
         email: 'railpad@sarthi.com'
       };

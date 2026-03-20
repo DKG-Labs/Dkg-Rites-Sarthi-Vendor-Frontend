@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../services/api';
 import PlantProfileSection from './sections/PlantProfileSection';
 import BenchMouldMasterSection from './sections/BenchMouldMasterSection';
 import RawMaterialSourceSection from './sections/RawMaterialSourceSection';
@@ -6,16 +7,32 @@ import MixDesignSection from './sections/MixDesignSection';
 
 const PlantDeclarationDashboard = () => {
     const [selectedTab, setSelectedTab] = useState('plant-profile');
-    const [profiles, setProfiles] = useState([
-        {
-            id: 1,
-            plantName: 'M/s ABC Sleepers - Nagpur Plant',
-            vendorCode: 'V-10294',
-            type: 'Stress Bench',
-            shedsLines: 2,
-            status: 'Verified & Locked'
+    const [profiles, setProfiles] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        fetchProfiles();
+    }, []);
+
+    const fetchProfiles = async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getPlantProfiles();
+            const mappedData = data.map(p => ({
+                id: p.id,
+                plantName: p.plantNameLocation,
+                vendorCode: p.vendorCode,
+                type: p.plantType,
+                shedsLines: p.numberOfSheds,
+                status: (p.status === 'Pending' || p.status === 'NOT_STARTED' ? 'Pending for verification' : (p.status === 'Completed' || p.status === 'completed' || p.status === 'COMPLETED' || p.status === 'Locked' ? 'Verified & Locked' : (p.status || (p.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
+            }));
+            setProfiles(mappedData);
+        } catch (err) {
+            console.error('Error fetching plant profiles:', err);
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const tabs = [
         { id: 'plant-profile', title: 'Plant Profile', subtitle: 'General information' },
@@ -27,7 +44,7 @@ const PlantDeclarationDashboard = () => {
     const renderContent = () => {
         switch (selectedTab) {
             case 'plant-profile':
-                return <PlantProfileSection profiles={profiles} setProfiles={setProfiles} />;
+                return <PlantProfileSection profiles={profiles} setProfiles={setProfiles} refreshProfiles={fetchProfiles} />;
             case 'bench-mould':
                 return <BenchMouldMasterSection profiles={profiles} />;
             case 'raw-material':

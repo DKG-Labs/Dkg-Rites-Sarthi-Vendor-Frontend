@@ -1,54 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../../services/api';
 
 const STATUSES = {
-    PENDING: 'Verification Pending',
+    PENDING: 'Pending for verification',
     LOCKED: 'Verified & Locked',
     UNLOCKED: 'Unlocked for Modification'
 };
 
-const PlantProfileSection = ({ profiles, setProfiles }) => {
+const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
 
-
+    const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         type: 'Stress Bench',
         shedsLines: ''
     });
 
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'shedsLines' && value < 0) return;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSave = () => {
-        if (!formData.shedsLines) {
-            alert('Please enter number of sheds/lines');
+    const handleSave = async () => {
+        if (!formData.shedsLines || parseInt(formData.shedsLines) < 0) {
+            alert('Please enter a valid non-negative number of sheds/gangs');
             return;
         }
 
-        if (editingId) {
-            setProfiles(prev => prev.map(p =>
-                p.id === editingId
-                    ? { ...p, ...formData, status: STATUSES.PENDING }
-                    : p
-            ));
+        const plantDto = {
+            id: editingId,
+            plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
+            vendorCode: 'V-10294',
+            plantType: formData.type,
+            numberOfSheds: parseInt(formData.shedsLines),
+            vendorId: 118,
+            createdBy: 118,
+            updatedBy: editingId ? 118 : null
+        };
+
+        try {
+            setLoading(true);
+            await apiService.savePlantProfile(plantDto);
+            if (refreshProfiles) await refreshProfiles();
             setEditingId(null);
-        } else {
-            if (profiles.length >= 2) {
-                alert('Maximum 2 plant profiles allowed');
-                return;
-            }
-            const newProfile = {
-                id: Date.now(),
-                plantName: 'M/s ABC Sleepers - Nagpur Plant',
-                vendorCode: 'V-10294',
-                ...formData,
-                status: STATUSES.PENDING
-            };
-            setProfiles(prev => [...prev, newProfile]);
+            setFormData({ type: 'Stress Bench', shedsLines: '' });
+            alert(editingId ? 'Profile updated successfully' : 'Profile added successfully');
+        } catch (err) {
+            alert(err.message || 'Error saving plant profile');
+        } finally {
+            setLoading(false);
         }
-        setFormData({ type: 'Stress Bench', shedsLines: '' });
     };
 
     const handleModify = (profile) => {
@@ -58,12 +62,22 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
             type: profile.type,
             shedsLines: profile.shedsLines
         });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = (id, status) => {
+    const handleDelete = async (id, status) => {
         if (status === STATUSES.LOCKED) return;
         if (window.confirm('Are you sure you want to delete this profile?')) {
-            setProfiles(prev => prev.filter(p => p.id !== id));
+            try {
+                setLoading(true);
+                await apiService.deletePlantProfile(id);
+                if (refreshProfiles) await refreshProfiles();
+                alert('Profile deleted successfully');
+            } catch (err) {
+                alert(err.message || 'Error deleting plant profile');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -76,88 +90,82 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
     };
 
     return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="spinner">Loading...</div>
+                </div>
+            )}
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Plant Profile Declaration</h3>
 
             {/* Form Section - Always visible to maintain layout */}
             <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                {profiles.length >= 2 && !editingId ? (
-                    <div style={{ textAlign: 'center', padding: '20px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                        <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}>✅</span>
-                        <p style={{ margin: 0, color: '#64748b', fontWeight: '500' }}>
-                            Maximum limit of 2 plant profiles reached.
-                        </p>
-                        <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                            Modify or delete an existing profile to add a new one.
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        <h4 style={{ marginTop: 0, marginBottom: '20px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
-                            {editingId ? 'Modify Plant Profile' : 'Add New Plant Profile'}
-                        </h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
-                                <input type="text" disabled value="M/s ABC Sleepers - Nagpur Plant" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
-                                <input type="text" disabled value="V-10294" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>
-                                <select
-                                    name="type"
-                                    value={formData.type}
-                                    onChange={handleInputChange}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-                                >
-                                    <option value="Stress Bench">Stress Bench</option>
-                                    <option value="Longline">Longline</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Lines'}
-                                </label>
-                                <input
-                                    type="number"
-                                    name="shedsLines"
-                                    value={formData.shedsLines}
-                                    onChange={handleInputChange}
-                                    placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'lines'}`}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-                                />
-                            </div>
+                <>
+                    <h4 style={{ marginTop: 0, marginBottom: '20px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
+                        {editingId ? 'Modify Plant Profile' : 'Add New Plant Profile'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
+                            <input type="text" disabled value="M/s ABC Sleepers - Nagpur Plant" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
                         </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
+                            <input type="text" disabled value="V-10294" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>
+                            <select
+                                name="type"
+                                value={formData.type}
+                                onChange={handleInputChange}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                            >
+                                <option value="Stress Bench">Stress Bench</option>
+                                <option value="Longline">Longline</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                                {formData.type === 'Stress Bench' ? 'Number of Sheds' : 'Number of Gangs'}
+                            </label>
+                            <input
+                                type="number"
+                                name="shedsLines"
+                                min="0"
+                                value={formData.shedsLines}
+                                onChange={handleInputChange}
+                                placeholder={`Enter number of ${formData.type === 'Stress Bench' ? 'sheds' : 'gangs'}`}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                            />
+                        </div>
+                    </div>
 
-                        <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                    <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleSave(); }}
+                            style={{ background: '#42818c', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                        >
+                            {editingId ? 'Update Profile' : 'Add Profile'}
+                        </button>
+                        {editingId && (
                             <button
                                 type="button"
-                                onClick={(e) => { e.preventDefault(); handleSave(); }}
-                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                                onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench', shedsLines: '' }); }}
+                                style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
                             >
-                                {editingId ? 'Update Profile' : 'Add Profile'}
+                                Cancel
                             </button>
-                            {editingId && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setEditingId(null); setFormData({ type: 'Stress Bench', shedsLines: '' }); }}
-                                    style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                    Cancel
-                                </button>
-                            )}
-                        </div>
-                    </>
-                )}
+                        )}
+                    </div>
+                </>
             </div>
 
             {/* List Section */}
             <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h4 style={{ margin: 0, color: '#475569', fontSize: '14px' }}>Added Plant Profiles ({profiles.length}/2)</h4>
+                    <h4 style={{ margin: 0, color: '#475569', fontSize: '14px' }}>Added Plant Profiles ({profiles.length})</h4>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
@@ -183,7 +191,7 @@ const PlantProfileSection = ({ profiles, setProfiles }) => {
                                     <tr key={profile.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                         <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
                                         <td style={{ padding: '16px', color: '#475569' }}>
-                                            {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
+                                            {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Gangs'}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{

@@ -4,12 +4,12 @@ import { getBaseUrl } from './apiConfig';
  * Hardcoded credentials for CM, CallDesk, and Finance users
  */
 const HARDCODED_USERS = {
-  '1': {
+  ':41647': {
     password: 'password',
     userData: {
-      userId: '1',
+      userId: ':41647',
       userName: 'Sleeper Vendor',
-      roleName: 'SLEEPER_VENDOR',
+      roleName: ['SLEEPER_VENDOR'],
       token: 'sleeper-vendor-token-' + Date.now()
     }
   },
@@ -18,7 +18,7 @@ const HARDCODED_USERS = {
     userData: {
       userId: 'Cm',
       userName: 'Controlling Manager',
-      roleName: 'CM',
+      roleName: ['CM'],
       token: 'cm-mock-token-' + Date.now()
     }
   },
@@ -27,7 +27,7 @@ const HARDCODED_USERS = {
     userData: {
       userId: 'CallDesk',
       userName: 'Call Desk Officer',
-      roleName: 'CALL_DESK',
+      roleName: ['CALL_DESK'],
       token: 'calldesk-mock-token-' + Date.now()
     }
   },
@@ -36,7 +36,7 @@ const HARDCODED_USERS = {
     userData: {
       userId: 'Finance',
       userName: 'Finance Officer',
-      roleName: 'Finance',
+      roleName: ['Finance'],
       token: 'finance-mock-token-' + Date.now()
     }
   }
@@ -100,7 +100,8 @@ export const storeAuthData = (authData) => {
   localStorage.setItem('authToken', authData.token);
   localStorage.setItem('userId', authData.userId);
   localStorage.setItem('userName', authData.userName);
-  localStorage.setItem('roleName', authData.roleName);
+  // Store roleName as a JSON string since it is now a list
+  localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));
   localStorage.setItem('rio', authData.rio);
 };
 
@@ -120,10 +121,19 @@ export const getStoredUser = () => {
   const token = localStorage.getItem('authToken');
   if (!token) return null;
 
+  let roleName = [];
+  try {
+    const storedRoles = localStorage.getItem('roleName');
+    roleName = storedRoles ? JSON.parse(storedRoles) : [];
+  } catch (e) {
+    console.error('Error parsing stored roleName:', e);
+    roleName = [localStorage.getItem('roleName')]; // Fallback if it was a plain string
+  }
+
   return {
     userId: localStorage.getItem('userId'),
     userName: localStorage.getItem('userName'),
-    roleName: localStorage.getItem('roleName'),
+    roleName: roleName,
     rio: localStorage.getItem('rio'),
     token: token,
   };
