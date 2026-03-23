@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../../services/api';
+import './PlantDeclaration.css';
 
 const STATUSES = {
     PENDING: 'Pending for verification',
@@ -7,31 +8,73 @@ const STATUSES = {
     UNLOCKED: 'Unlocked for Modification'
 };
 
+const CATEGORY_HIERARCHY = {
+    "Normal PSC Sleepers": {
+        "Main 60 kg MNC": ["T-2496", "RT-8746"],
+        "Main 52 kg MNC": ["RT-2495"],
+        "Others": ["T-4912", "T-4512"]
+    },
+    "Special Sleepers": {
+        "Turnouts, Points & Crossings": ["1 in 12 (Set): T-4218", "1 in 8.5 (Set): T-4865"],
+        "Bridge Straight - Standard 60KG": ["RT-4088"],
+        "Bridge Approach - Standard 60KG": ["RT-4089", "RT-4090", "RT-4091", "RT-4092", "RT-4093", "RT-4094", "RT-4095", "RT-4096", "RT-4097"]
+    },
+    "Wider / Heavy-Duty": {},
+    "Curved Track": {}
+};
+
+const TURNOUT_SET_DATA = {
+    "1 in 12 (Set): T-4218": [
+        { code: "60S", drg: "T-4786" }, { code: "1AS", drg: "T-4787" }, { code: "2AS", drg: "T-4788" }, { code: "3A", drg: "T-4789" }, { code: "4A", drg: "T-4790" },
+        { code: "1", drg: "T-4512" }, { code: "2", drg: "T-4513" }, { code: "3", drg: "T-4514 & T-4514A" }, { code: "4", drg: "T-4515 & T-4515A" }, { code: "5", drg: "T-4516" },
+        { code: "6", drg: "T-4517" }, { code: "7", drg: "T-4518" }, { code: "8", drg: "T-4519" }, { code: "9", drg: "T-4520" }, { code: "10", drg: "T-4521" },
+        { code: "11", drg: "T-4522" }, { code: "12", drg: "T-4523" }, { code: "13", drg: "T-4524" }, { code: "14", drg: "T-4525" }, { code: "15", drg: "T-4526" },
+        { code: "16", drg: "T-4527" }, { code: "17", drg: "T-4528" }, { code: "18", drg: "T-4529" }, { code: "19", drg: "T-4530" }, { code: "20", drg: "T-4531" },
+        { code: "21", drg: "T-4532" }, { code: "22", drg: "T-4533" }, { code: "23", drg: "T-4534" }, { code: "24", drg: "T-4535" }, { code: "25", drg: "T-4536" },
+        { code: "26", drg: "T-4537" }, { code: "27", drg: "T-4538" }, { code: "28", drg: "T-4539" }, { code: "29", drg: "T-4540" }, { code: "30", drg: "T-4541" },
+        { code: "31", drg: "T-4542" }, { code: "32", drg: "T-4543" }, { code: "33", drg: "T-4544" }, { code: "34", drg: "T-4545" }, { code: "35", drg: "T-4546" },
+        { code: "36", drg: "T-4547" }, { code: "37", drg: "T-4548" }, { code: "38", drg: "T-4549" }, { code: "39", drg: "T-4550" }, { code: "40", drg: "T-4551" },
+        { code: "41", drg: "T-4552" }, { code: "42", drg: "T-4553" }, { code: "43", drg: "T-4554" }, { code: "44", drg: "T-4555" }, { code: "45", drg: "T-4556" },
+        { code: "46", drg: "T-4557" }, { code: "47", drg: "T-4558" }, { code: "48", drg: "T-4559" }, { code: "49", drg: "T-4560" }, { code: "50", drg: "T-4561" },
+        { code: "51", drg: "T-4562" }, { code: "52", drg: "T-4563" }, { code: "53", drg: "T-4564" }, { code: "54", drg: "T-4565" }, { code: "55", drg: "T-4566" },
+        { code: "56", drg: "T-4567" }, { code: "57", drg: "T-4568" }, { code: "58", drg: "T-4569" }, { code: "59", drg: "T-4570" }, { code: "60", drg: "T-4571" },
+        { code: "61", drg: "T-4572" }, { code: "62", drg: "T-4573" }, { code: "63", drg: "T-4574" }, { code: "64", drg: "T-4575" }, { code: "65", drg: "T-4576" },
+        { code: "66", drg: "T-4577" }, { code: "67", drg: "T-4578" }, { code: "68", drg: "T-4579" }, { code: "69", drg: "T-4580" }, { code: "70", drg: "T-4581" },
+        { code: "71", drg: "T-4582" }, { code: "72", drg: "T-4583" }, { code: "73", drg: "T-4584" }, { code: "74", drg: "T-4585" }, { code: "75", drg: "T-4586" },
+        { code: "76", drg: "T-4587" }, { code: "77", drg: "T-4588" }, { code: "78", drg: "T-4589" }, { code: "79", drg: "T-4590" }, { code: "80", drg: "T-4591" },
+        { code: "81", drg: "T-4592" }, { code: "82", drg: "T-4593" }, { code: "83", drg: "T-4594" }, { code: "1E", drg: "T-5471" }, { code: "2E", drg: "T-5472" },
+        { code: "3E", drg: "T-5473" }, { code: "4E", drg: "T-5474" }
+    ],
+    "1 in 8.5 (Set): T-4865": [
+        { code: "60-S", drg: "RT-4786" }, { code: "4A", drg: "RT-4790" }, { code: "3A", drg: "RT-4789" }, { code: "2AS", drg: "RT-4788" }, { code: "1AS", drg: "RT-4787" },
+        { code: "1", drg: "RT-4791" }, { code: "2", drg: "RT-4791" }, { code: "3", drg: "RT-4793" }, { code: "4", drg: "RT-4794" }, { code: "5", drg: "RT-4795" },
+        { code: "6", drg: "RT-4796" }, { code: "7", drg: "RT-4797" }, { code: "8", drg: "RT-4798" }, { code: "9", drg: "RT-4799" }, { code: "10", drg: "RT-4800" },
+        { code: "11", drg: "RT-4801" }, { code: "12", drg: "RT-4802" }, { code: "13", drg: "RT-4803" }, { code: "14", drg: "RT-4804" }, { code: "15", drg: "RT-4805" },
+        { code: "16", drg: "RT-4806" }, { code: "17", drg: "RT-4807" }, { code: "18", drg: "RT-4808" }, { code: "19", drg: "RT-4809" }, { code: "20", drg: "RT-4810" },
+        { code: "21", drg: "RT-4811" }, { code: "22", drg: "RT-4812" }, { code: "23", drg: "RT-4813" }, { code: "24", drg: "RT-4814" }, { code: "25", drg: "RT-4815" },
+        { code: "26", drg: "RT-4816" }, { code: "27", drg: "RT-4817" }, { code: "28", drg: "RT-4818" }, { code: "29", drg: "RT-4819" }, { code: "30", drg: "RT-4820" },
+        { code: "31", drg: "RT-4821" }, { code: "32", drg: "RT-4822" }, { code: "33", drg: "RT-4823" }, { code: "34", drg: "RT-4824" }, { code: "35", drg: "RT-4825" },
+        { code: "36", drg: "RT-4826" }, { code: "37", drg: "RT-4827" }, { code: "38", drg: "RT-4828" }, { code: "39", drg: "RT-4829" }, { code: "40", drg: "RT-4830" },
+        { code: "41", drg: "RT-4831" }, { code: "42", drg: "RT-4832" }, { code: "43", drg: "RT-4833" }, { code: "44", drg: "RT-4834" }, { code: "45", drg: "RT-4835" },
+        { code: "46", drg: "RT-4836" }, { code: "47", drg: "RT-4837" }, { code: "48", drg: "RT-4838" }, { code: "49", drg: "RT-4839" }, { code: "50", drg: "RT-4840" },
+        { code: "51", drg: "RT-4841" }, { code: "52", drg: "RT-4842" }, { code: "53", drg: "RT-4843" }, { code: "54", drg: "RT-4844" }, { code: "E-1", drg: "RT-5471" },
+        { code: "E-2", drg: "RT-5472" }, { code: "E-3", drg: "RT-5473" }, { code: "E-4", drg: "RT-5474" }
+    ]
+};
+
 const BenchMouldMasterSection = ({ profiles = [] }) => {
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
 
-    // Generate dynamic tabs based on profiles — one tab per unique type
     const seenTypes = new Set();
     const dynamicTabs = [];
 
     profiles.forEach(profile => {
         if (profile.type === 'Stress Bench' && !seenTypes.has('Stress Bench')) {
             seenTypes.add('Stress Bench');
-            dynamicTabs.push({
-                id: 'shed-1',
-                label: 'Stress Bench',
-                type: 'conventional',
-                defaultMoulds: 8
-            });
+            dynamicTabs.push({ id: 'shed-1', label: 'Stress Bench', type: 'conventional', defaultMoulds: 4 });
         } else if (profile.type === 'Longline' && !seenTypes.has('Longline')) {
             seenTypes.add('Longline');
-            dynamicTabs.push({
-                id: 'line-1',
-                label: 'Longline',
-                type: 'longline',
-                defaultMoulds: 8
-            });
+            dynamicTabs.push({ id: 'line-1', label: 'Longline', type: 'longline', defaultMoulds: 4 });
         }
     });
 
@@ -39,16 +82,13 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     const [tabEntries, setTabEntries] = useState({});
 
     useEffect(() => {
-        if (activeTabId === 'shed-1') {
-            fetchStressBenches();
-        } else if (activeTabId === 'line-1') {
-            fetchLongLines();
-        }
+        if (activeTabId === 'shed-1') fetchStressBenches();
+        else if (activeTabId === 'line-1') fetchLongLines();
     }, [activeTabId]);
 
     const fetchStressBenches = async () => {
-        setLoading(true);
         try {
+            setLoading(true);
             const data = await apiService.getStressBenches();
             const mappedData = data.map(b => ({
                 id: b.id,
@@ -60,717 +100,585 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 numMouldsPerItem: b.mouldsPerBench || 0,
                 totalMoulds: (b.noOfBenches || 1) * (b.mouldsPerBench || 0),
                 sleeperCategory: b.sleeperCategory,
-                status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
+                status: (b.status?.toLowerCase().includes('complete') || b.status === STATUSES.LOCKED) ? STATUSES.LOCKED : STATUSES.PENDING
             }));
             setTabEntries(prev => ({ ...prev, 'shed-1': mappedData }));
-        } catch (err) {
-            console.error('Error fetching stress benches:', err);
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const fetchLongLines = async () => {
-        setLoading(true);
         try {
+            setLoading(true);
             const data = await apiService.getLongLines();
             const mappedData = data.map(b => ({
                 id: b.id,
                 entryMode: b.entryMode?.toLowerCase() || 'single',
                 fromNo: b.gangFrom || '',
                 toNo: b.gangTo || '',
-                singleNo: b.gangNo || '', 
-                numItems: b.count || 1,
+                singleNo: b.gangNo || '',
+                count: b.count || 1,
                 numMouldsPerItem: b.mouldsPerGang || 0,
-                totalMoulds: (b.count || 1) * (b.mouldsPerGang || 0),
                 sleeperCategory: b.category,
-                rft: b.rft || '',
-                sleeperNames: b.sleepers || [],
-                status: (b.status === 'NOT_STARTED' || b.status === 'Created' || b.status === 'created') ? STATUSES.PENDING : (b.status === 'completed' || b.status === 'Completed' || b.status === 'COMPLETED' ? STATUSES.LOCKED : (b.status || (b.updatedDate ? STATUSES.LOCKED : STATUSES.PENDING)))
+                status: (b.status?.toLowerCase().includes('complete') || b.status === STATUSES.LOCKED) ? STATUSES.LOCKED : STATUSES.PENDING
             }));
             setTabEntries(prev => ({ ...prev, 'line-1': mappedData }));
-        } catch (err) {
-            console.error('Error fetching longlines:', err);
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
-    // Form State
     const [formState, setFormState] = useState({
-        entryMode: 'range', // 'range' or 'single'
+        level1: '',
+        level2: '',
+        level3: '',
+        level4: '',
+        entryMode: 'single',
+        singleNo: '',
         fromNo: '',
         toNo: '',
-        singleNo: '',
-        numItems: 0,
         numMouldsPerItem: '',
-        sleeperCategory: 'Wider Base',
-        rft: '',
-        sleeperNames: [],
         isEditing: false,
-        editingId: null,
-        status: STATUSES.PENDING
+        editingId: null
     });
 
+    const [turnoutRows, setTurnoutRows] = useState([]);
+    const [bulkState, setBulkState] = useState({ mode: 'single', bench: '', moulds: '' });
+
     useEffect(() => {
-        if (!activeTabId && dynamicTabs.length > 0) {
-            setActiveTabId(dynamicTabs[0].id);
-        } else if (activeTabId && !dynamicTabs.find(t => t.id === activeTabId)) {
-            setActiveTabId(dynamicTabs[0]?.id || '');
-        }
-    }, [dynamicTabs, activeTabId]);
-
-    const activeTab = dynamicTabs.find(t => t.id === activeTabId);
-    const isLongLine = activeTab?.type === 'longline';
-
-    // Update auto-fill fields when form state changes
-    useEffect(() => {
-        let count = 0;
-        if (formState.entryMode === 'range') {
-            const f = parseInt(formState.fromNo);
-            const t = parseInt(formState.toNo);
-            if (!isNaN(f) && !isNaN(t) && t >= f) {
-                count = t - f + 1;
-            }
-        } else {
-            if (formState.singleNo) count = 1;
-        }
-
-        setFormState(prev => ({
-            ...prev,
-            numItems: count
-        }));
-    }, [formState.entryMode, formState.fromNo, formState.toNo, formState.singleNo]);
-
-    // Handle initial mould count when tab changes (use activeTabId not activeTab object,
-    // because dynamicTabs is rebuilt every render producing a new activeTab reference
-    // which would otherwise fire this effect on every render and reset user selections)
-    useEffect(() => {
-        if (activeTab && !formState.isEditing) {
-            setFormState(prev => ({
-                ...prev,
-                numMouldsPerItem: activeTab.defaultMoulds
+        if (TURNOUT_SET_DATA[formState.level3]) {
+            const initialRows = TURNOUT_SET_DATA[formState.level3].map((item, idx) => ({
+                id: idx,
+                sleeperCode: item.code,
+                drawingNo: item.drg,
+                mode: 'single',
+                benchNo: '',
+                fromNo: '',
+                toNo: '',
+                moulds: '',
+                checked: false
             }));
+            setTurnoutRows(initialRows);
+            setFormState(prev => ({ ...prev, level4: formState.level3 }));
+        } else {
+            setTurnoutRows([]);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTabId, formState.isEditing]);
+    }, [formState.level3]);
 
+    const handleBulkApply = () => {
+        setTurnoutRows(prev => prev.map(row => ({
+            ...row,
+            mode: bulkState.mode,
+            benchNo: bulkState.mode === 'single' ? bulkState.bench : '',
+            fromNo: bulkState.mode === 'range' ? bulkState.bench : '',
+            toNo: bulkState.mode === 'range' ? bulkState.bench : '',
+            moulds: bulkState.moulds
+        })));
+    };
+
+    const handleSelectAll = () => {
+        const anyUnchecked = turnoutRows.some(r => !r.checked);
+        setTurnoutRows(prev => prev.map(r => ({ ...r, checked: anyUnchecked })));
+    };
+
+    const handleTurnoutRowChange = (id, field, value) => {
+        setTurnoutRows(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
+    };
+
+    const handleAddTurnoutToMaster = async () => {
+        const checkedRows = turnoutRows.filter(r => r.checked);
+        if (checkedRows.length === 0) { alert('No rows selected'); return; }
+
+        try {
+            setLoading(true);
+            const isLongLine = activeTabId === 'line-1';
+
+            for (const row of checkedRows) {
+                let count = 1;
+                if (row.mode === 'range') {
+                    count = parseInt(row.toNo) - parseInt(row.fromNo) + 1;
+                }
+
+                const payload = isLongLine ? {
+                    entryMode: row.mode.toUpperCase(),
+                    gangFrom: row.mode === 'range' ? parseInt(row.fromNo) : 0,
+                    gangTo: row.mode === 'range' ? parseInt(row.toNo) : 0,
+                    gangNo: row.mode === 'single' ? parseInt(row.benchNo) : 0,
+                    count: count,
+                    mouldsPerGang: parseInt(row.moulds),
+                    category: `${row.sleeperCode} (${row.drawingNo})`,
+                    vendorId: 118, createdBy: 118
+                } : {
+                    entryType: row.mode.toUpperCase(),
+                    benchFrom: row.mode === 'range' ? parseInt(row.fromNo) : null,
+                    benchTo: row.mode === 'range' ? parseInt(row.toNo) : null,
+                    benchNo: row.mode === 'single' ? parseInt(row.benchNo) : null,
+                    noOfBenches: count,
+                    mouldsPerBench: parseInt(row.moulds),
+                    sleeperCategory: `${row.sleeperCode} (${row.drawingNo})`,
+                    vendorId: 118, createdBy: 118
+                };
+
+                if (isLongLine) await apiService.saveLongLine(payload);
+                else await apiService.saveStressBench(payload);
+            }
+
+            if (isLongLine) fetchLongLines();
+            else fetchStressBenches();
+            alert('Selection added successfully');
+        } finally { setLoading(false); }
+    };
+
+    useEffect(() => {
+        const l2Options = Object.keys(CATEGORY_HIERARCHY[formState.level1] || {});
+        // If current level2 is not valid for new level1, reset it to empty
+        if (formState.level1 && !l2Options.includes(formState.level2)) {
+            setFormState(prev => ({ ...prev, level2: '', level3: '', level4: '' }));
+        }
+        if (!formState.level1) {
+            setFormState(prev => ({ ...prev, level2: '', level3: '', level4: '' }));
+        }
+    }, [formState.level1]);
+
+    useEffect(() => {
+        const l3Options = CATEGORY_HIERARCHY[formState.level1]?.[formState.level2] || [];
+        if (formState.level2 && !l3Options.includes(formState.level3)) {
+            setFormState(prev => ({ ...prev, level3: '', level4: '' }));
+        }
+        if (!formState.level2) {
+            setFormState(prev => ({ ...prev, level3: '', level4: '' }));
+        }
+    }, [formState.level2]);
+
+    useEffect(() => {
+        setFormState(prev => ({ ...prev, level4: formState.level3 }));
+    }, [formState.level3]);
+
+    useEffect(() => {
+        if (!activeTabId && dynamicTabs.length > 0) setActiveTabId(dynamicTabs[0].id);
+    }, [dynamicTabs]);
 
     const handleSave = async () => {
-        if (formState.numItems <= 0) {
-            alert(`Please enter valid ${isLongLine ? 'Gang' : 'Bench'} numbers.`);
-            return;
+        const isLongLine = activeTabId === 'line-1';
+        let count = 1;
+        if (formState.entryMode === 'range') {
+            count = parseInt(formState.toNo) - parseInt(formState.fromNo) + 1;
         }
-
-        const commonPayload = {
-            id: formState.isEditing ? formState.editingId : null,
-            entryType: formState.entryMode.toUpperCase(),
-            sleeperCategory: formState.sleeperCategory,
-            vendorId: 118,
-            createdBy: 118,
-            updatedBy: formState.isEditing ? 118 : null
-        };
+        if (isNaN(count) || count <= 0) { alert('Please enter valid bench numbers'); return; }
 
         const payload = isLongLine ? {
-            id: formState.isEditing ? formState.editingId : null,
+            id: formState.editingId,
             entryMode: formState.entryMode.toUpperCase(),
             gangFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : 0,
             gangTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : 0,
             gangNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : 0,
-            count: formState.numItems,
-            mouldsPerGang: parseInt(formState.numMouldsPerItem) || 0,
-            category: formState.sleeperCategory,
-            rft: formState.rft || '',
-            sleepers: formState.sleeperNames || [],
-            createdBy: 118,
-            updatedBy: 118
+            count: count,
+            mouldsPerGang: parseInt(formState.numMouldsPerItem),
+            category: formState.level4,
+            vendorId: 118,
+            createdBy: 118
         } : {
-            ...commonPayload,
-            benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
+            id: formState.editingId,
+            entryType: formState.entryMode.toUpperCase(),
             benchFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : null,
             benchTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : null,
-            mouldsPerBench: parseInt(formState.numMouldsPerItem) || 0
+            benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
+            noOfBenches: count,
+            mouldsPerBench: parseInt(formState.numMouldsPerItem),
+            sleeperCategory: formState.level4,
+            vendorId: 118,
+            createdBy: 118
         };
 
         try {
             setLoading(true);
-            if (isLongLine) {
-                await apiService.saveLongLine(payload);
-                await fetchLongLines();
-            } else {
-                await apiService.saveStressBench(payload);
-                await fetchStressBenches();
-            }
+            if (isLongLine) await apiService.saveLongLine(payload);
+            else await apiService.saveStressBench(payload);
 
-            // Reset form
-            setFormState({
-                entryMode: 'range',
-                fromNo: '',
-                toNo: '',
-                singleNo: '',
-                numItems: 0,
-                numMouldsPerItem: activeTab?.defaultMoulds || '',
-                sleeperCategory: isLongLine && tabEntries[activeTabId]?.length > 0
-                    ? tabEntries[activeTabId][0].sleeperCategory
-                    : 'Wider Base',
-                rft: '',
-                sleeperNames: [],
-                isEditing: false,
-                editingId: null,
-                status: STATUSES.PENDING
-            });
-            alert(formState.isEditing ? `${isLongLine ? 'Gang' : 'Bench'} updated successfully` : `${isLongLine ? 'Gang' : 'Bench'} added successfully`);
+            if (isLongLine) fetchLongLines();
+            else fetchStressBenches();
+
+            setFormState(prev => ({ ...prev, isEditing: false, singleNo: '', fromNo: '', toNo: '', editingId: null }));
+            alert('Selection added successfully');
+        } finally { setLoading(false); }
+    };
+
+    const handleDelete = async (id, status) => {
+        if (status === STATUSES.LOCKED) return;
+        if (!window.confirm('Are you sure you want to delete this entry?')) return;
+
+        try {
+            setLoading(true);
+            const isLongLine = activeTabId === 'line-1';
+            if (isLongLine) await apiService.deleteLongLine(id);
+            else await apiService.deleteStressBench(id);
+
+            alert('Entry deleted successfully');
+            if (isLongLine) fetchLongLines();
+            else fetchStressBenches();
         } catch (err) {
-            alert(err.message || `Error saving ${isLongLine ? 'longline' : 'stress bench'}`);
+            alert('Error deleting entry: ' + err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleEdit = (entry) => {
-        if (entry.status === STATUSES.LOCKED) {
-            alert("Locked entries cannot be modified.");
-            return;
-        }
-        setFormState({
-            entryMode: entry.entryMode,
-            fromNo: entry.fromNo,
-            toNo: entry.toNo,
-            singleNo: entry.singleNo,
-            numItems: entry.numItems,
-            numMouldsPerItem: entry.numMouldsPerItem,
-            sleeperCategory: entry.sleeperCategory,
-            rft: entry.rft || '',
-            sleeperNames: entry.sleeperNames || [],
-            isEditing: true,
-            editingId: entry.id,
-            status: entry.status
-        });
-    };
+    const currentEntries = tabEntries[activeTabId] || [];
+    const totalItems = currentEntries.reduce((acc, c) => acc + (parseInt(c.numItems || c.count) || 0), 0);
+    const totalMoulds = currentEntries.reduce((acc, c) => acc + ((parseInt(c.numItems || c.count) || 0) * (parseInt(c.numMouldsPerItem) || 0)), 0);
 
-    const handleDelete = async (id, status) => {
-        if (status === STATUSES.LOCKED) {
-            alert("Locked entries cannot be deleted.");
-            return;
-        }
-        if (window.confirm("Are you sure you want to delete this entry?")) {
-            try {
-                setLoading(true);
-                if (isLongLine) {
-                    await apiService.deleteLongLine(id);
-                    await fetchLongLines();
-                } else {
-                    await apiService.deleteStressBench(id);
-                    await fetchStressBenches();
+    const findHierarchy = (drawingNo) => {
+        if (!drawingNo) return { category: 'Normal PSC Sleepers', subCategory: 'General' };
+
+        // First check standard hierarchy (exact match)
+        for (const [category, subs] of Object.entries(CATEGORY_HIERARCHY)) {
+            for (const [subCategory, drawings] of Object.entries(subs)) {
+                if (drawings.includes(drawingNo)) {
+                    return { category, subCategory };
                 }
-                alert('Entry deleted successfully');
-            } catch (err) {
-                alert(err.message || 'Error deleting entry');
-            } finally {
-                setLoading(false);
             }
         }
-    };
 
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case STATUSES.LOCKED: return { color: '#059669', background: '#ecfdf5', border: '1px solid #10b981' };
-            case STATUSES.UNLOCKED: return { color: '#b45309', background: '#fffbeb', border: '1px solid #f59e0b' };
-            default: return { color: '#2563eb', background: '#eff6ff', border: '1px solid #3b82f6' };
+        // If not found, try extracting DRG from "CODE (DRG)" or "NAME: DRG" formats
+        let drgToMatch = drawingNo;
+        // Case 1: "60S (T-4786)"
+        const parenMatch = drawingNo.match(/\((.*?)\)/);
+        if (parenMatch) {
+            drgToMatch = parenMatch[1];
+        } else if (drawingNo.includes(':')) {
+            // Case 2: "1 in 12 (Set): T-4218" -> extract "T-4218"
+            drgToMatch = drawingNo.split(':').pop().trim();
         }
-    };
 
-    // Calculate Summary
-    const currentEntries = tabEntries[activeTabId] || [];
-    const totalItems = currentEntries.reduce((acc, curr) => acc + (parseInt(curr.numItems) || 0), 0);
-    const totalMoulds = currentEntries.reduce((acc, curr) => acc + (parseInt(curr.totalMoulds) || 0), 0);
-    const uniqueSleeperTypes = [...new Set(currentEntries.map(e => e.sleeperCategory))];
-    const mouldsBySleeper = currentEntries.reduce((acc, curr) => {
-        acc[curr.sleeperCategory] = (acc[curr.sleeperCategory] || 0) + (parseInt(curr.totalMoulds) || 0);
-        return acc;
-    }, {});
+        // Re-check standard hierarchy with extracted DRG
+        for (const [category, subs] of Object.entries(CATEGORY_HIERARCHY)) {
+            for (const [subCategory, drawings] of Object.entries(subs)) {
+                if (drawings.some(d => d.includes(drgToMatch))) {
+                    return { category, subCategory };
+                }
+            }
+        }
+
+        // Check turnout components
+        for (const [setName, components] of Object.entries(TURNOUT_SET_DATA)) {
+            if (components.some(c => c.drg === drgToMatch || c.drg === drawingNo)) {
+                return { category: 'Special Sleepers', subCategory: 'Turnouts, Points & Crossings' };
+            }
+        }
+
+        return { category: 'Normal PSC Sleepers', subCategory: 'General' };
+    };
 
     return (
-        <div className="fade-in" style={{ position: 'relative' }}>
-            {loading && (
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <div className="spinner">Loading...</div>
-                </div>
-            )}
-            <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Bench / Mould Master Declaration</h3>
+        <div className="bench-mould-container">
+            {loading && <div className="loading-overlay"><div className="spinner"></div></div>}
+            
+            <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Bench / Mould Master Declaration</h3>
 
-                {/* Dynamic Tabs */}
-                <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    overflowX: 'auto',
-                    padding: '4px 0',
-                    marginBottom: '16px'
-                }}>
-                    {dynamicTabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => {
-                                setActiveTabId(tab.id);
-                                // Reset form when switching tabs
-                                setFormState({
-                                    entryMode: 'range',
-                                    fromNo: '',
-                                    toNo: '',
-                                    singleNo: '',
-                                    numItems: 0,
-                                    numMouldsPerItem: tab.defaultMoulds,
-                                    sleeperCategory: 'Wider Base',
-                                    rft: '',
-                                    sleeperNames: [],
-                                    isEditing: false,
-                                    editingId: null,
-                                    status: STATUSES.PENDING
-                                });
-                            }}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                border: activeTabId === tab.id ? '2px solid #42818c' : '1px solid #e2e8f0',
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                background: activeTabId === tab.id ? '#f0f9fa' : '#fff',
-                                color: activeTabId === tab.id ? '#42818c' : '#64748b',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                whiteSpace: 'nowrap',
-                                boxShadow: activeTabId === tab.id ? '0 2px 4px rgba(66, 129, 140, 0.1)' : 'none'
-                            }}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                {dynamicTabs.length === 0 && (
-                    <div style={{ padding: '20px', background: '#fff9eb', border: '1px solid #ffeeba', borderRadius: '8px', color: '#856404', fontSize: '14px' }}>
-                        ⚠️ Please add a <strong>Stress Bench</strong> or <strong>Longline</strong> profile in the <strong>Plant Profile</strong> section first to configure Bench/Mould Master.
+            <div className="summary-grid">
+                <div className="summary-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="label">Plant Type</div>
+                        <div style={{ background: 'rgba(33, 128, 141, 0.1)', padding: '8px', borderRadius: '10px' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#21808d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        </div>
                     </div>
-                )}
+                    <select className="plant-type-select" value={activeTabId} onChange={(e) => setActiveTabId(e.target.value)}>
+                        {dynamicTabs.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                </div>
+                <div className="summary-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="label">{activeTabId === 'line-1' ? 'Gangs' : 'Benches'} Declared</div>
+                        <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '10px' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="3" y1="9" x2="21" y2="9"></line>
+                                <line x1="9" y1="21" x2="9" y2="9"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div className="value">{totalItems}</div>
+                </div>
+                <div className="summary-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="label">Total Moulds</div>
+                        <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '10px' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div className="value">{totalMoulds}</div>
+                </div>
             </div>
 
-            {activeTab && (
-                <>
-                    {/* Summary Section */}
-                    <div style={{
-                        background: '#fff',
-                        padding: '16px 20px',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        marginBottom: '24px',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: '16px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                    }}>
-                        <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Total {isLongLine ? 'Gangs' : 'Benches'}
-                            </div>
-                            <div style={{ fontSize: '20px', fontWeight: '700', color: '#42818c' }}>{totalItems}</div>
-                        </div>
-                        <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Sleeper Types
-                            </div>
-                            <div style={{ fontSize: '20px', fontWeight: '700', color: '#42818c' }}>{uniqueSleeperTypes.length}</div>
-                        </div>
-                        <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Total Moulds
-                            </div>
-                            <div style={{ fontSize: '20px', fontWeight: '700', color: '#42818c' }}>{totalMoulds}</div>
-                        </div>
-                        <div style={{ textAlign: 'left', paddingLeft: '8px' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                Moulds / Type
-                            </div>
-                            <div style={{ maxHeight: '40px', overflowY: 'auto' }}>
-                                {uniqueSleeperTypes.length === 0 ? (
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>No data</span>
-                                ) : (
-                                    uniqueSleeperTypes.map(type => (
-                                        <div key={type} style={{ fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                                            {type}: {mouldsBySleeper[type]}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+            <div className="form-section-card">
+                <h4 className="form-title-h4">
+                    New {activeTabId === 'line-1' ? 'Gang' : 'Bench'} Declaration
+                </h4>
+
+                {/* Step 1 */}
+                <div className="step-indicator-wrapper">
+                    <div className="step-circle green">1</div>
+                    <div className="step-text">Select sleeper type</div>
+                </div>
+
+                <div className="row-grid-3">
+                    <div>
+                        <label className="input-label">Category</label>
+                        <div className="select-wrapper">
+                            <select className="image-style-select" value={formState.level1} onChange={(e) => setFormState(prev => ({ ...prev, level1: e.target.value }))}>
+                                <option value="">Select Category</option>
+                                {Object.keys(CATEGORY_HIERARCHY).map(k => <option key={k} value={k}>{k}</option>)}
+                            </select>
                         </div>
                     </div>
-
-                    <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h4 style={{ color: '#42818c', margin: 0, fontSize: '16px' }}>
-                                {isLongLine ? 'Longline Entry Form' : 'Stress Bench Entry Form'}
-                            </h4>
+                    <div>
+                        <label className="input-label">Sub-category</label>
+                        <div className="select-wrapper">
+                            <select className="image-style-select" value={formState.level2} onChange={(e) => setFormState(prev => ({ ...prev, level2: e.target.value }))}>
+                                <option value="">Select Sub-category</option>
+                                {Object.keys(CATEGORY_HIERARCHY[formState.level1] || {}).map(k => <option key={k} value={k}>{k}</option>)}
+                            </select>
                         </div>
-
-                        <div style={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            gap: '12px', 
-                            alignItems: 'flex-end', 
-                            marginBottom: formState.sleeperCategory === 'PnC' ? '24px' : '0' 
-                        }}>
-                            {/* Entry Mode */}
-                            <div style={{ minWidth: '125px' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Entry Mode</label>
-                                <div style={{ display: 'flex', gap: '8px', height: '40px', alignItems: 'center' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                                        <input
-                                            type="radio"
-                                            checked={formState.entryMode === 'range'}
-                                            onChange={() => setFormState(prev => ({ ...prev, entryMode: 'range' }))}
-                                        /> Range
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                                        <input
-                                            type="radio"
-                                            checked={formState.entryMode === 'single'}
-                                            onChange={() => setFormState(prev => ({ ...prev, entryMode: 'single' }))}
-                                        /> Single
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Bench/Gang No Inputs */}
-                            {formState.entryMode === 'range' ? (
-                                <>
-                                    <div style={{ flex: 1, minWidth: '100px' }}>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Gang From' : 'Bench From'}
-                                        </label>
-                                         <input
-                                            type="number"
-                                            min="0"
-                                            value={formState.fromNo}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val < 0) return;
-                                                setFormState(prev => ({ ...prev, fromNo: val }));
-                                            }}
-                                            placeholder="Start"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                        />
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: '100px' }}>
-                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                            {isLongLine ? 'Gang To' : 'Bench To'}
-                                        </label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={formState.toNo}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val < 0) return;
-                                                setFormState(prev => ({ ...prev, toNo: val }));
-                                            }}
-                                            placeholder="End"
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                        />
-                                    </div>
-                                </>
-                            ) : (
-                                <div style={{ flex: 1, minWidth: '100px' }}>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                        {isLongLine ? 'Gang No.' : 'Bench No.'}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={formState.singleNo}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val < 0) return;
-                                            setFormState(prev => ({ ...prev, singleNo: val }));
-                                        }}
-                                        placeholder="No."
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Count */}
-                            <div style={{ width: '80px' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Count</label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={formState.numItems}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', boxSizing: 'border-box', textAlign: 'center' }}
-                                />
-                            </div>
-
-                            {/* Category */}
-                            <div style={{ flex: 1.5, minWidth: '130px' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Category</label>
-                                <select
-                                    value={formState.sleeperCategory}
-                                    onChange={(e) => setFormState(prev => ({ ...prev, sleeperCategory: e.target.value }))}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #cbd5e1',
-                                        background: '#fff',
-                                        boxSizing: 'border-box'
-                                    }}
-                                >
-                                    <option value="Wider Base">Wider Base</option>
-                                    <option value="PnC">PnC</option>
-                                </select>
-                            </div>
-
-                            {/* Moulds */}
-                            <div style={{ flex: 1.2, minWidth: '120px' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-                                    Moulds{isLongLine ? '/Gang' : '/Bench'}
-                                </label>
-                                {formState.sleeperCategory === 'Wider Base' ? (
-                                    <select
-                                        value={formState.numMouldsPerItem}
-                                        onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="4">4</option>
-                                        <option value="8">8</option>
-                                    </select>
-                                ) : (
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={formState.numMouldsPerItem}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val < 0) return;
-                                            setFormState(prev => ({ ...prev, numMouldsPerItem: val }));
-                                        }}
-                                        placeholder="Qty"
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                    />
-                                )}
-                            </div>
-
-                            {/* RFT */}
-                            {formState.sleeperCategory === 'PnC' && (
-                                <div style={{ flex: 1, minWidth: '90px' }}>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>RFT (m)</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={formState.rft}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val < 0) return;
-                                            setFormState(prev => ({ ...prev, rft: val }));
-                                        }}
-                                        placeholder="RFT"
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Action Button */}
-                            <div style={{ minWidth: '130px' }}>
-                                <button
-                                    onClick={handleSave}
-                                    style={{
-                                        width: '100%',
-                                        background: '#42818c',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '11px 16px',
-                                        borderRadius: '8px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: '0 2px 4px rgba(66, 129, 140, 0.2)'
-                                    }}
-                                >
-                                    {formState.isEditing ? 'Update' : 'Add to List'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Row 3: PnC Sleeper Names Grid */}
-                        {formState.sleeperCategory === 'PnC' && (
-                            <div style={{
-                                background: '#f8fafc',
-                                padding: '20px',
-                                borderRadius: '12px',
-                                border: '1px solid #e2e8f0',
-                                marginBottom: '24px'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                    <h5 style={{ margin: 0, color: '#475569', fontSize: '13px', fontWeight: '700' }}>Sleeper Names Configuration</h5>
-                                    <span style={{ fontSize: '11px', color: '#64748b', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                                        Total Moulds: {formState.numMouldsPerItem || 0}
-                                    </span>
-                                </div>
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                                    gap: '12px',
-                                    maxHeight: '260px',
-                                    overflowY: 'auto',
-                                    padding: '4px'
-                                }}>
-                                    {Array.from({ length: parseInt(formState.numMouldsPerItem) || 0 }).map((_, idx) => (
-                                        <div key={idx} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: '#fff',
-                                            padding: '6px 10px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #cbd5e1',
-                                            transition: 'border-color 0.2s'
-                                        }}>
-                                            <span style={{
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                color: '#42818c',
-                                                minWidth: '20px'
-                                            }}>{idx + 1}.</span>
-                                            <input
-                                                type="text"
-                                                value={formState.sleeperNames[idx] || ''}
-                                                onChange={(e) => {
-                                                    const newNames = [...formState.sleeperNames];
-                                                    newNames[idx] = e.target.value;
-                                                    setFormState(prev => ({ ...prev, sleeperNames: newNames }));
-                                                }}
-                                                placeholder="Sleeper Name"
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '6px 0',
-                                                    border: 'none',
-                                                    fontSize: '12px',
-                                                    outline: 'none',
-                                                    color: '#1e293b',
-                                                    background: 'transparent'
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                                    {(!formState.numMouldsPerItem || parseInt(formState.numMouldsPerItem) <= 0) && (
-                                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>
-                                            Enter Number of Moulds to configure sleeper names.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-
-
                     </div>
+                    <div>
+                        <label className="input-label">Drawing No.</label>
+                        <div className="select-wrapper">
+                            <select className="image-style-select" value={formState.level3} onChange={(e) => setFormState(prev => ({ ...prev, level3: e.target.value }))}>
+                                <option value="">Select Drawing No.</option>
+                                {(CATEGORY_HIERARCHY[formState.level1]?.[formState.level2] || []).map(k => <option key={k} value={k}>{k}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-                    {/* Entry List */}
-                    {currentEntries.length > 0 && (
-                        <div style={{ marginTop: '24px', background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <h4 style={{ color: '#42818c', marginTop: 0, marginBottom: '20px', fontSize: '15px', fontWeight: '700' }}>
-                                {isLongLine ? 'Entered Gang Details' : 'Entered Bench Details'}
-                            </h4>
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                    <thead style={{ background: '#f8fafc' }}>
-                                        <tr>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Range/Single</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Nos.</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Count</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Moulds/Item</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Total Moulds</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Category</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Status</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {currentEntries.map((entry) => (
-                                            <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ padding: '12px', color: '#1e293b', textTransform: 'capitalize' }}>{entry.entryMode}</td>
-                                                <td style={{ padding: '12px', color: '#1e293b', fontWeight: '600' }}>
-                                                    {entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}
-                                                </td>
-                                                <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b' }}>{entry.numItems}</td>
-                                                <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b' }}>{entry.numMouldsPerItem}</td>
-                                                <td style={{ padding: '12px', textAlign: 'center', color: '#1e293b', fontWeight: 'bold' }}>{entry.totalMoulds}</td>
-                                                <td style={{ padding: '12px', color: '#1e293b' }}>
-                                                    {entry.sleeperCategory}
-                                                    {entry.sleeperCategory === 'PnC' && (
-                                                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', maxWidth: '220px', lineHeight: '1.4' }}>
-                                                            {entry.rft ? `RFT: ${entry.rft}m | ` : ''}
-                                                            <span style={{ color: '#42818c', fontWeight: 'bold' }}>Sleepers: </span>
-                                                            {entry.sleeperNames && entry.sleeperNames.filter(n => n && n.trim() !== '').length > 0
-                                                                ? entry.sleeperNames.filter(n => n && n.trim() !== '').join(', ')
-                                                                : 'None'}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                    <span style={{
-                                                        padding: '4px 10px',
-                                                        borderRadius: '20px',
-                                                        fontSize: '11px',
-                                                        fontWeight: '600',
-                                                        ...getStatusStyle(entry.status)
-                                                    }}>
-                                                        {entry.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                        <button
-                                                            onClick={() => handleEdit(entry)}
-                                                            disabled={entry.status === STATUSES.LOCKED}
-                                                            style={{
-                                                                padding: '6px 10px',
-                                                                background: entry.status === STATUSES.LOCKED ? '#f8fafc' : '#f0f9fa',
-                                                                color: entry.status === STATUSES.LOCKED ? '#cbd5e1' : '#42818c',
-                                                                border: `1px solid ${entry.status === STATUSES.LOCKED ? '#e2e8f0' : '#42818c'}`,
-                                                                borderRadius: '6px',
-                                                                cursor: entry.status === STATUSES.LOCKED ? 'not-allowed' : 'pointer',
-                                                                fontSize: '11px'
-                                                            }}
-                                                        >
-                                                            Modify
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(entry.id, entry.status)}
-                                                            disabled={entry.status === STATUSES.LOCKED}
-                                                            style={{
-                                                                padding: '6px 10px',
-                                                                background: entry.status === STATUSES.LOCKED ? '#f8fafc' : '#fef2f2',
-                                                                color: entry.status === STATUSES.LOCKED ? '#cbd5e1' : '#ef4444',
-                                                                border: `1px solid ${entry.status === STATUSES.LOCKED ? '#fee2e2' : '#ef4444'}`,
-                                                                borderRadius: '6px',
-                                                                cursor: entry.status === STATUSES.LOCKED ? 'not-allowed' : 'pointer',
-                                                                fontSize: '11px'
-                                                            }}
-                                                        >
-                                                            Delete
-                                                        </button>
+                <div className="section-divider"></div>
+
+                {/* Step 2 */}
+                <div className="step-indicator-wrapper">
+                    <div className="step-circle blue">2</div>
+                    <div className="step-text">
+                        {turnoutRows.length > 0 ? `Level 4 - declare bench against each sleeper type` : `Level 4 - confirm drawing & declare ${activeTabId === 'line-1' ? 'gang' : 'bench'}`}
+                    </div>
+                </div>
+
+                {turnoutRows.length > 0 ? (
+                    <div className="turnout-declaration-area">
+                        <div className="turnout-info-bar">
+                            {formState.level3.split(':')[1]?.trim()} — {turnoutRows.length} sleeper types.
+                        </div>
+
+                        <div className="turnout-table-wrapper">
+                            <table className="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Sleeper code</th>
+                                        <th>Drawing no.</th>
+                                        <th>Declaration Mode</th>
+                                        <th>Bench no(s).</th>
+                                        <th>No. of Moulds</th>
+                                        <th style={{ textAlign: 'center' }}>ADD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {turnoutRows.map((row, idx) => (
+                                        <tr key={row.id}>
+                                            <td>{idx + 1}</td>
+                                            <td style={{ fontWeight: '600' }}>{row.sleeperCode}</td>
+                                            <td>{row.drawingNo}</td>
+                                            <td>
+                                                <div className="radio-group-table">
+                                                    <label className="radio-item-table">
+                                                        <input 
+                                                            type="radio" 
+                                                            checked={row.mode === 'single'} 
+                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'single')} 
+                                                        />
+                                                        Single
+                                                    </label>
+                                                    <label className="radio-item-table">
+                                                        <input 
+                                                            type="radio" 
+                                                            checked={row.mode === 'range'} 
+                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'range')} 
+                                                        />
+                                                        Range
+                                                    </label>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {row.mode === 'single' ? (
+                                                    <input type="number" className="mini-input" value={row.benchNo} onChange={e => handleTurnoutRowChange(row.id, 'benchNo', e.target.value)} />
+                                                ) : (
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <input type="number" className="mini-input" value={row.fromNo} onChange={e => handleTurnoutRowChange(row.id, 'fromNo', e.target.value)} />
+                                                        <input type="number" className="mini-input" value={row.toNo} onChange={e => handleTurnoutRowChange(row.id, 'toNo', e.target.value)} />
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <input type="number" className="mini-input" value={row.moulds} onChange={e => handleTurnoutRowChange(row.id, 'moulds', e.target.value)} />
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <button 
+                                                    className={`plus-toggle-btn ${row.checked ? 'active' : ''}`}
+                                                    onClick={() => handleTurnoutRowChange(row.id, 'checked', !row.checked)}
+                                                >
+                                                    +
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button className="add-checked-master-btn" onClick={handleAddTurnoutToMaster}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add new entry
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="row-grid-mixed">
+                            <div>
+                                <label className="input-label">Drawing No.</label>
+                                <div className="select-wrapper">
+                                    <select
+                                        className="image-style-select"
+                                        disabled
+                                        value={formState.level4}
+                                        onChange={(e) => setFormState(prev => ({ ...prev, level4: e.target.value }))}
+                                    >
+                                        {(CATEGORY_HIERARCHY[formState.level1]?.[formState.level2] || []).map(k => <option key={k} value={k}>{k}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="input-label">Declaration Mode</label>
+                                <div className="radio-group">
+                                    <label className="radio-item">
+                                        <input type="radio" checked={formState.entryMode === 'single'} onChange={() => setFormState(prev => ({ ...prev, entryMode: 'single' }))} />
+                                        Single
+                                    </label>
+                                    <label className="radio-item">
+                                        <input type="radio" checked={formState.entryMode === 'range'} onChange={() => setFormState(prev => ({ ...prev, entryMode: 'range' }))} />
+                                        Range
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="input-label">{activeTabId === 'line-1' ? 'Gang' : 'Bench'} Number</label>
+                                {formState.entryMode === 'single' ? (
+                                    <input type="number" className="image-style-input" value={formState.singleNo} onChange={(e) => setFormState(prev => ({ ...prev, singleNo: e.target.value }))} />
+                                ) : (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input type="number" className="image-style-input" value={formState.fromNo} onChange={(e) => setFormState(prev => ({ ...prev, fromNo: e.target.value }))} />
+                                        <input type="number" className="image-style-input" value={formState.toNo} onChange={(e) => setFormState(prev => ({ ...prev, toNo: e.target.value }))} />
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="input-label">No. of Moulds per {activeTabId === 'line-1' ? 'Gang' : 'Bench'}</label>
+                                <input type="number" className="image-style-input" value={formState.numMouldsPerItem} onChange={(e) => setFormState(prev => ({ ...prev, numMouldsPerItem: e.target.value }))} />
                             </div>
                         </div>
-                    )}
-                </>
-            )}
+
+                        <button className="add-master-btn" onClick={handleSave}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add new entry
+                        </button>
+                    </>
+                )}
+
+            </div>
+
+            <div style={{ background: '#fff', padding: '32px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                    <h4 className="form-title-h4" style={{ margin: 0 }}>
+                        Master Declaration Grid
+                    </h4>
+                    <div style={{ background: '#f8fafc', padding: '6px 16px', borderRadius: '100px', fontSize: '12px', fontWeight: '700', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                        {currentEntries.length} Entries Found
+                    </div>
+                </div>
+
+                <div className="table-container" style={{ marginTop: 0 }}>
+                    <table className="modern-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Category</th>
+                                <th>Drawing No.</th>
+                                <th>{activeTabId === 'line-1' ? 'Gang' : 'Bench'} No(s).</th>
+                                <th>No. of Moulds</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: 'center' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentEntries.length > 0 ? currentEntries.map((e, idx) => {
+                                const { category, subCategory } = findHierarchy(e.sleeperCategory);
+                                const isSpecial = category === 'Special Sleepers';
+
+                                return (
+                                    <tr key={e.id} className={isSpecial ? 'special-sleeper-row' : ''}>
+                                        <td>{idx + 1}</td>
+                                        <td>{category}</td>
+                                        <td style={{ fontWeight: '600' }}>{e.sleeperCategory}</td>
+                                        <td>{e.entryMode === 'range' ? `${e.fromNo}-${e.toNo}` : (e.singleNo || e.fromNo)}</td>
+                                        <td>{e.numMouldsPerItem}</td>
+                                        <td><span className={`status-badge ${e.status === STATUSES.LOCKED ? 'status-locked' : 'status-pending'}`}>{e.status}</span></td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                                    </svg>
+                                                    Modify
+                                                </button>
+                                                <button 
+                                                    className="btn-delete-master" 
+                                                    style={{ 
+                                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                                        padding: '6px 12px', fontSize: '11px', color: '#ef4444', 
+                                                        border: '1px solid #fee2e2', background: '#fef2f2', 
+                                                        borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
+                                                    }}
+                                                    onClick={() => handleDelete(e.id, e.status)}
+                                                    disabled={e.status === STATUSES.LOCKED}
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                    </svg>
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
+                            }) : (
+                                <tr><td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No entries found</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 };
