@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { apiService } from '../../../services/api';
 
 const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) => {
+    const [masterBenches, setMasterBenches] = useState([]);
+    const [masterLongLines, setMasterLongLines] = useState([]);
+
+    useEffect(() => {
+        const fetchMasterData = async () => {
+            try {
+                const [benches, longLines] = await Promise.all([
+                    apiService.getStressBenches(),
+                    apiService.getLongLines()
+                ]);
+                setMasterBenches(benches || []);
+                setMasterLongLines(longLines || []);
+            } catch (err) {
+                console.error('Failed to fetch master data:', err);
+            }
+        };
+        fetchMasterData();
+    }, []);
     const AVAILABLE_SHEDS = [
         { name: 'Stress Bench A', type: 'Twin', mouldsPerBench: 8 },
         { name: 'Stress Bench B', type: 'Single', mouldsPerBench: 4 },
@@ -23,13 +42,51 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
     const getBenchMasterDetails = (benchNo) => {
         if (!benchNo) return { moulds: 0, rft: 0, sleeperNames: [], sleeperType: '' };
-        // Simulated lookup based on typical data - in production this would fetch from a master state
-        const moulds = 8;
-        const isPnC = parseInt(benchNo) % 5 === 0;
-        const rft = isPnC ? 2.5 : 0;
-        const sleeperType = isPnC ? 'RT-8746 (PnC)' : 'RT-8521';
-        const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
-        return { moulds, rft, sleeperNames, isPnC, sleeperType };
+        
+        // Find all matches in masterBenches (a bench might have multiple types, e.g. Turnouts)
+        const bNo = parseInt(benchNo);
+        const matches = masterBenches.filter(b => {
+            if (b.entryType === 'SINGLE') {
+                return b.benchNo == bNo;
+            } else if (b.entryType === 'RANGE') {
+                return bNo >= b.benchFrom && bNo <= b.benchTo;
+            }
+            return false;
+        });
+
+        if (matches.length > 0) {
+            // Join all unique sleeper types found for this bench
+            const uniqueTypes = [...new Set(matches.map(m => m.sleeperCategory).filter(Boolean))];
+            const moulds = matches[0].numMouldsPerItem || matches[0].mouldsPerBench || 0;
+            const sleeperType = uniqueTypes.join(', ');
+            const isPnC = sleeperType.toLowerCase().includes('pnc');
+            const rft = isPnC ? 2.5 : 0;
+            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+            return { moulds, rft, sleeperNames, isPnC, sleeperType, allTypes: uniqueTypes };
+        }
+
+        // Fallback or default
+        return { moulds: 0, rft: 0, sleeperNames: [], sleeperType: '' };
+    };
+
+    // Returns details scoped to a specific sleeper type (for per-type bench groups)
+    const getBenchMasterDetailsForType = (benchNo, sleeperType) => {
+        if (!benchNo || !sleeperType) return { moulds: 0, rft: 0, sleeperNames: [] };
+        const bNo = parseInt(benchNo);
+        const match = masterBenches.find(b => {
+            const typeMatch = b.sleeperCategory === sleeperType;
+            if (b.entryType === 'SINGLE') return b.benchNo == bNo && typeMatch;
+            if (b.entryType === 'RANGE') return bNo >= b.benchFrom && bNo <= b.benchTo && typeMatch;
+            return false;
+        });
+        if (match) {
+            const moulds = match.numMouldsPerItem || match.mouldsPerBench || 0;
+            const isPnC = sleeperType.toLowerCase().includes('pnc');
+            const rft = isPnC ? 2.5 : 0;
+            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+            return { moulds, rft, sleeperNames, isPnC };
+        }
+        return { moulds: 0, rft: 0, sleeperNames: [] };
     };
 
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
@@ -118,23 +175,56 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         }
     }, [initialData]);
 
+    useEffect(() => {
+        const gangNo = longLineForm.entryMode === 'single' ? longLineForm.singleNo : longLineForm.fromNo;
+        if (!gangNo || masterLongLines.length === 0) return;
+
+        const gNo = parseInt(gangNo);
+        const matches = masterLongLines.filter(m => {
+            if (m.entryMode === 'SINGLE') {
+                return m.gangNo == gNo;
+            } else if (m.entryMode === 'RANGE') {
+                return gNo >= m.gangFrom && gNo <= m.gangTo;
+            }
+            return false;
+        });
+
+        if (matches.length > 0) {
+            const uniqueTypes = [...new Set(matches.map(m => m.category).filter(Boolean))];
+            setLongLineForm(prev => ({
+                ...prev,
+                sleeperType: uniqueTypes.join(', ') || prev.sleeperType,
+                mouldsPerGang: matches[0].mouldsPerGang || prev.mouldsPerGang
+            }));
+        }
+    }, [longLineForm.singleNo, longLineForm.fromNo, longLineForm.entryMode, masterLongLines]);
+
     const isGroupPnC = (group) => {
         return group.sleeperType && group.sleeperType.toLowerCase().includes('pnc');
     };
 
     const isBenchDuplicate = (benchNo, currentChamberId, currentGroupId, currentBenchIdx) => {
         if (!benchNo) return false;
+        // Find the current group's pinned type so we can allow the same bench
+        // across groups that are type-separated (auto-split behaviour)
+        let currentPinnedType = null;
+        chambers.forEach(c => {
+            if (c.id === currentChamberId) {
+                c.benchGroups.forEach(g => {
+                    if (g.id === currentGroupId) currentPinnedType = g.pinnedSleeperType || null;
+                });
+            }
+        });
+
         let count = 0;
         chambers.forEach(c => {
             c.benchGroups.forEach(g => {
+                if (g.id === currentGroupId) return; // skip self-group
+                const otherPinnedType = g.pinnedSleeperType || null;
+                // If both groups have different pinned types, the duplication is intentional
+                if (currentPinnedType && otherPinnedType && currentPinnedType !== otherPinnedType) return;
                 g.benches.forEach((b, idx) => {
-                    if (b === benchNo) {
-                        if (c.id === currentChamberId && g.id === currentGroupId && idx === currentBenchIdx) {
-                            // self
-                        } else {
-                            count++;
-                        }
-                    }
+                    if (b === benchNo) count++;
                 });
             });
         });
@@ -186,20 +276,68 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         setChambers(newChambers);
     };
 
-    const updateBenchInGroup = (cIdx, gIdx, bIdx, value) => {
+    const handleBenchValueChange = (cIdx, gIdx, bIdx, value) => {
         const newChambers = [...chambers];
-        const group = newChambers[cIdx].benchGroups[gIdx];
-        group.benches[bIdx] = value;
+        newChambers[cIdx].benchGroups[gIdx].benches[bIdx] = value;
+        setChambers(newChambers);
+    };
 
-        // Auto determine sleeper type from master
-        const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
-        const uniqueTypes = [...new Set(types)];
-        if (uniqueTypes.length > 1) {
-            group.error = 'Mixed sleeper types in same group';
-            group.sleeperType = 'Error';
-        } else {
+    const resolveBenchMasterData = (cIdx, gIdx, bIdx, value) => {
+        if (!value) {
+            const newChambers = [...chambers];
+            const group = newChambers[cIdx].benchGroups[gIdx];
+            if (!group.benches.some(b => b.trim())) {
+                group.sleeperType = group.pinnedSleeperType || '';
+            }
+            setChambers(newChambers);
+            return;
+        }
+
+        const newChambers = [...chambers];
+        const chamber = newChambers[cIdx];
+        const group = chamber.benchGroups[gIdx];
+
+        // Resolve master details for the entered bench value
+        const details = getBenchMasterDetails(value);
+        const newTypes = details.allTypes && details.allTypes.length > 0 ? details.allTypes : (details.sleeperType ? [details.sleeperType] : []);
+
+        const currentGroupType = group.pinnedSleeperType || null;
+
+        if (newTypes.length > 1 && !currentGroupType) {
+            // Multiple types — split into separate groups
+            const firstType = newTypes[0];
+            const firstDetails = getBenchMasterDetailsForType(value, firstType);
+            group.sleeperType = firstType;
+            group.pinnedSleeperType = firstType;
+            group.mouldsPerBench = firstDetails.moulds || details.moulds || group.mouldsPerBench;
             group.error = null;
-            group.sleeperType = uniqueTypes[0] || '';
+
+            const extraGroups = newTypes.slice(1).map((type, i) => {
+                const typeDetails = getBenchMasterDetailsForType(value, type);
+                return {
+                    id: Date.now() + i + 1,
+                    benches: [value],
+                    mouldsPerBench: typeDetails.moulds || details.moulds || group.mouldsPerBench,
+                    sleeperType: type,
+                    pinnedSleeperType: type,
+                    error: null,
+                    _autoCreated: true
+                };
+            });
+
+            chamber.benchGroups.splice(gIdx + 1, 0, ...extraGroups);
+        } else {
+            // Single type or already pinned group
+            const resolvedType = currentGroupType || newTypes[0];
+            if (resolvedType) {
+                const typeDetails = getBenchMasterDetailsForType(value, resolvedType);
+                group.sleeperType = resolvedType;
+                group.mouldsPerBench = typeDetails.moulds || details.moulds || group.mouldsPerBench;
+                group.error = null;
+            } else if (value) {
+                // Not found in master
+                group.sleeperType = 'Unknown...';
+            }
         }
 
         setChambers(newChambers);
@@ -210,15 +348,22 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         const group = newChambers[cIdx].benchGroups[gIdx];
         group.benches.splice(bIdx, 1);
 
-        // Recalculate group error/type after removal from master
-        const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
-        const uniqueTypes = [...new Set(types)];
-        if (uniqueTypes.length > 1) {
-            group.error = 'Mixed sleeper types in same group';
-            group.sleeperType = 'Error';
-        } else {
+        // Recalculate group type after removal — respect pinnedSleeperType
+        if (group.pinnedSleeperType) {
+            // Keep the pinned type; just verify remaining benches still match
+            const validBenches = group.benches.filter(b => b.trim());
             group.error = null;
-            group.sleeperType = uniqueTypes[0] || '';
+            group.sleeperType = validBenches.length > 0 ? group.pinnedSleeperType : '';
+        } else {
+            const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
+            const uniqueTypes = [...new Set(types)];
+            if (uniqueTypes.length > 1) {
+                group.error = 'Mixed sleeper types in same group';
+                group.sleeperType = 'Error';
+            } else {
+                group.error = null;
+                group.sleeperType = uniqueTypes[0] || '';
+            }
         }
 
         setChambers(newChambers);
@@ -257,7 +402,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         if (plantType === 'Stress Bench') {
             return chambers.reduce((acc, c) => {
                 return acc + c.benchGroups.reduce((gAcc, g) => {
-                    return gAcc + g.benches.reduce((bAcc, b) => bAcc + getBenchMasterDetails(b).rft, 0);
+                    return gAcc + g.benches.reduce((bAcc, b) => bAcc + (g.pinnedSleeperType ? getBenchMasterDetailsForType(b, g.pinnedSleeperType).rft : getBenchMasterDetails(b).rft), 0);
                 }, 0);
             }, 0);
         }
@@ -525,7 +670,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                         </thead>
                                                         <tbody>
                                                             {chamber.benchGroups.map((group, gIdx) => (
-                                                                <tr key={group.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                                <tr key={group.id} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: group._autoCreated ? '3px solid #42818c' : '3px solid transparent' }}>
                                                                     <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                                             {group.benches.map((bench, bIdx) => {
@@ -536,7 +681,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                                                         <input
                                                                                             type="text"
                                                                                             value={bench}
-                                                                                            onChange={(e) => updateBenchInGroup(cIdx, gIdx, bIdx, e.target.value)}
+                                                                                            onChange={(e) => handleBenchValueChange(cIdx, gIdx, bIdx, e.target.value)}
+                                                                                            onBlur={(e) => resolveBenchMasterData(cIdx, gIdx, bIdx, e.target.value)}
+                                                                                            onKeyDown={(e) => e.key === 'Enter' && resolveBenchMasterData(cIdx, gIdx, bIdx, e.target.value)}
                                                                                             style={{
                                                                                                 ...inputStyle,
                                                                                                 width: '70px',
@@ -601,6 +748,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                                             {group.sleeperType || 'Identify...'}
                                                                         </div>
                                                                         {group.error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>{group.error}</div>}
+                                                                        {group._autoCreated && (
+                                                                            <div style={{ fontSize: '9px', fontWeight: '700', color: '#42818c', background: 'rgba(66,129,140,0.1)', border: '1px solid rgba(66,129,140,0.25)', borderRadius: '4px', padding: '2px 6px', marginTop: '4px', display: 'inline-block', letterSpacing: '0.04em' }}>
+                                                                                ⚡ TYPE SPLIT
+                                                                            </div>
+                                                                        )}
                                                                     </td>
                                                                     <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                                                                         <input
@@ -614,7 +766,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                                     {isGroupPnC(group) && (
                                                                         <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                                                                             <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
-                                                                                {group.benches.reduce((sum, b) => sum + getBenchMasterDetails(b).rft, 0)}
+                                                                                {group.benches.reduce((sum, b) => sum + (group.pinnedSleeperType ? getBenchMasterDetailsForType(b, group.pinnedSleeperType).rft : getBenchMasterDetails(b).rft), 0)}
                                                                             </div>
                                                                         </td>
                                                                     )}
@@ -706,9 +858,22 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         )}
                                         <div>
                                             <label style={labelStyle}>Sleeper Type</label>
-                                            <select value={longLineForm.sleeperType} onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })} style={{ ...inputStyle, background: 'white' }}>
+                                            <select 
+                                                value={longLineForm.sleeperType} 
+                                                onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })} 
+                                                style={{ ...inputStyle, background: 'white' }}
+                                            >
+                                                {/* Defaults */}
                                                 <option value="RT-8746">RT-8746</option>
                                                 <option value="RT-8521">RT-8521</option>
+                                                {/* Master Data Types (if any other) */}
+                                                {[...new Set(masterLongLines.map(m => m.category).filter(c => c && c !== 'RT-8746' && c !== 'RT-8521'))].map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                                {/* Current value if not in list */}
+                                                {longLineForm.sleeperType && !['RT-8746', 'RT-8521'].concat(masterLongLines.map(m => m.category)).includes(longLineForm.sleeperType) && (
+                                                    <option value={longLineForm.sleeperType}>{longLineForm.sleeperType}</option>
+                                                )}
                                             </select>
                                         </div>
                                         <button

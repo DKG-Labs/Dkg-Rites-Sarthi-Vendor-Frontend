@@ -196,6 +196,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     count = parseInt(row.toNo) - parseInt(row.fromNo) + 1;
                 }
 
+                // Format: CODE/DRG/ SET_NAME ( SET_DRG)
+                const setParts = formState.level3.split(':');
+                const setName = setParts[0].replace("(Set)", "").trim();
+                const setDrg = setParts[1] ? setParts[1].trim() : "";
+                const turnoutCategory = `${row.sleeperCode}/${row.drawingNo}/ ${setName} ( ${setDrg})`;
+
                 const payload = isLongLine ? {
                     entryMode: row.mode.toUpperCase(),
                     gangFrom: row.mode === 'range' ? parseInt(row.fromNo) : 0,
@@ -203,7 +209,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     gangNo: row.mode === 'single' ? parseInt(row.benchNo) : 0,
                     count: count,
                     mouldsPerGang: parseInt(row.moulds),
-                    category: `${row.sleeperCode} (${row.drawingNo})`,
+                    category: turnoutCategory,
                     vendorId: 118, createdBy: 118
                 } : {
                     entryType: row.mode.toUpperCase(),
@@ -212,7 +218,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                     benchNo: row.mode === 'single' ? parseInt(row.benchNo) : null,
                     noOfBenches: count,
                     mouldsPerBench: parseInt(row.moulds),
-                    sleeperCategory: `${row.sleeperCode} (${row.drawingNo})`,
+                    sleeperCategory: turnoutCategory,
                     vendorId: 118, createdBy: 118
                 };
 
@@ -364,6 +370,27 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         }
 
         return { category: 'Normal PSC Sleepers', subCategory: 'General' };
+    };
+
+    const formatCategoryDisplay = (cat) => {
+        if (!cat) return '';
+        if (cat.includes('/')) return cat;
+
+        const match = cat.match(/^(.*?)\s*\((.*?)\)$/);
+        if (match) {
+            const code = match[1].trim();
+            const drg = match[2].trim();
+            
+            for (const [setName, components] of Object.entries(TURNOUT_SET_DATA)) {
+                if (components.some(c => c.code === code || c.drg === drg)) {
+                    const setParts = setName.split(':');
+                    const name = setParts[0].replace("(Set)", "").trim();
+                    const sDrg = setParts[1] ? setParts[1].trim() : "";
+                    return `${code}/${drg}/ ${name} ( ${sDrg})`;
+                }
+            }
+        }
+        return cat;
     };
 
     return (
@@ -636,7 +663,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     <tr key={e.id} className={isSpecial ? 'special-sleeper-row' : ''}>
                                         <td>{idx + 1}</td>
                                         <td>{category}</td>
-                                        <td style={{ fontWeight: '600' }}>{e.sleeperCategory}</td>
+                                        <td style={{ fontWeight: '600' }}>{formatCategoryDisplay(e.sleeperCategory)}</td>
                                         <td>{e.entryMode === 'range' ? `${e.fromNo}-${e.toNo}` : (e.singleNo || e.fromNo)}</td>
                                         <td>{e.numMouldsPerItem}</td>
                                         <td><span className={`status-badge ${e.status === STATUSES.LOCKED ? 'status-locked' : 'status-pending'}`}>{e.status}</span></td>
