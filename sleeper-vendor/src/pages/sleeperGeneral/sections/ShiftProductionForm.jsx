@@ -42,7 +42,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
     const getBenchMasterDetails = (benchNo) => {
         if (!benchNo) return { moulds: 0, rft: 0, sleeperNames: [], sleeperType: '' };
-        
+
         // Find all matches in masterBenches (a bench might have multiple types, e.g. Turnouts)
         const bNo = parseInt(benchNo);
         const matches = masterBenches.filter(b => {
@@ -127,7 +127,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     useEffect(() => {
         if (initialData) {
             setPlantType(initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Stress Bench');
-            
+
             // Map header
             const [d, m, y] = (initialData.castingDate || '').split('/');
             setFormHeader({
@@ -858,9 +858,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         )}
                                         <div>
                                             <label style={labelStyle}>Sleeper Type</label>
-                                            <select 
-                                                value={longLineForm.sleeperType} 
-                                                onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })} 
+                                            <select
+                                                value={longLineForm.sleeperType}
+                                                onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
                                                 style={{ ...inputStyle, background: 'white' }}
                                             >
                                                 {/* Defaults */}

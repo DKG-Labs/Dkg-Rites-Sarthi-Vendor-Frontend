@@ -57,8 +57,8 @@ const TURNOUT_SET_DATA = {
         { code: "36", drg: "RT-4826" }, { code: "37", drg: "RT-4827" }, { code: "38", drg: "RT-4828" }, { code: "39", drg: "RT-4829" }, { code: "40", drg: "RT-4830" },
         { code: "41", drg: "RT-4831" }, { code: "42", drg: "RT-4832" }, { code: "43", drg: "RT-4833" }, { code: "44", drg: "RT-4834" }, { code: "45", drg: "RT-4835" },
         { code: "46", drg: "RT-4836" }, { code: "47", drg: "RT-4837" }, { code: "48", drg: "RT-4838" }, { code: "49", drg: "RT-4839" }, { code: "50", drg: "RT-4840" },
-        { code: "51", drg: "RT-4841" }, { code: "52", drg: "RT-4842" }, { code: "53", drg: "RT-4843" }, { code: "54", drg: "RT-4844" }, { code: "E-1", drg: "RT-5471" },
-        { code: "E-2", drg: "RT-5472" }, { code: "E-3", drg: "RT-5473" }, { code: "E-4", drg: "RT-5474" }
+        { code: "51", drg: "RT-4841" }, { code: "52", drg: "RT-4842" }, { code: "53", drg: "RT-4843" }, { code: "54", drg: "RT-4844" }, { code: "1E", drg: "RT-5471" },
+        { code: "2E", drg: "RT-5472" }, { code: "3E", drg: "RT-5473" }, { code: "4E", drg: "RT-5474" }
     ]
 };
 
@@ -84,6 +84,15 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     useEffect(() => {
         if (activeTabId === 'shed-1') fetchStressBenches();
         else if (activeTabId === 'line-1') fetchLongLines();
+        
+        // Reset form selections when switching between Stress Bench and Longline
+        setFormState(prev => ({
+            ...prev,
+            level1: '',
+            level2: '',
+            level3: '',
+            level4: ''
+        }));
     }, [activeTabId]);
 
     const fetchStressBenches = async () => {
@@ -459,7 +468,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                         <div className="select-wrapper">
                             <select className="image-style-select" value={formState.level1} onChange={(e) => setFormState(prev => ({ ...prev, level1: e.target.value }))}>
                                 <option value="">Select Category</option>
-                                {Object.keys(CATEGORY_HIERARCHY).map(k => <option key={k} value={k}>{k}</option>)}
+                                {Object.keys(CATEGORY_HIERARCHY)
+                                    .filter(k => activeTabId !== 'line-1' || k === "Normal PSC Sleepers")
+                                    .map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
                         </div>
                     </div>
@@ -468,7 +479,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                         <div className="select-wrapper">
                             <select className="image-style-select" value={formState.level2} onChange={(e) => setFormState(prev => ({ ...prev, level2: e.target.value }))}>
                                 <option value="">Select Sub-category</option>
-                                {Object.keys(CATEGORY_HIERARCHY[formState.level1] || {}).map(k => <option key={k} value={k}>{k}</option>)}
+                                {Object.keys(CATEGORY_HIERARCHY[formState.level1] || {})
+                                    .filter(k => k !== "Others")
+                                    .map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
                         </div>
                     </div>
