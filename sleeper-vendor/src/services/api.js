@@ -1,5 +1,5 @@
 const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-// const BASE_URL = 'http://localhost:8080/sarthi-backend/api';
+//const BASE_URL = 'http://localhost:8080/sarthi-backend/api';
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -655,7 +655,80 @@ export const apiService = {
         }
     },
 
-    // Existing / Legacy APIs
+    deleteBenchMouldStressLongline: async (id) => {
+        try {
+            const url = `${BASE_URL}/bench-mould-stress-longline/delete/${id}`;
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to delete bench mould data');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+    getAllBenchMouldStressLongline: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/bench-mould-stress-longline/getAll`, {
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch bench mould data');
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getBenchMouldStressLonglineById: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/bench-mould-stress-longline/get/${id}`, {
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error(`Failed to fetch bench mould data with id ${id}`);
+            const data = await response.json();
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
+    updateBenchMouldStressLongline: async (id, payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/bench-mould-stress-longline/update/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Update Error');
+            return data;
+        } catch (error) {
+            console.error('Unified API Error:', error);
+            throw error;
+        }
+    },
+
+    saveBenchMouldStressLongline: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/bench-mould-stress-longline/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.responseStatus?.message || 'Integration Error');
+            return data;
+        } catch (error) {
+            console.error('Unified API Error:', error);
+            throw error;
+        }
+    },
     getScadaRecords: async (page, size, batch) => {
         try {
             const response = await fetch(`${BASE_URL}/scada?page=${page}&size=${size}&batch=${batch}`);

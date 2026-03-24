@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../../../../services/api';
 import './PlantDeclaration.css';
 
@@ -79,59 +79,66 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     });
 
     const [activeTabId, setActiveTabId] = useState('');
-    const [tabEntries, setTabEntries] = useState({});
+    const [allEntries, setAllEntries] = useState([]);
+    const formRef = useRef(null);
 
     useEffect(() => {
-        if (activeTabId === 'shed-1') fetchStressBenches();
-        else if (activeTabId === 'line-1') fetchLongLines();
-        
-        // Reset form selections when switching between Stress Bench and Longline
-        setFormState(prev => ({
-            ...prev,
-            level1: '',
-            level2: '',
-            level3: '',
-            level4: ''
-        }));
+        fetchAllBMData();
+
+        // Reset form selections when switching between Stress Bench and Longline, 
+        // but ONLY if we are NOT in editing mode (to avoid wiping out loaded data)
+        if (!formState.isEditing) {
+            setFormState(prev => ({
+                ...prev,
+                level1: '',
+                level2: '',
+                level3: '',
+                level4: ''
+            }));
+        }
     }, [activeTabId]);
 
-    const fetchStressBenches = async () => {
+    const fetchAllBMData = async () => {
         try {
             setLoading(true);
-            const data = await apiService.getStressBenches();
-            const mappedData = data.map(b => ({
-                id: b.id,
-                entryMode: b.entryType?.toLowerCase() || 'single',
-                fromNo: b.benchFrom || '',
-                toNo: b.benchTo || '',
-                singleNo: b.benchNo || '',
-                numItems: b.noOfBenches || 1,
-                numMouldsPerItem: b.mouldsPerBench || 0,
-                totalMoulds: (b.noOfBenches || 1) * (b.mouldsPerBench || 0),
-                sleeperCategory: b.sleeperCategory,
-                status: (b.status?.toLowerCase().includes('complete') || b.status === STATUSES.LOCKED) ? STATUSES.LOCKED : STATUSES.PENDING
-            }));
-            setTabEntries(prev => ({ ...prev, 'shed-1': mappedData }));
-        } finally { setLoading(false); }
-    };
+            const data = await apiService.getAllBenchMouldStressLongline();
+            const flattened = [];
+            
+            data.forEach(master => {
+                const plantTypeLabel = master.plantType === 'STRESS' ? 'Stress Bench' : 'Longline';
+                master.details.forEach(detail => {
+                    const isRange = detail.declarationMode?.toUpperCase() === 'RANGE';
+                    const start = detail.benchFrom || detail.gangFrom || 0;
+                    const end = detail.benchTo || detail.gangTo || 0;
+                    const count = isRange ? (Math.max(0, Math.abs(end - start)) + 1) : 1;
 
-    const fetchLongLines = async () => {
-        try {
-            setLoading(true);
-            const data = await apiService.getLongLines();
-            const mappedData = data.map(b => ({
-                id: b.id,
-                entryMode: b.entryMode?.toLowerCase() || 'single',
-                fromNo: b.gangFrom || '',
-                toNo: b.gangTo || '',
-                singleNo: b.gangNo || '',
-                count: b.count || 1,
-                numMouldsPerItem: b.mouldsPerGang || 0,
-                sleeperCategory: b.category,
-                status: (b.status?.toLowerCase().includes('complete') || b.status === STATUSES.LOCKED) ? STATUSES.LOCKED : STATUSES.PENDING
-            }));
-            setTabEntries(prev => ({ ...prev, 'line-1': mappedData }));
-        } finally { setLoading(false); }
+                    flattened.push({
+                        id: detail.id,
+                        masterId: master.id,
+                        plantType: plantTypeLabel,
+                        category: master.category,
+                        subCategory: master.subCategory,
+                        drawingNo: master.drawingNo,
+                        sleeperCode: detail.sleeperCode,
+                        sleeperDrawingNo: detail.sleeperDrawingNo,
+                        entryMode: detail.declarationMode?.toLowerCase() || 'single',
+                        fromNo: detail.benchFrom || detail.gangFrom || '',
+                        toNo: detail.benchTo || detail.gangTo || '',
+                        singleNo: detail.benchNumber || detail.gangNumber || '',
+                        numMouldsPerItem: detail.noOfMoulds || 0,
+                        count: count,
+                        totalMouldsRow: count * (detail.noOfMoulds || 0),
+                        status: STATUSES.PENDING
+                    });
+                });
+            });
+            
+            setAllEntries(flattened);
+        } catch (error) {
+            console.error('Error fetching unified BM data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const [formState, setFormState] = useState({
@@ -145,13 +152,19 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         toNo: '',
         numMouldsPerItem: '',
         isEditing: false,
-        editingId: null
+        editingId: null,
+        editingDetailId: null
     });
 
     const [turnoutRows, setTurnoutRows] = useState([]);
     const [bulkState, setBulkState] = useState({ mode: 'single', bench: '', moulds: '' });
 
     useEffect(() => {
+        // Skip initialization if we are in editing mode and already have data (likely loaded via handleModify)
+        if (formState.isEditing && turnoutRows.length > 0 && turnoutRows.some(r => r.dbId)) {
+            return;
+        }
+
         if (TURNOUT_SET_DATA[formState.level3]) {
             const initialRows = TURNOUT_SET_DATA[formState.level3].map((item, idx) => ({
                 id: idx,
@@ -194,51 +207,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     const handleAddTurnoutToMaster = async () => {
         const checkedRows = turnoutRows.filter(r => r.checked);
         if (checkedRows.length === 0) { alert('No rows selected'); return; }
-
-        try {
-            setLoading(true);
-            const isLongLine = activeTabId === 'line-1';
-
-            for (const row of checkedRows) {
-                let count = 1;
-                if (row.mode === 'range') {
-                    count = parseInt(row.toNo) - parseInt(row.fromNo) + 1;
-                }
-
-                // Format: CODE/DRG/ SET_NAME ( SET_DRG)
-                const setParts = formState.level3.split(':');
-                const setName = setParts[0].replace("(Set)", "").trim();
-                const setDrg = setParts[1] ? setParts[1].trim() : "";
-                const turnoutCategory = `${row.sleeperCode}/${row.drawingNo}/ ${setName} ( ${setDrg})`;
-
-                const payload = isLongLine ? {
-                    entryMode: row.mode.toUpperCase(),
-                    gangFrom: row.mode === 'range' ? parseInt(row.fromNo) : 0,
-                    gangTo: row.mode === 'range' ? parseInt(row.toNo) : 0,
-                    gangNo: row.mode === 'single' ? parseInt(row.benchNo) : 0,
-                    count: count,
-                    mouldsPerGang: parseInt(row.moulds),
-                    category: turnoutCategory,
-                    vendorId: 118, createdBy: 118
-                } : {
-                    entryType: row.mode.toUpperCase(),
-                    benchFrom: row.mode === 'range' ? parseInt(row.fromNo) : null,
-                    benchTo: row.mode === 'range' ? parseInt(row.toNo) : null,
-                    benchNo: row.mode === 'single' ? parseInt(row.benchNo) : null,
-                    noOfBenches: count,
-                    mouldsPerBench: parseInt(row.moulds),
-                    sleeperCategory: turnoutCategory,
-                    vendorId: 118, createdBy: 118
-                };
-
-                if (isLongLine) await apiService.saveLongLine(payload);
-                else await apiService.saveStressBench(payload);
-            }
-
-            if (isLongLine) fetchLongLines();
-            else fetchStressBenches();
-            alert('Selection added successfully');
-        } finally { setLoading(false); }
+        await handleProfessionalDynamicSave(checkedRows);
     };
 
     useEffect(() => {
@@ -271,48 +240,15 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     }, [dynamicTabs]);
 
     const handleSave = async () => {
-        const isLongLine = activeTabId === 'line-1';
-        let count = 1;
-        if (formState.entryMode === 'range') {
-            count = parseInt(formState.toNo) - parseInt(formState.fromNo) + 1;
-        }
-        if (isNaN(count) || count <= 0) { alert('Please enter valid bench numbers'); return; }
-
-        const payload = isLongLine ? {
-            id: formState.editingId,
-            entryMode: formState.entryMode.toUpperCase(),
-            gangFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : 0,
-            gangTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : 0,
-            gangNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : 0,
-            count: count,
-            mouldsPerGang: parseInt(formState.numMouldsPerItem),
-            category: formState.level4,
-            vendorId: 118,
-            createdBy: 118
-        } : {
-            id: formState.editingId,
-            entryType: formState.entryMode.toUpperCase(),
-            benchFrom: formState.entryMode === 'range' ? parseInt(formState.fromNo) : null,
-            benchTo: formState.entryMode === 'range' ? parseInt(formState.toNo) : null,
-            benchNo: formState.entryMode === 'single' ? parseInt(formState.singleNo) : null,
-            noOfBenches: count,
-            mouldsPerBench: parseInt(formState.numMouldsPerItem),
-            sleeperCategory: formState.level4,
-            vendorId: 118,
-            createdBy: 118
+        const item = {
+            sleeperDrawingNo: formState.level4,
+            mode: formState.entryMode,
+            benchNo: formState.singleNo,
+            fromNo: formState.fromNo,
+            toNo: formState.toNo,
+            moulds: formState.numMouldsPerItem
         };
-
-        try {
-            setLoading(true);
-            if (isLongLine) await apiService.saveLongLine(payload);
-            else await apiService.saveStressBench(payload);
-
-            if (isLongLine) fetchLongLines();
-            else fetchStressBenches();
-
-            setFormState(prev => ({ ...prev, isEditing: false, singleNo: '', fromNo: '', toNo: '', editingId: null }));
-            alert('Selection added successfully');
-        } finally { setLoading(false); }
+        await handleProfessionalDynamicSave([item]);
     };
 
     const handleDelete = async (id, status) => {
@@ -321,13 +257,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
         try {
             setLoading(true);
-            const isLongLine = activeTabId === 'line-1';
-            if (isLongLine) await apiService.deleteLongLine(id);
-            else await apiService.deleteStressBench(id);
-
-            alert('Entry deleted successfully');
-            if (isLongLine) fetchLongLines();
-            else fetchStressBenches();
+            await apiService.deleteBenchMouldStressLongline(id);
+            alert('Selection deleted successfully');
+            await fetchAllBMData();
         } catch (err) {
             alert('Error deleting entry: ' + err.message);
         } finally {
@@ -335,9 +267,84 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         }
     };
 
-    const currentEntries = tabEntries[activeTabId] || [];
-    const totalItems = currentEntries.reduce((acc, c) => acc + (parseInt(c.numItems || c.count) || 0), 0);
-    const totalMoulds = currentEntries.reduce((acc, c) => acc + ((parseInt(c.numItems || c.count) || 0) * (parseInt(c.numMouldsPerItem) || 0)), 0);
+    const handleModify = async (id) => {
+        try {
+            setLoading(true);
+            const master = await apiService.getBenchMouldStressLonglineById(id);
+            if (!master) throw new Error('Could not fetch record details');
+
+            // 1. Determine which tab to switch to
+            const targetTab = master.plantType === 'STRESS' ? 'shed-1' : 'line-1';
+            
+            // 2. Set active tab (triggers reset effect, but we check isEditing there)
+            setActiveTabId(targetTab);
+
+            // 3. Populate form state
+            setFormState({
+                level1: master.category || '',
+                level2: master.subCategory || '',
+                level3: master.drawingNo || '',
+                level4: master.drawingNo || '',
+                entryMode: master.details?.[0]?.declarationMode?.toLowerCase() || 'single',
+                singleNo: master.details?.[0]?.benchNumber || master.details?.[0]?.gangNumber || '',
+                fromNo: (master.details?.[0]?.benchFrom !== undefined && master.details[0].benchFrom !== null ? master.details[0].benchFrom : master.details?.[0]?.gangFrom) || '',
+                toNo: (master.details?.[0]?.benchTo !== undefined && master.details[0].benchTo !== null ? master.details[0].benchTo : master.details?.[0]?.gangTo) || '',
+                numMouldsPerItem: master.details?.[0]?.noOfMoulds || '',
+                isEditing: true,
+                editingId: master.id,
+                editingDetailId: master.details?.[0]?.id || null
+            });
+
+            // 4. If it's a turnout (multiple details or turnout drawing), populate full turnoutRows
+            const isTurnout = master.drawingNo?.includes('Set') && TURNOUT_SET_DATA[master.drawingNo];
+            if (isTurnout) {
+                const allPossibleRows = TURNOUT_SET_DATA[master.drawingNo].map((item, idx) => {
+                    const existing = (master.details || []).find(d => 
+                        d.sleeperCode === item.code || d.sleeperDrawingNo === item.drg
+                    );
+                    
+                    return {
+                        id: idx,
+                        dbId: existing?.id || null,
+                        sleeperCode: item.code,
+                        drawingNo: item.drg,
+                        mode: existing?.declarationMode?.toLowerCase() || 'single',
+                        benchNo: existing?.benchNumber || existing?.gangNumber || '',
+                        fromNo: (existing?.benchFrom !== undefined && existing.benchFrom !== null ? existing.benchFrom : existing?.gangFrom) || '',
+                        toNo: (existing?.benchTo !== undefined && existing.benchTo !== null ? existing.benchTo : existing?.gangTo) || '',
+                        moulds: existing?.noOfMoulds || '',
+                        checked: !!existing
+                    };
+                });
+                setTurnoutRows(allPossibleRows);
+            } else if (master.details && master.details.length > 1) {
+                const rows = master.details.map((d, idx) => ({
+                    id: idx,
+                    dbId: d.id, // Keep original DB ID for update
+                    sleeperCode: d.sleeperCode,
+                    drawingNo: d.sleeperDrawingNo,
+                    mode: d.declarationMode?.toLowerCase() || 'single',
+                    benchNo: d.benchNumber || d.gangNumber || '',
+                    fromNo: d.benchFrom || d.gangFrom || '',
+                    toNo: d.benchTo || d.gangTo || '',
+                    moulds: d.noOfMoulds,
+                    checked: true
+                }));
+                setTurnoutRows(rows);
+            }
+
+            // Scroll to form
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            alert('Error loading entry: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const currentEntries = allEntries;
+    const totalItems = currentEntries.reduce((acc, c) => acc + (c.count || 0), 0);
+    const totalMoulds = currentEntries.reduce((acc, c) => acc + (c.totalMouldsRow || 0), 0);
 
     const findHierarchy = (drawingNo) => {
         if (!drawingNo) return { category: 'Normal PSC Sleepers', subCategory: 'General' };
@@ -381,6 +388,11 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         return { category: 'Normal PSC Sleepers', subCategory: 'General' };
     };
 
+    const formatMasterDrawing = (drg) => {
+        if (!drg) return '';
+        return drg.replace("(Set)", "").replace(":", "").replace(/\s+/g, ' ').trim();
+    };
+
     const formatCategoryDisplay = (cat) => {
         if (!cat) return '';
         if (cat.includes('/')) return cat;
@@ -389,7 +401,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         if (match) {
             const code = match[1].trim();
             const drg = match[2].trim();
-            
+
             for (const [setName, components] of Object.entries(TURNOUT_SET_DATA)) {
                 if (components.some(c => c.code === code || c.drg === drg)) {
                     const setParts = setName.split(':');
@@ -402,10 +414,89 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         return cat;
     };
 
+    // ==========================================
+    // PROFESSIONAL DYNAMIC API INTEGRATION
+    // ==========================================
+    const handleProfessionalDynamicSave = async (items) => {
+        const isLongLine = activeTabId === 'line-1';
+        const isTurnout = formState.level3?.includes('Set');
+        
+        try {
+            setLoading(true);
+            const payload = {
+                plantType: isLongLine ? "LONG_LINE" : "STRESS",
+                category: formState.level1 || "",
+                subCategory: formState.level2 || "",
+                drawingNo: formState.level3 || "",
+                createdBy: 118,
+                details: items.map(item => {
+                    const modeValue = (item.mode || formState.entryMode || "single").toLowerCase();
+                    const isR = modeValue === 'range';
+                    const isS = modeValue === 'single';
+                    
+                    // Extract numeric values strictly based on mode
+                    const fNo = isR ? (parseInt(item.fromNo || formState.fromNo) || 0) : null;
+                    const tNo = isR ? (parseInt(item.toNo || formState.toNo) || 0) : null;
+                    const bNo = isS ? (parseInt(item.benchNo || item.singleNo || formState.singleNo) || 0) : null;
+                    const mCount = parseInt(item.moulds || formState.numMouldsPerItem) || 0;
+
+                    // Only use editingDetailId for non-turnout records where we conceptually have one detail
+                    const detail = {
+                        id: (isTurnout ? item.dbId : (item.dbId || formState.editingDetailId)) || 0,
+                        sleeperCode: item.sleeperCode || "",
+                        sleeperDrawingNo: item.sleeperDrawingNo || item.drawingNo || formState.level4 || "",
+                        declarationMode: modeValue.toUpperCase(),
+                        // Stress Bench fields: numeric only for STRESS and correct mode
+                        benchFrom: !isLongLine ? fNo : null,
+                        benchTo: !isLongLine ? tNo : null,
+                        benchNumber: !isLongLine ? bNo : null,
+                        // Longline fields: numeric only for LONG_LINE and correct mode
+                        gangFrom: isLongLine ? fNo : 0, 
+                        gangTo: isLongLine ? tNo : 0,
+                        gangNumber: isLongLine ? bNo : 0,
+                        noOfMoulds: mCount
+                    };
+
+                    console.log('Constructed Payload Segment:', detail);
+                    return detail;
+                })
+            };
+
+            if (formState.isEditing && formState.editingId) {
+                await apiService.updateBenchMouldStressLongline(formState.editingId, payload);
+            } else {
+                await apiService.saveBenchMouldStressLongline(payload);
+            }
+            
+            // Refresh grid data
+            await fetchAllBMData();
+
+            // Success feedback and reset
+            if (items.length === 1 || formState.isEditing) {
+                setFormState(prev => ({ 
+                    ...prev, 
+                    isEditing: false, 
+                    singleNo: '', 
+                    fromNo: '', 
+                    toNo: '', 
+                    numMouldsPerItem: '',
+                    editingId: null,
+                    editingDetailId: null 
+                }));
+            }
+            alert(formState.isEditing ? 'Entry modified successfully' : 'Selection added successfully via Professional Dynamic API');
+        } catch (error) {
+            console.error('Professional API Error:', error);
+            alert('Integration error: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="bench-mould-container">
             {loading && <div className="loading-overlay"><div className="spinner"></div></div>}
-            
+
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Bench / Mould Master Declaration</h3>
 
             <div className="summary-grid">
@@ -425,7 +516,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 </div>
                 <div className="summary-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div className="label">{activeTabId === 'line-1' ? 'Gangs' : 'Benches'} Declared</div>
+                        <div className="label">Benches / Gangs Declared</div>
                         <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '10px' }}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -451,9 +542,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 </div>
             </div>
 
-            <div className="form-section-card">
+            <div className="form-section-card" ref={formRef}>
                 <h4 className="form-title-h4">
-                    New {activeTabId === 'line-1' ? 'Gang' : 'Bench'} Declaration
+                    {formState.isEditing ? 'Modify Existing Entry' : `New ${activeTabId === 'line-1' ? 'Gang' : 'Bench'} Declaration`}
                 </h4>
 
                 {/* Step 1 */}
@@ -534,18 +625,18 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                             <td>
                                                 <div className="radio-group-table">
                                                     <label className="radio-item-table">
-                                                        <input 
-                                                            type="radio" 
-                                                            checked={row.mode === 'single'} 
-                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'single')} 
+                                                        <input
+                                                            type="radio"
+                                                            checked={row.mode === 'single'}
+                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'single')}
                                                         />
                                                         Single
                                                     </label>
                                                     <label className="radio-item-table">
-                                                        <input 
-                                                            type="radio" 
-                                                            checked={row.mode === 'range'} 
-                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'range')} 
+                                                        <input
+                                                            type="radio"
+                                                            checked={row.mode === 'range'}
+                                                            onChange={() => handleTurnoutRowChange(row.id, 'mode', 'range')}
                                                         />
                                                         Range
                                                     </label>
@@ -565,7 +656,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                                 <input type="number" className="mini-input" value={row.moulds} onChange={e => handleTurnoutRowChange(row.id, 'moulds', e.target.value)} />
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
-                                                <button 
+                                                <button
                                                     className={`plus-toggle-btn ${row.checked ? 'active' : ''}`}
                                                     onClick={() => handleTurnoutRowChange(row.id, 'checked', !row.checked)}
                                                 >
@@ -578,12 +669,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             </table>
                         </div>
 
-                        <button className="add-checked-master-btn" onClick={handleAddTurnoutToMaster}>
+                        <button className="add-checked-master-btn" onClick={handleAddTurnoutToMaster} disabled={loading}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
-                            Add new entry
+                            {formState.isEditing ? 'Modify existing entry' : 'Add new entry'}
                         </button>
                     </div>
                 ) : (
@@ -632,12 +723,12 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                             </div>
                         </div>
 
-                        <button className="add-master-btn" onClick={handleSave}>
+                        <button className="add-master-btn" onClick={handleSave} disabled={loading}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
-                            Add new entry
+                            {formState.isEditing ? 'Modify existing entry' : 'Add new entry'}
                         </button>
                     </>
                 )}
@@ -659,9 +750,10 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                         <thead>
                             <tr>
                                 <th>#</th>
+                                <th>Plant Type</th>
                                 <th>Category</th>
-                                <th>Drawing No.</th>
-                                <th>{activeTabId === 'line-1' ? 'Gang' : 'Bench'} No(s).</th>
+                                <th>drawingNo / sleeperCode / sleeperDrawingNo</th>
+                                <th>Bench/Gang No(s).</th>
                                 <th>No. of Moulds</th>
                                 <th>Status</th>
                                 <th style={{ textAlign: 'center' }}>Actions</th>
@@ -669,35 +761,42 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                         </thead>
                         <tbody>
                             {currentEntries.length > 0 ? currentEntries.map((e, idx) => {
-                                const { category, subCategory } = findHierarchy(e.sleeperCategory);
+                                const { category, subCategory } = findHierarchy(e.drawingNo);
                                 const isSpecial = category === 'Special Sleepers';
 
                                 return (
-                                    <tr key={e.id} className={isSpecial ? 'special-sleeper-row' : ''}>
+                                    <tr key={`${e.id}-${idx}`} className={isSpecial ? 'special-sleeper-row' : ''}>
                                         <td>{idx + 1}</td>
+                                        <td style={{ fontWeight: '500', color: '#64748b' }}>{e.plantType}</td>
                                         <td>{category}</td>
-                                        <td style={{ fontWeight: '600' }}>{formatCategoryDisplay(e.sleeperCategory)}</td>
+                                        <td style={{ fontWeight: '600' }}>
+                                            {`${formatMasterDrawing(e.drawingNo)} / ${e.sleeperCode || 'N/A'} / ${e.sleeperDrawingNo || 'N/A'}`}
+                                        </td>
                                         <td>{e.entryMode === 'range' ? `${e.fromNo}-${e.toNo}` : (e.singleNo || e.fromNo)}</td>
                                         <td>{e.numMouldsPerItem}</td>
                                         <td><span className={`status-badge ${e.status === STATUSES.LOCKED ? 'status-locked' : 'status-pending'}`}>{e.status}</span></td>
                                         <td style={{ textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <button 
+                                                    className="btn-outline" 
+                                                    style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                    onClick={() => handleModify(e.masterId)}
+                                                >
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                                     </svg>
                                                     Modify
                                                 </button>
-                                                <button 
-                                                    className="btn-delete-master" 
-                                                    style={{ 
+                                                <button
+                                                    className="btn-delete-master"
+                                                    style={{
                                                         display: 'flex', alignItems: 'center', gap: '4px',
-                                                        padding: '6px 12px', fontSize: '11px', color: '#ef4444', 
-                                                        border: '1px solid #fee2e2', background: '#fef2f2', 
+                                                        padding: '6px 12px', fontSize: '11px', color: '#ef4444',
+                                                        border: '1px solid #fee2e2', background: '#fef2f2',
                                                         borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
                                                     }}
-                                                    onClick={() => handleDelete(e.id, e.status)}
+                                                    onClick={() => handleDelete(e.masterId, e.status)}
                                                     disabled={e.status === STATUSES.LOCKED}
                                                 >
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
