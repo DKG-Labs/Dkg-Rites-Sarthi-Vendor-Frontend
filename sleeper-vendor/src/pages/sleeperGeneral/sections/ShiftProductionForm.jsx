@@ -102,11 +102,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         remarks: ''
     });
 
-    const [chambers, setChambers] = useState([{
-        id: 1,
+    const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
+    const [stressBenchEntries, setStressBenchEntries] = useState([]);
+    const [stressBenchForm, setStressBenchForm] = useState({
         chamberNo: '',
-        benchGroups: [{ id: Date.now(), benches: [''], mouldsPerBench: 8, sleeperType: '' }]
-    }]);
+        entryMode: 'range',
+        fromNo: '',
+        toNo: '',
+        singleNo: '',
+        sleeperType: '',
+        mouldsPerBench: 8
+    });
 
     const [longLineEntries, setLongLineEntries] = useState([]);
     const [longLineForm, setLongLineForm] = useState({
@@ -143,17 +149,22 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
             // Map chambers for Stress Bench
             if (initialData.plantType === 'STRESS' && initialData.chambers) {
-                const mappedChambers = initialData.chambers.map((c, cIdx) => ({
-                    id: cIdx + 1,
-                    chamberNo: c.chamberNo,
-                    benchGroups: c.benchGroups ? c.benchGroups.map((g, gIdx) => ({
-                        id: Date.now() + cIdx + gIdx,
-                        benches: [g.benchNo.toString()],
-                        mouldsPerBench: g.mouldPerBench,
-                        sleeperType: g.sleeperType
-                    })) : []
-                }));
-                if (mappedChambers.length > 0) setChambers(mappedChambers);
+                const mappedEntries = [];
+                initialData.chambers.forEach(c => {
+                    c.benchGroups.forEach(g => {
+                        mappedEntries.push({
+                            id: Date.now() + Math.random(), // Unique ID
+                            chamberNo: c.chamberNo,
+                            entryMode: g.mode?.toLowerCase() || 'single', // Assuming 'single' if not specified
+                            fromNo: g.benchFrom?.toString() || '',
+                            toNo: g.benchTo?.toString() || '',
+                            singleNo: g.benchNo?.toString() || '',
+                            sleeperType: g.sleeperType || '',
+                            mouldsPerBench: g.mouldPerBench || 8
+                        });
+                    });
+                });
+                if (mappedEntries.length > 0) setStressBenchEntries(mappedEntries);
             }
 
             // Map gangs for Long Line
@@ -181,9 +192,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
         const gNo = parseInt(gangNo);
         const matches = masterLongLines.filter(m => {
-            if (m.entryMode === 'SINGLE') {
+            if (m.entryType === 'SINGLE') {
                 return m.gangNo == gNo;
-            } else if (m.entryMode === 'RANGE') {
+            } else if (m.entryType === 'RANGE') {
                 return gNo >= m.gangFrom && gNo <= m.gangTo;
             }
             return false;
@@ -199,10 +210,54 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         }
     }, [longLineForm.singleNo, longLineForm.fromNo, longLineForm.entryMode, masterLongLines]);
 
+    // This useEffect will group stressBenchEntries into chambers for submission/display
+    useEffect(() => {
+        const groupedChambers = stressBenchEntries.reduce((acc, entry) => {
+            const chamberNo = entry.chamberNo;
+            if (!acc[chamberNo]) {
+                acc[chamberNo] = {
+                    id: chamberNo, // Use chamberNo as ID for grouping
+                    chamberNo: chamberNo,
+                    benchGroups: []
+                };
+            }
+            acc[chamberNo].benchGroups.push({
+                id: entry.id,
+                entryMode: entry.entryMode,
+                benches: entry.entryMode === 'single' ? [entry.singleNo] : [], // For single, use singleNo
+                fromNo: entry.fromNo,
+                toNo: entry.toNo,
+                singleNo: entry.singleNo,
+                mouldsPerBench: entry.mouldsPerBench,
+                sleeperType: entry.sleeperType,
+                // Add other properties if needed for calculations or display
+            });
+            return acc;
+        }, {});
+        setChambers(Object.values(groupedChambers));
+    }, [stressBenchEntries]);
+
+    // Autopopulate Stress Bench sleeper type from bench master
+    useEffect(() => {
+        const benchNo = stressBenchForm.entryMode === 'single' ? stressBenchForm.singleNo : stressBenchForm.fromNo;
+        if (!benchNo) return;
+
+        const details = getBenchMasterDetails(benchNo);
+        if (details.sleeperType) {
+            setStressBenchForm(prev => ({
+                ...prev,
+                sleeperType: details.sleeperType,
+                mouldsPerBench: details.moulds || prev.mouldsPerBench
+            }));
+        }
+    }, [stressBenchForm.singleNo, stressBenchForm.fromNo, stressBenchForm.entryMode]);
+
+
     const isGroupPnC = (group) => {
         return group.sleeperType && group.sleeperType.toLowerCase().includes('pnc');
     };
 
+    // This function is no longer directly used by the UI, but kept for potential future use or logic
     const isBenchDuplicate = (benchNo, currentChamberId, currentGroupId, currentBenchIdx) => {
         if (!benchNo) return false;
         // Find the current group's pinned type so we can allow the same bench
@@ -235,175 +290,211 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         setActiveSections(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const addChamber = () => {
-        setChambers([...chambers, {
-            id: Date.now(),
-            chamberNo: '',
-            benchGroups: [{ id: Date.now() + 1, benches: [''], mouldsPerBench: formHeader.shedType === 'Single' ? 4 : 8, sleeperType: '' }]
-        }]);
-    };
+    // These functions are no longer directly used by the UI, as the UI now uses stressBenchEntries
+    // const addChamber = () => {
+    //     setChambers([...chambers, {
+    //         id: Date.now(),
+    //         chamberNo: '',
+    //         benchGroups: [{ id: Date.now() + 1, entryMode: 'range', benches: [''], fromNo: '', toNo: '', singleNo: '', mouldsPerBench: formHeader.shedType === 'Single' ? 4 : 8, sleeperType: '' }]
+    //     }]);
+    // };
 
-    const removeChamber = (index) => {
-        const newChambers = [...chambers];
-        if (newChambers.length <= 1) return;
-        newChambers.splice(index, 1);
-        setChambers(newChambers);
-    };
+    // const removeChamber = (index) => {
+    //     const newChambers = [...chambers];
+    //     if (newChambers.length <= 1) return;
+    //     newChambers.splice(index, 1);
+    //     setChambers(newChambers);
+    // };
 
-    const updateChamberNo = (index, value) => {
-        const val = parseInt(value);
-        if (!isNaN(val) && val < 0) return;
-        const newChambers = [...chambers];
-        newChambers[index].chamberNo = value;
-        setChambers(newChambers);
-    };
+    // const updateChamberNo = (index, value) => {
+    //     const val = parseInt(value);
+    //     if (!isNaN(val) && val < 0) return;
+    //     const newChambers = [...chambers];
+    //     newChambers[index].chamberNo = value;
+    //     setChambers(newChambers);
+    // };
 
-    const addBenchGroup = (cIdx) => {
-        const newChambers = [...chambers];
-        newChambers[cIdx].benchGroups.push({
-            id: Date.now(),
-            benches: [''],
-            mouldsPerBench: formHeader.shedType === 'Single' ? 4 : 8,
-            sleeperType: ''
-        });
-        setChambers(newChambers);
-    };
+    // const addBenchGroup = (cIdx) => {
+    //     const newChambers = [...chambers];
+    //     newChambers[cIdx].benchGroups.push({
+    //         id: Date.now(),
+    //         entryMode: 'range',
+    //         benches: [''],
+    //         fromNo: '',
+    //         toNo: '',
+    //         singleNo: '',
+    //         mouldsPerBench: formHeader.shedType === 'Single' ? 4 : 8,
+    //         sleeperType: ''
+    //     });
+    //     setChambers(newChambers);
+    // };
 
-    const removeBenchGroup = (cIdx, gIdx) => {
-        const newChambers = [...chambers];
-        if (newChambers[cIdx].benchGroups.length <= 1) return;
-        newChambers[cIdx].benchGroups.splice(gIdx, 1);
-        setChambers(newChambers);
-    };
+    // const removeBenchGroup = (cIdx, gIdx) => {
+    //     const newChambers = [...chambers];
+    //     if (newChambers[cIdx].benchGroups.length <= 1) return;
+    //     newChambers[cIdx].benchGroups.splice(gIdx, 1);
+    //     setChambers(newChambers);
+    // };
 
-    const handleBenchValueChange = (cIdx, gIdx, bIdx, value) => {
-        const newChambers = [...chambers];
-        newChambers[cIdx].benchGroups[gIdx].benches[bIdx] = value;
-        setChambers(newChambers);
-    };
+    // const handleGroupEntryModeChange = (cIdx, gIdx, mode) => {
+    //     const newChambers = [...chambers];
+    //     newChambers[cIdx].benchGroups[gIdx].entryMode = mode;
+    //     setChambers(newChambers);
+    // };
 
-    const resolveBenchMasterData = (cIdx, gIdx, bIdx, value) => {
-        if (!value) {
-            const newChambers = [...chambers];
-            const group = newChambers[cIdx].benchGroups[gIdx];
-            if (!group.benches.some(b => b.trim())) {
-                group.sleeperType = group.pinnedSleeperType || '';
-            }
-            setChambers(newChambers);
-            return;
-        }
+    // const handleGroupValueChange = (cIdx, gIdx, field, value) => {
+    //     const newChambers = [...chambers];
+    //     newChambers[cIdx].benchGroups[gIdx][field] = value;
+    //     setChambers(newChambers);
+    // };
 
-        const newChambers = [...chambers];
-        const chamber = newChambers[cIdx];
-        const group = chamber.benchGroups[gIdx];
+    // const handleBenchValueChange = (cIdx, gIdx, bIdx, value) => {
+    //     const newChambers = [...chambers];
+    //     newChambers[cIdx].benchGroups[gIdx].benches[bIdx] = value;
+    //     setChambers(newChambers);
+    // };
 
-        // Resolve master details for the entered bench value
-        const details = getBenchMasterDetails(value);
-        const newTypes = details.allTypes && details.allTypes.length > 0 ? details.allTypes : (details.sleeperType ? [details.sleeperType] : []);
+    // const resolveBenchMasterData = (cIdx, gIdx, bIdx, value) => {
+    //     if (!value) {
+    //         const newChambers = [...chambers];
+    //         const group = newChambers[cIdx].benchGroups[gIdx];
+    //         if (!group.benches.some(b => b.trim())) {
+    //             group.sleeperType = group.pinnedSleeperType || '';
+    //         }
+    //         setChambers(newChambers);
+    //         return;
+    //     }
 
-        const currentGroupType = group.pinnedSleeperType || null;
+    //     const newChambers = [...chambers];
+    //     const chamber = newChambers[cIdx];
+    //     const group = chamber.benchGroups[gIdx];
 
-        if (newTypes.length > 1 && !currentGroupType) {
-            // Multiple types — split into separate groups
-            const firstType = newTypes[0];
-            const firstDetails = getBenchMasterDetailsForType(value, firstType);
-            group.sleeperType = firstType;
-            group.pinnedSleeperType = firstType;
-            group.mouldsPerBench = firstDetails.moulds || details.moulds || group.mouldsPerBench;
-            group.error = null;
+    //     // Resolve master details for the entered bench value
+    //     const details = getBenchMasterDetails(value);
+    //     const newTypes = details.allTypes && details.allTypes.length > 0 ? details.allTypes : (details.sleeperType ? [details.sleeperType] : []);
 
-            const extraGroups = newTypes.slice(1).map((type, i) => {
-                const typeDetails = getBenchMasterDetailsForType(value, type);
-                return {
-                    id: Date.now() + i + 1,
-                    benches: [value],
-                    mouldsPerBench: typeDetails.moulds || details.moulds || group.mouldsPerBench,
-                    sleeperType: type,
-                    pinnedSleeperType: type,
-                    error: null,
-                    _autoCreated: true
-                };
-            });
+    //     const currentGroupType = group.pinnedSleeperType || null;
 
-            chamber.benchGroups.splice(gIdx + 1, 0, ...extraGroups);
-        } else {
-            // Single type or already pinned group
-            const resolvedType = currentGroupType || newTypes[0];
-            if (resolvedType) {
-                const typeDetails = getBenchMasterDetailsForType(value, resolvedType);
-                group.sleeperType = resolvedType;
-                group.mouldsPerBench = typeDetails.moulds || details.moulds || group.mouldsPerBench;
-                group.error = null;
-            } else if (value) {
-                // Not found in master
-                group.sleeperType = 'Unknown...';
-            }
-        }
+    //     if (newTypes.length > 1 && !currentGroupType) {
+    //         // Multiple types — split into separate groups
+    //         const firstType = newTypes[0];
+    //         const firstDetails = getBenchMasterDetailsForType(value, firstType);
+    //         group.sleeperType = firstType;
+    //         group.pinnedSleeperType = firstType;
+    //         group.mouldsPerBench = firstDetails.moulds || details.moulds || group.mouldsPerBench;
+    //         group.error = null;
 
-        setChambers(newChambers);
-    };
+    //         const extraGroups = newTypes.slice(1).map((type, i) => {
+    //             const typeDetails = getBenchMasterDetailsForType(value, type);
+    //             return {
+    //                 id: Date.now() + i + 1,
+    //                 entryMode: 'single',
+    //                 benches: [value],
+    //                 fromNo: '',
+    //                 toNo: '',
+    //                 singleNo: value,
+    //                 mouldsPerBench: typeDetails.moulds || details.moulds || group.mouldsPerBench,
+    //                 sleeperType: type,
+    //                 pinnedSleeperType: type,
+    //                 error: null,
+    //                 _autoCreated: true
+    //             };
+    //         });
 
-    const removeBenchFromGroup = (cIdx, gIdx, bIdx) => {
-        const newChambers = [...chambers];
-        const group = newChambers[cIdx].benchGroups[gIdx];
-        group.benches.splice(bIdx, 1);
+    //         chamber.benchGroups.splice(gIdx + 1, 0, ...extraGroups);
+    //     } else {
+    //         // Single type or already pinned group
+    //         const resolvedType = currentGroupType || newTypes[0];
+    //         if (resolvedType) {
+    //             const typeDetails = getBenchMasterDetailsForType(value, resolvedType);
+    //             group.sleeperType = resolvedType;
+    //             group.mouldsPerBench = typeDetails.moulds || details.moulds || group.mouldsPerBench;
+    //             group.error = null;
+    //         } else if (value) {
+    //             // Not found in master
+    //             group.sleeperType = 'Unknown...';
+    //         }
+    //     }
 
-        // Recalculate group type after removal — respect pinnedSleeperType
-        if (group.pinnedSleeperType) {
-            // Keep the pinned type; just verify remaining benches still match
-            const validBenches = group.benches.filter(b => b.trim());
-            group.error = null;
-            group.sleeperType = validBenches.length > 0 ? group.pinnedSleeperType : '';
-        } else {
-            const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
-            const uniqueTypes = [...new Set(types)];
-            if (uniqueTypes.length > 1) {
-                group.error = 'Mixed sleeper types in same group';
-                group.sleeperType = 'Error';
-            } else {
-                group.error = null;
-                group.sleeperType = uniqueTypes[0] || '';
-            }
-        }
+    //     setChambers(newChambers);
+    // };
 
-        setChambers(newChambers);
-    };
+    // const removeBenchFromGroup = (cIdx, gIdx, bIdx) => {
+    //     const newChambers = [...chambers];
+    //     const group = newChambers[cIdx].benchGroups[gIdx];
+    //     group.benches.splice(bIdx, 1);
 
-    const addBenchToGroup = (cIdx, gIdx) => {
-        const newChambers = [...chambers];
-        newChambers[cIdx].benchGroups[gIdx].benches.push('');
-        setChambers(newChambers);
-    };
+    //     // Recalculate group type after removal — respect pinnedSleeperType
+    //     if (group.pinnedSleeperType) {
+    //         // Keep the pinned type; just verify remaining benches still match
+    //         const validBenches = group.benches.filter(b => b.trim());
+    //         group.error = null;
+    //         group.sleeperType = validBenches.length > 0 ? group.pinnedSleeperType : '';
+    //     } else {
+    //         const types = group.benches.map(b => getBenchMasterDetails(b).sleeperType).filter(t => t);
+    //         const uniqueTypes = [...new Set(types)];
+    //         if (uniqueTypes.length > 1) {
+    //             group.error = 'Mixed sleeper types in same group';
+    //             group.sleeperType = 'Error';
+    //         } else {
+    //             group.error = null;
+    //             group.sleeperType = uniqueTypes[0] || '';
+    //         }
+    //     }
 
-    const updateMouldsInGroup = (cIdx, gIdx, value) => {
-        const newChambers = [...chambers];
-        const val = parseInt(value) || 0;
-        newChambers[cIdx].benchGroups[gIdx].mouldsPerBench = Math.max(0, val);
-        setChambers(newChambers);
-    };
+    //     setChambers(newChambers);
+    // };
+
+    // const addBenchToGroup = (cIdx, gIdx) => {
+    //     const newChambers = [...chambers];
+    //     newChambers[cIdx].benchGroups[gIdx].benches.push('');
+    //     setChambers(newChambers);
+    // };
+
+    // const updateMouldsInGroup = (cIdx, gIdx, value) => {
+    //     const newChambers = [...chambers];
+    //     const val = parseInt(value) || 0;
+    //     newChambers[cIdx].benchGroups[gIdx].mouldsPerBench = Math.max(0, val);
+    //     setChambers(newChambers);
+    // };
 
     const calculateTotalCast = () => {
         if (plantType === 'Stress Bench') {
-            return chambers.reduce((acc, c) => {
-                return acc + c.benchGroups.reduce((gAcc, g) => {
-                    const validBenches = g.benches.filter(b => b.trim()).length;
-                    return gAcc + (validBenches * g.mouldsPerBench);
-                }, 0);
+            return stressBenchEntries.reduce((acc, entry) => {
+                let count = 0;
+                if (entry.entryMode === 'range') {
+                    const from = parseInt(entry.fromNo) || 0;
+                    const to = parseInt(entry.toNo) || 0;
+                    count = from > 0 && to >= from ? (to - from + 1) : 0;
+                } else if (entry.entryMode === 'single') {
+                    count = entry.singleNo ? 1 : 0;
+                }
+                return acc + (count * (parseInt(entry.mouldsPerBench) || 0));
             }, 0);
         } else {
             return longLineEntries.reduce((acc, e) => {
                 const count = e.entryMode === 'range' ? (parseInt(e.toNo) - parseInt(e.fromNo) + 1) : 1;
-                return acc + (count * e.mouldsPerGang);
+                return acc + (count * (parseInt(e.mouldsPerGang) || 0));
             }, 0);
         }
     };
 
     const calculateTotalRFT = () => {
         if (plantType === 'Stress Bench') {
-            return chambers.reduce((acc, c) => {
-                return acc + c.benchGroups.reduce((gAcc, g) => {
-                    return gAcc + g.benches.reduce((bAcc, b) => bAcc + (g.pinnedSleeperType ? getBenchMasterDetailsForType(b, g.pinnedSleeperType).rft : getBenchMasterDetails(b).rft), 0);
-                }, 0);
+            return stressBenchEntries.reduce((acc, entry) => {
+                let benchesToSum = [];
+                if (entry.entryMode === 'range') {
+                    const from = parseInt(entry.fromNo) || 0;
+                    const to = parseInt(entry.toNo) || 0;
+                    if (from > 0 && to >= from) {
+                        for (let i = from; i <= to; i++) benchesToSum.push(i.toString());
+                    }
+                } else if (entry.entryMode === 'single') {
+                    if (entry.singleNo) benchesToSum.push(entry.singleNo);
+                }
+                // For stress bench, RFT is per bench, not per mould.
+                // Assuming RFT is determined by sleeper type of the bench.
+                return acc + benchesToSum.reduce((bAcc, b) => bAcc + getBenchMasterDetailsForType(b, entry.sleeperType).rft, 0);
             }, 0);
         }
         return 0;
@@ -412,18 +503,23 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     const getProductionBreakdown = () => {
         const counts = {};
         if (plantType === 'Stress Bench') {
-            chambers.forEach(c => {
-                c.benchGroups.forEach(g => {
-                    if (g.sleeperType && g.sleeperType !== 'Error') {
-                        const validBenches = g.benches.filter(b => b.trim()).length;
-                        counts[g.sleeperType] = (counts[g.sleeperType] || 0) + (validBenches * g.mouldsPerBench);
+            stressBenchEntries.forEach(entry => {
+                if (entry.sleeperType) {
+                    let count = 0;
+                    if (entry.entryMode === 'range') {
+                        const from = parseInt(entry.fromNo) || 0;
+                        const to = parseInt(entry.toNo) || 0;
+                        count = from > 0 && to >= from ? (to - from + 1) : 0;
+                    } else if (entry.entryMode === 'single') {
+                        count = entry.singleNo ? 1 : 0;
                     }
-                });
+                    counts[entry.sleeperType] = (counts[entry.sleeperType] || 0) + (count * (parseInt(entry.mouldsPerBench) || 0));
+                }
             });
         } else {
             longLineEntries.forEach(e => {
                 const count = e.entryMode === 'range' ? (parseInt(e.toNo) - parseInt(e.fromNo) + 1) : 1;
-                counts[e.sleeperType] = (counts[e.sleeperType] || 0) + (count * e.mouldsPerGang);
+                counts[e.sleeperType] = (counts[e.sleeperType] || 0) + (count * (parseInt(e.mouldsPerGang) || 0));
             });
         }
         return counts;
@@ -604,222 +700,105 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                     <div style={{ padding: '24px' }}>
                         {plantType === 'Stress Bench' ? (
                             <div>
-                                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Map multiple bench groups to steam chambers. Each chamber requires individual monitoring.</p>
-                                    <button onClick={addChamber} style={{ background: '#42818c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>+ Add Chamber</button>
+                                <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Stress Bench Entry</h4>
+                                        <div style={{ display: 'flex', gap: '20px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" checked={stressBenchForm.entryMode === 'range'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'range' })} style={radioStyle} />
+                                                Range
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" checked={stressBenchForm.entryMode === 'single'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'single' })} style={radioStyle} />
+                                                Single
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+                                        <div>
+                                            <label style={labelStyle}>Chamber No.</label>
+                                            <input type="number" value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
+                                        </div>
+                                        {stressBenchForm.entryMode === 'range' ? (
+                                            <>
+                                                <div>
+                                                    <label style={labelStyle}>Bench From</label>
+                                                    <input type="number" value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
+                                                </div>
+                                                <div>
+                                                    <label style={labelStyle}>Bench To</label>
+                                                    <input type="number" value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div style={{ gridColumn: 'span 2' }}>
+                                                <label style={labelStyle}>Bench No.</label>
+                                                <input type="number" value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label style={labelStyle}>Sleeper Type</label>
+                                            <input
+                                                type="text"
+                                                value={stressBenchForm.sleeperType}
+                                                readOnly
+                                                style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={labelStyle}>Moulds/Bench</label>
+                                            <input type="number" value={stressBenchForm.mouldsPerBench} onChange={(e) => setStressBenchForm({ ...stressBenchForm, mouldsPerBench: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
+                                                const newEntry = { ...stressBenchForm, id: Date.now() };
+                                                setStressBenchEntries([...stressBenchEntries, newEntry]);
+                                                setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '', sleeperType: '' });
+                                            }}
+                                            style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
+                                        >
+                                            Add Entry
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {chambers.map((chamber, cIdx) => (
-                                    <div key={chamber.id} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
-                                            <div style={{ width: '200px' }}>
-                                                <label style={labelStyle}>Chamber No.</label>
-                                                <input type="number" min="0" value={chamber.chamberNo} onChange={(e) => updateChamberNo(cIdx, e.target.value)} style={{ ...inputStyle, background: 'white' }} placeholder="e.g. 1" />
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Manage Chamber / Benches</div>
-                                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                                    {chambers.length > 1 && (
-                                                        <button
-                                                            onClick={() => removeChamber(cIdx)}
-                                                            title="Delete this chamber"
-                                                            style={{
-                                                                background: '#fff5f5',
-                                                                color: '#ef4444',
-                                                                border: '1px solid #fecaca',
-                                                                padding: '8px 16px',
-                                                                borderRadius: '8px',
-                                                                fontSize: '12px',
-                                                                fontWeight: '700',
-                                                                cursor: 'pointer',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px'
-                                                            }}
-                                                        >
-                                                            🗑 Delete Chamber
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => addBenchGroup(cIdx)} style={{ background: '#42818c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>+ Add Bench Group</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <h4 style={{ margin: 0, color: '#1e293b', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ width: '4px', height: '16px', background: '#42818c', borderRadius: '2px' }}></span>
-                                                Bench Groups in Chamber
-                                            </h4>
-                                        </div>
-
-                                        {(() => {
-                                            const anyGroupIsPnC = chamber.benchGroups.some(g => isGroupPnC(g));
-                                            return (
-                                                <>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                                                        <thead>
-                                                            <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches Cast</th>
-                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
-                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '200px' }}>Sleeper Type</th>
-                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '120px' }}>Mould per Bench</th>
-                                                                {anyGroupIsPnC && (
-                                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>RFT (m)</th>
-                                                                )}
-                                                                <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '60px' }}>Del</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {chamber.benchGroups.map((group, gIdx) => (
-                                                                <tr key={group.id} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: group._autoCreated ? '3px solid #42818c' : '3px solid transparent' }}>
-                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                                            {group.benches.map((bench, bIdx) => {
-                                                                                const isDuplicate = isBenchDuplicate(bench, chamber.id, group.id, bIdx);
-                                                                                const isMixedError = group.error === 'Mixed sleeper types in same group';
-                                                                                return (
-                                                                                    <div key={bIdx} style={{ position: 'relative' }}>
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={bench}
-                                                                                            onChange={(e) => handleBenchValueChange(cIdx, gIdx, bIdx, e.target.value)}
-                                                                                            onBlur={(e) => resolveBenchMasterData(cIdx, gIdx, bIdx, e.target.value)}
-                                                                                            onKeyDown={(e) => e.key === 'Enter' && resolveBenchMasterData(cIdx, gIdx, bIdx, e.target.value)}
-                                                                                            style={{
-                                                                                                ...inputStyle,
-                                                                                                width: '70px',
-                                                                                                padding: '10px',
-                                                                                                borderColor: (isDuplicate || isMixedError) ? '#ef4444' : '#cbd5e1',
-                                                                                                backgroundColor: (isDuplicate || isMixedError) ? '#fef2f2' : 'white'
-                                                                                            }}
-                                                                                            placeholder="No."
-                                                                                        />
-                                                                                        <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={generateSleeperIds(bench, group.mouldsPerBench).join(', ')}>
-                                                                                            {generateSleeperIds(bench, group.mouldsPerBench).slice(0, 3).join(',')}{group.mouldsPerBench > 3 ? '...' : ''}
-                                                                                        </div>
-                                                                                        {isDuplicate && <span style={{ position: 'absolute', bottom: '-14px', left: 0, fontSize: '9px', color: '#ef4444', fontWeight: 'bold' }}>Duplicate</span>}
-                                                                                        {group.benches.length > 1 && (
-                                                                                            <button
-                                                                                                onClick={() => removeBenchFromGroup(cIdx, gIdx, bIdx)}
-                                                                                                style={{
-                                                                                                    position: 'absolute',
-                                                                                                    top: '-8px',
-                                                                                                    right: '-8px',
-                                                                                                    width: '18px',
-                                                                                                    height: '18px',
-                                                                                                    borderRadius: '50%',
-                                                                                                    background: '#ef4444',
-                                                                                                    color: 'white',
-                                                                                                    border: 'none',
-                                                                                                    fontSize: '10px',
-                                                                                                    display: 'flex',
-                                                                                                    alignItems: 'center',
-                                                                                                    justifyContent: 'center',
-                                                                                                    cursor: 'pointer',
-                                                                                                    zIndex: 2,
-                                                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                                                                                                }}
-                                                                                                title="Remove bench"
-                                                                                            >
-                                                                                                ×
-                                                                                            </button>
-                                                                                        )}
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                            <button onClick={() => addBenchToGroup(cIdx, gIdx)} style={{ width: '42px', height: '42px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'white', cursor: 'pointer', fontSize: '20px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'top' }}>
-                                                                        <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
-                                                                            {group.benches.filter(b => b.trim()).length}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                                        <div style={{
-                                                                            ...inputStyle,
-                                                                            background: group.error ? '#fef2f2' : '#f1f5f9',
-                                                                            color: group.error ? '#ef4444' : '#1e293b',
-                                                                            fontSize: '13px',
-                                                                            fontWeight: '600',
-                                                                            minHeight: '42px',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center'
-                                                                        }}>
-                                                                            {group.sleeperType || 'Identify...'}
-                                                                        </div>
-                                                                        {group.error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>{group.error}</div>}
-                                                                        {group._autoCreated && (
-                                                                            <div style={{ fontSize: '9px', fontWeight: '700', color: '#42818c', background: 'rgba(66,129,140,0.1)', border: '1px solid rgba(66,129,140,0.25)', borderRadius: '4px', padding: '2px 6px', marginTop: '4px', display: 'inline-block', letterSpacing: '0.04em' }}>
-                                                                                ⚡ TYPE SPLIT
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                                        <input
-                                                                            type="number"
-                                                                            min="0"
-                                                                            value={group.mouldsPerBench}
-                                                                            onChange={(e) => updateMouldsInGroup(cIdx, gIdx, e.target.value)}
-                                                                            style={{ ...inputStyle, textAlign: 'center', background: 'white', minHeight: '42px' }}
-                                                                        />
-                                                                    </td>
-                                                                    {isGroupPnC(group) && (
-                                                                        <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                                                                            <div style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '42px' }}>
-                                                                                {group.benches.reduce((sum, b) => sum + (group.pinnedSleeperType ? getBenchMasterDetailsForType(b, group.pinnedSleeperType).rft : getBenchMasterDetails(b).rft), 0)}
-                                                                            </div>
-                                                                        </td>
-                                                                    )}
-                                                                    <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                                                                        {chamber.benchGroups.length > 1 && (
-                                                                            <button
-                                                                                onClick={() => removeBenchGroup(cIdx, gIdx)}
-                                                                                title="Delete this bench group"
-                                                                                style={{
-                                                                                    width: '34px',
-                                                                                    height: '34px',
-                                                                                    borderRadius: '8px',
-                                                                                    border: '1px solid #fecaca',
-                                                                                    background: '#fff5f5',
-                                                                                    color: '#ef4444',
-                                                                                    cursor: 'pointer',
-                                                                                    display: 'inline-flex',
-                                                                                    alignItems: 'center',
-                                                                                    justifyContent: 'center',
-                                                                                    fontSize: '15px',
-                                                                                    lineHeight: 1,
-                                                                                    fontWeight: '700'
-                                                                                }}
-                                                                                onMouseEnter={e => {
-                                                                                    e.currentTarget.style.background = '#fee2e2';
-                                                                                    e.currentTarget.style.borderColor = '#ef4444';
-                                                                                }}
-                                                                                onMouseLeave={e => {
-                                                                                    e.currentTarget.style.background = '#fff5f5';
-                                                                                    e.currentTarget.style.borderColor = '#fecaca';
-                                                                                }}
-                                                                            >
-                                                                                🗑
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                    <div style={{ marginTop: '16px', borderTop: '1px dashed #e2e8f0', paddingTop: '12px' }}>
-                                                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Sleeper Numbers in Chamber:</div>
-                                                        <div style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.4' }}>
-                                                            {chamber.benchGroups.flatMap(g =>
-                                                                g.benches.flatMap(b => generateSleeperIds(b, g.mouldsPerBench))
-                                                            ).filter(Boolean).join(', ')}
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
+                                {stressBenchEntries.length > 0 && (
+                                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '100px' }}>Chamber</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '80px' }}>Count</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '150px' }}>Sleeper Type</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Moulds/B.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '80px' }}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {stressBenchEntries.map((entry) => {
+                                                    const count = entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) : 1;
+                                                    return (
+                                                        <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                            <td style={{ padding: '12px 8px', fontWeight: '700', color: '#115e59' }}>#{entry.chamberNo}</td>
+                                                            <td style={{ padding: '12px 8px', textTransform: 'capitalize', color: '#1e293b' }}>{entry.entryMode}</td>
+                                                            <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{count}</td>
+                                                            <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerBench}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                                                <button onClick={() => setStressBenchEntries(stressBenchEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Remove</button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         ) : (
                             <div>
@@ -838,7 +817,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', alignItems: 'end' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
                                         {longLineForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
@@ -858,23 +837,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         )}
                                         <div>
                                             <label style={labelStyle}>Sleeper Type</label>
-                                            <select
+                                            <input
+                                                type="text"
                                                 value={longLineForm.sleeperType}
-                                                onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
-                                                style={{ ...inputStyle, background: 'white' }}
-                                            >
-                                                {/* Defaults */}
-                                                <option value="RT-8746">RT-8746</option>
-                                                <option value="RT-8521">RT-8521</option>
-                                                {/* Master Data Types (if any other) */}
-                                                {[...new Set(masterLongLines.map(m => m.category).filter(c => c && c !== 'RT-8746' && c !== 'RT-8521'))].map(cat => (
-                                                    <option key={cat} value={cat}>{cat}</option>
-                                                ))}
-                                                {/* Current value if not in list */}
-                                                {longLineForm.sleeperType && !['RT-8746', 'RT-8521'].concat(masterLongLines.map(m => m.category)).includes(longLineForm.sleeperType) && (
-                                                    <option value={longLineForm.sleeperType}>{longLineForm.sleeperType}</option>
-                                                )}
-                                            </select>
+                                                readOnly
+                                                style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={labelStyle}>Moulds/Gang</label>
+                                            <input type="number" value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
                                         </div>
                                         <button
                                             onClick={() => {
@@ -1010,15 +982,28 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                 updatedBy: 118,
                                 chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
                                     chamberNo: parseInt(chamber.chamberNo) || 0,
-                                    benchGroups: chamber.benchGroups.flatMap(group =>
-                                        group.benches.filter(b => b.trim()).map(bench => ({
+                                    benchGroups: chamber.benchGroups.flatMap(group => {
+                                        let benchList = [];
+                                        if (group.entryMode === 'range') {
+                                            const from = parseInt(group.fromNo) || 0;
+                                            const to = parseInt(group.toNo) || 0;
+                                            if (from > 0 && to >= from) {
+                                                for (let i = from; i <= to; i++) benchList.push(i.toString());
+                                            }
+                                        } else if (group.entryMode === 'single') {
+                                            if (group.singleNo) benchList.push(group.singleNo);
+                                        } else {
+                                            benchList = group.benches.filter(b => b.trim());
+                                        }
+
+                                        return benchList.map(bench => ({
                                             benchNo: parseInt(bench) || 0,
                                             sleeperType: group.sleeperType,
                                             mouldPerBench: parseInt(group.mouldsPerBench) || 0,
                                             rft: getBenchMasterDetails(bench).rft,
                                             sleepers: generateSleeperIds(bench, group.mouldsPerBench)
-                                        }))
-                                    )
+                                        }));
+                                    })
                                 })) : [],
                                 gangs: plantType === 'Long Line' ? longLineEntries.map(entry => ({
                                     mode: entry.entryMode.toUpperCase(),
