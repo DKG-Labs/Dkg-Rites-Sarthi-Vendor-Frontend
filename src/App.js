@@ -75,12 +75,27 @@ const App = () => {
   const user = getStoredUser();
   const activeRole = getActiveRole();
 
+  // Unified role determination with robust string matching
+  const hasRole = (roleList, targetRole) => {
+    if (!roleList) return false;
+    const roles = Array.isArray(roleList) ? roleList : [roleList];
+    return roles.some(r => r?.toString().trim().toLowerCase() === targetRole.toLowerCase());
+  };
+
+  const isSleeperRole = hasRole(activeRole, 'Sleeper Vendor') ||
+    hasRole(activeRole, 'SLEEPER_VENDOR') ||
+    (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Sleeper Vendor') || hasRole(user.roleName, 'SLEEPER_VENDOR')));
+
+  const isRailPadRole = hasRole(activeRole, 'Rail Pad Vendor') ||
+    hasRole(activeRole, 'RAILPAD_USER') ||
+    (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Rail Pad Vendor') || hasRole(user.roleName, 'RAILPAD_USER')));
+
   return (
     !isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (
       <LoginPage />
-    ) : (activeRole === 'Sleeper Vendor' || user?.roleName?.includes('Sleeper Vendor') || user?.roleName?.includes('SLEEPER_VENDOR')) ? (
+    ) : isSleeperRole ? (
       <SleeperVendorHost />
-    ) : (activeRole === 'Rail Pad Vendor' || user?.roleName?.includes('Rail Pad Vendor') || user?.roleName?.includes('RAILPAD_USER')) ? (
+    ) : isRailPadRole ? (
       <RailpadHost />
     ) : (
       <div>
