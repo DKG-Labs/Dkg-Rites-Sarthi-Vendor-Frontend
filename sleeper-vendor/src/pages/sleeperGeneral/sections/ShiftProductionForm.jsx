@@ -82,7 +82,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
         const latestProfile = filtered.length > 0 ? filtered[filtered.length - 1] : null;
         const totalUnits = latestProfile ? (parseInt(latestProfile.numberOfSheds) || 0) : 0;
-        const prefix = plantType === 'Stress Bench' ? 'Shed' : 'Gang';
+        const prefix = plantType === 'Stress Bench' ? 'Shed' : 'Line';
 
         return Array.from({ length: totalUnits }).map((_, i) => ({
             name: `${prefix} ${i + 1}`,
@@ -646,7 +646,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             </div>
 
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Gang No.)'}</label>
+                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Line No.)'}</label>
                                 <select
                                     style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
                                     value={formHeader.unit}
@@ -873,17 +873,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         {longLineForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
-                                                    <label style={labelStyle}>Gang No. From</label>
+                                                    <label style={labelStyle}>Line No. From</label>
                                                     <input type="number" value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
-                                                    <label style={labelStyle}>Gang No. To</label>
+                                                    <label style={labelStyle}>Line No. To</label>
                                                     <input type="number" value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={labelStyle}>Gang No.</label>
+                                                <label style={labelStyle}>Line No.</label>
                                                 <input type="number" value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
@@ -910,7 +910,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={labelStyle}>Moulds/Gang</label>
+                                            <label style={labelStyle}>Moulds/Line</label>
                                             <input type="number" value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
                                         </div>
                                         <button
@@ -932,10 +932,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Gangs</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Lines</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '180px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Gang</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Line</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Action</th>
                                                 </tr>
                                             </thead>
