@@ -24,6 +24,15 @@ const PlantDeclarationDashboard = () => {
             numLines: 2,
             capacity: "50,000 Pcs/Month",
             status: "Verified & Locked"
+        },
+        {
+            id: 2,
+            manufacturer: "ABC Industries (VEND001)",
+            unitName: "Unit B - Pune",
+            address: "Sector 45, Bhosari, Pune, MH",
+            numLines: 3,
+            capacity: "75,000 Pcs/Month",
+            status: "Unlocked for Modification"
         }
     ]);
 
@@ -33,7 +42,7 @@ const PlantDeclarationDashboard = () => {
             materialName: "Virgin Material (RSS1)",
             supplier: "Global Rubber Exports",
             docRef: "INV/2024/0045",
-            status: "Verified"
+            status: "Verified & Locked"
         },
         {
             id: 2,
@@ -41,6 +50,13 @@ const PlantDeclarationDashboard = () => {
             supplier: "B-Chem Solutions",
             docRef: "BC/TX/9932",
             status: "Pending Verification"
+        },
+        {
+            id: 3,
+            materialName: "Silica (Fine Grade)",
+            supplier: "Indo Silica Ltd",
+            docRef: "ISL/QT/552",
+            status: "Unlocked for Modification"
         }
     ]);
 
@@ -93,7 +109,7 @@ const PlantDeclarationDashboard = () => {
                     minCurePress: "125", maxCurePress: "135"
                 }
             },
-            status: "Verified"
+            status: "Verified & Locked"
         }
     ]);
 

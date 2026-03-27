@@ -33,7 +33,7 @@ const emptyForm = () => ({
 });
 
 const getBadgeClass = (status) => {
-    if (status === 'Verified') return 'badge-verified';
+    if (status === 'Verified & Locked' || status === 'Verified') return 'badge-verified';
     if (status === 'Rejected') return 'badge-rejected';
     return 'badge-pending';
 };

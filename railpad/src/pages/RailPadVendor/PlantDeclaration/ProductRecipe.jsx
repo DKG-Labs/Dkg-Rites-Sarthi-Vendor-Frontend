@@ -62,6 +62,12 @@ const ProductRecipe = ({ entries, setEntries }) => {
         setView('form');
     };
 
+    const handleDelete = (id) => {
+        if (window.confirm('Are you sure you want to delete this recipe?')) {
+            setEntries(entries.filter(entry => entry.id !== id));
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (totalPercentage <= 100 && virginTotal >= 50) {
@@ -144,21 +150,38 @@ const ProductRecipe = ({ entries, setEntries }) => {
                                     <td style={{ textAlign: 'right' }}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                             {(entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification') && (
-                                                <button
-                                                    onClick={() => handleEdit(entry)}
-                                                    style={{
-                                                        padding: '4px 10px',
-                                                        fontSize: '11px',
-                                                        background: 'rgba(66, 129, 140, 0.1)',
-                                                        color: 'var(--primary-color)',
-                                                        border: '1px solid var(--primary-color)',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer',
-                                                        fontWeight: '700'
-                                                    }}
-                                                >
-                                                    Edit
-                                                </button>
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(entry)}
+                                                        style={{
+                                                            padding: '4px 10px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(66, 129, 140, 0.1)',
+                                                            color: 'var(--primary-color)',
+                                                            border: '1px solid var(--primary-color)',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '700'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(entry.id)}
+                                                        style={{
+                                                            padding: '4px 10px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(220, 38, 38, 0.1)',
+                                                            color: '#dc2626',
+                                                            border: '1px solid #dc2626',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '700'
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </>
                                             )}
                                             <button
                                                 className="btn-secondary"

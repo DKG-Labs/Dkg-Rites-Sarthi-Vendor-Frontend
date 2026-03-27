@@ -6,6 +6,7 @@ const PlantSetup = ({ entries, setEntries }) => {
     const [unitSections, setUnitSections] = useState([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [editingEntry, setEditingEntry] = useState(null);
+    const [selectedEntry, setSelectedEntry] = useState(null);
 
     const productOptions = [
         "6.00mm GRSP", "10.00mm GRSP", "6.20mm CGRSP", "10.00mm CGRSP", "6.00mm NCRGRSP", "10.00mm NCRGRSP"
@@ -65,6 +66,16 @@ const PlantSetup = ({ entries, setEntries }) => {
         setView('form');
     };
 
+    const handleDelete = (id) => {
+        if (window.confirm('Are you sure you want to delete this plant unit?')) {
+            setEntries(entries.filter(e => e.id !== id));
+        }
+    };
+
+    const handleUnlock = (id) => {
+        setEntries(entries.map(e => e.id === id ? { ...e, status: 'Unlocked for Modification' } : e));
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -105,6 +116,11 @@ const PlantSetup = ({ entries, setEntries }) => {
         // Reset form
         setNumUnits(0);
         setUnitSections([]);
+    };
+
+    const handleViewDetails = (entry) => {
+        setSelectedEntry(entry);
+        setView('details');
     };
 
     return (
@@ -151,30 +167,65 @@ const PlantSetup = ({ entries, setEntries }) => {
                                         </span>
                                     </td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {(unit.status === 'Pending Verification' || unit.status === 'Unlocked for Modification') && (
-                                            <button
-                                                onClick={() => handleEdit(unit)}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    fontSize: '11px',
-                                                    background: 'rgba(66, 129, 140, 0.1)',
-                                                    color: 'var(--primary-color)',
-                                                    border: '1px solid var(--primary-color)',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '600'
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                            {(unit.status === 'Pending Verification' || unit.status === 'Unlocked for Modification') ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(unit)}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(66, 129, 140, 0.1)',
+                                                            color: 'var(--primary-color)',
+                                                            border: '1px solid var(--primary-color)',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(unit.id)}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(220, 38, 38, 0.1)',
+                                                            color: '#dc2626',
+                                                            border: '1px solid #dc2626',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleViewDetails(unit)}
+                                                    style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        background: 'rgba(33, 128, 141, 0.1)',
+                                                        color: 'var(--primary-color)',
+                                                        border: '1px solid var(--primary-color)',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    Details
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-            ) : (
+            ) : view === 'form' ? (
                 <div className="form-container fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                         <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>
@@ -318,6 +369,83 @@ const PlantSetup = ({ entries, setEntries }) => {
                             </button>
                         </div>
                     </form>
+                </div>
+            ) : (
+                <div className="details-container fade-in" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: 0, color: 'var(--primary-color)', fontSize: '1.25rem', fontWeight: '800' }}>Plant Set Up Details</h3>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Complete plant and unit verification details</p>
+                        </div>
+                        <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.5rem 1.5rem', fontWeight: '700' }}>Back to List</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px', padding: '20px', background: 'var(--accent-bg)', borderRadius: '12px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '700' }}>Manufacturer</label>
+                            <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.manufacturer}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '700' }}>Unit Name</label>
+                            <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.unitName}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '700' }}>Status</label>
+                            <span className={`badge ${selectedEntry?.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'}`}>
+                                {selectedEntry?.status}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+                        <div style={{ padding: '20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '800' }}>Unit Overview</h4>
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)' }}>Total Lines</label>
+                                    <div style={{ fontWeight: '700' }}>{selectedEntry?.numLines}</div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)' }}>Address</label>
+                                    <div style={{ fontWeight: '600', fontSize: '13px' }}>{selectedEntry?.address}</div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)' }}>Capacity</label>
+                                    <div style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{selectedEntry?.capacity}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '800' }}>RDSO Approval Details</h4>
+                            <div className="table-container" style={{ margin: 0, borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                <table style={{ width: '100%', fontSize: '12px' }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Approval No.</th>
+                                            <th>Approval Date</th>
+                                            <th>Capacity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedEntry?.selectedProducts?.map((prod, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: '700' }}>{prod.name}</td>
+                                                <td>{prod.approvalNo}</td>
+                                                <td>{prod.approvalDate}</td>
+                                                <td style={{ fontWeight: '600' }}>{prod.capacity} Pcs/M</td>
+                                            </tr>
+                                        )) || (
+                                            <tr>
+                                                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No products listed</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

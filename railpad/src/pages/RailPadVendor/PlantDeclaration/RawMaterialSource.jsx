@@ -10,6 +10,7 @@ const RawMaterialSource = ({ entries, setEntries }) => {
         docDate: ''
     });
     const [editingEntry, setEditingEntry] = useState(null);
+    const [selectedEntry, setSelectedEntry] = useState(null);
 
     const materialOptions = [
         "Virgin Material", "Carbon Black", "Silica", "Nylon Cord", "Activator",
@@ -61,6 +62,16 @@ const RawMaterialSource = ({ entries, setEntries }) => {
         setView('form');
     };
 
+    const handleDelete = (id) => {
+        if (window.confirm('Are you sure you want to delete this raw material source?')) {
+            setEntries(entries.filter(e => e.id !== id));
+        }
+    };
+
+    const handleUnlock = (id) => {
+        setEntries(entries.map(e => e.id === id ? { ...e, status: 'Unlocked for Modification' } : e));
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -107,6 +118,11 @@ const RawMaterialSource = ({ entries, setEntries }) => {
         });
     };
 
+    const handleViewDetails = (entry) => {
+        setSelectedEntry(entry);
+        setView('details');
+    };
+
     return (
         <div className="fade-in">
             <div className="section-header" style={{ marginBottom: '24px' }}>
@@ -140,32 +156,67 @@ const RawMaterialSource = ({ entries, setEntries }) => {
                                     <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{entry.materialName}</td>
                                     <td>{entry.supplier}</td>
                                     <td>{entry.docRef}</td>
-                                    <td><span className={`badge ${entry.status === 'Verified' ? 'badge-verified' : 'badge-pending'}`}>{entry.status}</span></td>
+                                    <td><span className={`badge ${entry.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'}`}>{entry.status}</span></td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {(entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification') && (
-                                            <button
-                                                onClick={() => handleEdit(entry)}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    fontSize: '11px',
-                                                    background: 'rgba(66, 129, 140, 0.1)',
-                                                    color: 'var(--primary-color)',
-                                                    border: '1px solid var(--primary-color)',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '600'
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                            {(entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification') ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(entry)}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(66, 129, 140, 0.1)',
+                                                            color: 'var(--primary-color)',
+                                                            border: '1px solid var(--primary-color)',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(entry.id)}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            fontSize: '11px',
+                                                            background: 'rgba(220, 38, 38, 0.1)',
+                                                            color: '#dc2626',
+                                                            border: '1px solid #dc2626',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleViewDetails(entry)}
+                                                    style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        background: 'rgba(33, 128, 141, 0.1)',
+                                                        color: 'var(--primary-color)',
+                                                        border: '1px solid var(--primary-color)',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    Details
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-            ) : (
+            ) : view === 'form' ? (
                 <div className="form-container fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                         <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: '800' }}>
@@ -253,6 +304,50 @@ const RawMaterialSource = ({ entries, setEntries }) => {
                             </button>
                         </div>
                     </form>
+                </div>
+            ) : (
+                <div className="details-container fade-in" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: 0, color: 'var(--primary-color)', fontSize: '1.25rem', fontWeight: '800' }}>Raw Material Details</h3>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Traceability information for raw materials</p>
+                        </div>
+                        <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.5rem 1.5rem', fontWeight: '700' }}>Back to List</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '700' }}>Material Name</label>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary-color)' }}>{selectedEntry?.materialName}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '700' }}>Supplier / Source</label>
+                            <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.supplier}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '700' }}>Doc Reference</label>
+                            <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.docRef}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '700' }}>Current Status</label>
+                            <span className={`badge ${selectedEntry?.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'}`}>
+                                {selectedEntry?.status}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '32px' }}>
+                        <h4 style={{ fontSize: 'var(--fs-md)', fontWeight: '800', marginBottom: '16px', color: 'var(--text-main)' }}>Traceability Timeline</h4>
+                        <div style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary-color)' }}></div>
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: '700' }}>Document Issued: {selectedEntry?.docDate || 'N/A'}</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified against physical stock and RDSO requirements</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
