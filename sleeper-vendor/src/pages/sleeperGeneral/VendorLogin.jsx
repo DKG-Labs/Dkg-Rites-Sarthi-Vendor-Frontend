@@ -20,6 +20,7 @@ const VendorLogin = ({ onLogin }) => {
             
             // Professional validation check using the configuration at the bottom
             if (validateCredentials(formData.username, formData.password)) {
+                sessionStorage.setItem('vendorUsername', formData.username);
                 onLogin();
             } else {
                 setError('Invalid username or password');

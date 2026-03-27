@@ -461,6 +461,21 @@ export const apiService = {
         }
     },
 
+    getPlantDetails: async (vendorCode) => {
+        try {
+            const url = `${BASE_URL}/plant-profile/plant-details?vendorCode=${encodeURIComponent(vendorCode)}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch plant details');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
     // Mix Design APIs
     getMixDesigns: async () => {
         try {

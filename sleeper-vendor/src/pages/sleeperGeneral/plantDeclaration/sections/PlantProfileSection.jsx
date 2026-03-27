@@ -12,11 +12,27 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [plantDetails, setPlantDetails] = useState([]);
+    const vendorUsername = sessionStorage.getItem('vendorUsername') || ':41647';
     const [formData, setFormData] = useState({
         type: 'Stress Bench',
         shedsLines: ''
     });
 
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            try {
+                const response = await apiService.getPlantDetails(vendorUsername);
+                if (response && response.responseData) {
+                    setPlantDetails(response.responseData);
+                }
+            } catch (err) {
+                console.error('Error fetching plant details:', err);
+            }
+        };
+        fetchDetails();
+    }, [vendorUsername]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -33,7 +49,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
         const plantDto = {
             id: editingId,
             plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
-            vendorCode: 'V-10294',
+            vendorCode: vendorUsername,
             plantType: formData.type,
             numberOfSheds: parseInt(formData.shedsLines),
             vendorId: 118,
@@ -111,7 +127,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
-                            <input type="text" disabled value="V-10294" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
+                            <input type="text" disabled value={vendorUsername} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>
@@ -192,6 +208,16 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                                         <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
                                         <td style={{ padding: '16px', color: '#475569' }}>
                                             {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
+                                            {([...plantDetails].reverse().find(d => d.plantType === (profile.type === 'Longline' ? 'Longline' : profile.type)))?.units && (
+                                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                                                    {([...plantDetails].reverse().find(d => d.plantType === (profile.type === 'Longline' ? 'Longline' : profile.type))).units.map(u => {
+                                                        if (profile.type === 'Stress Bench' && u.toLowerCase().includes('line')) {
+                                                            return u.toLowerCase().replace('line', 'Shed').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                                        }
+                                                        return u;
+                                                    }).join(', ')}
+                                                </div>
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{

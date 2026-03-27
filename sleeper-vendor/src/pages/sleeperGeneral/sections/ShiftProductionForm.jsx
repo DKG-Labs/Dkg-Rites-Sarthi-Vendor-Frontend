@@ -5,10 +5,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     const [masterBenches, setMasterBenches] = useState([]);
     const [masterLongLines, setMasterLongLines] = useState([]);
     const [plantProfiles, setPlantProfiles] = useState([]);
+    const [plantDetails, setPlantDetails] = useState([]);
 
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
     const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
 
+    const vendorUsername = sessionStorage.getItem('vendorUsername') || ':41647';
     const getCurrentTime = () => {
         const now = new Date();
         return now.toTimeString().split(' ')[0].substring(0, 5);
@@ -56,17 +58,37 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     useEffect(() => {
         const fetchMasterData = async () => {
             try {
-                const [benches, longLines, profiles] = await Promise.all([
+                const [benches, longLines, profiles, details] = await Promise.all([
                     apiService.getStressBenches(),
                     apiService.getLongLines(),
-                    apiService.getPlantProfiles()
+                    apiService.getPlantProfiles(),
+                    apiService.getPlantDetails(vendorUsername)
                 ]);
                 setMasterBenches(benches || []);
                 setMasterLongLines(longLines || []);
                 setPlantProfiles(profiles || []);
+                setPlantDetails(details?.responseData || []);
                 
                 // Set initial default unit once profiles are loaded
-                if (profiles && profiles.length > 0) {
+                const availableDetails = details?.responseData || [];
+                if (availableDetails.length > 0) {
+                    const firstMatch = [...availableDetails].reverse().find(p => {
+                        const type = p.plantType || '';
+                        if (plantType === 'Stress Bench') return type === 'Stress Bench';
+                        return type === 'Longline' || type === 'Long Line';
+                    }) || availableDetails[availableDetails.length - 1];
+                    const initialPlantType = firstMatch.plantType === 'Longline' ? 'Long Line' : 'Stress Bench';
+                    setPlantType(initialPlantType);
+                    
+                    const firstUnit = firstMatch.units?.[0];
+                    if (firstUnit) {
+                        const label = (initialPlantType === 'Stress Bench' && firstUnit.toLowerCase().includes('line')) 
+                            ? firstUnit.toLowerCase().replace('line', 'Shed')
+                            : firstUnit;
+                        const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+                        setFormHeader(prev => ({ ...prev, unit: formattedLabel }));
+                    }
+                } else if (profiles && profiles.length > 0) {
                     const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
                     const initialPlantType = firstProfile.type;
                     const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
@@ -82,6 +104,29 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         fetchMasterData();
     }, []);
     const dynamicUnits = React.useMemo(() => {
+        // First try to use plantDetails API data
+        const apiMatch = [...plantDetails].reverse().find(p => {
+            const type = p.plantType || '';
+            if (plantType === 'Stress Bench') return type === 'Stress Bench';
+            return type === 'Longline' || type === 'Long Line';
+        });
+
+        if (apiMatch && apiMatch.units && apiMatch.units.length > 0) {
+            return apiMatch.units.map(unit => {
+                let name = unit;
+                if (plantType === 'Stress Bench' && unit.toLowerCase().includes('line')) {
+                    name = unit.toLowerCase().replace('line', 'Shed').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                }
+                return {
+                    name: name,
+                    type: plantType === 'Stress Bench' ? 'Twin' : 'Long Line',
+                    mouldsPerBench: 8,
+                    mouldsPerGang: 8
+                };
+            });
+        }
+
+        // Fallback to plantProfiles if API data is missing or incomplete
         const filtered = plantProfiles.filter(p => {
             const type = p.plantType || '';
             if (plantType === 'Stress Bench') {
@@ -101,7 +146,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
             mouldsPerBench: 8,
             mouldsPerGang: 8
         }));
-    }, [plantProfiles, plantType]);
+    }, [plantDetails, plantProfiles, plantType]);
     
     const allSleeperTypes = React.useMemo(() => {
         // Hardcoded as per request, others commented out
