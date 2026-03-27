@@ -4,36 +4,107 @@ import { apiService } from '../../../services/api';
 const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) => {
     const [masterBenches, setMasterBenches] = useState([]);
     const [masterLongLines, setMasterLongLines] = useState([]);
+    const [plantProfiles, setPlantProfiles] = useState([]);
+
+    const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
+    const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
+
+    const getCurrentTime = () => {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0].substring(0, 5);
+    };
+
+    const [formHeader, setFormHeader] = useState({
+        unit: 'Stress Bench A',
+        shedType: 'Twin',
+        date: new Date().toISOString().split('T')[0],
+        shift: 'Day Shift',
+        batchNo: '',
+        mixDesign: 'M60 - Design A (Active)',
+        timeLbc: getCurrentTime(),
+        remarks: ''
+    });
+
+    const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
+    const [stressBenchEntries, setStressBenchEntries] = useState([]);
+    const [stressBenchForm, setStressBenchForm] = useState({
+        chamberNo: '',
+        entryMode: 'range',
+        fromNo: '',
+        toNo: '',
+        singleNo: '',
+        sleeperType: 'RT-8746',
+        mouldsPerBench: 8
+    });
+
+    const [longLineEntries, setLongLineEntries] = useState([]);
+    const [longLineForm, setLongLineForm] = useState({
+        entryMode: 'range',
+        fromNo: '',
+        toNo: '',
+        singleNo: '',
+        mouldsPerGang: 8,
+        sleeperType: 'RT-8746'
+    });
+
+    const getSleeperTypeForBench = (benchNo) => {
+        if (!benchNo) return null;
+        // Mock logic for auto-population: even benches are RT-8746, odd are RT-8521
+        return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
+    };
 
     useEffect(() => {
         const fetchMasterData = async () => {
             try {
-                const [benches, longLines] = await Promise.all([
+                const [benches, longLines, profiles] = await Promise.all([
                     apiService.getStressBenches(),
-                    apiService.getLongLines()
+                    apiService.getLongLines(),
+                    apiService.getPlantProfiles()
                 ]);
                 setMasterBenches(benches || []);
                 setMasterLongLines(longLines || []);
+                setPlantProfiles(profiles || []);
             } catch (err) {
                 console.error('Failed to fetch master data:', err);
             }
         };
         fetchMasterData();
     }, []);
-    const AVAILABLE_SHEDS = [
-        { name: 'Stress Bench A', type: 'Twin', mouldsPerBench: 8 },
-        { name: 'Stress Bench B', type: 'Single', mouldsPerBench: 4 },
-        { name: 'Stress Bench C', type: 'Twin', mouldsPerBench: 8 },
-    ];
-    const AVAILABLE_LINES = [
-        { name: 'Long Line 1', type: 'Long Line', mouldsPerGang: 8 },
-        { name: 'Long Line 2', type: 'Long Line', mouldsPerGang: 8 },
-    ];
+    const dynamicUnits = React.useMemo(() => {
+        const filtered = plantProfiles.filter(p => {
+            const type = p.plantType || '';
+            if (plantType === 'Stress Bench') {
+                return type === 'Stress Bench';
+            } else {
+                return type === 'Longline' || type === 'Long Line';
+            }
+        });
 
-    const getCurrentTime = () => {
-        const now = new Date();
-        return now.toTimeString().split(' ')[0].substring(0, 5);
-    };
+        const latestProfile = filtered.length > 0 ? filtered[filtered.length - 1] : null;
+        const totalUnits = latestProfile ? (parseInt(latestProfile.numberOfSheds) || 0) : 0;
+        const prefix = plantType === 'Stress Bench' ? 'Shed' : 'Gang';
+
+        return Array.from({ length: totalUnits }).map((_, i) => ({
+            name: `${prefix} ${i + 1}`,
+            type: plantType === 'Stress Bench' ? 'Twin' : 'Long Line',
+            mouldsPerBench: 8,
+            mouldsPerGang: 8
+        }));
+    }, [plantProfiles, plantType]);
+    
+    const allSleeperTypes = React.useMemo(() => {
+        // Hardcoded as per request, others commented out
+        const types = ['RT-8746'];
+        /* 
+        masterBenches.forEach(b => {
+            if (b.sleeperCategory) types.add(b.sleeperCategory);
+        });
+        masterLongLines.forEach(l => {
+            if (l.category) types.add(l.category);
+        });
+        */
+        return types;
+    }, []);
 
     const generateSleeperIds = (benchNo, count) => {
         if (!benchNo || !count) return [];
@@ -89,46 +160,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         return { moulds: 0, rft: 0, sleeperNames: [] };
     };
 
-    const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
-    const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
-    const [formHeader, setFormHeader] = useState({
-        unit: 'Stress Bench A',
-        shedType: 'Twin',
-        date: new Date().toISOString().split('T')[0],
-        shift: 'Day Shift',
-        batchNo: '',
-        mixDesign: 'M60 - Design A (Active)',
-        timeLbc: getCurrentTime(),
-        remarks: ''
-    });
-
-    const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
-    const [stressBenchEntries, setStressBenchEntries] = useState([]);
-    const [stressBenchForm, setStressBenchForm] = useState({
-        chamberNo: '',
-        entryMode: 'range',
-        fromNo: '',
-        toNo: '',
-        singleNo: '',
-        sleeperType: '',
-        mouldsPerBench: 8
-    });
-
-    const [longLineEntries, setLongLineEntries] = useState([]);
-    const [longLineForm, setLongLineForm] = useState({
-        entryMode: 'range',
-        fromNo: '',
-        toNo: '',
-        singleNo: '',
-        mouldsPerGang: 8,
-        sleeperType: 'RT-8746'
-    });
-
-    const getSleeperTypeForBench = (benchNo) => {
-        if (!benchNo) return null;
-        // Mock logic for auto-population: even benches are RT-8746, odd are RT-8521
-        return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
-    };
 
     useEffect(() => {
         if (initialData) {
@@ -138,7 +169,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
             const [d, m, y] = (initialData.castingDate || '').split('/');
             setFormHeader({
                 unit: initialData.productionUnit || '',
-                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (AVAILABLE_SHEDS.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
+                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (dynamicUnits.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
                 date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
                 shift: initialData.shift || 'Day Shift',
                 batchNo: initialData.batchNumber || '',
@@ -246,7 +277,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
         if (details.sleeperType) {
             setStressBenchForm(prev => ({
                 ...prev,
-                sleeperType: details.sleeperType,
+                sleeperType: 'RT-8746', // Always default to RT-8746 as per hardcode request
                 mouldsPerBench: details.moulds || prev.mouldsPerBench
             }));
         }
@@ -562,6 +593,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 </button>
                 <h2 style={{ margin: 0, color: '#1e293b', fontWeight: '800' }}>New Shift Production Declaration</h2>
             </div>
+            <style>
+                {`
+                    input::-webkit-calendar-picker-indicator {
+                        display: none !important;
+                        -webkit-appearance: none;
+                    }
+                `}
+            </style>
 
             {/* Section 1: Batch Header */}
             <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
@@ -582,7 +621,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             checked={plantType === 'Stress Bench'}
                                             onChange={() => {
                                                 setPlantType('Stress Bench');
-                                                setFormHeader({ ...formHeader, unit: AVAILABLE_SHEDS[0].name, shedType: AVAILABLE_SHEDS[0].type });
+                                                const firstUnit = dynamicUnits.length > 0 ? dynamicUnits[0].name : '';
+                                                setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Twin' });
                                             }}
                                             style={radioStyle}
                                         />
@@ -595,7 +635,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             checked={plantType === 'Long Line'}
                                             onChange={() => {
                                                 setPlantType('Long Line');
-                                                setFormHeader({ ...formHeader, unit: AVAILABLE_LINES[0].name, shedType: 'Long Line' });
+                                                const firstUnit = dynamicUnits.length > 0 ? dynamicUnits[0].name : '';
+                                                setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Long Line' });
                                             }}
                                             style={radioStyle}
                                         />
@@ -611,9 +652,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     value={formHeader.unit}
                                     onChange={(e) => {
                                         const selectedUnit = e.target.value;
-                                        const unitData = plantType === 'Stress Bench'
-                                            ? AVAILABLE_SHEDS.find(s => s.name === selectedUnit)
-                                            : AVAILABLE_LINES.find(l => l.name === selectedUnit);
+                                        const unitData = dynamicUnits.find(u => u.name === selectedUnit);
                                         setFormHeader({
                                             ...formHeader,
                                             unit: selectedUnit,
@@ -622,7 +661,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     }}
                                 >
                                     <option value="">Select Unit</option>
-                                    {(plantType === 'Stress Bench' ? AVAILABLE_SHEDS : AVAILABLE_LINES).map(u => (
+                                    {dynamicUnits.map(u => (
                                         <option key={u.name} value={u.name}>{u.name}</option>
                                     ))}
                                 </select>
@@ -715,7 +754,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
                                         <div>
                                             <label style={labelStyle}>Chamber No.</label>
                                             <input type="number" value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
@@ -737,14 +776,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                 <input type="number" value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
-                                        <div>
+                                        <div style={{ position: 'relative' }}>
                                             <label style={labelStyle}>Sleeper Type</label>
-                                            <input
-                                                type="text"
-                                                value={stressBenchForm.sleeperType}
-                                                readOnly
-                                                style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold' }}
-                                            />
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <input
+                                                    list="sleeper-types-list"
+                                                    value={stressBenchForm.sleeperType}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => setStressBenchForm({ ...stressBenchForm, sleeperType: e.target.value })}
+                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    placeholder="Select or Type"
+                                                />
+                                                <span style={{ 
+                                                    position: 'absolute', 
+                                                    right: '15px', 
+                                                    fontSize: '12px',
+                                                    color: '#42818c',
+                                                    pointerEvents: 'none',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
+                                                }}>▼</span>
+                                            </div>
                                         </div>
                                         <div>
                                             <label style={labelStyle}>Moulds/Bench</label>
@@ -817,7 +869,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
                                         {longLineForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
@@ -835,14 +887,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                 <input type="number" value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
-                                        <div>
+                                        <div style={{ position: 'relative' }}>
                                             <label style={labelStyle}>Sleeper Type</label>
-                                            <input
-                                                type="text"
-                                                value={longLineForm.sleeperType}
-                                                readOnly
-                                                style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 'bold' }}
-                                            />
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <input
+                                                    list="sleeper-types-list"
+                                                    value={longLineForm.sleeperType}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
+                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    placeholder="Select or Type"
+                                                />
+                                                <span style={{ 
+                                                    position: 'absolute', 
+                                                    right: '15px', 
+                                                    fontSize: '12px',
+                                                    color: '#42818c',
+                                                    pointerEvents: 'none',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
+                                                }}>▼</span>
+                                            </div>
                                         </div>
                                         <div>
                                             <label style={labelStyle}>Moulds/Gang</label>
@@ -964,6 +1029,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 <button
                     onClick={() => {
                         try {
+                            const breakdown = getProductionBreakdown();
+                            const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
+
+                            if (invalidTypes.length > 0) {
+                                return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
+                            }
+
+                            if (calculateTotalCast() === 0) {
+                                return alert('Please add at least one valid entry.');
+                            }
+
                             // Formatting the DTO for the backend
                             const pdDto = {
                                 plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
@@ -1027,6 +1103,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                     Submit Declaration
                 </button>
             </div>
+            <datalist id="sleeper-types-list">
+                {allSleeperTypes.map(type => (
+                    <option key={type} value={type} />
+                ))}
+            </datalist>
         </div>
     );
 };
