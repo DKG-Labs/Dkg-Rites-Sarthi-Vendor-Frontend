@@ -10,7 +10,7 @@ import VisualMaterialTestingPage from './pages/VisualMaterialTestingPage';
 import SummaryReportsPage from './pages/SummaryReportsPage';
 import VendorDashboardPage from './pages/VendorDashboardPage';
 import Header from './components/Header';
-import { isAuthenticated, getStoredUser } from './services/authService';
+import { isAuthenticated, getStoredUser, getActiveRole } from './services/authService';
 import LoginPage from './pages/LoginPage';
 import SleeperVendorHost from './pages/SleeperVendorHost';
 import RailpadHost from './pages/RailpadHost';
@@ -73,13 +73,14 @@ const App = () => {
   };
 
   const user = getStoredUser();
+  const activeRole = getActiveRole();
 
   return (
-    !isAuthenticated() ? (
+    !isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (
       <LoginPage />
-    ) : user?.roleName?.includes('SLEEPER_VENDOR') ? (
+    ) : (activeRole === 'Sleeper Vendor' || user?.roleName?.includes('Sleeper Vendor') || user?.roleName?.includes('SLEEPER_VENDOR')) ? (
       <SleeperVendorHost />
-    ) : user?.roleName?.includes('RAILPAD_USER') ? (
+    ) : (activeRole === 'Rail Pad Vendor' || user?.roleName?.includes('Rail Pad Vendor') || user?.roleName?.includes('RAILPAD_USER')) ? (
       <RailpadHost />
     ) : (
       <div>

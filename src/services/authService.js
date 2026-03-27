@@ -103,6 +103,25 @@ export const storeAuthData = (authData) => {
   // Store roleName as a JSON string since it is now a list
   localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));
   localStorage.setItem('rio', authData.rio);
+
+  // Clear any previously active role
+  localStorage.removeItem('activeRole');
+};
+
+/**
+ * Store the selected active role
+ * @param {string} role - The role name selected by user
+ */
+export const setActiveRole = (role) => {
+  localStorage.setItem('activeRole', role);
+};
+
+/**
+ * Get the current active role
+ * @returns {string|null} The active role name
+ */
+export const getActiveRole = () => {
+  return localStorage.getItem('activeRole');
 };
 
 /**
@@ -156,6 +175,7 @@ export const logoutUser = () => {
   localStorage.removeItem('userName');
   localStorage.removeItem('roleName');
   localStorage.removeItem('rio');
+  localStorage.removeItem('activeRole');
 };
 
 /**

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { loginUser, storeAuthData, isAuthenticated } from '../services/authService';
+import { loginUser, storeAuthData, isAuthenticated, setActiveRole, getStoredUser, getActiveRole } from '../services/authService';
 import './LoginPage.css';
 
 // Import Assets
@@ -24,6 +24,7 @@ const LoginPage = () => {
   const [isInteracting, setIsInteracting] = useState(false);
   const [pointerRatio, setPointerRatio] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
+  const [availableRoles, setAvailableRoles] = useState(null); // New state for multiple roles
 
   const heroRef = useRef(null);
 
@@ -60,9 +61,13 @@ const LoginPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // If already logged in, reload app to show Vendor Dashboard
-  // This must be after ALL hooks to avoid conditional hook errors
-  if (isAuthenticated()) {
+  const user = getStoredUser();
+  const activeRole = getActiveRole();
+
+  // If already logged in AND (single role OR role already selected), then reload to show Dashboard
+  if (isAuthenticated() && (user?.roleName?.length <= 1 || activeRole)) {
+    // Only reload if we are not already on the dashboard (indicated by some state)
+    // Actually window.location.reload() is fine as a simple redirect trigger for this app's architecture
     window.location.reload();
     return null;
   }
@@ -101,22 +106,33 @@ const LoginPage = () => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
       const userData = await loginUser(userId, password, loginType);
 
-      // Store auth data
+      // Store basic auth data first
       storeAuthData(userData);
 
-      // Reload so App.js shows appropriate Dashboard
-      window.location.reload();
+      // Check for multiple roles
+      const roles = Array.isArray(userData.roleName) ? userData.roleName : [userData.roleName];
+
+      if (roles.length > 1) {
+        setAvailableRoles(roles);
+      } else {
+        // Single role, set it as active and reload
+        setActiveRole(roles[0]);
+        window.location.reload();
+      }
 
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRoleSelect = (role) => {
+    setActiveRole(role);
+    window.location.reload();
   };
 
   const parallaxX = pointerRatio.x * 16;
@@ -174,66 +190,86 @@ const LoginPage = () => {
                   <p className="dashboard-fullform">System for Automated Review Tracking & Holistic Inspection</p>
                 </div>
 
-                <form className="dashboard-form" onSubmit={handleSubmit}>
-                  {error && (
-                    <div className="login-error-toast">
-                      <span>⚠️ {error}</span>
+                {!availableRoles ? (
+                  <form className="dashboard-form" onSubmit={handleSubmit}>
+                    {error && (
+                      <div className="login-error-toast">
+                        <span>⚠️ {error}</span>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label>User ID</label>
+                      <div className="input-field-shell">
+                        <span className="input-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.1 0-8 2.1-8 5v1h16v-1c0-2.9-3.9-5-8-5Z" />
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Enter your User ID"
+                          value={userId}
+                          onChange={(e) => setUserId(e.target.value)}
+                          disabled={isLoading}
+                          required
+                        />
+                      </div>
                     </div>
-                  )}
 
-                  <div className="form-group">
-                    <label>User ID</label>
-                    <div className="input-field-shell">
-                      <span className="input-icon">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.1 0-8 2.1-8 5v1h16v-1c0-2.9-3.9-5-8-5Z" />
-                        </svg>
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Enter your User ID"
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
-                        disabled={isLoading}
-                        required
-                      />
+                    <div className="form-group">
+                      <label>Password</label>
+                      <div className="input-field-shell">
+                        <span className="input-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                            <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4Zm2 10.75A1.75 1.75 0 1 1 13.75 16 1.75 1.75 0 0 1 12 17.75Z" />
+                          </svg>
+                        </span>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Enter your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          disabled={isLoading}
+                          required
+                        />
+                        <button type="button" className="password-toggle-redesign" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="form-group">
-                    <label>Password</label>
-                    <div className="input-field-shell">
-                      <span className="input-icon">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                          <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4Zm2 10.75A1.75 1.75 0 1 1 13.75 16 1.75 1.75 0 0 1 12 17.75Z" />
-                        </svg>
-                      </span>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading}
-                        required
-                      />
-                      <button type="button" className="password-toggle-redesign" onClick={() => setShowPassword(!showPassword)}>
-                        {showPassword ? '🙈' : '👁️'}
-                      </button>
+                    <div className="dashboard-options">
+                      <label className="remember-me">
+                        <input type="checkbox" /> <span>Remember me</span>
+                      </label>
+                      <a href="/#" className="forgot-link">Forgot password?</a>
                     </div>
-                  </div>
 
-                  <div className="dashboard-options">
-                    <label className="remember-me">
-                      <input type="checkbox" /> <span>Remember me</span>
-                    </label>
-                    <a href="/#" className="forgot-link">Forgot password?</a>
+                    <button type="submit" className="submit-btn" disabled={isLoading}>
+                      {isLoading ? 'Signing In...' : 'Sign In'}
+                    </button>
+                    <p className="dashboard-footnote">Protected session with active security monitoring</p>
+                  </form>
+                ) : (
+                  <div className="role-selection-container">
+                    <h3 className="selection-title">Select Dashboard</h3>
+                    <p className="selection-subtitle">Multiple roles detected. Please choose a workspace to continue.</p>
+                    {availableRoles.map((role, idx) => (
+                      <div key={idx} className="role-option-card" onClick={() => handleRoleSelect(role)}>
+                        <div className="role-name">{role}</div>
+                        <div className="role-arrow">
+                          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                          </svg>
+                        </div>
+                      </div>
+                    ))}
+                    <button className="back-to-login" onClick={() => setAvailableRoles(null)}>
+                      Back to Login
+                    </button>
                   </div>
-
-                  <button type="submit" className="submit-btn" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                  </button>
-                  <p className="dashboard-footnote">Protected session with active security monitoring</p>
-                </form>
+                )}
               </aside>
             </div>
           </div>
