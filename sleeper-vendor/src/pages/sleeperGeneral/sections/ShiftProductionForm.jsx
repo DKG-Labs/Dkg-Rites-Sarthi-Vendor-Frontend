@@ -15,7 +15,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     };
 
     const [formHeader, setFormHeader] = useState({
-        unit: 'Stress Bench A',
+        unit: '',
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
         shift: 'Day Shift',
@@ -64,6 +64,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 setMasterBenches(benches || []);
                 setMasterLongLines(longLines || []);
                 setPlantProfiles(profiles || []);
+                
+                // Set initial default unit once profiles are loaded
+                if (profiles && profiles.length > 0) {
+                    const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
+                    const initialPlantType = firstProfile.type;
+                    const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
+                    const prefix = initialPlantType === 'Stress Bench' ? 'Shed' : 'Line';
+                    if (totalUnits > 0) {
+                        setFormHeader(prev => ({ ...prev, unit: `${prefix} 1` }));
+                    }
+                }
             } catch (err) {
                 console.error('Failed to fetch master data:', err);
             }
@@ -621,7 +632,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             checked={plantType === 'Stress Bench'}
                                             onChange={() => {
                                                 setPlantType('Stress Bench');
-                                                const firstUnit = dynamicUnits.length > 0 ? dynamicUnits[0].name : '';
+                                                // Calculate prefix for Sheds
+                                                const benchProfile = plantProfiles.find(p => p.type === 'Stress Bench');
+                                                const totalSheds = parseInt(benchProfile?.numberOfSheds || benchProfile?.shedLines || 0);
+                                                const firstUnit = totalSheds > 0 ? 'Shed 1' : '';
                                                 setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Twin' });
                                             }}
                                             style={radioStyle}
@@ -635,7 +649,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             checked={plantType === 'Long Line'}
                                             onChange={() => {
                                                 setPlantType('Long Line');
-                                                const firstUnit = dynamicUnits.length > 0 ? dynamicUnits[0].name : '';
+                                                // Calculate prefix for Gangs
+                                                const longLineProfile = plantProfiles.find(p => p.type === 'Longline' || p.type === 'Long Line');
+                                                const totalLines = parseInt(longLineProfile?.numberOfSheds || longLineProfile?.shedLines || 0);
+                                                const firstUnit = totalLines > 0 ? 'Line 1' : '';
                                                 setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Long Line' });
                                             }}
                                             style={radioStyle}
@@ -646,7 +663,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             </div>
 
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Stress Bench No.)' : 'Production Unit (Line No.)'}</label>
+                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Shed No.)' : 'Production Unit (Line No.)'}</label>
                                 <select
                                     style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
                                     value={formHeader.unit}
