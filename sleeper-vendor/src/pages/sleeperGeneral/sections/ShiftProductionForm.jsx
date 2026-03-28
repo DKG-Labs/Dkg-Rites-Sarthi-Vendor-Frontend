@@ -844,19 +844,37 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                 <input
                                                     list="sleeper-types-list"
                                                     value={stressBenchForm.sleeperType}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={(e) => {
+                                                        e.target.select();
+                                                        // This hack helps some browsers show the list on focus
+                                                        e.target.setAttribute('placeholder', '');
+                                                    }}
+                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setStressBenchForm({ ...stressBenchForm, sleeperType: e.target.value })}
-                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    style={{ 
+                                                        ...inputStyle, 
+                                                        background: '#ffffff', 
+                                                        textAlign: 'center', 
+                                                        fontWeight: '700', 
+                                                        paddingRight: '40px',
+                                                        cursor: 'pointer',
+                                                        border: '2px solid #e2e8f0',
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                    }}
                                                     placeholder="Select or Type"
                                                 />
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
-                                                    fontSize: '12px',
+                                                    fontSize: '10px',
                                                     color: '#42818c',
                                                     pointerEvents: 'none',
                                                     display: 'flex',
-                                                    alignItems: 'center'
+                                                    alignItems: 'center',
+                                                    background: '#f1f5f9',
+                                                    padding: '4px 6px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #e2e8f0'
                                                 }}>▼</span>
                                             </div>
                                         </div>
@@ -867,6 +885,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         <button
                                             onClick={() => {
                                                 if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
+                                                if (stressBenchForm.entryMode === 'range') {
+                                                    if (!stressBenchForm.fromNo || !stressBenchForm.toNo) return alert('Bench From and To are required');
+                                                } else {
+                                                    if (!stressBenchForm.singleNo) return alert('Bench No is required');
+                                                }
+                                                if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+                                                
                                                 const newEntry = { ...stressBenchForm, id: Date.now() };
                                                 setStressBenchEntries([...stressBenchEntries, newEntry]);
                                                 setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '', sleeperType: '' });
@@ -918,7 +943,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             <div>
                                 <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Long Line Entry</h4>
+                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Long Line Gang Entry</h4>
                                         <div style={{ display: 'flex', gap: '20px' }}>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
                                                 <input type="radio" checked={longLineForm.entryMode === 'range'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'range' })} style={radioStyle} />
@@ -935,17 +960,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         {longLineForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
-                                                    <label style={labelStyle}>Line No. From</label>
+                                                    <label style={labelStyle}>Gang No. From</label>
                                                     <input type="number" value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
-                                                    <label style={labelStyle}>Line No. To</label>
+                                                    <label style={labelStyle}>Gang No. To</label>
                                                     <input type="number" value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={labelStyle}>Line No.</label>
+                                                <label style={labelStyle}>Gang No.</label>
                                                 <input type="number" value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
@@ -955,28 +980,53 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                 <input
                                                     list="sleeper-types-list"
                                                     value={longLineForm.sleeperType}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={(e) => {
+                                                        e.target.select();
+                                                        // This hack helps focus behavior
+                                                        e.target.setAttribute('placeholder', '');
+                                                    }}
+                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
-                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    style={{ 
+                                                        ...inputStyle, 
+                                                        background: '#ffffff', 
+                                                        textAlign: 'center', 
+                                                        fontWeight: '700', 
+                                                        paddingRight: '40px',
+                                                        cursor: 'pointer',
+                                                        border: '2px solid #e2e8f0',
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                    }}
                                                     placeholder="Select or Type"
                                                 />
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
-                                                    fontSize: '12px',
+                                                    fontSize: '10px',
                                                     color: '#42818c',
                                                     pointerEvents: 'none',
                                                     display: 'flex',
-                                                    alignItems: 'center'
+                                                    alignItems: 'center',
+                                                    background: '#f1f5f9',
+                                                    padding: '4px 6px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #e2e8f0'
                                                 }}>▼</span>
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={labelStyle}>Moulds/Line</label>
+                                            <label style={labelStyle}>Moulds/Gang</label>
                                             <input type="number" value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
                                         </div>
                                         <button
                                             onClick={() => {
+                                                if (longLineForm.entryMode === 'range') {
+                                                    if (!longLineForm.fromNo || !longLineForm.toNo) return alert('Gang From and To are required');
+                                                } else {
+                                                    if (!longLineForm.singleNo) return alert('Gang No is required');
+                                                }
+                                                if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+
                                                 const newEntry = { ...longLineForm, id: Date.now() };
                                                 setLongLineEntries([...longLineEntries, newEntry]);
                                                 setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
@@ -994,10 +1044,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Lines</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Gangs</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '180px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Line</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Gang</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Action</th>
                                                 </tr>
                                             </thead>
@@ -1091,6 +1141,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 <button
                     onClick={() => {
                         try {
+                            if (!formHeader.unit) {
+                                return alert('Production Unit is mandatory. Please select a unit in Section 1.');
+                            }
+
                             const breakdown = getProductionBreakdown();
                             const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
 
