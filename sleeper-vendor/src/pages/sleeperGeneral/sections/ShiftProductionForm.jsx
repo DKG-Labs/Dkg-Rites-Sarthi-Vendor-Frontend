@@ -69,32 +69,35 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 setPlantProfiles(profiles || []);
                 setPlantDetails(details?.responseData || []);
                 
-                // Set initial default unit once profiles are loaded
-                const availableDetails = details?.responseData || [];
-                if (availableDetails.length > 0) {
-                    const firstMatch = [...availableDetails].reverse().find(p => {
-                        const type = p.plantType || '';
-                        if (plantType === 'Stress Bench') return type === 'Stress Bench';
-                        return type === 'Longline' || type === 'Long Line';
-                    }) || availableDetails[availableDetails.length - 1];
-                    const initialPlantType = firstMatch.plantType === 'Longline' ? 'Long Line' : 'Stress Bench';
-                    setPlantType(initialPlantType);
-                    
-                    const firstUnit = firstMatch.units?.[0];
-                    if (firstUnit) {
-                        const label = (initialPlantType === 'Stress Bench' && firstUnit.toLowerCase().includes('line')) 
-                            ? firstUnit.toLowerCase().replace('line', 'Shed')
-                            : firstUnit;
-                        const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
-                        setFormHeader(prev => ({ ...prev, unit: formattedLabel }));
-                    }
-                } else if (profiles && profiles.length > 0) {
-                    const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
-                    const initialPlantType = firstProfile.type;
-                    const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
-                    const prefix = initialPlantType === 'Stress Bench' ? 'Shed' : 'Line';
-                    if (totalUnits > 0) {
-                        setFormHeader(prev => ({ ...prev, unit: `${prefix} 1` }));
+                // Set initial default unit only when creating a NEW declaration (not editing)
+                // In edit/modify mode, initialData's useEffect handles setting the correct unit.
+                if (!initialData) {
+                    const availableDetails = details?.responseData || [];
+                    if (availableDetails.length > 0) {
+                        const firstMatch = [...availableDetails].reverse().find(p => {
+                            const type = p.plantType || '';
+                            if (plantType === 'Stress Bench') return type === 'Stress Bench';
+                            return type === 'Longline' || type === 'Long Line';
+                        }) || availableDetails[availableDetails.length - 1];
+                        const initialPlantType = firstMatch.plantType === 'Longline' ? 'Long Line' : 'Stress Bench';
+                        setPlantType(initialPlantType);
+
+                        const firstUnit = firstMatch.units?.[0];
+                        if (firstUnit) {
+                            const label = (initialPlantType === 'Stress Bench' && firstUnit.toLowerCase().includes('line'))
+                                ? firstUnit.toLowerCase().replace('line', 'Shed')
+                                : firstUnit;
+                            const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+                            setFormHeader(prev => ({ ...prev, unit: formattedLabel }));
+                        }
+                    } else if (profiles && profiles.length > 0) {
+                        const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
+                        const initialPlantType = firstProfile.type;
+                        const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
+                        const prefix = initialPlantType === 'Stress Bench' ? 'Shed' : 'Line';
+                        if (totalUnits > 0) {
+                            setFormHeader(prev => ({ ...prev, unit: `${prefix} 1` }));
+                        }
                     }
                 }
             } catch (err) {
@@ -217,15 +220,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     };
 
 
+    const hasInitialized = React.useRef(false);
+
     useEffect(() => {
-        if (initialData) {
+        if (initialData && !hasInitialized.current) {
             setPlantType(initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Stress Bench');
 
             // Map header
             const [d, m, y] = (initialData.castingDate || '').split('/');
             setFormHeader({
                 unit: initialData.productionUnit || '',
-                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (dynamicUnits.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
+                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Twin',
                 date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
                 shift: initialData.shift || 'Day Shift',
                 batchNo: initialData.batchNumber || '',
@@ -234,11 +239,22 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 remarks: initialData.remarks || ''
             });
 
-            // Map chambers for Stress Bench
+            // Map chambers for Stress Bench with deduplication
             if (initialData.plantType === 'STRESS' && initialData.chambers) {
                 const mappedEntries = [];
+                // Use a object to track seen bench patterns per chamber to avoid duplication from backend
+                const seenPatternsPerChamber = {};
+
                 initialData.chambers.forEach(c => {
+                    const chNo = c.chamberNo;
+                    if (!seenPatternsPerChamber[chNo]) seenPatternsPerChamber[chNo] = new Set();
+                    
                     c.benchGroups.forEach(g => {
+                        // Create a pattern key for this bench group to avoid reloading exact duplicates
+                        const patternKey = `${g.mode}-${g.benchNo}-${g.benchFrom}-${g.benchTo}-${g.sleeperType}-${g.mouldPerBench}`;
+                        if (seenPatternsPerChamber[chNo].has(patternKey)) return;
+                        seenPatternsPerChamber[chNo].add(patternKey);
+
                         mappedEntries.push({
                             id: Date.now() + Math.random(), // Unique ID
                             chamberNo: c.chamberNo,
@@ -247,7 +263,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             toNo: g.benchTo?.toString() || '',
                             singleNo: g.benchNo?.toString() || '',
                             sleeperType: g.sleeperType || '',
-                            mouldsPerBench: g.mouldPerBench || 8
+                            mouldsPerBench: g.mouldPerBench || 8,
+                            _originalRft: g.rft,
+                            _originalSleepers: g.sleepers,
+                            _isOld: true
                         });
                     });
                 });
@@ -256,22 +275,49 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
             // Map gangs for Long Line
             if (initialData.plantType === 'LONG_LINE' && initialData.gangs) {
-                const mappedEntries = initialData.gangs.map((g, gIdx) => ({
-                    id: Date.now() + gIdx,
-                    entryMode: g.mode?.toLowerCase() || 'range',
-                    fromNo: g.gangFrom?.toString() || '',
-                    toNo: g.gangTo?.toString() || '',
-                    singleNo: g.gangNo?.toString() || '',
-                    mouldsPerGang: g.mouldsPerGang,
-                    sleeperType: g.sleeperType
-                }));
+                const mappedEntries = [];
+                const seenPatterns = new Set();
+                
+                initialData.gangs.forEach((g, gIdx) => {
+                    const patternKey = `${g.mode}-${g.gangNo}-${g.gangFrom}-${g.gangTo}-${g.sleeperType}-${g.mouldsPerGang}`;
+                    if (seenPatterns.has(patternKey)) return;
+                    seenPatterns.add(patternKey);
+
+                    mappedEntries.push({
+                        id: Date.now() + gIdx,
+                        entryMode: g.mode?.toLowerCase() || 'range',
+                        fromNo: g.gangFrom?.toString() || '',
+                        toNo: g.gangTo?.toString() || '',
+                        singleNo: g.gangNo?.toString() || '',
+                        mouldsPerGang: g.mouldsPerGang,
+                        sleeperType: g.sleeperType,
+                        _isOld: true
+                    });
+                });
                 if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
             }
 
             // Move to Section 1
             setActiveSections({ 1: true, 2: true, 3: true });
+            hasInitialized.current = true;
         }
     }, [initialData]);
+
+    // Re-sync the unit from initialData once dynamicUnits are available (after async master-data fetch).
+    // This ensures the select dropdown shows the correct saved unit (e.g. "Shed 4") even though
+    // dynamicUnits was empty when the initialData effect first ran.
+    useEffect(() => {
+        if (initialData?.productionUnit && dynamicUnits.length > 0) {
+            setFormHeader(prev => ({
+                ...prev,
+                unit: initialData.productionUnit,
+                shedType: initialData.plantType === 'LONG_LINE'
+                    ? 'Long Line'
+                    : (dynamicUnits.find(u => u.name === initialData.productionUnit)?.type || 'Twin')
+            }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dynamicUnits]);
 
     useEffect(() => {
         const gangNo = longLineForm.entryMode === 'single' ? longLineForm.singleNo : longLineForm.fromNo;
@@ -317,6 +363,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 singleNo: entry.singleNo,
                 mouldsPerBench: entry.mouldsPerBench,
                 sleeperType: entry.sleeperType,
+                _originalRft: entry._originalRft,
+                _originalSleepers: entry._originalSleepers,
+                _isOld: entry._isOld
                 // Add other properties if needed for calculations or display
             });
             return acc;
@@ -1175,7 +1224,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 }
 
                                 // Formatting the DTO for the backend
+                                const isUpdate = !!(initialData?.id && !isNaN(initialData.id));
                                 const pdDto = {
+                                    ...(isUpdate ? initialData : {}),
+                                    ...(isUpdate ? { id: initialData.id } : {}),
                                     plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
                                     productionUnit: formHeader.unit,
                                     castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
@@ -1190,51 +1242,61 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     vendorId: 118,
                                     createdBy: 118,
                                     updatedBy: 118,
-                                    chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
-                                        chamberNo: parseInt(chamber.chamberNo) || 0,
-                                        benchGroups: chamber.benchGroups.flatMap(group => {
-                                            let benchList = [];
-                                            if (group.entryMode === 'range') {
-                                                const from = parseInt(group.fromNo) || 0;
-                                                const to = parseInt(group.toNo) || 0;
-                                                if (from > 0 && to >= from) {
-                                                    for (let i = from; i <= to; i++) benchList.push(i.toString());
-                                                }
-                                            } else if (group.entryMode === 'single') {
-                                                if (group.singleNo) benchList.push(group.singleNo);
-                                            } else {
-                                                benchList = group.benches.filter(b => b.trim());
-                                            }
+                                    chambers: plantType === 'Stress Bench' ? chambers
+                                        .filter(chamber => chamber.benchGroups.some(g => !g._isOld))
+                                        .map(chamber => ({
+                                            chamberNo: parseInt(chamber.chamberNo) || 0,
+                                            benchGroups: chamber.benchGroups
+                                                .filter(g => !g._isOld)
+                                                .flatMap(group => {
+                                                    let benchList = [];
+                                                    if (group.entryMode === 'range') {
+                                                        const from = parseInt(group.fromNo) || 0;
+                                                        const to = parseInt(group.toNo) || 0;
+                                                        if (from > 0 && to >= from) {
+                                                            for (let i = from; i <= to; i++) benchList.push(i.toString());
+                                                        }
+                                                    } else if (group.entryMode === 'single') {
+                                                        if (group.singleNo) benchList.push(group.singleNo);
+                                                    } else {
+                                                        benchList = group.benches.filter(b => b.trim());
+                                                    }
 
-                                            return benchList.map(bench => ({
-                                                benchNo: parseInt(bench) || 0,
-                                                sleeperType: group.sleeperType,
-                                                mouldPerBench: parseInt(group.mouldsPerBench) || 0,
-                                                rft: getBenchMasterDetails(bench).rft,
-                                                sleepers: generateSleeperIds(bench, group.mouldsPerBench)
-                                            }));
-                                        })
-                                    })) : [],
-                                    gangs: plantType === 'Long Line' ? longLineEntries.map(entry => ({
-                                        mode: entry.entryMode.toUpperCase(),
-                                        gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
-                                        gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
-                                        gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
-                                        sleeperType: entry.sleeperType,
-                                        mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
-                                    })) : []
+                                                    return benchList.map(bench => {
+                                                        const originalRft = group._originalRft !== undefined && bench === group.singleNo ? group._originalRft : getBenchMasterDetails(bench).rft;
+                                                        const originalSleepers = group._originalSleepers && bench === group.singleNo ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
+                                                        
+                                                        return {
+                                                            benchNo: parseInt(bench) || 0,
+                                                            sleeperType: group.sleeperType,
+                                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
+                                                            rft: originalRft,
+                                                            sleepers: originalSleepers
+                                                        };
+                                                    });
+                                                })
+                                        })) : [],
+                                    gangs: plantType === 'Long Line' ? longLineEntries
+                                        .filter(entry => !entry._isOld)
+                                        .map(entry => ({
+                                            mode: entry.entryMode.toUpperCase(),
+                                            gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
+                                            gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
+                                            gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
+                                            sleeperType: entry.sleeperType,
+                                            mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
+                                        })) : []
                                 };
 
                                 onSave(pdDto);
-                                alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: ${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
-                            } catch (err) {
-                                console.error('Error formatting DTO:', err);
-                                alert('Error preparing data for submission. Please check form inputs.');
+                            } catch (error) {
+                                console.error("Validation error:", error);
+                                alert("Failed to submit. Please check your data and try again.");
                             }
                         }}
-                        style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px 32px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(66, 129, 140, 0.4)' }}
+                        style={{ background: '#0284c7', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)' }}
                     >
-                        Submit Declaration
+                        {(initialData?.id && !isNaN(initialData.id)) ? 'Update Declaration' : 'Submit Declaration'}
                     </button>
                 )}
             </div>
