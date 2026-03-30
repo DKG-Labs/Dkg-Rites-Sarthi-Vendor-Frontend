@@ -1,13 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import PlantSelectionModal from '../common/PlantSelectionModal';
 
 const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
+    const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
+    const [vendorCode, setVendorCode] = useState(null);
+    const [selectedPlant, setSelectedPlant] = useState(() => {
+        const saved = localStorage.getItem('selectedPlant');
+        return saved ? JSON.parse(saved) : null;
+    });
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search || window.location.search);
+        const code = params.get('vendorCode');
+        if (code) {
+            setVendorCode(code);
+        }
+    }, [location]);
+
+    const handlePlantSelect = (plant) => {
+        setSelectedPlant(plant);
+        localStorage.setItem('selectedPlant', JSON.stringify(plant));
+    };
+
     return (
         <div className="main-layout-root">
+            {/* Plant Selection Modal */}
+            {vendorCode && !selectedPlant && (
+                <PlantSelectionModal 
+                    vendorCode={vendorCode} 
+                    onSelect={handlePlantSelect} 
+                />
+            )}
+
             {isMobileMenuOpen && (
                 <div
                     className="sidebar-overlay"
@@ -47,6 +77,23 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {selectedPlant && (
+                            <div className="selected-plant-display" style={{
+                                background: '#f0f9fa',
+                                color: '#21808d',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: 'var(--fs-xs)',
+                                fontWeight: '600',
+                                border: '1px solid rgba(33, 128, 141, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span style={{ opacity: 0.7 }}>📍</span>
+                                {selectedPlant.plantName} ({vendorCode})
+                            </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{
                                 width: '32px',
@@ -59,7 +106,7 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                                 justifyContent: 'center',
                                 fontSize: 'var(--fs-sm)',
                                 fontWeight: '600'
-                            }}>I</div>
+                            }}>V</div>
                             <button
                                 onClick={onLogout}
                                 style={{ padding: '0', background: 'transparent', border: 'none', color: '#475467', fontSize: 'var(--fs-sm)', fontWeight: '500', cursor: 'pointer' }}

@@ -99,6 +99,7 @@ export const loginUser = async (loginId, password, loginType = 'IE') => {
 export const storeAuthData = (authData) => {
   localStorage.setItem('authToken', authData.token);
   localStorage.setItem('userId', authData.userId);
+  localStorage.setItem('vendorCode', authData.userId);
   localStorage.setItem('userName', authData.userName);
   // Store roleName as a JSON string since it is now a list
   localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));

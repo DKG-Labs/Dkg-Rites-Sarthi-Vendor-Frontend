@@ -55,6 +55,7 @@ const App = () => {
   }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem('selectedPlant');
     window.top.postMessage('logout', '*');
   };
 
