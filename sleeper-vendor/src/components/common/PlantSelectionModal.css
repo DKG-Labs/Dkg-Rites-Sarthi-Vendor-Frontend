@@ -16,9 +16,9 @@
 
 .plant-modal-container {
     background: #ffffff;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 500px;
+    border-radius: 16px;
+    width: 95%;
+    max-width: 420px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     overflow: hidden;
     animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -28,79 +28,79 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3rem;
+    padding: 2rem;
     color: #475467;
 }
 
 .spinner {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border: 3px solid rgba(33, 128, 141, 0.1);
     border-radius: 50%;
     border-top-color: #21808d;
     animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .plant-modal-header {
     background: linear-gradient(135deg, #21808d 0%, #134252 100%);
-    padding: 2rem;
+    padding: 1.25rem 1.5rem;
     display: flex;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1rem;
     color: white;
 }
 
 .header-icon {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     background: rgba(255, 255, 255, 0.2);
-    width: 64px;
-    height: 64px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 16px;
+    border-radius: 12px;
 }
 
 .header-text h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: white;
 }
 
 .header-text p {
-    margin: 4px 0 0;
-    font-size: 0.875rem;
+    margin: 2px 0 0;
+    font-size: 0.8rem;
     opacity: 0.9;
 }
 
 .plant-modal-body {
-    padding: 2rem;
+    padding: 1.25rem 1.5rem;
 }
 
 .selection-hint {
     color: #475467;
-    margin-bottom: 1.5rem;
-    font-size: 0.9375rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
 }
 
 .error-message {
-    padding: 1.5rem;
+    padding: 1rem;
     background: #fef2f2;
     border: 1px solid #fee2e2;
-    border-radius: 12px;
+    border-radius: 10px;
     color: #b91c1c;
     text-align: center;
 }
 
 .retry-btn {
-    margin-top: 1rem;
-    padding: 0.75rem 1.5rem;
+    margin-top: 0.75rem;
+    padding: 0.6rem 1.25rem;
     background: #b91c1c;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     font-weight: 600;
     cursor: pointer;
 }
@@ -108,8 +108,8 @@
 .plants-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    max-height: 350px;
+    gap: 0.5rem;
+    max-height: 280px;
     overflow-y: auto;
     padding-right: 4px;
 }
