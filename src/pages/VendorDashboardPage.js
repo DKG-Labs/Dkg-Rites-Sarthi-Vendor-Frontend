@@ -131,6 +131,11 @@ const VendorDashboardPage = ({ onBack }) => {
   const [loadingRequestedCalls, setLoadingRequestedCalls] = useState(false);
   const [requestedCallsError, setRequestedCallsError] = useState(null);
 
+  // Completed Calls data state - also derived from the same API
+  const [completedCalls, setCompletedCalls] = useState([]);
+  const [loadingCompletedCalls, setLoadingCompletedCalls] = useState(false);
+  const [completedCallsError, setCompletedCallsError] = useState(null);
+
   // Pagination and sorting state for PO Assigned table
   const [poAssignedCurrentPage, setPoAssignedCurrentPage] = useState(1);
   const [poAssignedSortColumn, setPoAssignedSortColumn] = useState(null);
@@ -182,185 +187,223 @@ const VendorDashboardPage = ({ onBack }) => {
   }), [user.userName]);
 
   // ============ FETCH PO ASSIGNED DATA ============
-  useEffect(() => {
-    const fetchPOAssignedData = async () => {
-      setLoadingPOData(true);
-      setPoDataError(null);
-      try {
-        // TODO: Replace ':13101' with actual vendor code from auth context
-        // For testing, using vendor code ':13101' from database
-        const response = await poAssignedService.getPoAssigned(user.userName);
+  const fetchPOAssignedData = useCallback(async () => {
+    setLoadingPOData(true);
+    setPoDataError(null);
+    try {
+      // TODO: Replace ':13101' with actual vendor code from auth context
+      // For testing, using vendor code ':13101' from database
+      const response = await poAssignedService.getPoAssigned(user.userName);
 
-        if (response.success && response.data) {
-          // Transform API data to match frontend structure
-          // Backend returns VendorPoHeaderResponseDto with: poNo, poDate, poDes, qty, unit, poItem[]
-          const transformedData = response.data.map((item, index) => ({
-            id: index + 1, // Generate ID since backend doesn't return it
-            po_no: item.poNo || '',
-            po_date: item.poDate || '',
-            description: item.poDes || '',
-            zone_name: item.rlyShortName || item.rly_short_name || item.rlyCd || 'N/A',
-            quantity: item.qty || 0,
-            unit: item.unit || '',
-            status: 'Fresh PO', // Backend doesn't return status, using default
-            amendment_no: '',
-            amendment_date: '',
-            items: (item.poItem || []).map((poItem, itemIndex) => ({
-              id: itemIndex + 1,
-              item_name: poItem.poDes || '',
-              item_qty: poItem.orderedQty || 0,
-              item_unit: item.unit || '',
-              item_status: 'Fresh PO',
-              po_serial_no: poItem.poSerialNo || '',
-              consignee: poItem.conigness || '',
-              delivery_period: poItem.deliveryPeriod || '',
-              item_code: '',
-              unit_price: 0,
-              total_price: 0
-            }))
-          }));
+      if (response.success && response.data) {
+        // Transform API data to match frontend structure
+        // Backend returns VendorPoHeaderResponseDto with: poNo, poDate, poDes, qty, unit, poItem[]
+        const transformedData = response.data.map((item, index) => ({
+          id: index + 1, // Generate ID since backend doesn't return it
+          po_no: item.poNo || '',
+          po_date: item.poDate || '',
+          description: item.poDes || '',
+          zone_name: item.rlyShortName || item.rly_short_name || item.rlyCd || 'N/A',
+          quantity: item.qty || 0,
+          unit: item.unit || '',
+          status: 'Fresh PO', // Backend doesn't return status, using default
+          amendment_no: '',
+          amendment_date: '',
+          items: (item.poItem || []).map((poItem, itemIndex) => ({
+            id: itemIndex + 1,
+            item_name: poItem.poDes || '',
+            item_qty: poItem.orderedQty || 0,
+            item_unit: item.unit || '',
+            item_status: 'Fresh PO',
+            po_serial_no: poItem.poSerialNo || '',
+            consignee: poItem.conigness || '',
+            delivery_period: poItem.deliveryPeriod || '',
+            item_code: '',
+            unit_price: 0,
+            total_price: 0
+          }))
+        }));
 
-          setPoAssignedList(transformedData);
-        } else {
-          setPoDataError('Failed to fetch PO data');
-          // Fallback to mock data
-          setPoAssignedList([]);
-        }
-      } catch (error) {
-        console.error('Error fetching PO assigned data:', error);
-        setPoDataError(error.message || 'Error fetching PO data');
+        setPoAssignedList(transformedData);
+      } else {
+        setPoDataError('Failed to fetch PO data');
         // Fallback to mock data
         setPoAssignedList([]);
-      } finally {
-        setLoadingPOData(false);
       }
-    };
-
-    fetchPOAssignedData();
+    } catch (error) {
+      console.error('Error fetching PO assigned data:', error);
+      setPoDataError(error.message || 'Error fetching PO data');
+      // Fallback to mock data
+      setPoAssignedList([]);
+    } finally {
+      setLoadingPOData(false);
+    }
   }, [user.userName]);
 
-  // ============ FETCH INVENTORY ENTRIES DATA ============
   useEffect(() => {
-    const fetchInventoryEntries = async () => {
-      try {
-        // TODO: Replace '13104' with actual vendor code from auth context
-        const response = await inventoryService.getInventoryEntries(user.userName);
+    fetchPOAssignedData();
+  }, [fetchPOAssignedData]);
 
-        if (response.success && response.data) {
-          // Transform backend data to match frontend structure
-          const transformedEntries = response.data.map(entry => ({
-            id: entry.id,
-            rawMaterial: entry.rawMaterial,
-            supplierName: entry.supplierName,
-            supplierAddress: entry.supplierAddress,
-            gradeSpecification: entry.gradeSpecification,
-            heatNumber: entry.heatNumber,
-            tcNumber: entry.tcNumber,
-            tcDate: entry.tcDate,
-            invoiceNumber: entry.invoiceNumber,
-            invoiceDate: entry.invoiceDate,
-            subPoNumber: entry.subPoNumber,
-            subPoDate: entry.subPoDate,
-            subPoQty: entry.subPoQty,
-            rateOfMaterial: entry.rateOfMaterial,
-            rateOfGst: entry.rateOfGst,
-            tcQuantity: entry.tcQuantity,
-            offeredQuantity: entry.offeredQuantity || 0,
-            // FIX: Use nullish coalescing (??) instead of || to handle 0 correctly
-            // When qtyLeftForInspection is 0 (exhausted), it should display 0, not fall back to tcQuantity
-            qtyLeftForInspection: entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity,
-            unitOfMeasurement: entry.unitOfMeasurement,
-            baseValuePO: entry.baseValuePo,
-            totalPO: entry.totalPo,
-            lengthOfBars: entry.lengthOfBars,
-            status: entry.status === 'FRESH_PO' ? 'Fresh' : entry.status,
-            companyId: entry.companyId,
-            companyName: entry.companyName,
-            unitName: entry.unitName,
-            tcFilePath: entry.tcFilePath,
-            createdAt: entry.createdAt
-          }));
+  // ============ FETCH INVENTORY ENTRIES DATA ============
+  const fetchInventoryEntries = useCallback(async () => {
+    try {
+      // TODO: Replace '13104' with actual vendor code from auth context
+      const response = await inventoryService.getInventoryEntries(user.userName);
 
-          setInventoryEntries(transformedEntries);
-          console.log('✅ Loaded inventory entries from database:', transformedEntries.length);
-        } else {
-          console.warn('⚠️ Failed to fetch inventory entries, using empty list');
-          setInventoryEntries([]);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching inventory entries:', error);
-        // Keep existing entries or use empty array
+      if (response.success && response.data) {
+        // Transform backend data to match frontend structure
+        const transformedEntries = response.data.map(entry => ({
+          id: entry.id,
+          rawMaterial: entry.rawMaterial,
+          supplierName: entry.supplierName,
+          supplierAddress: entry.supplierAddress,
+          gradeSpecification: entry.gradeSpecification,
+          heatNumber: entry.heatNumber,
+          tcNumber: entry.tcNumber,
+          tcDate: entry.tcDate,
+          invoiceNumber: entry.invoiceNumber,
+          invoiceDate: entry.invoiceDate,
+          subPoNumber: entry.subPoNumber,
+          subPoDate: entry.subPoDate,
+          subPoQty: entry.subPoQty,
+          rateOfMaterial: entry.rateOfMaterial,
+          rateOfGst: entry.rateOfGst,
+          tcQuantity: entry.tcQuantity,
+          offeredQuantity: entry.offeredQuantity || 0,
+          // FIX: Use nullish coalescing (??) instead of || to handle 0 correctly
+          // When qtyLeftForInspection is 0 (exhausted), it should display 0, not fall back to tcQuantity
+          qtyLeftForInspection: entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity,
+          unitOfMeasurement: entry.unitOfMeasurement,
+          baseValuePO: entry.baseValuePo,
+          totalPO: entry.totalPo,
+          lengthOfBars: entry.lengthOfBars,
+          status: entry.status === 'FRESH_PO' ? 'Fresh' : entry.status,
+          companyId: entry.companyId,
+          companyName: entry.companyName,
+          unitName: entry.unitName,
+          tcFilePath: entry.tcFilePath,
+          createdAt: entry.createdAt
+        }));
+
+        setInventoryEntries(transformedEntries);
+        console.log('✅ Loaded inventory entries from database:', transformedEntries.length);
+      } else {
+        console.warn('⚠️ Failed to fetch inventory entries, using empty list');
         setInventoryEntries([]);
       }
-    };
+    } catch (error) {
+      console.error('❌ Error fetching inventory entries:', error);
+      // Keep existing entries or use empty array
+      setInventoryEntries([]);
+    }
+  }, [user.userName]);
 
+  useEffect(() => {
     fetchInventoryEntries();
-  }, [user.userName]); // Fetch on component mount
+  }, [fetchInventoryEntries]);
 
   // ============ FETCH REQUESTED CALLS DATA ============
-  useEffect(() => {
-    const fetchRequestedCalls = async () => {
-      setLoadingRequestedCalls(true);
-      setRequestedCallsError(null);
-      try {
-        // Use actual vendor ID from currentUser context
-        const response = await inspectionCallService.getVendorInspectionCallsWithStatus(user.userName);
+  const fetchRequestedCalls = useCallback(async () => {
+    setLoadingRequestedCalls(true);
+    setLoadingCompletedCalls(true);
+    setRequestedCallsError(null);
+    setCompletedCallsError(null);
+    try {
+      // Use actual vendor ID from currentUser context
+      const response = await inspectionCallService.getVendorInspectionCallsWithStatus(user.userName);
 
-        if (response.success && response.data) {
-          // Transform API data to match frontend structure
-          const transformedCalls = response.data.map((call, index) => ({
-            id: index + 1,
-            call_no: call.icNumber || '',
-            po_no: call.poNo || '',
-            item_name: call.itemName || 'N/A',
-            stage: call.typeOfCall || '',
-            call_date: call.desiredInspectionDate || '',
-            quantity_offered: call.quantityOffered || 0,
-            location: call.placeOfInspection || '',
-            status: call.workflowStatus || call.jobStatus || 'Pending',
-            // Additional fields for expanded view
-            rlyShortName: call.rlyShortName || call.rly_short_name || call.rlyCd || 'N/A',
-            ercType: call.ercType || 'N/A',
-            noOfHeatsRM: call.noOfHeatsRM,
-            lotNoProcess: call.lotNoProcess,
-            lotNoFinal: call.lotNoFinal,
-            ieName: call.ieName || 'Not Assigned',
-            uom: call.uom || '',
-            scheduledDate: call.scheduledDate,
-            unitName: call.unitName || call.placeOfInspection || 'N/A',
-            poSerialNo: call.poSerialNo || 'N/A',
-            inspection_details: {
-              inspector_name: call.ieName || 'N/A',
-              inspection_date: call.desiredInspectionDate || '',
-              remarks: call.nextRoleName ? `Next: ${call.nextRoleName}` : '',
-              documents: []
-            },
-            rectification_details: null,
-            // Workflow information
-            workflowStatus: call.workflowStatus,
-            currentRoleName: call.currentRoleName,
-            nextRoleName: call.nextRoleName,
-            jobStatus: call.jobStatus
-          }));
+      if (response.success && response.data) {
+        // Transform API data to match frontend structure
+        const transformedCalls = response.data.map((call, index) => ({
+          id: index + 1,
+          call_no: call.icNumber || '',
+          po_no: call.poNo || '',
+          item_name: call.itemName || 'N/A',
+          stage: call.typeOfCall || '',
+          call_date: call.desiredInspectionDate || '',
+          quantity_offered: call.quantityOffered || 0,
+          location: call.placeOfInspection || '',
+          status: call.workflowStatus || call.jobStatus || 'Pending',
+          // Additional fields for expanded view
+          rlyShortName: call.rlyShortName || call.rly_short_name || call.rlyCd || 'N/A',
+          ercType: call.ercType || 'N/A',
+          noOfHeatsRM: call.noOfHeatsRM,
+          lotNoProcess: call.lotNoProcess,
+          lotNoFinal: call.lotNoFinal,
+          ieName: call.ieName || 'Not Assigned',
+          uom: call.uom || '',
+          scheduledDate: call.scheduledDate,
+          unitName: call.unitName || call.placeOfInspection || 'N/A',
+          poSerialNo: call.poSerialNo || 'N/A',
+          inspection_details: {
+            inspector_name: call.ieName || 'N/A',
+            inspection_date: call.desiredInspectionDate || '',
+            remarks: call.nextRoleName ? `Next: ${call.nextRoleName}` : '',
+            documents: []
+          },
+          rectification_details: null,
+          // Workflow information
+          workflowStatus: call.workflowStatus,
+          currentRoleName: call.currentRoleName,
+          nextRoleName: call.nextRoleName,
+          jobStatus: call.jobStatus,
+          // Fields for completed calls view
+          completion_date: call.updatedAt || call.desiredInspectionDate || '',
+          quantity_accepted: (call.workflowStatus === 'WITHDRAW' ? 0 : call.quantityOffered) || 0,
+          quantity_rejected: 0,
+          ic_number: call.icNumber || '',
+          inspection_summary: {
+            inspector_name: call.ieName || 'N/A',
+            inspection_date: call.updatedAt || '',
+            ie_remarks: call.nextRoleName ? `Last state: ${call.nextRoleName}` : '',
+            acceptance_criteria: 'N/A',
+            test_results: 'N/A',
+            final_decision: call.workflowStatus || 'N/A'
+          },
+          documents: []
+        }));
 
-          setRequestedCalls(transformedCalls);
-          console.log('✅ Loaded requested calls from database:', transformedCalls.length);
-        } else {
-          console.warn('⚠️ Failed to fetch requested calls, using mock data');
-          setRequestedCalls(VENDOR_REQUESTED_CALLS);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching requested calls:', error);
-        setRequestedCallsError(error.message || 'Error fetching requested calls');
-        // Fallback to mock data
+        // Dynamically categorize calls based on workflowStatus
+        // workflowStatus === 'WITHDRAW' or 'INSPECTION_COMPLETE_CONFIRM' -> Completed
+        const active = transformedCalls.filter(call =>
+          call.workflowStatus !== 'WITHDRAW' &&
+          call.workflowStatus !== 'INSPECTION_COMPLETE_CONFIRM'
+        );
+
+        const completed = transformedCalls.filter(call =>
+          call.workflowStatus === 'WITHDRAW' ||
+          call.workflowStatus === 'INSPECTION_COMPLETE_CONFIRM'
+        );
+
+        setRequestedCalls(active);
+        setCompletedCalls(completed);
+
+        console.log('✅ Loaded data from database:', {
+          requestedCount: active.length,
+          completedCount: completed.length
+        });
+      } else {
+        console.warn('⚠️ Failed to fetch requested calls, using mock data');
         setRequestedCalls(VENDOR_REQUESTED_CALLS);
-      } finally {
-        setLoadingRequestedCalls(false);
+        setCompletedCalls(VENDOR_COMPLETED_CALLS);
       }
-    };
+    } catch (error) {
+      console.error('❌ Error fetching requested calls:', error);
+      const errMsg = error.message || 'Error fetching requested calls';
+      setRequestedCallsError(errMsg);
+      setCompletedCallsError(errMsg);
+      // Fallback to mock data
+      setRequestedCalls(VENDOR_REQUESTED_CALLS);
+      setCompletedCalls(VENDOR_COMPLETED_CALLS);
+    } finally {
+      setLoadingRequestedCalls(false);
+      setLoadingCompletedCalls(false);
+    }
+  }, [user.userName]);
 
+  useEffect(() => {
     fetchRequestedCalls();
-  }, [currentUser?.id, user.userName]); // Fetch on component mount or when user ID changes
+  }, [fetchRequestedCalls]);
 
   // Filtered payment items based on status and date
   const filteredPaymentItems = useMemo(() => {
@@ -999,6 +1042,16 @@ const VendorDashboardPage = ({ onBack }) => {
             type: 'success'
           });
         }
+
+        // Step 3: Refresh all data to reflect changes
+        console.log('🔄 Refreshing dashboard data after successful call...');
+        fetchRequestedCalls();
+        fetchPOAssignedData();
+        fetchInventoryEntries();
+        
+        // Show the new entry by switching to the "Requested Calls" tab
+        setActiveTab('requested-calls'); 
+
       } else {
         throw new Error('Failed to save inspection call');
       }
@@ -1465,18 +1518,8 @@ const VendorDashboardPage = ({ onBack }) => {
   // Summary numbers for tab badges
   const totalPOs = poAssignedList.length;
 
-  const fetchedRequestedCalls = useMemo(
-    () => requestedCalls.filter(c => c.status !== 'IC Issued' && c.status !== 'Completed'),
-    [requestedCalls]
-  );
-
-  const fetchedCompletedCalls = useMemo(
-    () => requestedCalls.filter(c => c.status === 'IC Issued' || c.status === 'Completed'),
-    [requestedCalls]
-  );
-
-  const pendingRequests = fetchedRequestedCalls.length;
-  const completedCallsCount = fetchedCompletedCalls.length > 0 ? fetchedCompletedCalls.length : VENDOR_COMPLETED_CALLS.length;
+  const pendingRequests = requestedCalls.length;
+  const completedCallsCount = completedCalls.length;
 
   // Primary tabs with counts (displayed in a box)
   const primaryTabs = [
@@ -1795,7 +1838,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Filter, sort, and paginate requested calls
   const filteredAndSortedRequestedCalls = useMemo(() => {
-    let result = [...fetchedRequestedCalls];
+    let result = [...requestedCalls];
 
     // Apply search filter
     if (requestedCallsSearchTerm) {
@@ -1826,7 +1869,7 @@ const VendorDashboardPage = ({ onBack }) => {
     }
 
     return result;
-  }, [fetchedRequestedCalls, requestedCallsSearchTerm, requestedCallsSortColumn, requestedCallsSortDirection]);
+  }, [requestedCalls, requestedCallsSearchTerm, requestedCallsSortColumn, requestedCallsSortDirection]);
 
   // Paginate the filtered and sorted calls
   const paginatedRequestedCalls = useMemo(() => {
@@ -2803,6 +2846,16 @@ const VendorDashboardPage = ({ onBack }) => {
                 </div>
               </div>
 
+              {/* Loading and Error States */}
+              {loadingCompletedCalls && (
+                <div className="loading-message">Loading completed calls...</div>
+              )}
+              {completedCallsError && (
+                <div className="error-message">
+                  Error: {completedCallsError}. Showing mock data as fallback.
+                </div>
+              )}
+
               {/* Custom Expandable Completed Calls Table */}
               <div className="data-table-wrapper">
                 <div className="data-table-container">
@@ -2815,67 +2868,75 @@ const VendorDashboardPage = ({ onBack }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {VENDOR_COMPLETED_CALLS.map((call) => (
-                        <React.Fragment key={call.id}>
-                          {/* Completed Call Row */}
-                          <tr
-                            className={`completed-call-row ${expandedCompletedRows[call.id] ? 'expanded' : ''}`}
-                            onClick={() => toggleCompletedRow(call.id)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {completedColumns.map(col => (
-                              <td key={col.key} data-label={col.label}>
-                                {col.render ? col.render(call[col.key], call) : call[col.key]}
-                              </td>
-                            ))}
-                          </tr>
-                          {/* Expanded Actions Row */}
-                          {expandedCompletedRows[call.id] && (
-                            <tr className="completed-actions-row">
-                              <td colSpan={completedColumns.length}>
-                                <div className="completed-actions-container">
-                                  <button
-                                    className="btn btn-sm btn-outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenInspectionSummaryModal(call);
-                                    }}
-                                  >
-                                    View Full Inspection Summary
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDownloadIC(call);
-                                    }}
-                                  >
-                                    Download Inspection Certificate (IC)
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDownloadInspectionDocuments(call);
-                                    }}
-                                  >
-                                    Download Inspection Documents
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenICCorrectionModal(call);
-                                    }}
-                                  >
-                                    Request IC Correction
-                                  </button>
-                                </div>
-                              </td>
+                      {completedCalls.length === 0 ? (
+                        <tr>
+                          <td colSpan={completedColumns.length} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
+                            No completed inspection calls found.
+                          </td>
+                        </tr>
+                      ) : (
+                        completedCalls.map((call) => (
+                          <React.Fragment key={call.id}>
+                            {/* Completed Call Row */}
+                            <tr
+                              className={`completed-call-row ${expandedCompletedRows[call.id] ? 'expanded' : ''}`}
+                              onClick={() => toggleCompletedRow(call.id)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {completedColumns.map(col => (
+                                <td key={col.key} data-label={col.label}>
+                                  {col.render ? col.render(call[col.key], call) : call[col.key]}
+                                </td>
+                              ))}
                             </tr>
-                          )}
-                        </React.Fragment>
-                      ))}
+                            {/* Expanded Actions Row */}
+                            {expandedCompletedRows[call.id] && (
+                              <tr className="completed-actions-row">
+                                <td colSpan={completedColumns.length}>
+                                  <div className="completed-actions-container">
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenInspectionSummaryModal(call);
+                                      }}
+                                    >
+                                      View Full Inspection Summary
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadIC(call);
+                                      }}
+                                    >
+                                      Download Inspection Certificate (IC)
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadInspectionDocuments(call);
+                                      }}
+                                    >
+                                      Download Inspection Documents
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenICCorrectionModal(call);
+                                      }}
+                                    >
+                                      Request IC Correction
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -3102,15 +3163,11 @@ const VendorDashboardPage = ({ onBack }) => {
               </div>
 
               <RaiseInspectionCallForm
-                selectedPO={VENDOR_RAISE_CALL_PO}
+                selectedPO={VENDOR_RAISE_CALL_PO} // Default for testing if needed, or pass selectedPO
                 inventoryEntries={inventoryEntries}
                 availableHeatNumbers={availableHeatNumbers}
                 vendorId={currentUser.id}
-                onSubmit={(data) => {
-                  // TODO: Replace with API call
-                  console.log('Inspection call submitted:', data);
-                  alert('Inspection Call submitted successfully!');
-                }}
+                onSubmit={handleSubmitInspectionRequest}
                 isLoading={isLoading}
               />
             </>

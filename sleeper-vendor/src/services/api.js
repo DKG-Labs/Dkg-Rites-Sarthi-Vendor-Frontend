@@ -798,6 +798,20 @@ export const apiService = {
         }
     },
 
+    getVendorPlants: async (vendorCode) => {
+        try {
+            const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(vendorCode)}/plants`;
+            const response = await fetch(url, {
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch plants');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
     getVendorInspectionCalls: async (userId = 118) => {
         try {
             const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${userId}`);

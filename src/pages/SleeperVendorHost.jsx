@@ -19,9 +19,10 @@ const SleeperVendorHost = () => {
     // In development, it's likely localhost:5173
     // In production, it should be in a subfolder /sleeper-vendor/
     const isDevelopment = process.env.NODE_ENV === 'development';
+    const vendorCode = localStorage.getItem('vendorCode') || '';
     const sleeperVendorUrl = isDevelopment
-        ? 'http://localhost:5173/sleeper-vendor/?bypassAuth=true'
-        : '/sleeper-vendor/index.html?bypassAuth=true';
+        ? `http://localhost:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`
+        : `/sleeper-vendor/index.html?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`;
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden', border: 'none' }}>

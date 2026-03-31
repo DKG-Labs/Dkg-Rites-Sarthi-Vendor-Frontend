@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/api';
 
-const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) => {
+const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isReadOnly }) => {
     const [masterBenches, setMasterBenches] = useState([]);
     const [masterLongLines, setMasterLongLines] = useState([]);
     const [plantProfiles, setPlantProfiles] = useState([]);
@@ -69,32 +69,35 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 setPlantProfiles(profiles || []);
                 setPlantDetails(details?.responseData || []);
                 
-                // Set initial default unit once profiles are loaded
-                const availableDetails = details?.responseData || [];
-                if (availableDetails.length > 0) {
-                    const firstMatch = [...availableDetails].reverse().find(p => {
-                        const type = p.plantType || '';
-                        if (plantType === 'Stress Bench') return type === 'Stress Bench';
-                        return type === 'Longline' || type === 'Long Line';
-                    }) || availableDetails[availableDetails.length - 1];
-                    const initialPlantType = firstMatch.plantType === 'Longline' ? 'Long Line' : 'Stress Bench';
-                    setPlantType(initialPlantType);
-                    
-                    const firstUnit = firstMatch.units?.[0];
-                    if (firstUnit) {
-                        const label = (initialPlantType === 'Stress Bench' && firstUnit.toLowerCase().includes('line')) 
-                            ? firstUnit.toLowerCase().replace('line', 'Shed')
-                            : firstUnit;
-                        const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
-                        setFormHeader(prev => ({ ...prev, unit: formattedLabel }));
-                    }
-                } else if (profiles && profiles.length > 0) {
-                    const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
-                    const initialPlantType = firstProfile.type;
-                    const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
-                    const prefix = initialPlantType === 'Stress Bench' ? 'Shed' : 'Line';
-                    if (totalUnits > 0) {
-                        setFormHeader(prev => ({ ...prev, unit: `${prefix} 1` }));
+                // Set initial default unit only when creating a NEW declaration (not editing)
+                // In edit/modify mode, initialData's useEffect handles setting the correct unit.
+                if (!initialData) {
+                    const availableDetails = details?.responseData || [];
+                    if (availableDetails.length > 0) {
+                        const firstMatch = [...availableDetails].reverse().find(p => {
+                            const type = p.plantType || '';
+                            if (plantType === 'Stress Bench') return type === 'Stress Bench';
+                            return type === 'Longline' || type === 'Long Line';
+                        }) || availableDetails[availableDetails.length - 1];
+                        const initialPlantType = firstMatch.plantType === 'Longline' ? 'Long Line' : 'Stress Bench';
+                        setPlantType(initialPlantType);
+
+                        const firstUnit = firstMatch.units?.[0];
+                        if (firstUnit) {
+                            const label = (initialPlantType === 'Stress Bench' && firstUnit.toLowerCase().includes('line'))
+                                ? firstUnit.toLowerCase().replace('line', 'Shed')
+                                : firstUnit;
+                            const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+                            setFormHeader(prev => ({ ...prev, unit: formattedLabel }));
+                        }
+                    } else if (profiles && profiles.length > 0) {
+                        const firstProfile = profiles.find(p => p.type === 'Stress Bench') || profiles[0];
+                        const initialPlantType = firstProfile.type;
+                        const totalUnits = parseInt(firstProfile.numberOfSheds || firstProfile.shedLines || 0);
+                        const prefix = initialPlantType === 'Stress Bench' ? 'Shed' : 'Line';
+                        if (totalUnits > 0) {
+                            setFormHeader(prev => ({ ...prev, unit: `${prefix} 1` }));
+                        }
                     }
                 }
             } catch (err) {
@@ -217,15 +220,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
     };
 
 
+    const hasInitialized = React.useRef(false);
+
     useEffect(() => {
-        if (initialData) {
+        if (initialData && !hasInitialized.current) {
             setPlantType(initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Stress Bench');
 
             // Map header
             const [d, m, y] = (initialData.castingDate || '').split('/');
             setFormHeader({
                 unit: initialData.productionUnit || '',
-                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : (dynamicUnits.find(s => s.name === initialData.productionUnit)?.type || 'Twin'),
+                shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Twin',
                 date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
                 shift: initialData.shift || 'Day Shift',
                 batchNo: initialData.batchNumber || '',
@@ -234,11 +239,22 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 remarks: initialData.remarks || ''
             });
 
-            // Map chambers for Stress Bench
+            // Map chambers for Stress Bench with deduplication
             if (initialData.plantType === 'STRESS' && initialData.chambers) {
                 const mappedEntries = [];
+                // Use a object to track seen bench patterns per chamber to avoid duplication from backend
+                const seenPatternsPerChamber = {};
+
                 initialData.chambers.forEach(c => {
+                    const chNo = c.chamberNo;
+                    if (!seenPatternsPerChamber[chNo]) seenPatternsPerChamber[chNo] = new Set();
+                    
                     c.benchGroups.forEach(g => {
+                        // Create a pattern key for this bench group to avoid reloading exact duplicates
+                        const patternKey = `${g.mode}-${g.benchNo}-${g.benchFrom}-${g.benchTo}-${g.sleeperType}-${g.mouldPerBench}`;
+                        if (seenPatternsPerChamber[chNo].has(patternKey)) return;
+                        seenPatternsPerChamber[chNo].add(patternKey);
+
                         mappedEntries.push({
                             id: Date.now() + Math.random(), // Unique ID
                             chamberNo: c.chamberNo,
@@ -247,7 +263,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             toNo: g.benchTo?.toString() || '',
                             singleNo: g.benchNo?.toString() || '',
                             sleeperType: g.sleeperType || '',
-                            mouldsPerBench: g.mouldPerBench || 8
+                            mouldsPerBench: g.mouldPerBench || 8,
+                            _originalRft: g.rft,
+                            _originalSleepers: g.sleepers,
+                            _isOld: true
                         });
                     });
                 });
@@ -256,22 +275,49 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
 
             // Map gangs for Long Line
             if (initialData.plantType === 'LONG_LINE' && initialData.gangs) {
-                const mappedEntries = initialData.gangs.map((g, gIdx) => ({
-                    id: Date.now() + gIdx,
-                    entryMode: g.mode?.toLowerCase() || 'range',
-                    fromNo: g.gangFrom?.toString() || '',
-                    toNo: g.gangTo?.toString() || '',
-                    singleNo: g.gangNo?.toString() || '',
-                    mouldsPerGang: g.mouldsPerGang,
-                    sleeperType: g.sleeperType
-                }));
+                const mappedEntries = [];
+                const seenPatterns = new Set();
+                
+                initialData.gangs.forEach((g, gIdx) => {
+                    const patternKey = `${g.mode}-${g.gangNo}-${g.gangFrom}-${g.gangTo}-${g.sleeperType}-${g.mouldsPerGang}`;
+                    if (seenPatterns.has(patternKey)) return;
+                    seenPatterns.add(patternKey);
+
+                    mappedEntries.push({
+                        id: Date.now() + gIdx,
+                        entryMode: g.mode?.toLowerCase() || 'range',
+                        fromNo: g.gangFrom?.toString() || '',
+                        toNo: g.gangTo?.toString() || '',
+                        singleNo: g.gangNo?.toString() || '',
+                        mouldsPerGang: g.mouldsPerGang,
+                        sleeperType: g.sleeperType,
+                        _isOld: true
+                    });
+                });
                 if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
             }
 
             // Move to Section 1
             setActiveSections({ 1: true, 2: true, 3: true });
+            hasInitialized.current = true;
         }
     }, [initialData]);
+
+    // Re-sync the unit from initialData once dynamicUnits are available (after async master-data fetch).
+    // This ensures the select dropdown shows the correct saved unit (e.g. "Shed 4") even though
+    // dynamicUnits was empty when the initialData effect first ran.
+    useEffect(() => {
+        if (initialData?.productionUnit && dynamicUnits.length > 0) {
+            setFormHeader(prev => ({
+                ...prev,
+                unit: initialData.productionUnit,
+                shedType: initialData.plantType === 'LONG_LINE'
+                    ? 'Long Line'
+                    : (dynamicUnits.find(u => u.name === initialData.productionUnit)?.type || 'Twin')
+            }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dynamicUnits]);
 
     useEffect(() => {
         const gangNo = longLineForm.entryMode === 'single' ? longLineForm.singleNo : longLineForm.fromNo;
@@ -317,6 +363,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 singleNo: entry.singleNo,
                 mouldsPerBench: entry.mouldsPerBench,
                 sleeperType: entry.sleeperType,
+                _originalRft: entry._originalRft,
+                _originalSleepers: entry._originalSleepers,
+                _isOld: entry._isOld
                 // Add other properties if needed for calculations or display
             });
             return acc;
@@ -683,6 +732,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                 const firstUnit = totalSheds > 0 ? 'Shed 1' : '';
                                                 setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Twin' });
                                             }}
+                                            disabled={isReadOnly}
                                             style={radioStyle}
                                         />
                                         Stress Bench
@@ -710,7 +760,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             <div>
                                 <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Shed No.)' : 'Production Unit (Line No.)'}</label>
                                 <select
-                                    style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
+                                            disabled={isReadOnly}
+                                            style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.unit}
                                     onChange={(e) => {
                                         const selectedUnit = e.target.value;
@@ -737,13 +788,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     max={new Date().toISOString().split('T')[0]}
                                     value={formHeader.date}
                                     onChange={(e) => setFormHeader({ ...formHeader, date: e.target.value })}
+                                    disabled={isReadOnly}
                                     style={inputStyle}
                                 />
                             </div>
                             <div>
                                 <label style={labelStyle}>Shift</label>
                                 <select
-                                    style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
+                                    disabled={isReadOnly}
+                                    style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.shift}
                                     onChange={(e) => setFormHeader({ ...formHeader, shift: e.target.value })}
                                 >
@@ -762,6 +815,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     placeholder="e.g. 103"
                                     value={formHeader.batchNo}
                                     onChange={(e) => setFormHeader({ ...formHeader, batchNo: e.target.value })}
+                                    disabled={isReadOnly}
                                     style={inputStyle}
                                 />
 
@@ -769,7 +823,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             <div>
                                 <label style={labelStyle}>Mix Design Reference</label>
                                 <select
-                                    style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
+                                    disabled={isReadOnly}
+                                    style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.mixDesign}
                                     onChange={(e) => setFormHeader({ ...formHeader, mixDesign: e.target.value })}
                                 >
@@ -805,12 +860,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                         <h4 style={{ margin: 0, color: '#1e293b' }}>Stress Bench Entry</h4>
                                         <div style={{ display: 'flex', gap: '20px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" checked={stressBenchForm.entryMode === 'range'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'range' })} style={radioStyle} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" disabled={isReadOnly} checked={stressBenchForm.entryMode === 'range'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'range' })} style={radioStyle} />
                                                 Range
                                             </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" checked={stressBenchForm.entryMode === 'single'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'single' })} style={radioStyle} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" disabled={isReadOnly} checked={stressBenchForm.entryMode === 'single'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'single' })} style={radioStyle} />
                                                 Single
                                             </label>
                                         </div>
@@ -819,23 +874,23 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
                                         <div>
                                             <label style={labelStyle}>Chamber No.</label>
-                                            <input type="number" value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
+                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
                                         </div>
                                         {stressBenchForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
                                                     <label style={labelStyle}>Bench From</label>
-                                                    <input type="number" value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
+                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
                                                     <label style={labelStyle}>Bench To</label>
-                                                    <input type="number" value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
+                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
                                                 <label style={labelStyle}>Bench No.</label>
-                                                <input type="number" value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <input type="number" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -843,38 +898,66 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                 <input
                                                     list="sleeper-types-list"
+                                                    disabled={isReadOnly}
                                                     value={stressBenchForm.sleeperType}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={(e) => {
+                                                        e.target.select();
+                                                        // This hack helps some browsers show the list on focus
+                                                        e.target.setAttribute('placeholder', '');
+                                                    }}
+                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setStressBenchForm({ ...stressBenchForm, sleeperType: e.target.value })}
-                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    style={{ 
+                                                        ...inputStyle, 
+                                                        background: '#ffffff', 
+                                                        textAlign: 'center', 
+                                                        fontWeight: '700', 
+                                                        paddingRight: '40px',
+                                                        cursor: 'pointer',
+                                                        border: '2px solid #e2e8f0',
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                    }}
                                                     placeholder="Select or Type"
                                                 />
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
-                                                    fontSize: '12px',
+                                                    fontSize: '10px',
                                                     color: '#42818c',
                                                     pointerEvents: 'none',
                                                     display: 'flex',
-                                                    alignItems: 'center'
+                                                    alignItems: 'center',
+                                                    background: '#f1f5f9',
+                                                    padding: '4px 6px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #e2e8f0'
                                                 }}>▼</span>
                                             </div>
                                         </div>
                                         <div>
                                             <label style={labelStyle}>Moulds/Bench</label>
-                                            <input type="number" value={stressBenchForm.mouldsPerBench} onChange={(e) => setStressBenchForm({ ...stressBenchForm, mouldsPerBench: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
+                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.mouldsPerBench} onChange={(e) => setStressBenchForm({ ...stressBenchForm, mouldsPerBench: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
-                                                const newEntry = { ...stressBenchForm, id: Date.now() };
-                                                setStressBenchEntries([...stressBenchEntries, newEntry]);
-                                                setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '', sleeperType: '' });
-                                            }}
-                                            style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
-                                        >
-                                            Add Entry
-                                        </button>
+                                        {!isReadOnly && (
+                                            <button
+                                                onClick={() => {
+                                                    if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
+                                                    if (stressBenchForm.entryMode === 'range') {
+                                                        if (!stressBenchForm.fromNo || !stressBenchForm.toNo) return alert('Bench From and To are required');
+                                                    } else {
+                                                        if (!stressBenchForm.singleNo) return alert('Bench No is required');
+                                                    }
+                                                    if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+                                                    
+                                                    const newEntry = { ...stressBenchForm, id: Date.now() };
+                                                    setStressBenchEntries([...stressBenchEntries, newEntry]);
+                                                    setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '', sleeperType: '' });
+                                                }}
+                                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
+                                            >
+                                                Add Entry
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -904,7 +987,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerBench}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                                <button onClick={() => setStressBenchEntries(stressBenchEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Remove</button>
+                                                                {!isReadOnly && (
+                                                                    <button onClick={() => setStressBenchEntries(stressBenchEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Remove</button>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     );
@@ -918,14 +1003,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                             <div>
                                 <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Long Line Entry</h4>
+                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Long Line Gang Entry</h4>
                                         <div style={{ display: 'flex', gap: '20px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" checked={longLineForm.entryMode === 'range'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'range' })} style={radioStyle} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" disabled={isReadOnly} checked={longLineForm.entryMode === 'range'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'range' })} style={radioStyle} />
                                                 Range
                                             </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" checked={longLineForm.entryMode === 'single'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'single' })} style={radioStyle} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
+                                                <input type="radio" disabled={isReadOnly} checked={longLineForm.entryMode === 'single'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'single' })} style={radioStyle} />
                                                 Single
                                             </label>
                                         </div>
@@ -935,18 +1020,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                         {longLineForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
-                                                    <label style={labelStyle}>Line No. From</label>
-                                                    <input type="number" value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
+                                                    <label style={labelStyle}>Gang No. From</label>
+                                                    <input type="number" disabled={isReadOnly} value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
-                                                    <label style={labelStyle}>Line No. To</label>
-                                                    <input type="number" value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
+                                                    <label style={labelStyle}>Gang No. To</label>
+                                                    <input type="number" disabled={isReadOnly} value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={labelStyle}>Line No.</label>
-                                                <input type="number" value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <label style={labelStyle}>Gang No.</label>
+                                                <input type="number" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -954,37 +1039,65 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                 <input
                                                     list="sleeper-types-list"
+                                                    disabled={isReadOnly}
                                                     value={longLineForm.sleeperType}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={(e) => {
+                                                        e.target.select();
+                                                        // This hack helps focus behavior
+                                                        e.target.setAttribute('placeholder', '');
+                                                    }}
+                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
-                                                    style={{ ...inputStyle, background: 'white', textAlign: 'center', fontWeight: 'bold', paddingRight: '40px' }}
+                                                    style={{ 
+                                                        ...inputStyle, 
+                                                        background: '#ffffff', 
+                                                        textAlign: 'center', 
+                                                        fontWeight: '700', 
+                                                        paddingRight: '40px',
+                                                        cursor: 'pointer',
+                                                        border: '2px solid #e2e8f0',
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                    }}
                                                     placeholder="Select or Type"
                                                 />
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
-                                                    fontSize: '12px',
+                                                    fontSize: '10px',
                                                     color: '#42818c',
                                                     pointerEvents: 'none',
                                                     display: 'flex',
-                                                    alignItems: 'center'
+                                                    alignItems: 'center',
+                                                    background: '#f1f5f9',
+                                                    padding: '4px 6px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #e2e8f0'
                                                 }}>▼</span>
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={labelStyle}>Moulds/Line</label>
-                                            <input type="number" value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
+                                            <label style={labelStyle}>Moulds/Gang</label>
+                                            <input type="number" disabled={isReadOnly} value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                const newEntry = { ...longLineForm, id: Date.now() };
-                                                setLongLineEntries([...longLineEntries, newEntry]);
-                                                setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
-                                            }}
-                                            style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
-                                        >
-                                            Add Entry
-                                        </button>
+                                        {!isReadOnly && (
+                                            <button
+                                                onClick={() => {
+                                                    if (longLineForm.entryMode === 'range') {
+                                                        if (!longLineForm.fromNo || !longLineForm.toNo) return alert('Gang From and To are required');
+                                                    } else {
+                                                        if (!longLineForm.singleNo) return alert('Gang No is required');
+                                                    }
+                                                    if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+
+                                                    const newEntry = { ...longLineForm, id: Date.now() };
+                                                    setLongLineEntries([...longLineEntries, newEntry]);
+                                                    setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
+                                                }}
+                                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
+                                            >
+                                                Add Entry
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -994,10 +1107,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Lines</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Gangs</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '180px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Line</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Gang</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Action</th>
                                                 </tr>
                                             </thead>
@@ -1012,7 +1125,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerGang}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                                <button onClick={() => setLongLineEntries(longLineEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px' }}>Remove</button>
+                                                                {!isReadOnly && (
+                                                                    <button onClick={() => setLongLineEntries(longLineEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px' }}>Remove</button>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     );
@@ -1069,6 +1184,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                                 <label style={labelStyle}>Remarks / Observations</label>
                                 <textarea
                                     rows="6"
+                                    disabled={isReadOnly}
                                     style={{ ...inputStyle, resize: 'none', height: 'auto', padding: '12px 16px' }}
                                     placeholder="Enter any specific observations about this shift production..."
                                     value={formHeader.remarks}
@@ -1088,82 +1204,101 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData }) =
                 >
                     Cancel
                 </button>
-                <button
-                    onClick={() => {
-                        try {
-                            const breakdown = getProductionBreakdown();
-                            const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
+                {!isReadOnly && (
+                    <button
+                        onClick={() => {
+                            try {
+                                if (!formHeader.unit) {
+                                    return alert('Production Unit is mandatory. Please select a unit in Section 1.');
+                                }
 
-                            if (invalidTypes.length > 0) {
-                                return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
+                                const breakdown = getProductionBreakdown();
+                                const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
+
+                                if (invalidTypes.length > 0) {
+                                    return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
+                                }
+
+                                if (calculateTotalCast() === 0) {
+                                    return alert('Please add at least one valid entry.');
+                                }
+
+                                // Formatting the DTO for the backend
+                                const isUpdate = !!(initialData?.id && !isNaN(initialData.id));
+                                const pdDto = {
+                                    ...(isUpdate ? initialData : {}),
+                                    ...(isUpdate ? { id: initialData.id } : {}),
+                                    plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
+                                    productionUnit: formHeader.unit,
+                                    castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+                                    shift: formHeader.shift,
+                                    batchNumber: formHeader.batchNo.toString(),
+                                    mixDesignReference: formHeader.mixDesign,
+                                    lbcTime: formHeader.timeLbc?.substring(0, 5),
+                                    totalCastedSleepers: calculateTotalCast(),
+                                    totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
+                                    totalRft: calculateTotalRFT(),
+                                    remarks: formHeader.remarks || '',
+                                    vendorId: 118,
+                                    createdBy: 118,
+                                    updatedBy: 118,
+                                    chambers: plantType === 'Stress Bench' ? chambers
+                                        .filter(chamber => chamber.benchGroups.some(g => !g._isOld))
+                                        .map(chamber => ({
+                                            chamberNo: parseInt(chamber.chamberNo) || 0,
+                                            benchGroups: chamber.benchGroups
+                                                .filter(g => !g._isOld)
+                                                .flatMap(group => {
+                                                    let benchList = [];
+                                                    if (group.entryMode === 'range') {
+                                                        const from = parseInt(group.fromNo) || 0;
+                                                        const to = parseInt(group.toNo) || 0;
+                                                        if (from > 0 && to >= from) {
+                                                            for (let i = from; i <= to; i++) benchList.push(i.toString());
+                                                        }
+                                                    } else if (group.entryMode === 'single') {
+                                                        if (group.singleNo) benchList.push(group.singleNo);
+                                                    } else {
+                                                        benchList = group.benches.filter(b => b.trim());
+                                                    }
+
+                                                    return benchList.map(bench => {
+                                                        const originalRft = group._originalRft !== undefined && bench === group.singleNo ? group._originalRft : getBenchMasterDetails(bench).rft;
+                                                        const originalSleepers = group._originalSleepers && bench === group.singleNo ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
+                                                        
+                                                        return {
+                                                            benchNo: parseInt(bench) || 0,
+                                                            sleeperType: group.sleeperType,
+                                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
+                                                            rft: originalRft,
+                                                            sleepers: originalSleepers
+                                                        };
+                                                    });
+                                                })
+                                        })) : [],
+                                    gangs: plantType === 'Long Line' ? longLineEntries
+                                        .filter(entry => !entry._isOld)
+                                        .map(entry => ({
+                                            mode: entry.entryMode.toUpperCase(),
+                                            gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
+                                            gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
+                                            gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
+                                            sleeperType: entry.sleeperType,
+                                            mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
+                                        })) : []
+                                };
+
+                                onSave(pdDto);
+                            } catch (error) {
+                                console.error("Validation error:", error);
+                                alert("Failed to submit. Please check your data and try again.");
                             }
-
-                            if (calculateTotalCast() === 0) {
-                                return alert('Please add at least one valid entry.');
-                            }
-
-                            // Formatting the DTO for the backend
-                            const pdDto = {
-                                plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
-                                productionUnit: formHeader.unit,
-                                castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
-                                shift: formHeader.shift,
-                                batchNumber: formHeader.batchNo.toString(),
-                                mixDesignReference: formHeader.mixDesign,
-                                lbcTime: formHeader.timeLbc?.substring(0, 5),
-                                totalCastedSleepers: calculateTotalCast(),
-                                totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
-                                totalRft: calculateTotalRFT(),
-                                remarks: formHeader.remarks || '',
-                                vendorId: 118,
-                                createdBy: 118,
-                                updatedBy: 118,
-                                chambers: plantType === 'Stress Bench' ? chambers.map(chamber => ({
-                                    chamberNo: parseInt(chamber.chamberNo) || 0,
-                                    benchGroups: chamber.benchGroups.flatMap(group => {
-                                        let benchList = [];
-                                        if (group.entryMode === 'range') {
-                                            const from = parseInt(group.fromNo) || 0;
-                                            const to = parseInt(group.toNo) || 0;
-                                            if (from > 0 && to >= from) {
-                                                for (let i = from; i <= to; i++) benchList.push(i.toString());
-                                            }
-                                        } else if (group.entryMode === 'single') {
-                                            if (group.singleNo) benchList.push(group.singleNo);
-                                        } else {
-                                            benchList = group.benches.filter(b => b.trim());
-                                        }
-
-                                        return benchList.map(bench => ({
-                                            benchNo: parseInt(bench) || 0,
-                                            sleeperType: group.sleeperType,
-                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
-                                            rft: getBenchMasterDetails(bench).rft,
-                                            sleepers: generateSleeperIds(bench, group.mouldsPerBench)
-                                        }));
-                                    })
-                                })) : [],
-                                gangs: plantType === 'Long Line' ? longLineEntries.map(entry => ({
-                                    mode: entry.entryMode.toUpperCase(),
-                                    gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
-                                    gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
-                                    gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
-                                    sleeperType: entry.sleeperType,
-                                    mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
-                                })) : []
-                            };
-
-                            onSave(pdDto);
-                            alert(`Production Declaration Submitted successfully!\nUnique Batch Record Created: ${formHeader.batchNo}\nSleeper IDs Generated (Digital Twin)\nTasks assigned to IE Dashboard.`);
-                        } catch (err) {
-                            console.error('Error formatting DTO:', err);
-                            alert('Error preparing data for submission. Please check form inputs.');
-                        }
-                    }}
-                    style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px 32px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(66, 129, 140, 0.4)' }}
-                >
-                    Submit Declaration
-                </button>
+                        }}
+                        style={{ background: '#0284c7', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)' }}
+                    >
+                        {(initialData?.id && !isNaN(initialData.id)) ? 'Update Declaration' : 'Submit Declaration'}
+                    </button>
+                )}
             </div>
             <datalist id="sleeper-types-list">
                 {allSleeperTypes.map(type => (
