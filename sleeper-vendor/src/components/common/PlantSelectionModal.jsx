@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import './PlantSelectionModal.css';
+import { apiService } from '../../services/api';
 
 /**
  * PlantSelectionModal Component
@@ -19,19 +19,7 @@ const PlantSelectionModal = ({ vendorCode, onSelect }) => {
             }
 
             try {
-                // Ensure vendorCode is properly encoded, especially if it contains colons
-                const encodedVendor = encodeURIComponent(vendorCode);
-                const response = await fetch(`http://localhost:8080/sarthi-backend/api/vendor-plant/vendor/${encodedVendor}/plants`, {
-                    headers: {
-                        'accept': '*/*'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch plants');
-                }
-
-                const data = await response.json();
+                const data = await apiService.getVendorPlants(vendorCode);
                 setVendorData(data);
             } catch (err) {
                 console.error('Error fetching plants:', err);
