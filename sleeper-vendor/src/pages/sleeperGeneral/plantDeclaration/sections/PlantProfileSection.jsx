@@ -13,7 +13,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [plantDetails, setPlantDetails] = useState([]);
-    const vendorUsername = sessionStorage.getItem('vendorUsername') || ':41647';
+    const vendorCode = sessionStorage.getItem('vendorCode') || '';
     const [formData, setFormData] = useState({
         type: 'Stress Bench',
         shedsLines: ''
@@ -23,7 +23,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
     useEffect(() => {
         const fetchDetails = async () => {
             try {
-                const response = await apiService.getPlantDetails(vendorUsername);
+                const response = await apiService.getPlantDetails(vendorCode);
                 if (response && response.responseData) {
                     setPlantDetails(response.responseData);
                 }
@@ -32,7 +32,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
             }
         };
         fetchDetails();
-    }, [vendorUsername]);
+    }, [vendorCode]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -53,7 +53,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
         const plantDto = {
             id: editingId,
             plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
-            vendorCode: vendorUsername,
+            vendorCode: vendorCode,
             plantType: formData.type,
             numberOfSheds: parseInt(formData.shedsLines),
             vendorId: userId,
@@ -132,7 +132,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
-                            <input type="text" disabled value={vendorUsername} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
+                            <input type="text" disabled value={vendorCode} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Type of Plant</label>

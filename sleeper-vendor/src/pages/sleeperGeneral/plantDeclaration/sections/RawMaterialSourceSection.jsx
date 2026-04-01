@@ -19,8 +19,14 @@ const RawMaterialSourceSection = () => {
     const fetchEntries = async () => {
         setLoading(true);
         try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
             const data = await apiService.getRawMaterialSources();
-            const mappedData = data.map(e => ({
+            const filtered = currentPlantId
+                ? data.filter(e => String(e.plantId) === String(currentPlantId))
+                : data;
+            const mappedData = filtered.map(e => ({
                 id: e.id,
                 rawMaterialType: e.rawMaterialType,
                 source: e.supplierName,

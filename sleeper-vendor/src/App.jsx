@@ -55,11 +55,19 @@ const App = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('selectedPlant');
+    localStorage.clear();
+    sessionStorage.clear();
+    setIsAuthenticated(false);
+    window.location.href = '/';
+    // If it's embedded in an iframe, this will also notify the parent.
     window.top.postMessage('logout', '*');
   };
 
   const handleLogin = () => {
+    // Clear URL params that might trigger silent login (like vendorCode) 
+    // to ensure manual login credentials are respected.
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
     setIsAuthenticated(true);
   };
 

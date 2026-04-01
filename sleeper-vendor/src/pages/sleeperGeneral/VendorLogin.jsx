@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BASE_URL } from '../../services/api';
 
 const VendorLogin = ({ onLogin }) => {
     const [formData, setFormData] = useState({
@@ -15,7 +16,7 @@ const VendorLogin = ({ onLogin }) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch('https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api/auth/loginBasedOnType', {
+            const response = await fetch(`${BASE_URL}/auth/loginBasedOnType`, {
                 method: 'POST',
                 headers: {
                     'accept': '*/*',
@@ -32,7 +33,7 @@ const VendorLogin = ({ onLogin }) => {
 
             // Check if responseStatus is success and we have responseData
             if (data && data.responseStatus && data.responseStatus.statusCode === 0 && data.responseData) {
-                sessionStorage.setItem('vendorUsername', data.responseData.userName || formData.username);
+                sessionStorage.setItem('vendorCode', formData.username || data.responseData.userName);
                 sessionStorage.setItem('userId', data.responseData.userId);
                 
                 // Store token if needed

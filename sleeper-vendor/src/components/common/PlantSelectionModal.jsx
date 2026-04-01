@@ -6,7 +6,7 @@ import { apiService } from '../../services/api';
  * PlantSelectionModal Component
  * Fetches plants for a vendor and allows selection.
  */
-const PlantSelectionModal = ({ vendorCode, onSelect }) => {
+const PlantSelectionModal = ({ vendorCode, onSelect, onLogout }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [vendorData, setVendorData] = useState(null);
@@ -53,7 +53,7 @@ const PlantSelectionModal = ({ vendorCode, onSelect }) => {
                     </div>
                     <div className="plant-modal-body">
                         <p>{error}</p>
-                        <button className="retry-btn" onClick={() => window.location.reload()}>Retry Login</button>
+                        <button className="retry-btn" onClick={onLogout}>Retry Login</button>
                     </div>
                 </div>
             </div>

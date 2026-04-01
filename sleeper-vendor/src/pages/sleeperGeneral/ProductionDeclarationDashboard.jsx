@@ -79,8 +79,13 @@ const ProductionDeclarationDashboard = () => {
         const timeoutId = setTimeout(() => controller.abort(), 20_000);
 
         try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
             const data = await apiService.getProductionDeclarations();
-            const fresh = data || [];
+            const fresh = currentPlantId
+                ? (data || []).filter(d => String(d.plantId) === String(currentPlantId))
+                : (data || []);
             setDeclarations(fresh);
             writeCache(fresh); // persist for next visit
         } catch (err) {
@@ -155,16 +160,38 @@ const ProductionDeclarationDashboard = () => {
         }
     }, [fetchDeclarations]);
 
-    const handleEdit = useCallback((item) => {
-        setSelectedItem(item);
-        setIsReadOnly(false);
-        setShowForm(true);
+    const handleEdit = useCallback(async (item) => {
+        try {
+            setRefreshing(true);
+            const fullDetails = await apiService.getProductionDeclarationById(item.id);
+            setSelectedItem(fullDetails || item);
+            setIsReadOnly(false);
+            setShowForm(true);
+        } catch (err) {
+            console.error('Failed to fetch full details for editing:', err);
+            setSelectedItem(item);
+            setIsReadOnly(false);
+            setShowForm(true);
+        } finally {
+            setRefreshing(false);
+        }
     }, []);
 
-    const handleView = useCallback((item) => {
-        setSelectedItem(item);
-        setIsReadOnly(true);
-        setShowForm(true);
+    const handleView = useCallback(async (item) => {
+        try {
+            setRefreshing(true);
+            const fullDetails = await apiService.getProductionDeclarationById(item.id);
+            setSelectedItem(fullDetails || item);
+            setIsReadOnly(true);
+            setShowForm(true);
+        } catch (err) {
+            console.error('Failed to fetch full details for viewing:', err);
+            setSelectedItem(item);
+            setIsReadOnly(true);
+            setShowForm(true);
+        } finally {
+            setRefreshing(false);
+        }
     }, []);
 
     const handleAddNew = useCallback(() => {

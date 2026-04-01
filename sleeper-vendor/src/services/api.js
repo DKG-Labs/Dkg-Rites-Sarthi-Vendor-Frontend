@@ -1,5 +1,6 @@
-const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-//const BASE_URL = 'http://localhost:8080/sarthi-backend/api';
+export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
+//export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
+//export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -824,9 +825,10 @@ export const apiService = {
         }
     },
 
-    getCompletedBatches: async (sleeperType, userId = ':41647') => {
+    getCompletedBatches: async (sleeperType, userId) => {
         try {
-            const response = await fetch(`${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(userId)}`);
+            const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(finalUserId)}`);
             if (!response.ok) throw new Error('Failed to fetch completed batches');
             const data = await response.json();
             return data.responseData || [];
@@ -836,9 +838,10 @@ export const apiService = {
         }
     },
 
-    getVendorPOs: async () => {
+    getVendorPOs: async (vendorCode) => {
         try {
-            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=:41647&vendorType=Sleeper`);
+            const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper`);
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();
             return data.responseData || [];

@@ -110,7 +110,7 @@ const LoginPage = () => {
       const userData = await loginUser(userId, password, loginType);
 
       // Store basic auth data first
-      storeAuthData(userData);
+      storeAuthData(userData, userId);
 
       // Check for multiple roles
       const roles = Array.isArray(userData.roleName) ? userData.roleName : [userData.roleName];

@@ -626,8 +626,9 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
         const fetchCalls = async () => {
             setIsLoading(true);
             try {
-                // Fetch calls for user 118 (or grab from AuthContext if available)
-                const data = await apiService.getVendorInspectionCalls(118);
+                // Fetch calls for the logged-in user
+                const userId = sessionStorage.getItem('userId') || 118;
+                const data = await apiService.getVendorInspectionCalls(userId);
                 const mappedCalls = data.map(c => {
                     const status = c.status === "Pending for verification" ? "Call Raised" : (c.status || "Call Raised");
                     return {

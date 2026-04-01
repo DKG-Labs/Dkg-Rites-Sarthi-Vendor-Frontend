@@ -11,19 +11,27 @@ const InventoryDetail = ({ material, onBack }) => {
     const fetchEntries = async () => {
         setLoading(true);
         try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
+            const filterByPlant = (items) => {
+                if (!currentPlantId || !Array.isArray(items)) return items || [];
+                return items.filter(item => String(item.plantId) === String(currentPlantId));
+            };
+
             let data = [];
             if (material.id === 'hts-wire') {
-                data = await apiService.getHtsWires();
+                data = filterByPlant(await apiService.getHtsWires());
             } else if (material.id === 'cement') {
-                data = await apiService.getCements();
+                data = filterByPlant(await apiService.getCements());
             } else if (material.id === 'dowel') {
-                data = await apiService.getDowels();
+                data = filterByPlant(await apiService.getDowels());
             } else if (material.id === 'aggregates') {
-                data = await apiService.getAggregates();
+                data = filterByPlant(await apiService.getAggregates());
             } else if (material.id === 'admixture') {
-                data = await apiService.getAdmixtures();
+                data = filterByPlant(await apiService.getAdmixtures());
             } else if (material.id === 'sgci-insert') {
-                data = await apiService.getSgciInserts();
+                data = filterByPlant(await apiService.getSgciInserts());
             } else {
                 data = getMockEntries(material.id);
             }

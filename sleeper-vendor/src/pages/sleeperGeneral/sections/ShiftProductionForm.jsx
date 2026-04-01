@@ -6,11 +6,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const [masterLongLines, setMasterLongLines] = useState([]);
     const [plantProfiles, setPlantProfiles] = useState([]);
     const [plantDetails, setPlantDetails] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
     const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
 
-    const vendorUsername = sessionStorage.getItem('vendorUsername') || '';
+
     const vendorCode = sessionStorage.getItem('vendorCode') || '';
     const userId = sessionStorage.getItem('userId') || 0;
     const selectedPlantRaw = localStorage.getItem('selectedPlant');
@@ -246,7 +247,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             });
 
             // Map chambers for Stress Bench with deduplication
-            if (initialData.plantType === 'STRESS' && initialData.chambers) {
+            const isStress = initialData.plantType === 'STRESS' || initialData.plantType === 'Stress Bench';
+            if (isStress && initialData.chambers) {
                 const mappedEntries = [];
                 // Use a object to track seen bench patterns per chamber to avoid duplication from backend
                 const seenPatternsPerChamber = {};
@@ -280,7 +282,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             }
 
             // Map gangs for Long Line
-            if (initialData.plantType === 'LONG_LINE' && initialData.gangs) {
+            const isLongLine = initialData.plantType === 'LONG_LINE' || initialData.plantType === 'Long Line';
+            if (isLongLine && initialData.gangs) {
                 const mappedEntries = [];
                 const seenPatterns = new Set();
                 
@@ -1211,102 +1214,136 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     Cancel
                 </button>
                 {!isReadOnly && (
-                    <button
-                        onClick={() => {
-                            try {
-                                if (!formHeader.unit) {
-                                    return alert('Production Unit is mandatory. Please select a unit in Section 1.');
-                                }
+                    <>
+                        <button
+                            onClick={() => {
+                                try {
+                                    if (!formHeader.unit) {
+                                        return alert('Production Unit is mandatory. Please select a unit in Section 1.');
+                                    }
 
-                                const breakdown = getProductionBreakdown();
-                                const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
+                                    const breakdown = getProductionBreakdown();
+                                    const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
 
-                                if (invalidTypes.length > 0) {
-                                    return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
-                                }
+                                    if (invalidTypes.length > 0) {
+                                        return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
+                                    }
 
-                                if (calculateTotalCast() === 0) {
-                                    return alert('Please add at least one valid entry.');
-                                }
+                                    if (calculateTotalCast() === 0) {
+                                        return alert('Please add at least one valid entry.');
+                                    }
 
-                                // Formatting the DTO for the backend
-                                const isUpdate = !!(initialData?.id && !isNaN(initialData.id));
-                                const pdDto = {
-                                    ...(isUpdate ? initialData : {}),
-                                    ...(isUpdate ? { id: initialData.id } : {}),
-                                    plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
-                                    productionUnit: formHeader.unit,
-                                    castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
-                                    shift: formHeader.shift,
-                                    batchNumber: formHeader.batchNo.toString(),
-                                    mixDesignReference: formHeader.mixDesign,
-                                    lbcTime: formHeader.timeLbc?.substring(0, 5),
-                                    totalCastedSleepers: calculateTotalCast(),
-                                    totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
-                                    totalRft: calculateTotalRFT(),
-                                    remarks: formHeader.remarks || '',
-                                    vendorId: userId,
-                                    vendorCode: vendorCode,
-                                    plantId: plantId,
-                                    createdBy: userId,
-                                    updatedBy: userId,
+                                    // Formatting the DTO for the backend
+                                    const isUpdate = !!(initialData?.id && !isNaN(initialData.id));
+                                    const pdDto = {
+                                        ...(isUpdate ? initialData : {}),
+                                        ...(isUpdate ? { id: initialData.id } : {}),
+                                        plantType: plantType === 'Stress Bench' ? 'STRESS' : 'LONG_LINE',
+                                        productionUnit: formHeader.unit,
+                                        castingDate: formHeader.date.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+                                        shift: formHeader.shift,
+                                        batchNumber: formHeader.batchNo.toString(),
+                                        mixDesignReference: formHeader.mixDesign,
+                                        lbcTime: formHeader.timeLbc?.substring(0, 5),
+                                        totalCastedSleepers: calculateTotalCast(),
+                                        totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
+                                        totalRft: calculateTotalRFT(),
+                                        remarks: formHeader.remarks || '',
+                                        vendorId: userId,
+                                        vendorCode: vendorCode,
+                                        plantId: plantId,
+                                        createdBy: userId,
+                                        updatedBy: userId,
 
-                                    chambers: plantType === 'Stress Bench' ? chambers
-                                        .filter(chamber => chamber.benchGroups.some(g => !g._isOld))
-                                        .map(chamber => ({
-                                            chamberNo: parseInt(chamber.chamberNo) || 0,
-                                            benchGroups: chamber.benchGroups
-                                                .filter(g => !g._isOld)
-                                                .flatMap(group => {
-                                                    let benchList = [];
-                                                    if (group.entryMode === 'range') {
-                                                        const from = parseInt(group.fromNo) || 0;
-                                                        const to = parseInt(group.toNo) || 0;
-                                                        if (from > 0 && to >= from) {
-                                                            for (let i = from; i <= to; i++) benchList.push(i.toString());
+                                        chambers: plantType === 'Stress Bench' ? chambers
+                                            .map(chamber => ({
+                                                chamberNo: parseInt(chamber.chamberNo) || 0,
+                                                benchGroups: chamber.benchGroups
+                                                    .flatMap(group => {
+                                                        let benchList = [];
+                                                        if (group.entryMode === 'range') {
+                                                            const from = parseInt(group.fromNo) || 0;
+                                                            const to = parseInt(group.toNo) || 0;
+                                                            if (from > 0 && to >= from) {
+                                                                for (let i = from; i <= to; i++) benchList.push(i.toString());
+                                                            }
+                                                        } else if (group.entryMode === 'single') {
+                                                            if (group.singleNo) benchList.push(group.singleNo);
+                                                        } else {
+                                                            benchList = group.benches.filter(b => b.trim());
                                                         }
-                                                    } else if (group.entryMode === 'single') {
-                                                        if (group.singleNo) benchList.push(group.singleNo);
-                                                    } else {
-                                                        benchList = group.benches.filter(b => b.trim());
-                                                    }
 
-                                                    return benchList.map(bench => {
-                                                        const originalRft = group._originalRft !== undefined && bench === group.singleNo ? group._originalRft : getBenchMasterDetails(bench).rft;
-                                                        const originalSleepers = group._originalSleepers && bench === group.singleNo ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
-                                                        
-                                                        return {
-                                                            benchNo: parseInt(bench) || 0,
-                                                            sleeperType: group.sleeperType,
-                                                            mouldPerBench: parseInt(group.mouldsPerBench) || 0,
-                                                            rft: originalRft,
-                                                            sleepers: originalSleepers
-                                                        };
-                                                    });
-                                                })
-                                        })) : [],
-                                    gangs: plantType === 'Long Line' ? longLineEntries
-                                        .filter(entry => !entry._isOld)
-                                        .map(entry => ({
-                                            mode: entry.entryMode.toUpperCase(),
-                                            gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
-                                            gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
-                                            gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
-                                            sleeperType: entry.sleeperType,
-                                            mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
-                                        })) : []
-                                };
+                                                        return benchList.map(bench => {
+                                                            const originalRft = group._originalRft !== undefined && bench === group.singleNo ? group._originalRft : getBenchMasterDetails(bench).rft;
+                                                            const originalSleepers = group._originalSleepers && bench === group.singleNo ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
+                                                            
+                                                            return {
+                                                                benchNo: parseInt(bench) || 0,
+                                                                sleeperType: group.sleeperType,
+                                                                mouldPerBench: parseInt(group.mouldsPerBench) || 0,
+                                                                rft: originalRft,
+                                                                sleepers: originalSleepers
+                                                            };
+                                                        });
+                                                    })
+                                            })) : [],
+                                        gangs: plantType === 'Long Line' ? longLineEntries
+                                            .map(entry => ({
+                                                mode: entry.entryMode.toUpperCase(),
+                                                gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
+                                                gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
+                                                gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
+                                                sleeperType: entry.sleeperType,
+                                                mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
+                                            })) : []
+                                    };
 
-                                onSave(pdDto);
-                            } catch (error) {
-                                console.error("Validation error:", error);
-                                alert("Failed to submit. Please check your data and try again.");
+                                    setIsSubmitting(true);
+                                    onSave(pdDto).finally(() => setIsSubmitting(false));
+                                } catch (error) {
+                                    console.error("Validation error:", error);
+                                    setIsSubmitting(false);
+                                    alert("Failed to submit. Please check your data and try again.");
+                                }
+                            }}
+                            disabled={isSubmitting}
+                            style={{ 
+                                background: isSubmitting ? '#94a3b8' : '#0284c7', 
+                                color: 'white', 
+                                border: 'none', 
+                                padding: '12px 24px', 
+                                borderRadius: '10px', 
+                                fontWeight: '700', 
+                                cursor: isSubmitting ? 'not-allowed' : 'pointer', 
+                                boxShadow: isSubmitting ? 'none' : '0 4px 6px -1px rgba(2, 132, 199, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <span style={{ 
+                                        display: 'inline-block', 
+                                        width: '12px', 
+                                        height: '12px', 
+                                        border: '2px solid rgba(255,255,255,0.3)', 
+                                        borderTopColor: 'white', 
+                                        borderRadius: '50%', 
+                                        animation: 'spin 0.8s linear infinite' 
+                                    }} />
+                                    Processing...
+                                </>
+                            ) : (
+                                (initialData?.id && !isNaN(initialData.id)) ? 'Update Declaration' : 'Submit Declaration'
+                            )}
+                        </button>
+                        <style>{`
+                            @keyframes spin {
+                                to { transform: rotate(360deg); }
                             }
-                        }}
-                        style={{ background: '#0284c7', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)' }}
-                    >
-                        {(initialData?.id && !isNaN(initialData.id)) ? 'Update Declaration' : 'Submit Declaration'}
-                    </button>
+                        `}</style>
+                    </>
                 )}
             </div>
             <datalist id="sleeper-types-list">

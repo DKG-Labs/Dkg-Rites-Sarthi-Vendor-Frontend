@@ -17,8 +17,14 @@ const PlantDeclarationDashboard = () => {
     const fetchProfiles = async () => {
         setLoading(true);
         try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
             const data = await apiService.getPlantProfiles();
-            const mappedData = data.map(p => ({
+            const filtered = currentPlantId
+                ? data.filter(p => String(p.plantId) === String(currentPlantId))
+                : data;
+            const mappedData = filtered.map(p => ({
                 id: p.id,
                 plantName: p.plantNameLocation,
                 vendorCode: p.vendorCode,

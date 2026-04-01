@@ -17,8 +17,14 @@ const MixDesignSection = () => {
     const fetchMixDesigns = async () => {
         setLoading(true);
         try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
             const data = await apiService.getMixDesigns();
-            const mappedData = data.map(m => ({
+            const filtered = currentPlantId
+                ? data.filter(m => String(m.plantId) === String(currentPlantId))
+                : data;
+            const mappedData = filtered.map(m => ({
                 id: m.id,
                 iden: m.identification,
                 grade: m.concreteGrade,

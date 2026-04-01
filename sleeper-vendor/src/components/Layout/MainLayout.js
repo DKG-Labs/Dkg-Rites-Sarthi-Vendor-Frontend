@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import PlantSelectionModal from '../common/PlantSelectionModal';
+import { BASE_URL } from '../../services/api';
 
 const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     const location = useLocation();
@@ -9,8 +10,8 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
-    const [vendorCode, setVendorCode] = useState(null);
-    const [userId, setUserId] = useState(null);
+    const [vendorCode, setVendorCode] = useState(() => sessionStorage.getItem('vendorCode'));
+    const [userId, setUserId] = useState(() => sessionStorage.getItem('userId'));
     const [selectedPlant, setSelectedPlant] = useState(() => {
         const saved = localStorage.getItem('selectedPlant');
         return saved ? JSON.parse(saved) : null;
@@ -19,11 +20,15 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     useEffect(() => {
         const params = new URLSearchParams(location.search || window.location.search);
         const code = params.get('vendorCode');
-        if (code) {
+        
+        // Only trigger silent login if:
+        // 1. There's a code in the URL
+        // 2. AND it's different from the already logged-in vendorCode
+        if (code && code !== sessionStorage.getItem('vendorCode')) {
             setVendorCode(code);
             sessionStorage.setItem('vendorCode', code);
-            // Directly fetch user details matching the plant/vendor code pattern without using local storage
-            fetch('https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api/auth/loginBasedOnType', {
+            
+            fetch(`${BASE_URL}/auth/loginBasedOnType`, {
                 method: 'POST',
                 headers: {
                     'accept': '*/*',
@@ -37,9 +42,24 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
             })
             .then(res => res.json())
             .then(data => {
-                if (data && data.responseData && data.responseData.userId) {
-                    setUserId(data.responseData.userId);
-                    sessionStorage.setItem('userId', data.responseData.userId);
+                if (data && data.responseData) {
+                    if (data.responseData.userId) {
+                        setUserId(data.responseData.userId);
+                        sessionStorage.setItem('userId', data.responseData.userId);
+                    }
+                    // Only use userName as vendorCode if it's not JUST the numeric userId
+                    // This protects the alphanumeric vendor code (e.g. :41647) from being overwritten
+                    // by the numeric database ID (e.g. 135).
+                    if (data.responseData.userName && data.responseData.userName !== String(data.responseData.userId)) {
+                        setVendorCode(data.responseData.userName);
+                        sessionStorage.setItem('vendorCode', data.responseData.userName);
+                    }
+                    
+                    // Clean up URL parameters after successful silent login to prevent re-triggering
+                    const newSearchParams = new URLSearchParams(window.location.search);
+                    newSearchParams.delete('vendorCode');
+                    const newPath = window.location.pathname + (newSearchParams.toString() ? '?' + newSearchParams.toString() : '');
+                    window.history.replaceState({}, '', newPath);
                 }
             })
             .catch(err => console.error("API error fetching user:", err));
@@ -49,6 +69,8 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     const handlePlantSelect = (plant) => {
         setSelectedPlant(plant);
         localStorage.setItem('selectedPlant', JSON.stringify(plant));
+        // Force refresh to re-init all components with new plantId
+        window.location.reload();
     };
 
     return (
@@ -58,6 +80,7 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                 <PlantSelectionModal 
                     vendorCode={vendorCode} 
                     onSelect={handlePlantSelect} 
+                    onLogout={onLogout}
                 />
             )}
 

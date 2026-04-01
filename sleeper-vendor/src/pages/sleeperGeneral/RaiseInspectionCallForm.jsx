@@ -113,9 +113,16 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         const fetchBatches = async () => {
             setIsLoadingBatches(true);
             try {
+                const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+                const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
                 const data = await apiService.getCompletedBatches(sleeperType);
                 
-                const mappedBatches = data.map(b => {
+                const filteredData = currentPlantId 
+                    ? data.filter(b => String(b.plantId) === String(currentPlantId))
+                    : data;
+
+                const mappedBatches = filteredData.map(b => {
                     const uniqueGood = b.goodSleepers ? Array.from(new Set(b.goodSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
                     const uniqueBad = b.badSleepers ? Array.from(new Set(b.badSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
                     
@@ -129,6 +136,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         badSleepers: uniqueBad.length,
                         goodSleeperIds: uniqueGood,
                         badSleeperIds: uniqueBad,
+                        plantId: b.plantId
                     };
                 });
                 
@@ -626,13 +634,17 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         onClick={async () => {
                             setIsSubmitting(true);
                             try {
+                                const userId = sessionStorage.getItem('userId');
+                                const vendorCode = sessionStorage.getItem('vendorCode');
+                                
                                 const payload = {
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType,
                                     totalOffered: summary.totalPassedCount,
                                     totalRejected: summary.totalRejectedCount,
-                                    createdBy: 118,
+                                    createdBy: userId,
+                                    vendorCode: vendorCode,
                                     batchesSelected: []
                                 };
                                 

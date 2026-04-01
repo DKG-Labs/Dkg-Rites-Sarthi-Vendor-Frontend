@@ -101,10 +101,16 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
     const fetchAllBMData = async () => {
         try {
             setLoading(true);
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
             const data = await apiService.getAllBenchMouldStressLongline();
+            const filtered = currentPlantId
+                ? data.filter(master => String(master.plantId) === String(currentPlantId))
+                : data;
             const flattened = [];
             
-            data.forEach(master => {
+            filtered.forEach(master => {
                 const plantTypeLabel = master.plantType === 'STRESS' ? 'Stress Bench' : 'Longline';
                 master.details.forEach(detail => {
                     const isRange = detail.declarationMode?.toUpperCase() === 'RANGE';

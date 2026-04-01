@@ -4,15 +4,15 @@ import { getBaseUrl } from './apiConfig';
  * Hardcoded credentials for CM, CallDesk, and Finance users
  */
 const HARDCODED_USERS = {
-  ':41647': {
-    password: 'password',
-    userData: {
-      userId: ':41647',
-      userName: 'Sleeper Vendor',
-      roleName: ['SLEEPER_VENDOR'],
-      token: 'sleeper-vendor-token-' + Date.now()
-    }
-  },
+  // ':41647': {
+  //   password: 'password',
+  //   userData: {
+  //     userId: ':41647',
+  //     userName: 'Sleeper Vendor',
+  //     roleName: ['SLEEPER_VENDOR'],
+  //     token: 'sleeper-vendor-token-' + Date.now()
+  //   }
+  // },
   'Cm': {
     password: 'password',
     userData: {
@@ -95,11 +95,17 @@ export const loginUser = async (loginId, password, loginType = 'IE') => {
 /**
  * Store authentication data in localStorage
  * @param {Object} authData - Authentication data from login response
+ * @param {string} manualLoginId - Optional manually entered login ID (like :41647)
  */
-export const storeAuthData = (authData) => {
+export const storeAuthData = (authData, manualLoginId = null) => {
   localStorage.setItem('authToken', authData.token);
   localStorage.setItem('userId', authData.userId);
-  localStorage.setItem('vendorCode', authData.userId);
+  
+  // Prioritize the manual ID because it might be the alphanumeric vendor code (:41647)
+  // while authData.userId and authData.userName might be numeric database IDs (135).
+  const canonVendorCode = manualLoginId || authData.userName || authData.userId;
+  localStorage.setItem('vendorCode', canonVendorCode);
+  
   localStorage.setItem('userName', authData.userName);
   // Store roleName as a JSON string since it is now a list
   localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));
