@@ -46,15 +46,20 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
             return;
         }
 
+        const userId = sessionStorage.getItem('userId') || 0;
+        const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+        const plantId = selectedPlant ? selectedPlant.plantId : '';
+
         const plantDto = {
             id: editingId,
             plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
             vendorCode: vendorUsername,
             plantType: formData.type,
             numberOfSheds: parseInt(formData.shedsLines),
-            vendorId: 118,
-            createdBy: 118,
-            updatedBy: editingId ? 118 : null
+            vendorId: userId,
+            createdBy: userId,
+            updatedBy: editingId ? userId : null,
+            plantId: plantId
         };
 
         try {

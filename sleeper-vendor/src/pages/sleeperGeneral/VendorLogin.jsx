@@ -9,23 +9,46 @@ const VendorLogin = ({ onLogin }) => {
 
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
-        // Simulate API call for authentication
-        setTimeout(() => {
-            setIsLoading(false);
-            
-            // Professional validation check using the configuration at the bottom
-            if (validateCredentials(formData.username, formData.password)) {
-                sessionStorage.setItem('vendorUsername', formData.username);
+        try {
+            const response = await fetch('https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api/auth/loginBasedOnType', {
+                method: 'POST',
+                headers: {
+                    'accept': '*/*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    loginType: "vendor",
+                    loginId: formData.username,
+                    password: formData.password
+                })
+            });
+
+            const data = await response.json();
+
+            // Check if responseStatus is success and we have responseData
+            if (data && data.responseStatus && data.responseStatus.statusCode === 0 && data.responseData) {
+                sessionStorage.setItem('vendorUsername', data.responseData.userName || formData.username);
+                sessionStorage.setItem('userId', data.responseData.userId);
+                
+                // Store token if needed
+                if (data.responseData.token) {
+                    sessionStorage.setItem('token', data.responseData.token);
+                }
+                
                 onLogin();
             } else {
-                setError('Invalid username or password');
+                setError(data.responseStatus?.message || 'Invalid username or password');
             }
-        }, 600); // Optimized timeout for a faster loading experience while maintaining UI feedback
+        } catch (err) {
+            setError('Failed to connect to the server');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -188,23 +211,7 @@ const VendorLogin = ({ onLogin }) => {
     );
 };
 
-// ─── CREDENTIALS & VALIDATION ───────────────────────────────────────────
-// Adding this code at the bottom as requested for better maintainability.
-
-/**
- * Validates vendor credentials.
- * This can be further extended to include API integration.
- */
-const VENDOR_CONFIG = {
-    ALLOWED_USERNAME: ':41647',
-    DEFAULT_PASSWORD: 'password'
-};
-
-const validateCredentials = (username, password) => {
-    // Trim and compare for robustness
-    return username.trim() === VENDOR_CONFIG.ALLOWED_USERNAME && 
-           password === VENDOR_CONFIG.DEFAULT_PASSWORD;
-};
+// End of VendorLogin component
 
 export default VendorLogin;
 

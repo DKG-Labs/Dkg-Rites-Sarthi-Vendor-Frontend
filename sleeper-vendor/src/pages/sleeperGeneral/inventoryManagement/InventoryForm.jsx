@@ -318,6 +318,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
 
+        const userId = sessionStorage.getItem('userId') || 0;
+        const vendorCode = sessionStorage.getItem('vendorCode');
+        const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+        const plantId = selectedPlant ? selectedPlant.plantId : '';
+
         const finalDetails = { ...formData.details };
 
         try {
@@ -353,9 +358,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     ritesIcDate: formatDateForBackend(finalDetails.icDate),
                     relaxationTest: finalDetails.relaxationTest === 'Y' ? 'Yes' : 'No',
                     relaxationTestDate: formatDateForBackend(finalDetails.relaxationDate),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118,
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId,
                     coilDetails: currentCoilEntries.map(c => ({
                         coilFrom: c.coilFrom || null,
                         coilTo: c.coilTo || null,
@@ -374,9 +381,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     manufacturer: finalDetails.manufacturer,
                     invoiceNumber: finalDetails.ewayBillNo,
                     invoiceDate: formatDateForBackend(finalDetails.ewayDate),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118,
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId,
                     batchDetails: finalDetails.batches?.map(b => ({
                         weekNo: parseInt(b.week),
                         yearNo: parseInt(b.year),
@@ -396,9 +405,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     ritesIcNumber: finalDetails.icNo,
                     ritesIcDate: formatDateForBackend(finalDetails.icDate),
                     totalQtyReceived: parseInt(formData.qty),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId
                 };
                 await apiService.saveDowel(payload);
             } else if (material.id === 'aggregates') {
@@ -410,9 +421,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     challanNumber: finalDetails.challanNo,
                     challanDate: formatDateForBackend(finalDetails.challanDate),
                     totalQtyReceived: parseFloat(formData.qty),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId
                 };
                 await apiService.saveAggregate(payload);
             } else if (material.id === 'admixture') {
@@ -426,9 +439,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     lotNo: finalDetails.lotNo,
                     mtcNo: finalDetails.mtcNo,
                     totalQuantity: parseFloat(formData.qty),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId
                 };
                 await apiService.saveAdmixture(payload);
             } else if (material.id === 'sgci-insert') {
@@ -442,9 +457,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     ritesIcNumber: finalDetails.icNo,
                     ritesIcDate: formatDateForBackend(finalDetails.icDate),
                     totalQtyReceived: parseInt(formData.qty),
-                    vendorId: 118,
-                    createdBy: 118,
-                    updatedBy: 118
+                    vendorId: userId,
+                    vendorCode: vendorCode,
+                    createdBy: userId,
+                    updatedBy: userId,
+                    plantId: plantId
                 };
                 await apiService.saveSgciInsert(payload);
             } else {

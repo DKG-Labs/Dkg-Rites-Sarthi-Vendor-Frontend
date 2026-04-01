@@ -10,6 +10,7 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
     const [vendorCode, setVendorCode] = useState(null);
+    const [userId, setUserId] = useState(null);
     const [selectedPlant, setSelectedPlant] = useState(() => {
         const saved = localStorage.getItem('selectedPlant');
         return saved ? JSON.parse(saved) : null;
@@ -20,6 +21,28 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
         const code = params.get('vendorCode');
         if (code) {
             setVendorCode(code);
+            sessionStorage.setItem('vendorCode', code);
+            // Directly fetch user details matching the plant/vendor code pattern without using local storage
+            fetch('https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api/auth/loginBasedOnType', {
+                method: 'POST',
+                headers: {
+                    'accept': '*/*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    loginType: 'vendor',
+                    loginId: code,
+                    password: 'password'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.responseData && data.responseData.userId) {
+                    setUserId(data.responseData.userId);
+                    sessionStorage.setItem('userId', data.responseData.userId);
+                }
+            })
+            .catch(err => console.error("API error fetching user:", err));
         }
     }, [location]);
 
@@ -77,23 +100,43 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        {selectedPlant && (
-                            <div className="selected-plant-display" style={{
-                                background: '#f0f9fa',
-                                color: '#21808d',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: 'var(--fs-xs)',
-                                fontWeight: '600',
-                                border: '1px solid rgba(33, 128, 141, 0.2)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                <span style={{ opacity: 0.7 }}>📍</span>
-                                {selectedPlant.plantName} ({vendorCode})
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {userId && (
+                                <div className="user-id-display" style={{
+                                    background: '#ffffff',
+                                    color: '#21808d',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: 'var(--fs-xs)',
+                                    fontWeight: '600',
+                                    border: '1px solid rgba(33, 128, 141, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                }}>
+                                    <span style={{ opacity: 0.7 }}>👤</span>
+                                    User ID: {userId}
+                                </div>
+                            )}
+                            {selectedPlant && (
+                                <div className="selected-plant-display" style={{
+                                    background: '#f0f9fa',
+                                    color: '#21808d',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: 'var(--fs-xs)',
+                                    fontWeight: '600',
+                                    border: '1px solid rgba(33, 128, 141, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span style={{ opacity: 0.7 }}>📍</span>
+                                    {selectedPlant.plantName} - {selectedPlant.plantId} ({vendorCode})
+                                </div>
+                            )}
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{
                                 width: '32px',

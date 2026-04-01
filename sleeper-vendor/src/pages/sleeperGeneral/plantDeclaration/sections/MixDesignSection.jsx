@@ -58,6 +58,11 @@ const MixDesignSection = () => {
             return;
         }
 
+        const userId = sessionStorage.getItem('userId') || 0;
+        const vendorCode = sessionStorage.getItem('vendorCode');
+        const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+        const plantId = selectedPlant ? selectedPlant.plantId : '';
+
         const mixDto = {
             id: editingId,
             identification: newMix.iden,
@@ -70,9 +75,11 @@ const MixDesignSection = () => {
             water: parseFloat(newMix.water) || 0,
             acRatio: parseFloat(calculateAC(newMix)),
             wcRatio: parseFloat(calculateWC(newMix)),
-            vendorId: 118,
-            createdBy: 118,
-            updatedBy: editingId ? 118 : null
+            vendorId: userId,
+            vendorCode: vendorCode,
+            createdBy: userId,
+            updatedBy: editingId ? userId : null,
+            plantId: plantId
         };
 
         try {

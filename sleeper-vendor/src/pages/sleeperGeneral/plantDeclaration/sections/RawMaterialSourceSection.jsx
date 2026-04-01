@@ -58,6 +58,11 @@ const RawMaterialSourceSection = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        const userId = sessionStorage.getItem('userId') || 0;
+        const vendorCode = sessionStorage.getItem('vendorCode');
+        const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+        const plantId = selectedPlant ? selectedPlant.plantId : '';
+
         const rmDto = {
             id: editingId,
             rawMaterialType: formData.rawMaterialType,
@@ -65,9 +70,11 @@ const RawMaterialSourceSection = () => {
             approvalReference: formData.approvalReference,
             validFrom: formData.validityFrom ? formData.validityFrom.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
             validTo: formData.validityTo ? formData.validityTo.split('-').reverse().join('/') : '', // YYYY-MM-DD to DD/MM/YYYY
-            vendorId: 118,
-            createdBy: 118,
-            updatedBy: editingId ? 118 : null
+            vendorId: userId,
+            vendorCode: vendorCode,
+            createdBy: userId,
+            updatedBy: editingId ? userId : null,
+            plantId: plantId
         };
 
         try {

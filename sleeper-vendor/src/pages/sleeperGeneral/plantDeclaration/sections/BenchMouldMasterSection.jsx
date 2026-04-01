@@ -421,6 +421,11 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
         const isLongLine = activeTabId === 'line-1';
         const isTurnout = formState.level3?.includes('Set');
         
+        const userId = sessionStorage.getItem('userId') || 0;
+        const vendorCode = sessionStorage.getItem('vendorCode');
+        const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+        const plantId = selectedPlant ? selectedPlant.plantId : '';
+
         try {
             setLoading(true);
             const payload = {
@@ -428,7 +433,9 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                 category: formState.level1 || "",
                 subCategory: formState.level2 || "",
                 drawingNo: formState.level3 || "",
-                createdBy: 118,
+                createdBy: userId,
+                vendorCode: vendorCode,
+                plantId: plantId,
                 details: items.map(item => {
                     const modeValue = (item.mode || formState.entryMode || "single").toLowerCase();
                     const isR = modeValue === 'range';

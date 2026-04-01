@@ -10,7 +10,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const [activeSections, setActiveSections] = useState({ 1: true, 2: false, 3: false });
     const [plantType, setPlantType] = useState('Stress Bench'); // Stress Bench or Long Line
 
-    const vendorUsername = sessionStorage.getItem('vendorUsername') || ':41647';
+    const vendorUsername = sessionStorage.getItem('vendorUsername') || '';
+    const vendorCode = sessionStorage.getItem('vendorCode') || '';
+    const userId = sessionStorage.getItem('userId') || 0;
+    const selectedPlantRaw = localStorage.getItem('selectedPlant');
+    const selectedPlant = selectedPlantRaw ? JSON.parse(selectedPlantRaw) : null;
+    const plantId = selectedPlant ? selectedPlant.plantId : '';
+
     const getCurrentTime = () => {
         const now = new Date();
         return now.toTimeString().split(' ')[0].substring(0, 5);
@@ -62,7 +68,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     apiService.getStressBenches(),
                     apiService.getLongLines(),
                     apiService.getPlantProfiles(),
-                    apiService.getPlantDetails(vendorUsername)
+                    apiService.getPlantDetails(vendorCode)
                 ]);
                 setMasterBenches(benches || []);
                 setMasterLongLines(longLines || []);
@@ -1239,9 +1245,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
                                     totalRft: calculateTotalRFT(),
                                     remarks: formHeader.remarks || '',
-                                    vendorId: 118,
-                                    createdBy: 118,
-                                    updatedBy: 118,
+                                    vendorId: userId,
+                                    vendorCode: vendorCode,
+                                    plantId: plantId,
+                                    createdBy: userId,
+                                    updatedBy: userId,
+
                                     chambers: plantType === 'Stress Bench' ? chambers
                                         .filter(chamber => chamber.benchGroups.some(g => !g._isOld))
                                         .map(chamber => ({

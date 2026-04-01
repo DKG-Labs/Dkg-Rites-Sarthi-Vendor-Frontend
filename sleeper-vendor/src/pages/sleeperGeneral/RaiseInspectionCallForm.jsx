@@ -57,7 +57,7 @@ const MOCK_BATCHES = {
     'RT-8746 (PnC)': []
 };
 
-const SLEEPER_TYPES = ['RT-8521', 'RT8746', 'RT-8746 (PnC)'];
+const SLEEPER_TYPES = ['RT-8746'];
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 const SectionHeader = ({ label, step, color = '#21808d' }) => (
@@ -97,7 +97,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const callDate = new Date().toLocaleDateString('en-IN');
 
     // Section B state
-    const [sleeperType, setSleeperType] = useState('');
+    const [sleeperType, setSleeperType] = useState('RT-8746');
     const [batches, setBatches] = useState([]);
     const [isLoadingBatches, setIsLoadingBatches] = useState(false);
     const [batchSelections, setBatchSelections] = useState({}); // { batchNo: { goodSelected: Set<id>, badIncluded: boolean } }
@@ -303,24 +303,20 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     }}>
                         <SectionHeader step="B" label="Sleeper Type & Granular Batch Selection" color="#7c3aed" />
 
-                        {/* Sleeper Type Dropdown */}
+                        {/* Sleeper Type — Hardcoded to RT-8746 */}
                         <div style={{ marginBottom: 18 }}>
                             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Sleeper Type <span style={{ color: '#dc2626' }}>*</span>
                             </label>
-                            <select
-                                value={sleeperType}
-                                onChange={e => { setSleeperType(e.target.value); setBatchSelections({}); setExpandedBatch(null); }}
-                                style={{
-                                    width: '100%', maxWidth: 280, height: 42, padding: '0 14px',
-                                    border: '1.5px solid #cbd5e1', borderRadius: 8,
-                                    fontSize: 14, fontWeight: 600, color: '#0f172a',
-                                    background: '#fff', cursor: 'pointer'
-                                }}
-                            >
-                                <option value="">— Select Sleeper Type —</option>
-                                {SLEEPER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                            <div style={{
+                                width: '100%', maxWidth: 280, height: 42, padding: '0 14px',
+                                border: '1.5px solid #21808d', borderRadius: 8,
+                                fontSize: 14, fontWeight: 700, color: '#0f172a',
+                                background: '#f0f9fa', display: 'flex', alignItems: 'center',
+                                letterSpacing: '0.02em'
+                            }}>
+                                RT-8746
+                            </div>
                         </div>
 
                         {sleeperType && (
