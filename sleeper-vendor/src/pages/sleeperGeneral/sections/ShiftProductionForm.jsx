@@ -115,7 +115,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     }, []);
     const dynamicUnits = React.useMemo(() => {
         // First try to use plantDetails API data
-        const apiMatch = [...plantDetails].reverse().find(p => {
+        // Filter plantDetails to only use records verified by Sleeper IE
+        const verifiedPlantDetails = plantDetails.filter(p => {
+            const isVerified = p.status === 'Completed' || p.status === 'completed' || p.status === 'COMPLETED' || p.status === 'Locked' || (!p.status && p.updatedDate);
+            return isVerified || p.status === undefined; // Fallback if API doesn't return status directly in plantDetails
+        });
+
+        const apiMatch = [...verifiedPlantDetails].reverse().find(p => {
             const type = p.plantType || '';
             if (plantType === 'Stress Bench') return type === 'Stress Bench';
             return type === 'Longline' || type === 'Long Line';
@@ -138,6 +144,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
         // Fallback to plantProfiles if API data is missing or incomplete
         const filtered = plantProfiles.filter(p => {
+            // Check if verified from Sleeper IE
+            const isVerified = p.status === 'Completed' || p.status === 'completed' || p.status === 'COMPLETED' || p.status === 'Locked' || (!p.status && p.updatedDate);
+            if (!isVerified) return false;
+
             const type = p.plantType || '';
             if (plantType === 'Stress Bench') {
                 return type === 'Stress Bench';
