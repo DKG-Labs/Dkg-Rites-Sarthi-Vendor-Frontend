@@ -891,23 +891,37 @@ export const RaiseInspectionCallForm = ({
           const heatNo = lotHeatMapping[lotNumber] || '';
 
           let acceptedQtyProcess = existing?.acceptedQtyProcess || 0;
+          let offeredEarlier = existing?.offeredEarlier || 0;
 
-          // Fetch acceptedQtyProcess if heatNo is available and we don't have it yet or lot/heat changed
-          if (heatNo && requestId) {
+          // Fetch values if heatNo is available
+          if (heatNo) {
             try {
-              const response = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
-              if (response && response.success) {
-                acceptedQtyProcess = response.data || 0;
+              // 1. Fetch acceptedQtyProcess
+              if (requestId && (!existing || existing.lotNumber !== lotNumber || existing.heatNo !== heatNo)) {
+                const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
+                if (acceptedRes && acceptedRes.success) {
+                  acceptedQtyProcess = acceptedRes.data || 0;
+                }
+              }
+
+              // 2. Fetch offeredEarlier
+              const earlierRes = await inspectionCallService.getOfferedEarlierQuantity(heatNo, lotNumber);
+              if (earlierRes && earlierRes.success) {
+                offeredEarlier = earlierRes.data || 0;
               }
             } catch (error) {
-              console.error(`Error fetching accepted qty for lot ${lotNumber}:`, error);
+              console.error(`Error fetching data for lot ${lotNumber}:`, error);
             }
           }
+
+          const futureBalance = acceptedQtyProcess - offeredEarlier;
 
           return {
             lotNumber,
             heatNo,
             acceptedQtyProcess,
+            offeredEarlier,
+            futureBalance,
             offeredQty: existing?.offeredQty || '',
             noOfBags: existing?.noOfBags || ''
           };
@@ -1618,12 +1632,22 @@ export const RaiseInspectionCallForm = ({
       ...prev,
       final_lots_data: prev.final_lots_data.map(l => {
         if (l.lotNumber === lotNumber) {
-          const updatedLot = { ...l, [field]: value };
+          let newValue = value;
+
+          // Prevent entering quantity greater than future balance
+          if (field === 'offeredQty') {
+            const maxAllowed = Math.max(0, l.futureBalance || 0);
+            if (value > maxAllowed) {
+              newValue = maxAllowed;
+            }
+          }
+
+          const updatedLot = { ...l, [field]: newValue };
 
           // Logic: No. of Bags >= (Qty of that Lot / 50)
           // Auto-calculate suggested bags when Qty is changed
           if (field === 'offeredQty') {
-            const minBags = Math.ceil((value || 0) / 50);
+            const minBags = Math.ceil((newValue || 0) / 50);
             // If current bags are 0 or less than the new minimum, auto-update them
             if (!l.noOfBags || l.noOfBags < minBags) {
               updatedLot.noOfBags = minBags;
@@ -2213,6 +2237,21 @@ export const RaiseInspectionCallForm = ({
       }
       if (!formData.final_total_qty) {
         newErrors.final_total_qty = 'Total Quantity is required';
+      }
+
+      // Validate each lot in final_lots_data
+      if (formData.final_lots_data && formData.final_lots_data.length > 0) {
+        formData.final_lots_data.forEach((lot, index) => {
+          if (!lot.offeredQty || parseInt(lot.offeredQty) <= 0) {
+            newErrors[`final_lot_${index}_qty`] = `Offered Quantity is required for Lot ${lot.lotNumber}`;
+          } else if (parseInt(lot.offeredQty) > (lot.futureBalance || 0)) {
+            newErrors[`final_lot_${index}_qty`] = `Offered Quantity for Lot ${lot.lotNumber} cannot exceed Future Balance (${lot.futureBalance})`;
+          }
+
+          if (!lot.noOfBags || parseInt(lot.noOfBags) <= 0) {
+            newErrors[`final_lot_${index}_bags`] = `No. of Bags is required for Lot ${lot.lotNumber}`;
+          }
+        });
       }
     }
 
@@ -3420,6 +3459,8 @@ export const RaiseInspectionCallForm = ({
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Lot No.</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Heat No.</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Accepted in Process (Auto)</th>
+                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Called Offered Earlier</th>
+                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Future Balance</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Offered for Inspection</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>No. of Bags</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>Action</th>
@@ -3427,7 +3468,7 @@ export const RaiseInspectionCallForm = ({
                       </thead>
                       <tbody>
                         {formData.final_lots_data.map((lot) => {
-                          const isQtyInvalid = lot.offeredQty > lot.acceptedQtyProcess;
+                          const isQtyInvalid = lot.offeredQty > (lot.futureBalance || 0);
                           const minBagsRequired = Math.ceil((lot.offeredQty || 0) / 50);
                           const isBagsInvalid = lot.noOfBags > 0 && lot.noOfBags < minBagsRequired;
 
@@ -3436,6 +3477,8 @@ export const RaiseInspectionCallForm = ({
                               <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.lotNumber}</td>
                               <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.heatNo}</td>
                               <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.acceptedQtyProcess}</td>
+                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.offeredEarlier || 0}</td>
+                              <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#059669' }}>{lot.futureBalance || 0}</td>
                               <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
                                 <input
                                   type="number"
@@ -3447,7 +3490,7 @@ export const RaiseInspectionCallForm = ({
                                 />
                                 {isQtyInvalid && (
                                   <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
-                                    Cannot exceed accepted qty ({lot.acceptedQtyProcess})
+                                    Cannot exceed future balance ({lot.futureBalance})
                                   </div>
                                 )}
                               </td>

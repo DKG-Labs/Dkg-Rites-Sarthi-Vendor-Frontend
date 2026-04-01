@@ -846,6 +846,45 @@ const inspectionCallService = {
       throw error;
     }
   },
+
+  /**
+   * Get the total quantity offered in previous Final Inspection Calls for a
+   * specific heat and lot
+   * @param {string} heatNo - Heat number
+   * @param {string} lotNo - Lot number
+   * @returns {Promise<Object>} - API response with offered quantity
+   */
+  getOfferedEarlierQuantity: async (heatNo, lotNo) => {
+    try {
+      const response = await httpClient.get(
+        `/final-material/offered-earlier?heatNo=${encodeURIComponent(heatNo)}&lotNo=${encodeURIComponent(lotNo)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('Error fetching offered earlier quantity:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Withdraw an inspection call
+   * @param {Object} withdrawalData - Data for withdrawal (workflowTransitionId, requestId, remarks, actionBy)
+   * @returns {Promise<Object>} - API response
+   */
+  withdrawCall: async (withdrawalData) => {
+    try {
+      console.log('📤 Sending Withdrawal request:', withdrawalData);
+      const response = await httpClient.post(
+        '/workflow/withdraw',
+        withdrawalData
+      );
+      console.log('✅ Withdrawal successful:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error withdrawing call:', error);
+      throw error;
+    }
+  },
 };
 
 export default inspectionCallService;

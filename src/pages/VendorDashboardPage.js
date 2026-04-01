@@ -1,5 +1,5 @@
 // src/pages/VendorDashboardPage.js
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
@@ -39,6 +39,8 @@ import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+
+const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld'];
 
 const VendorDashboardPage = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('po-assigned');
@@ -87,6 +89,12 @@ const VendorDashboardPage = ({ onBack }) => {
   const [isICCorrectionModalOpen, setIsICCorrectionModalOpen] = useState(false);
   const [selectedCompletedCall, setSelectedCompletedCall] = useState(null);
 
+  // Withdrawal states
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawRemarks, setWithdrawRemarks] = useState('');
+  const [selectedCallForWithdraw, setSelectedCallForWithdraw] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+
   // Payment filter state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [showOldApproved, setShowOldApproved] = useState(false);
@@ -119,6 +127,10 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Notification state
   const [notification, setNotification] = useState({ message: '', type: 'error' });
+
+  const showNotification = useCallback((message, type = 'error') => {
+    setNotification({ message, type });
+  }, []);
 
 
   // PO Assigned data state - using real API
@@ -156,7 +168,17 @@ const VendorDashboardPage = ({ onBack }) => {
   const [requestedCallsSortColumn, setRequestedCallsSortColumn] = useState(null);
   const [requestedCallsSortDirection, setRequestedCallsSortDirection] = useState('asc');
 
-  const user = getStoredUser();
+  // Search state for Completed Calls table
+  const [completedCallsSearchTerm, setCompletedCallsSearchTerm] = useState('');
+
+  // Pagination and sorting state for Completed Calls table
+  const [completedCallsPageSize, setCompletedCallsPageSize] = useState(10);
+  const [completedCallsCurrentPage, setCompletedCallsCurrentPage] = useState(1);
+  const [completedCallsSortColumn, setCompletedCallsSortColumn] = useState(null);
+  const [completedCallsSortDirection, setCompletedCallsSortDirection] = useState('asc');
+
+  const user = useMemo(() => getStoredUser(), []);
+  const isFetchingRef = useRef(false);
 
   // ============ VENDOR WORKFLOW API INTEGRATION ============
   // Initialize the workflow hook for API calls
@@ -304,6 +326,9 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // ============ FETCH REQUESTED CALLS DATA ============
   const fetchRequestedCalls = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    
+    isFetchingRef.current = true;
     setLoadingRequestedCalls(true);
     setLoadingCompletedCalls(true);
     setRequestedCallsError(null);
@@ -352,6 +377,7 @@ const VendorDashboardPage = ({ onBack }) => {
           quantity_accepted: (call.workflowStatus === 'WITHDRAW' ? 0 : call.quantityOffered) || 0,
           quantity_rejected: 0,
           ic_number: call.icNumber || '',
+          workflowTransitionId: call.workflowTransitionId,
           inspection_summary: {
             inspector_name: call.ieName || 'N/A',
             inspection_date: call.updatedAt || '',
@@ -398,6 +424,7 @@ const VendorDashboardPage = ({ onBack }) => {
     } finally {
       setLoadingRequestedCalls(false);
       setLoadingCompletedCalls(false);
+      isFetchingRef.current = false;
     }
   }, [user.userName]);
 
@@ -1299,12 +1326,13 @@ const VendorDashboardPage = ({ onBack }) => {
         // Remove from local state
         setInventoryEntries(prev => prev.filter(entry => entry.id !== selectedInventoryEntry.id));
 
-        // Close modal
+        // Close modal and show notification
         setIsDeleteConfirmModalOpen(false);
         setSelectedInventoryEntry(null);
-
-        // Show success message
-        alert(`✅ Inventory entry deleted successfully!\n\nHeat Number: ${selectedInventoryEntry.heatNumber}\nTC Number: ${selectedInventoryEntry.tcNumber}`);
+        showNotification(`✅ Inventory entry deleted successfully!\n\nHeat Number: ${selectedInventoryEntry.heatNumber}\nTC Number: ${selectedInventoryEntry.tcNumber}`, 'success');
+        
+        // Refresh inventory list
+        fetchInventoryEntries();
 
         console.log('✅ Entry deleted successfully');
       } else {
@@ -1312,7 +1340,7 @@ const VendorDashboardPage = ({ onBack }) => {
       }
     } catch (error) {
       console.error('❌ Error deleting entry:', error);
-      alert(`❌ Failed to delete inventory entry:\n\n${error.message || 'Unknown error occurred'}`);
+      showNotification(`❌ Failed to delete inventory entry:\n\n${error.message || 'Unknown error occurred'}`, 'error');
     } finally {
       setIsDeletingEntry(false);
     }
@@ -1331,11 +1359,11 @@ const VendorDashboardPage = ({ onBack }) => {
       // Add to Sub PO list
       setSubPOList(prev => [...prev, newSubPO]);
 
-      alert(`Sub PO ${subPOData.sub_po_number} submitted for approval successfully!`);
+      showNotification(`Sub PO ${subPOData.sub_po_number} submitted for approval successfully!`, 'success');
       handleCloseAddSubPOModal();
     } catch (error) {
       console.error('Error submitting Sub PO:', error);
-      alert('Failed to submit Sub PO. Please try again.');
+      showNotification('Failed to submit Sub PO. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -1386,7 +1414,7 @@ const VendorDashboardPage = ({ onBack }) => {
   // eslint-disable-next-line no-unused-vars
   const handleDownloadDocuments = (call) => {
     console.log('Downloading documents for:', call.call_no);
-    alert(`Downloading documents for ${call.call_no}:\n- ${call.inspection_details?.documents?.join('\n- ') || 'No documents available'}`);
+    showNotification(`Downloading documents for ${call.call_no}:\n- ${call.inspection_details?.documents?.join('\n- ') || 'No documents available'}`, 'info');
   };
 
   // ============ COMPLETED CALLS ROW HANDLERS ============
@@ -1395,6 +1423,15 @@ const VendorDashboardPage = ({ onBack }) => {
       ...prev,
       [callId]: !prev[callId]
     }));
+  };
+
+  const handleCompletedCallsSort = (column) => {
+    if (completedCallsSortColumn === column) {
+      setCompletedCallsSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setCompletedCallsSortColumn(column);
+      setCompletedCallsSortDirection('asc');
+    }
   };
 
   // View Full Inspection Summary modal handlers
@@ -1411,13 +1448,13 @@ const VendorDashboardPage = ({ onBack }) => {
   // Download IC handler
   const handleDownloadIC = (call) => {
     console.log('Downloading IC for:', call.ic_number);
-    alert(`Downloading Inspection Certificate: ${call.ic_number}\nFor Call: ${call.call_no}`);
+    showNotification(`Downloading Inspection Certificate: ${call.ic_number}\nFor Call: ${call.call_no}`, 'info');
   };
 
   // Download Inspection Documents handler
   const handleDownloadInspectionDocuments = (call) => {
     console.log('Downloading inspection documents for:', call.call_no);
-    alert(`Downloading Inspection Documents for ${call.call_no}:\n- ${call.documents?.join('\n- ') || 'No documents available'}`);
+    showNotification(`Downloading Inspection Documents for ${call.call_no}:\n- ${call.documents?.join('\n- ') || 'No documents available'}`, 'info');
   };
 
   // Request IC Correction modal handlers
@@ -1471,11 +1508,11 @@ const VendorDashboardPage = ({ onBack }) => {
   //       timestamp: new Date().toISOString()
   //     });
 
-  //     alert(`Action "${action}" performed successfully on ${call.call_no}`);
+  //     showNotification(`Action "${action}" performed successfully on ${call.call_no}`, 'success');
   //     return response;
   //   } catch (error) {
   //     console.error('Failed to perform action:', error);
-  //     alert(`Failed to perform action: ${error.message || 'Unknown error'}`);
+  //     showNotification(`Failed to perform action: ${error.message || 'Unknown error'}`, 'error');
   //     throw error;
   //   }
   // }, [performTransitionAction, currentUser]);
@@ -1593,9 +1630,9 @@ const VendorDashboardPage = ({ onBack }) => {
       setMasterItems(prev => prev.filter(item => item.id !== masterToDelete.id));
       setIsDeleteMasterConfirmOpen(false);
       setMasterToDelete(null);
-      alert(`Master entry for ${masterToDelete.company_name} - ${masterToDelete.unit_name} deleted successfully`);
+      showNotification(`Master entry for ${masterToDelete.company_name} - ${masterToDelete.unit_name} deleted successfully`, 'success');
     }
-  }, [masterToDelete]);
+  }, [masterToDelete, showNotification]);
 
   const handleCancelDeleteMaster = useCallback(() => {
     setIsDeleteMasterConfirmOpen(false);
@@ -1610,10 +1647,12 @@ const VendorDashboardPage = ({ onBack }) => {
   const handleMasterFormSubmit = useCallback((formData) => {
     if (isEditingMaster && selectedMasterEntry) {
       // Update existing entry
-      setMasterItems(prev => prev.map(item =>
+      const updatedItems = masterItems.map(item =>
         item.id === selectedMasterEntry.id ? { ...item, ...formData } : item
-      ));
-      alert(`Master entry updated successfully!`);
+      );
+      setMasterItems(updatedItems);
+      setIsViewMasterModalOpen(false);
+      showNotification(`Master entry updated successfully!`, 'success');
     } else {
       // Add new entry
       const newEntry = {
@@ -1621,11 +1660,11 @@ const VendorDashboardPage = ({ onBack }) => {
         ...formData
       };
       setMasterItems(prev => [...prev, newEntry]);
-      alert(`Master entry added successfully!`);
+      showNotification(`Master entry added successfully!`, 'success');
     }
     setIsEditingMaster(false);
     setSelectedMasterEntry(null);
-  }, [isEditingMaster, selectedMasterEntry, masterItems]);
+  }, [isEditingMaster, selectedMasterEntry, masterItems, showNotification]);
 
   const handleCancelEditMaster = useCallback(() => {
     setIsEditingMaster(false);
@@ -1634,7 +1673,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
   const handleModifyCall = (call) => {
     // Logic to modify call - this would typically open the Raise Inspection Call form with populated data
-    alert(`Opening modification form for Call: ${call.call_no}`);
+    showNotification(`Opening modification form for Call: ${call.call_no}`, 'info');
     // In real implementation:
     // setSelectedPOItem({ po: ..., item: ..., subPO: ... });
     // setEditingCall(call);
@@ -1642,11 +1681,52 @@ const VendorDashboardPage = ({ onBack }) => {
   };
 
   const handleWithdrawCall = (call) => {
-    const confirmed = window.confirm(`Are you sure you want to withdraw Inspection Call ${call.call_no}?`);
-    if (confirmed) {
-      alert(`Call ${call.call_no} has been withdrawn.`);
-      // In real implementation, call an API to withdraw the call
-      // inspectionCallService.withdrawCall(call.id).then(() => fetchRequestedCalls());
+    setSelectedCallForWithdraw(call);
+    setWithdrawRemarks('');
+    setIsWithdrawModalOpen(true);
+  };
+
+  const handleCloseWithdrawModal = () => {
+    setIsWithdrawModalOpen(false);
+    setSelectedCallForWithdraw(null);
+    setWithdrawRemarks('');
+    setWithdrawing(false);
+  };
+
+  const handleWithdrawSubmit = async () => {
+    if (!withdrawRemarks.trim()) {
+      showNotification('Withdrawal remarks are mandatory.', 'error');
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      if (!selectedCallForWithdraw.workflowTransitionId) {
+        console.error('Missing workflowTransitionId for call:', selectedCallForWithdraw);
+        showNotification('Internal Error: Could not find the workflow transition ID for this call.', 'error');
+        setWithdrawing(false);
+        return;
+      }
+
+      await inspectionCallService.withdrawCall({
+        workflowTransitionId: selectedCallForWithdraw.workflowTransitionId,
+        requestId: selectedCallForWithdraw.call_no,
+        remarks: withdrawRemarks,
+        actionBy: user.userId
+      });
+
+      showNotification(`Inspection Call ${selectedCallForWithdraw.call_no} has been withdrawn successfully.`, 'success');
+      handleCloseWithdrawModal();
+      
+      // Delay reload to allow notification to be seen
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('Error withdrawing call:', error);
+      showNotification(`An error occurred while withdrawing the call: ${error.message}`, 'error');
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -1729,48 +1809,64 @@ const VendorDashboardPage = ({ onBack }) => {
         ];
 
         const needsWorkflow = workflowRequiredStatuses.includes(row.status);
+        const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
+
+        const handleActionClick = (e, actionType) => {
+          e.stopPropagation();
+          if (!isAllowed) {
+            showNotification(`Action Restricted: ${actionType} is not allowed for status "${row.status}". Only initial statuses allow this.`, 'warning');
+            return;
+          }
+          
+          if (actionType === 'Modify') {
+            if (needsWorkflow) {
+              showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');
+            }
+            handleModifyCall(row);
+          } else {
+            if (needsWorkflow) {
+              showNotification(`Workflow Required: Withdrawing call ${row.call_no} requires approval.`, 'info');
+            }
+            handleWithdrawCall(row);
+          }
+        };
 
         return (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
             <button
               className="master-action-btn master-action-edit"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (needsWorkflow) {
-                  alert(`⚠️ Workflow Required\n\nModifying call ${row.call_no} with status "${row.status}" requires workflow approval.\n\nThe modification request will be sent for approval.`);
-                }
-                handleModifyCall(row);
-              }}
-              title={needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call"}
+              onClick={(e) => handleActionClick(e, 'Modify')}
+              title={!isAllowed ? "Action Restricted" : (needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call")}
               style={{
                 width: 'auto',
                 minWidth: '75px',
                 padding: '6px 12px',
                 fontSize: '13px',
-                backgroundColor: '#dbeafe',
-                borderColor: '#3b82f6',
-                color: '#1e40af',
-                whiteSpace: 'nowrap'
+                backgroundColor: isAllowed ? '#dbeafe' : '#f3f4f6',
+                borderColor: isAllowed ? '#3b82f6' : '#d1d5db',
+                color: isAllowed ? '#1e40af' : '#6b7280',
+                whiteSpace: 'nowrap',
+                opacity: isAllowed ? 1 : 0.7,
+                cursor: isAllowed ? 'pointer' : 'not-allowed'
               }}
             >
               Modify
             </button>
             <button
               className="master-action-btn master-action-delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (needsWorkflow) {
-                  alert(`⚠️ Workflow Required\n\nWithdrawing call ${row.call_no} with status "${row.status}" requires workflow approval.\n\nThe withdrawal request will be sent for approval.`);
-                }
-                handleWithdrawCall(row);
-              }}
-              title={needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call"}
+              onClick={(e) => handleActionClick(e, 'Withdraw')}
+              title={!isAllowed ? "Action Restricted" : (needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call")}
               style={{
                 width: 'auto',
                 minWidth: '85px',
                 padding: '6px 12px',
                 fontSize: '13px',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                backgroundColor: isAllowed ? undefined : '#f3f4f6',
+                borderColor: isAllowed ? undefined : '#d1d5db',
+                color: isAllowed ? undefined : '#6b7280',
+                opacity: isAllowed ? 1 : 0.7,
+                cursor: isAllowed ? 'pointer' : 'not-allowed'
               }}
             >
               Withdraw
@@ -1876,6 +1972,50 @@ const VendorDashboardPage = ({ onBack }) => {
     const startIndex = (requestedCallsCurrentPage - 1) * requestedCallsPageSize;
     return filteredAndSortedRequestedCalls.slice(startIndex, startIndex + requestedCallsPageSize);
   }, [filteredAndSortedRequestedCalls, requestedCallsCurrentPage, requestedCallsPageSize]);
+
+  // Filter, sort, and paginate completed calls
+  const filteredAndSortedCompletedCalls = useMemo(() => {
+    let result = [...completedCalls];
+
+    // Apply search filter
+    if (completedCallsSearchTerm) {
+      const searchLower = completedCallsSearchTerm.toLowerCase();
+      result = result.filter(call => {
+        return (
+          (call.call_no && call.call_no.toLowerCase().includes(searchLower)) ||
+          (call.po_no && call.po_no.toLowerCase().includes(searchLower)) ||
+          (call.item_name && call.item_name.toLowerCase().includes(searchLower)) ||
+          (call.stage && call.stage.toLowerCase().includes(searchLower)) ||
+          (call.quantity_offered && String(call.quantity_offered).toLowerCase().includes(searchLower)) ||
+          (call.status && call.status.toLowerCase().includes(searchLower)) ||
+          (call.ic_number && call.ic_number.toLowerCase().includes(searchLower)) ||
+          (call.completion_date && call.completion_date.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+
+    // Apply sorting
+    if (completedCallsSortColumn) {
+      result.sort((a, b) => {
+        const aVal = a[completedCallsSortColumn];
+        const bVal = b[completedCallsSortColumn];
+
+        if (aVal < bVal) return completedCallsSortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return completedCallsSortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [completedCalls, completedCallsSearchTerm, completedCallsSortColumn, completedCallsSortDirection]);
+
+  const completedCallsTotalPages = Math.ceil(filteredAndSortedCompletedCalls.length / completedCallsPageSize);
+
+  // Paginate the filtered and sorted completed calls
+  const paginatedCompletedCalls = useMemo(() => {
+    const startIndex = (completedCallsCurrentPage - 1) * completedCallsPageSize;
+    return filteredAndSortedCompletedCalls.slice(startIndex, startIndex + completedCallsPageSize);
+  }, [filteredAndSortedCompletedCalls, completedCallsCurrentPage, completedCallsPageSize]);
 
   // Handle sorting for PO Assigned
   const handlePOAssignedSort = (columnKey) => {
@@ -2856,6 +2996,35 @@ const VendorDashboardPage = ({ onBack }) => {
                 </div>
               )}
 
+              {/* Search Bar and Pagination Controls */}
+              <div className="table-controls" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-control search-box"
+                  placeholder="Search completed calls..."
+                  value={completedCallsSearchTerm}
+                  onChange={(e) => {
+                    setCompletedCallsSearchTerm(e.target.value);
+                    setCompletedCallsCurrentPage(1); // Reset to first page on search
+                  }}
+                  style={{ maxWidth: '400px' }}
+                />
+                <select
+                  className="form-control"
+                  style={{ width: '120px' }}
+                  value={completedCallsPageSize}
+                  onChange={(e) => {
+                    setCompletedCallsPageSize(Number(e.target.value));
+                    setCompletedCallsCurrentPage(1); // Reset to first page on page size change
+                  }}
+                >
+                  <option value={10}>10 / page</option>
+                  <option value={25}>25 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                </select>
+              </div>
+
               {/* Custom Expandable Completed Calls Table */}
               <div className="data-table-wrapper">
                 <div className="data-table-container">
@@ -2863,19 +3032,25 @@ const VendorDashboardPage = ({ onBack }) => {
                     <thead>
                       <tr>
                         {completedColumns.map(col => (
-                          <th key={col.key}>{col.label}</th>
+                          <th
+                            key={col.key}
+                            onClick={() => handleCompletedCallsSort(col.key)}
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                          >
+                            {col.label} {completedCallsSortColumn === col.key && (completedCallsSortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {completedCalls.length === 0 ? (
+                      {paginatedCompletedCalls.length === 0 ? (
                         <tr>
                           <td colSpan={completedColumns.length} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
                             No completed inspection calls found.
                           </td>
                         </tr>
                       ) : (
-                        completedCalls.map((call) => (
+                        paginatedCompletedCalls.map((call) => (
                           <React.Fragment key={call.id}>
                             {/* Completed Call Row */}
                             <tr
@@ -2941,6 +3116,34 @@ const VendorDashboardPage = ({ onBack }) => {
                   </table>
                 </div>
               </div>
+
+              {/* Pagination Controls */}
+              {filteredAndSortedCompletedCalls.length > 0 && (
+                <div className="table-pagination" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid #e5e7eb' }}>
+                  <div className="pagination-info" style={{ fontSize: '14px', color: '#6b7280' }}>
+                    Showing {((completedCallsCurrentPage - 1) * completedCallsPageSize) + 1} to {Math.min(completedCallsCurrentPage * completedCallsPageSize, filteredAndSortedCompletedCalls.length)} of {filteredAndSortedCompletedCalls.length} entries
+                  </div>
+                  <div className="pagination-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      disabled={completedCallsCurrentPage === 1}
+                      onClick={() => setCompletedCallsCurrentPage(completedCallsCurrentPage - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                      Page {completedCallsCurrentPage} of {completedCallsTotalPages}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      disabled={completedCallsCurrentPage === completedCallsTotalPages}
+                      onClick={() => setCompletedCallsCurrentPage(completedCallsCurrentPage + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -3670,7 +3873,7 @@ const VendorDashboardPage = ({ onBack }) => {
                     className="btn btn-primary"
                     onClick={(e) => {
                       e.preventDefault();
-                      alert('Rectification details updated successfully!');
+                      showNotification('Rectification details updated successfully!', 'success');
                       handleCloseRectificationModal();
                     }}
                   >
@@ -3987,6 +4190,81 @@ const VendorDashboardPage = ({ onBack }) => {
                   onClick={handleCloseTransitionHistoryModal}
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ WITHDRAW INSPECTION CALL MODAL ============ */}
+      {isWithdrawModalOpen && selectedCallForWithdraw && (
+        <div className="modal-overlay" onClick={handleCloseWithdrawModal}>
+          <div className="modal withdraw-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Withdraw Inspection Call</h3>
+              <button className="modal-close-btn" onClick={handleCloseWithdrawModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="inspection-modal-info" style={{ marginBottom: '20px' }}>
+                <div className="inspection-info-row">
+                  <span className="info-label">Call No:</span>
+                  <span className="info-value">{selectedCallForWithdraw.call_no}</span>
+                </div>
+                <div className="inspection-info-row">
+                  <span className="info-label">PO No:</span>
+                  <span className="info-value">{selectedCallForWithdraw.po_no}</span>
+                </div>
+                <div className="inspection-info-row">
+                  <span className="info-label">Item:</span>
+                  <span className="info-value">{selectedCallForWithdraw.item_name}</span>
+                </div>
+                <div className="inspection-info-row">
+                  <span className="info-label">Status:</span>
+                  <span className="info-value"><StatusBadge status={selectedCallForWithdraw.status} /></span>
+                </div>
+              </div>
+
+              <div className="alert alert-warning" style={{ marginBottom: '20px', fontSize: '14px' }}>
+                <strong>Attention:</strong> Withdrawing this inspection call will cancel the request and restore any allocated inventory. This action cannot be undone.
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Withdrawal Remarks <span style={{ color: 'red' }}>*</span></label>
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={withdrawRemarks}
+                  onChange={(e) => setWithdrawRemarks(e.target.value)}
+                  placeholder="Please provide a reason for withdrawing this inspection call..."
+                  required
+                />
+              </div>
+
+              <div className="form-actions" style={{ marginTop: '20px' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleCloseWithdrawModal}
+                  disabled={withdrawing}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleWithdrawSubmit}
+                  disabled={withdrawing || !withdrawRemarks.trim()}
+                  style={{ backgroundColor: '#dc2626', color: 'white', border: 'none' }}
+                >
+                  {withdrawing ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Withdrawing...
+                    </>
+                  ) : (
+                    'Confirm Withdrawal'
+                  )}
                 </button>
               </div>
             </div>

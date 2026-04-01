@@ -1,5 +1,7 @@
 // HTTP Client - Generic fetch wrapper with error handling
-import { getBaseUrl, getDefaultHeaders, REQUEST_TIMEOUT } from './apiConfig';
+import { getBaseUrl, getDefaultHeaders } from './apiConfig';
+
+const REQUEST_TIMEOUT = 60000; // Increased to 60s for heavy dashboard data
 
 /**
  * Custom error class for API errors
@@ -40,13 +42,20 @@ const fetchWithTimeout = async (url, options, timeout = REQUEST_TIMEOUT) => {
  * Parse response based on content type
  */
 const parseResponse = async (response) => {
-  const contentType = response.headers.get('content-type');
+  try {
+    const text = await response.text();
+    if (!text) return null;
 
-  if (contentType && contentType.includes('application/json')) {
-    return response.json();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      // Not a JSON response, return as plain text
+      return text;
+    }
+  } catch (error) {
+    console.error('❌ Error parsing response:', error);
+    return null;
   }
-
-  return response.text();
 };
 
 /**
