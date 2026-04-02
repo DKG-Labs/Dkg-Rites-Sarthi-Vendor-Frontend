@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/api';
+import { BASE_URL } from '../../../services/api';
 
 const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isReadOnly }) => {
     const [masterBenches, setMasterBenches] = useState([]);
@@ -56,11 +57,40 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         sleeperType: 'RT-8746'
     });
 
+    const [unitOptions, setUnitOptions] = useState([]);
+
     const getSleeperTypeForBench = (benchNo) => {
         if (!benchNo) return null;
         // Mock logic for auto-population: even benches are RT-8746, odd are RT-8521
         return parseInt(benchNo) % 2 === 0 ? 'RT-8746' : 'RT-8521';
     };
+
+    useEffect(() => {
+    const fetchUnits = async () => {
+        try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const plantId = selectedPlant?.plantId;
+           const vendorId = sessionStorage.getItem('userId');
+
+            const res = await fetch(
+                `${BASE_URL}/plant-profile/vendor/{vendorId}/{plantId}/sheds?vendorId=${vendorId}&plantId=${encodeURIComponent(plantId)}`
+            );
+            const data = await res.json();
+
+            if (data?.responseData) {
+                if (plantType === 'Stress Bench') {
+                    setUnitOptions(data.responseData["Stress Bench"] || []);
+                } else {
+                    setUnitOptions(data.responseData["Longline"] || []);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch units", err);
+        }
+    };
+
+    fetchUnits();
+}, [plantType]);
 
     useEffect(() => {
         const fetchMasterData = async () => {
@@ -782,20 +812,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             disabled={isReadOnly}
                                             style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.unit}
-                                    onChange={(e) => {
-                                        const selectedUnit = e.target.value;
-                                        const unitData = dynamicUnits.find(u => u.name === selectedUnit);
-                                        setFormHeader({
-                                            ...formHeader,
-                                            unit: selectedUnit,
-                                            shedType: unitData ? unitData.type : ''
-                                        });
-                                    }}
+                                  onChange={(e) => {
+    setFormHeader({
+        ...formHeader,
+        unit: e.target.value,
+        shedType: plantType   
+    });
+}}
                                 >
                                     <option value="">Select Unit</option>
-                                    {dynamicUnits.map(u => (
-                                        <option key={u.name} value={u.name}>{u.name}</option>
-                                    ))}
+                                   {unitOptions.map(unit => (
+    <option key={unit} value={unit}>{unit}</option>
+))}
                                 </select>
                             </div>
 
