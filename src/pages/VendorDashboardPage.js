@@ -40,7 +40,7 @@ import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 
-const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld'];
+const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk'];
 
 const VendorDashboardPage = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('po-assigned');
@@ -327,7 +327,7 @@ const VendorDashboardPage = ({ onBack }) => {
   // ============ FETCH REQUESTED CALLS DATA ============
   const fetchRequestedCalls = useCallback(async () => {
     if (isFetchingRef.current) return;
-    
+
     isFetchingRef.current = true;
     setLoadingRequestedCalls(true);
     setLoadingCompletedCalls(true);
@@ -1075,9 +1075,9 @@ const VendorDashboardPage = ({ onBack }) => {
         fetchRequestedCalls();
         fetchPOAssignedData();
         fetchInventoryEntries();
-        
+
         // Show the new entry by switching to the "Requested Calls" tab
-        setActiveTab('requested-calls'); 
+        setActiveTab('requested-calls');
 
       } else {
         throw new Error('Failed to save inspection call');
@@ -1330,7 +1330,7 @@ const VendorDashboardPage = ({ onBack }) => {
         setIsDeleteConfirmModalOpen(false);
         setSelectedInventoryEntry(null);
         showNotification(`✅ Inventory entry deleted successfully!\n\nHeat Number: ${selectedInventoryEntry.heatNumber}\nTC Number: ${selectedInventoryEntry.tcNumber}`, 'success');
-        
+
         // Refresh inventory list
         fetchInventoryEntries();
 
@@ -1717,7 +1717,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
       showNotification(`Inspection Call ${selectedCallForWithdraw.call_no} has been withdrawn successfully.`, 'success');
       handleCloseWithdrawModal();
-      
+
       // Delay reload to allow notification to be seen
       setTimeout(() => {
         window.location.reload();
@@ -1817,7 +1817,7 @@ const VendorDashboardPage = ({ onBack }) => {
             showNotification(`Action Restricted: ${actionType} is not allowed for status "${row.status}". Only initial statuses allow this.`, 'warning');
             return;
           }
-          
+
           if (actionType === 'Modify') {
             if (needsWorkflow) {
               showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');

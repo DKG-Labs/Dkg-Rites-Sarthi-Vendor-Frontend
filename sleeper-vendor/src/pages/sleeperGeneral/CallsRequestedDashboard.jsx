@@ -13,6 +13,11 @@ const STATUS_CONFIG = {
         dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '↩️', description: 'Returned for rectification'
     },
+    'RETURNED': {
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '↩️', description: 'Returned for rectification'
+    },
     'Resubmitted': {
         bg: '#fefce8', color: '#a16207', border: '#fde68a',
         dot: '#eab308', canModify: true, canWithdraw: true, needsWorkflow: false,
@@ -640,7 +645,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
                         sleeperType: c.sleeperType,
                         qtyOffered: c.qtyOffered || 0,
                         batches: c.batches || 0,
-                        ieName: null, 
+                        ieName: null,
                         scheduledDate: null,
                         status: status,
                         history: [{ action: status, date: c.callDate, by: 'Vendor', note: 'Initial submission' }]
