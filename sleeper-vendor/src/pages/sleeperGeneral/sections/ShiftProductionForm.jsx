@@ -340,7 +340,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         singleNo: g.gangNo?.toString() || '',
                         mouldsPerGang: g.mouldsPerGang,
                         sleeperType: g.sleeperType,
-                        _isOld: true
+                        _isOld: true,
+                        _originalSleepers: g.sleepers
                     });
                 });
                 if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
@@ -1326,14 +1327,34 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     })
                                             })) : [],
                                         gangs: plantType === 'Long Line' ? longLineEntries
-                                            .map(entry => ({
-                                                mode: entry.entryMode.toUpperCase(),
-                                                gangFrom: entry.entryMode === 'range' ? parseInt(entry.fromNo) : null,
-                                                gangTo: entry.entryMode === 'range' ? parseInt(entry.toNo) : null,
-                                                gangNo: entry.entryMode === 'single' ? parseInt(entry.singleNo) : null,
-                                                sleeperType: entry.sleeperType,
-                                                mouldsPerGang: parseInt(entry.mouldsPerGang) || 0
-                                            })) : []
+                                            .map(entry => {
+                                                const mode = entry.entryMode.toUpperCase();
+                                                const gangFrom = entry.entryMode === 'range' ? parseInt(entry.fromNo) : null;
+                                                const gangTo = entry.entryMode === 'range' ? parseInt(entry.toNo) : null;
+                                                const gangNo = entry.entryMode === 'single' ? parseInt(entry.singleNo) : null;
+                                                const mouldsPerGang = parseInt(entry.mouldsPerGang) || 0;
+
+                                                let sleepers = entry._originalSleepers || [];
+                                                if (sleepers.length === 0) {
+                                                    if (mode === 'RANGE' && gangFrom && gangTo) {
+                                                        for (let i = gangFrom; i <= gangTo; i++) {
+                                                            sleepers.push(...generateSleeperIds(i.toString(), mouldsPerGang));
+                                                        }
+                                                    } else if (mode === 'SINGLE' && gangNo) {
+                                                        sleepers = generateSleeperIds(gangNo.toString(), mouldsPerGang);
+                                                    }
+                                                }
+
+                                                return {
+                                                    mode,
+                                                    gangFrom,
+                                                    gangTo,
+                                                    gangNo,
+                                                    sleeperType: entry.sleeperType,
+                                                    mouldsPerGang,
+                                                    sleepers
+                                                };
+                                            }) : []
                                     };
 
                                     setIsSubmitting(true);
