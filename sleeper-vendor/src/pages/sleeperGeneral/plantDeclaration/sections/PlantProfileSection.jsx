@@ -213,14 +213,11 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                                         <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
                                         <td style={{ padding: '16px', color: '#475569' }}>
                                             {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
-                                            {([...plantDetails].reverse().find(d => d.plantType === (profile.type === 'Longline' ? 'Longline' : profile.type)))?.units && (
+                                            {profile.shedsLines > 0 && (
                                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                                                    {([...plantDetails].reverse().find(d => d.plantType === (profile.type === 'Longline' ? 'Longline' : profile.type))).units.map(u => {
-                                                        if (profile.type === 'Stress Bench' && u.toLowerCase().includes('line')) {
-                                                            return u.toLowerCase().replace('line', 'Shed').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                                                        }
-                                                        return u;
-                                                    }).join(', ')}
+                                                    {Array.from({ length: parseInt(profile.shedsLines) }, (_, i) =>
+                                                        profile.type === 'Stress Bench' ? `Shed ${i + 1}` : `Line ${i + 1}`
+                                                    ).join(', ')}
                                                 </div>
                                             )}
                                         </td>
