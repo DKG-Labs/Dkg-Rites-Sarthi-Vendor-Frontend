@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import PlantSelectionModal from '../common/PlantSelectionModal';
 import { BASE_URL } from '../../services/api';
+import logo from '../../assets/sarthi-logo.png';
 
 const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
     const location = useLocation();
@@ -106,8 +107,7 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
 
             <div className="main-content-wrapper">
                 <header className="main-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <button
                             className="mobile-menu-btn"
                             onClick={() => setIsMobileMenuOpen(true)}
@@ -120,6 +120,29 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                                 <line x1="3" y1="18" x2="21" y2="18"></line>
                             </svg>
                         </button>
+                        <img 
+                            src={logo} 
+                            alt="Sarthi Logo" 
+                            style={{ 
+                                height: '42px', 
+                                width: 'auto', 
+                                objectFit: 'contain',
+                                marginLeft: '8px'
+                            }} 
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                            <span style={{ 
+                                fontSize: 'var(--fs-lg)', 
+                                fontWeight: '800', 
+                                color: '#131d26',
+                                letterSpacing: '0.5px'
+                            }}>SARTHI</span>
+                            <span style={{ 
+                                fontSize: '10px', 
+                                color: '#667685',
+                                fontWeight: '500'
+                            }}>System for Automated Review, Tracking & Holistic Inspection</span>
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
