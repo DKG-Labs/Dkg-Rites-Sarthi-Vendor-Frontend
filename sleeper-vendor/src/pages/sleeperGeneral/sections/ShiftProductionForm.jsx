@@ -666,6 +666,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         }
     };
 
+    const calculateTotalBenchesGangs = () => {
+        if (plantType === 'Stress Bench') {
+            return stressBenchEntries.reduce((acc, entry) => {
+                let count = 0;
+                if (entry.entryMode === 'range') {
+                    const from = parseInt(entry.fromNo) || 0;
+                    const to = parseInt(entry.toNo) || 0;
+                    count = from > 0 && to >= from ? (to - from + 1) : 0;
+                } else if (entry.entryMode === 'single') {
+                    count = entry.singleNo ? 1 : 0;
+                }
+                return acc + count;
+            }, 0);
+        } else {
+            return longLineEntries.reduce((acc, e) => {
+                const count = e.entryMode === 'range' ? ((parseInt(e.toNo) || 0) - (parseInt(e.fromNo) || 0) + 1) : 1;
+                return acc + Math.max(0, count);
+            }, 0);
+        }
+    };
+
     const calculateTotalRFT = () => {
         if (plantType === 'Stress Bench') {
             return stressBenchEntries.reduce((acc, entry) => {
@@ -1023,6 +1044,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '50px' }}>S.No.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '100px' }}>Chamber</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches</th>
@@ -1033,10 +1055,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {stressBenchEntries.map((entry) => {
+                                                {stressBenchEntries.map((entry, index) => {
                                                     const count = entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) : 1;
                                                     return (
                                                         <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                            <td style={{ padding: '12px 8px', color: '#64748b', fontSize: '14px' }}>{index + 1}</td>
                                                             <td style={{ padding: '12px 8px', fontWeight: '700', color: '#115e59' }}>#{entry.chamberNo}</td>
                                                             <td style={{ padding: '12px 8px', textTransform: 'capitalize', color: '#1e293b' }}>{entry.entryMode}</td>
                                                             <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}</td>
@@ -1188,6 +1211,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '50px' }}>S.No.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Gangs</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
@@ -1197,10 +1221,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {longLineEntries.map((entry) => {
+                                                {longLineEntries.map((entry, index) => {
                                                     const count = entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) : 1;
                                                     return (
                                                         <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                            <td style={{ padding: '12px 8px', color: '#64748b', fontSize: '14px' }}>{index + 1}</td>
                                                             <td style={{ padding: '12px 8px', textTransform: 'capitalize', color: '#1e293b' }}>{entry.entryMode}</td>
                                                             <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{count}</td>
@@ -1259,6 +1284,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ color: '#64748b', fontSize: '14px' }}>Total Casted Sleepers:</span>
                                         <span style={{ color: '#115e59', fontSize: '20px', fontWeight: '800' }}>{calculateTotalCast()}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#64748b', fontSize: '14px' }}>Total {plantType === 'Stress Bench' ? 'Benches' : 'Gangs'} Added:</span>
+                                        <span style={{ color: '#115e59', fontSize: '20px', fontWeight: '800' }}>{calculateTotalBenchesGangs()}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ color: '#64748b', fontSize: '14px' }}>Total Types of Sleepers:</span>
