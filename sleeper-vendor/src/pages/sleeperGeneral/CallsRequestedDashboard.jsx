@@ -55,83 +55,8 @@ const STATUS_CONFIG = {
     },
 };
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_CALLS = [
-    {
-        id: 1, callNo: 'IC/SLP/2026/001', poNo: 'PO/RDSO/SLP/2025/001',
-        srNo: '1', callDate: '10/03/2026', sleeperType: 'RT-8746',
-        qtyOffered: 500, batches: 2, ieName: null, scheduledDate: null,
-        status: 'Call Raised',
-        history: [{ action: 'Call Raised', date: '10/03/2026', by: 'Vendor', note: 'Initial submission' }]
-    },
-    {
-        id: 2, callNo: 'IC/SLP/2026/002', poNo: 'PO/RDSO/SLP/2025/001',
-        srNo: '2', callDate: '08/03/2026', sleeperType: 'RT-8746',
-        qtyOffered: 320, batches: 1, ieName: null, scheduledDate: null,
-        status: 'Returned by Call Desk',
-        returnReason: 'Incorrect batch details submitted. Please verify and resubmit.',
-        history: [
-            { action: 'Call Raised', date: '08/03/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Returned by Call Desk', date: '09/03/2026', by: 'Call Desk', note: 'Incorrect batch details submitted.' }
-        ]
-    },
-    {
-        id: 3, callNo: 'IC/SLP/2026/003', poNo: 'PO/ECoR/BBS/2024/112',
-        srNo: '1', callDate: '11/03/2026', sleeperType: 'PSC-60KG',
-        qtyOffered: 200, batches: 1, ieName: null, scheduledDate: null,
-        status: 'Resubmitted',
-        history: [
-            { action: 'Call Raised', date: '06/03/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Returned by Call Desk', date: '07/03/2026', by: 'Call Desk', note: 'Missing cast date for batch.' },
-            { action: 'Resubmitted', date: '11/03/2026', by: 'Vendor', note: 'Updated batch information and resubmitted.' }
-        ]
-    },
-    {
-        id: 4, callNo: 'IC/SLP/2026/004', poNo: 'PO/SER/KGP/2025/045',
-        srNo: '1', callDate: '05/03/2026', sleeperType: 'PSC-60KG',
-        qtyOffered: 450, batches: 2, ieName: 'Er. Ramesh Kumar (IE/RDSO)', scheduledDate: null,
-        status: 'Call Assigned to IE',
-        history: [
-            { action: 'Call Raised', date: '05/03/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Call Assigned to IE', date: '06/03/2026', by: 'Call Desk', note: 'Assigned to Er. Ramesh Kumar' }
-        ]
-    },
-    {
-        id: 5, callNo: 'IC/SLP/2026/005', poNo: 'PO/ECoR/BBS/2024/112',
-        srNo: '2', callDate: '01/03/2026', sleeperType: 'RT-8746',
-        qtyOffered: 600, batches: 3, ieName: 'Er. Priya Nair (IE/SER)', scheduledDate: '18/03/2026',
-        status: 'Scheduled by IE',
-        history: [
-            { action: 'Call Raised', date: '01/03/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Call Assigned to IE', date: '02/03/2026', by: 'Call Desk', note: 'Assigned to Er. Priya Nair' },
-            { action: 'Scheduled by IE', date: '04/03/2026', by: 'IE', note: 'Scheduled for 18/03/2026' }
-        ]
-    },
-    {
-        id: 6, callNo: 'IC/SLP/2026/006', poNo: 'PO/RDSO/SLP/2025/001',
-        srNo: '1', callDate: '25/02/2026', sleeperType: 'RT-8746',
-        qtyOffered: 350, batches: 2, ieName: 'Er. Sunil Mehta (IE/ECoR)', scheduledDate: '13/03/2026',
-        status: 'Under Inspection',
-        history: [
-            { action: 'Call Raised', date: '25/02/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Call Assigned to IE', date: '26/02/2026', by: 'Call Desk', note: 'Assigned to Er. Sunil Mehta' },
-            { action: 'Scheduled by IE', date: '28/02/2026', by: 'IE', note: 'Scheduled for 13/03/2026' },
-            { action: 'Under Inspection', date: '13/03/2026', by: 'IE', note: 'Inspection initiated on site' }
-        ]
-    },
-    {
-        id: 7, callNo: 'IC/SLP/2026/007', poNo: 'PO/ECoR/BBS/2024/112',
-        srNo: '3', callDate: '20/02/2026', sleeperType: 'RT-8746',
-        qtyOffered: 280, batches: 1, ieName: 'Er. Priya Nair (IE/SER)', scheduledDate: '05/03/2026',
-        status: 'Withheld',
-        history: [
-            { action: 'Call Raised', date: '20/02/2026', by: 'Vendor', note: 'Initial submission' },
-            { action: 'Call Assigned to IE', date: '21/02/2026', by: 'Call Desk', note: 'Assigned to Er. Priya Nair' },
-            { action: 'Scheduled by IE', date: '22/02/2026', by: 'IE', note: 'Scheduled for 05/03/2026' },
-            { action: 'Withheld', date: '05/03/2026', by: 'IE', note: 'Withheld pending raw material verification' }
-        ]
-    },
-];
+// ─── No Mock Data ─────────────────────────────────────────────────────────────
+const MOCK_CALLS = [];
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status, scheduledDate }) => {
@@ -597,7 +522,6 @@ const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
         </div>
     );
 };
-
 // ─── Filter Tab ───────────────────────────────────────────────────────────────
 const FilterTab = ({ label, count, active, color, onClick }) => (
     <button onClick={onClick} style={{
@@ -618,66 +542,32 @@ const FilterTab = ({ label, count, active, color, onClick }) => (
 );
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
-    const [calls, setCalls] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
     const [filterStatus, setFilterStatus] = useState('All');
     const [selectedCall, setSelectedCall] = useState(null);
     const [workflowModal, setWorkflowModal] = useState(null);
     const [withdrawSimpleModal, setWithdrawSimpleModal] = useState(null);
     const [toast, setToast] = useState(null);
 
-    useEffect(() => {
-        const fetchCalls = async () => {
-            setIsLoading(true);
-            try {
-                // Fetch calls for the logged-in user
-                const userId = sessionStorage.getItem('userId') || 118;
-                const data = await apiService.getVendorInspectionCalls(userId);
-                const mappedCalls = data.map(c => {
-                    const status = c.status === "Pending for verification" ? "Call Raised" : (c.status || "Call Raised");
-                    return {
-                        id: c.id,
-                        callNo: c.callNo || `IC/SLP/${c.id}`,
-                        poNo: c.poNo,
-                        srNo: c.srNo,
-                        callDate: c.callDate,
-                        sleeperType: c.sleeperType,
-                        qtyOffered: c.qtyOffered || 0,
-                        batches: c.batches || 0,
-                        ieName: null,
-                        scheduledDate: null,
-                        status: status,
-                        history: [{ action: status, date: c.callDate, by: 'Vendor', note: 'Initial submission' }]
-                    };
-                });
-                // Sort by ID descending (newest first)
-                setCalls(mappedCalls.sort((a, b) => b.id - a.id));
-            } catch (err) {
-                console.error("Failed to load inspection calls", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchCalls();
-    }, []);
-
-    // Merge in prop calls from PO Assigned raise
-    const allCalls = [
-        ...(propCalls || []).map(c => ({
-            id: c.id + 1000,
-            callNo: `IC/SLP/2026/${String(c.id + 10).padStart(3, '0')}`,
-            poNo: c.poNo, srNo: c.srNo,
-            callDate: new Date().toLocaleDateString('en-IN'),
+    // Single source of truth from parent
+    const allCalls = (inspectionCalls || []).map(c => {
+        // Map backend status to frontend display status
+        const status = (c.status === "Pending for verification" || !c.status) ? "Call Raised" : c.status;
+        
+        return {
+            ...c,
+            id: c.id,
+            callNo: c.callNo || 'N/A',
+            poNo: c.poNo,
+            srNo: c.srNo,
+            callDate: c.callDate || new Date().toLocaleDateString('en-IN'),
             sleeperType: c.sleeperType,
-            qtyOffered: Number(c.totalOffered) || 0,
-            batches: Number(c.batchesSelected) || 0,
-            ieName: null, scheduledDate: null,
-            status: 'Call Raised',
-            history: [{ action: 'Call Raised', date: new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Raised via PO Assigned module' }]
-        })),
-        ...calls
-    ];
+            qtyOffered: Number(c.qtyOffered) || 0,
+            batches: Number(c.batches) || 0,
+            status: status,
+            history: c.history || [{ action: status, date: c.callDate || new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Initial submission' }]
+        };
+    });
 
     const ACTIVE_STATUSES = ['Call Raised', 'Returned by Call Desk', 'Resubmitted', 'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection', 'Withheld'];
     const displayCalls = allCalls.filter(c => ACTIVE_STATUSES.includes(c.status));
@@ -714,21 +604,10 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
         }
     };
 
-    const handleResubmit = (call) => {
-        setCalls(prev => prev.map(c => {
-            if (c.id !== call.id) return c;
-            const today = new Date().toLocaleDateString('en-IN');
-            return {
-                ...c,
-                status: 'Resubmitted',
-                callDate: today,
-                history: [
-                    ...c.history,
-                    { action: 'Resubmitted', date: today, by: 'Vendor', note: 'Rectified and resubmitted after Call Desk return.' }
-                ]
-            };
-        }));
-        showToast(`${call.callNo} has been resubmitted. Call date updated to today.`);
+    const handleResubmit = async (call) => {
+        showToast(`Resubmitting ${call.callNo}...`, 'info');
+        if (onRefresh) await onRefresh();
+        showToast(`${call.callNo} has been resubmitted.`);
     };
 
     const handleWorkflowConfirm = (call, actionType) => {
@@ -736,9 +615,10 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
         showToast(`Workflow request for ${actionType === 'modify' ? 'modification' : 'withdrawal'} of ${call.callNo} submitted for approval.`, 'info');
     };
 
-    const handleWithdrawConfirm = (call) => {
-        setCalls(prev => prev.filter(c => c.id !== call.id));
+    const handleWithdrawConfirm = async (call) => {
         setWithdrawSimpleModal(null);
+        showToast(`Withdrawing ${call.callNo}...`, 'info');
+        if (onRefresh) await onRefresh();
         showToast(`${call.callNo} has been withdrawn successfully.`);
     };
 
@@ -803,11 +683,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls }) => {
                 border: '1px solid #e2e8f0', overflow: 'hidden',
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
-                {isLoading ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>Loading inspection calls...</div>
-                    </div>
-                ) : filtered.length === 0 ? (
+                {filtered.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>No calls with status "{filterStatus}"</div>
