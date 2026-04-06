@@ -52,7 +52,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
 
         const plantDto = {
             id: editingId,
-            plantNameLocation: 'M/s ABC Sleepers - Nagpur Plant',
+            plantNameLocation: 'UNIVABS SLEEPERS PRIVATE LIMITED -  Dongargarh',
             vendorCode: vendorCode,
             plantType: formData.type,
             numberOfSheds: parseInt(formData.shedsLines),
@@ -128,7 +128,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
-                            <input type="text" disabled value="M/s ABC Sleepers - Nagpur Plant" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
+                            <input type="text" disabled value="UNIVABS SLEEPERS PRIVATE LIMITED -  Dongargarh" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Vendor Code</label>
