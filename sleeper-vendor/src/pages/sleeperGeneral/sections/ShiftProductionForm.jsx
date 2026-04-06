@@ -58,6 +58,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     });
 
     const [unitOptions, setUnitOptions] = useState([]);
+    const [editingEntryId, setEditingEntryId] = useState(null);
 
     const getSleeperTypeForBench = (benchNo) => {
         if (!benchNo) return null;
@@ -786,6 +787,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 const totalSheds = parseInt(benchProfile?.numberOfSheds || benchProfile?.shedLines || 0);
                                                 const firstUnit = totalSheds > 0 ? 'Shed 1' : '';
                                                 setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Twin' });
+                                                setEditingEntryId(null);
                                             }}
                                             disabled={isReadOnly}
                                             style={radioStyle}
@@ -804,6 +806,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 const totalLines = parseInt(longLineProfile?.numberOfSheds || longLineProfile?.shedLines || 0);
                                                 const firstUnit = totalLines > 0 ? 'Line 1' : '';
                                                 setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Long Line' });
+                                                setEditingEntryId(null);
                                             }}
                                             style={radioStyle}
                                         />
@@ -998,13 +1001,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     }
                                                     if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
                                                     
-                                                    const newEntry = { ...stressBenchForm, id: Date.now() };
-                                                    setStressBenchEntries([...stressBenchEntries, newEntry]);
-                                                    setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '', sleeperType: '' });
+                                                    if (editingEntryId) {
+                                                        setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
+                                                        setEditingEntryId(null);
+                                                    } else {
+                                                        const newEntry = { ...stressBenchForm, id: Date.now() };
+                                                        setStressBenchEntries([...stressBenchEntries, newEntry]);
+                                                    }
+                                                    setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '' });
                                                 }}
-                                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
+                                                style={{ background: editingEntryId ? '#0261c7ff' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
                                             >
-                                                Add Entry
+                                                {editingEntryId ? 'Update Entry' : 'Add Entry'}
                                             </button>
                                         )}
                                     </div>
@@ -1037,7 +1045,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerBench}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                                 {!isReadOnly && (
-                                                                    <button onClick={() => setStressBenchEntries(stressBenchEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Remove</button>
+                                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                setEditingEntryId(entry.id);
+                                                                                setStressBenchForm({ ...entry });
+                                                                            }}
+                                                                            style={{ color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <span style={{ color: '#cbd5e1' }}>|</span>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                if (editingEntryId === entry.id) setEditingEntryId(null);
+                                                                                setStressBenchEntries(stressBenchEntries.filter(e => e.id !== entry.id));
+                                                                            }}
+                                                                            style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </td>
                                                         </tr>
@@ -1138,13 +1166,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     }
                                                     if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
 
-                                                    const newEntry = { ...longLineForm, id: Date.now() };
-                                                    setLongLineEntries([...longLineEntries, newEntry]);
+                                                    if (editingEntryId) {
+                                                        setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
+                                                        setEditingEntryId(null);
+                                                    } else {
+                                                        const newEntry = { ...longLineForm, id: Date.now() };
+                                                        setLongLineEntries([...longLineEntries, newEntry]);
+                                                    }
                                                     setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
                                                 }}
-                                                style={{ background: '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
+                                                style={{ background: editingEntryId ? '#0284c7' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
                                             >
-                                                Add Entry
+                                                {editingEntryId ? 'Update Entry' : 'Add Entry'}
                                             </button>
                                         )}
                                     </div>
@@ -1175,7 +1208,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerGang}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                                 {!isReadOnly && (
-                                                                    <button onClick={() => setLongLineEntries(longLineEntries.filter(e => e.id !== entry.id))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px' }}>Remove</button>
+                                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                setEditingEntryId(entry.id);
+                                                                                setLongLineForm({ ...entry });
+                                                                            }}
+                                                                            style={{ color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <span style={{ color: '#cbd5e1' }}>|</span>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                if (editingEntryId === entry.id) setEditingEntryId(null);
+                                                                                setLongLineEntries(longLineEntries.filter(e => e.id !== entry.id));
+                                                                            }}
+                                                                            style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </td>
                                                         </tr>
