@@ -28,9 +28,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         unit: '',
         shedType: 'Twin',
         date: new Date().toISOString().split('T')[0],
-        shift: 'Day Shift',
+        shift: 'Day',
         batchNo: '',
-        mixDesign: 'M60 - Design A (Active)',
+        mixDesign: 'M60',
         timeLbc: getCurrentTime(),
         remarks: ''
     });
@@ -279,9 +279,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 unit: initialData.productionUnit || '',
                 shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Twin',
                 date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
-                shift: initialData.shift || 'Day Shift',
+                shift: initialData.shift || 'Day',
                 batchNo: initialData.batchNumber || '',
-                mixDesign: initialData.mixDesignReference || 'M60 - Design A (Active)',
+                mixDesign: initialData.mixDesignReference || 'M60',
                 timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                 remarks: initialData.remarks || ''
             });
@@ -750,9 +750,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             </div>
             <style>
                 {`
-                    input::-webkit-calendar-picker-indicator {
-                        display: none !important;
-                        -webkit-appearance: none;
+                    /* Custom Date Picker Indicator Styling (Optional) */
+                    input[type="date"]::-webkit-calendar-picker-indicator {
+                        cursor: pointer;
+                        opacity: 0.6;
+                        transition: opacity 0.2s;
+                    }
+                    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+                        opacity: 1;
                     }
                 `}
             </style>
@@ -848,12 +853,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     value={formHeader.shift}
                                     onChange={(e) => setFormHeader({ ...formHeader, shift: e.target.value })}
                                 >
-                                    <option value="Day Shift">Day Shift</option>
-                                    <option value="Night Shift">Night Shift</option>
-                                    <option value="A">A (08:00 - 20:00)</option>
-                                    <option value="B">B (20:00 - 08:00)</option>
-                                    <option value="C">C</option>
-                                    <option value="General">General</option>
+                                    <option value="Day">Day</option>
+                                    <option value="Night">Night</option>
                                 </select>
                             </div>
                             <div>
@@ -869,15 +870,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                             </div>
                             <div>
-                                <label style={labelStyle}>Mix Design Reference</label>
+                                <label style={labelStyle}>Concrete Grade</label>
                                 <select
                                     disabled={isReadOnly}
                                     style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.mixDesign}
                                     onChange={(e) => setFormHeader({ ...formHeader, mixDesign: e.target.value })}
                                 >
-                                    <option value="M60 - Design A (Active)">M60 - Design A (Active)</option>
-                                    <option value="M60 - Design B">M60 - Design B</option>
+                                    <option value="M60">M60</option>
+                                    <option value="M55">M55</option>
                                 </select>
                             </div>
                             <div>

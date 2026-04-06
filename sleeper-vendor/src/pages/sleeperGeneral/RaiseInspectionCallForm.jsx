@@ -119,7 +119,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 const data = await apiService.getCompletedBatches(sleeperType);
                 
                 const filteredData = currentPlantId 
-                    ? data.filter(b => String(b.plantId) === String(currentPlantId))
+                    ? data.filter(b => !b.plantId || String(b.plantId) === String(currentPlantId))
                     : data;
 
                 const mappedBatches = filteredData.map(b => {
@@ -660,19 +660,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     }
                                 }
 
-                                await apiService.submitSleeperInspectionCall(payload);
+                                const result = await apiService.submitSleeperInspectionCall(payload);
                                 
                                 if (onSubmitInspectionCall) {
                                     onSubmitInspectionCall({
-                                        poNo: payload.poNo,
-                                        srNo: payload.srNo,
-                                        sleeperType: payload.sleeperType,
-                                        totalOffered: payload.totalOffered,
-                                        totalRejected: payload.totalRejected,
-                                        batchesSelected: summary.batchesSelected,
+                                        ...payload,
+                                        callNo: result.responseData?.callNo || result.responseData?.inspectionCallNo,
+                                        id: result.responseData?.id,
+                                        batchesSelectedCount: summary.batchesSelected
                                     });
                                 } else {
-                                    alert(`✅ Inspection Call submitted!\n\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
+                                    const realCallNo = result.responseData?.callNo || result.responseData?.inspectionCallNo || 'N/A';
+                                    alert(`✅ Inspection Call submitted!\n\nCall No: ${realCallNo}\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
                                 }
                                 onClose();
                             } catch (error) {

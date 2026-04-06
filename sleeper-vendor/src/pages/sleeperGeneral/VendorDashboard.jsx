@@ -8,6 +8,7 @@ import CallsCompletedDashboard from './CallsCompletedDashboard';
 import FinanceDashboard from './FinanceDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
 import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
+import { apiService } from '../../services/api';
 
 import { useLocation } from 'react-router-dom';
 
@@ -21,31 +22,32 @@ const VendorDashboard = () => {
         sessionStorage.setItem('sleeperVendorActiveModule', selectedModule);
     }, [selectedModule]);
 
-    // ── Shared Inspection Calls State (lifted up) ─────────────────────────────
+    // ── Shared State (lifted up) ─────────────────────────────────────────────
     const [inspectionCalls, setInspectionCalls] = useState([]);
+    const [poCount, setPoCount] = useState(0);
+
+    const fetchInitialCounts = async () => {
+        try {
+            const userId = sessionStorage.getItem('userId') || 118;
+            const calls = await apiService.getVendorInspectionCalls(userId);
+            setInspectionCalls(calls || []);
+
+            const pos = await apiService.getVendorPOs();
+            setPoCount(pos?.length || 0);
+        } catch (err) {
+            console.error("Failed to fetch dashboard counts", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchInitialCounts();
+    }, []);
 
     /** Called by RaiseInspectionCallForm → PoAssignedDashboard → here */
-    const handleSubmitInspectionCall = (newCall) => {
-        setInspectionCalls(prev => {
-            const nextId = Math.max(0, ...prev.map(c => c.id)) + 1;
-            const nextCallNo = `IC/SLP/2026/${String(nextId + 5).padStart(3, '0')}`;
-            return [
-                {
-                    id: nextId,
-                    callNo: nextCallNo,
-                    poNo: newCall.poNo,
-                    srNo: newCall.srNo,
-                    date: new Date().toLocaleDateString('en-IN'),
-                    sleeperType: newCall.sleeperType,
-                    stage: 'Final',
-                    totalOffered: newCall.totalOffered,
-                    batchesSelected: newCall.batchesSelected,
-                    status: 'Pending for verification',
-                },
-                ...prev,
-            ];
-        });
-        // Switch to Requested Calls tab so user sees it immediately
+    const handleSubmitInspectionCall = async (newCall) => {
+        // Fetch fresh data from server to ensure card count and list are in sync
+        await fetchInitialCounts();
+        // Switch to Requested Calls tab
         setSelectedModule('calls-requested');
     };
 
@@ -53,9 +55,9 @@ const VendorDashboard = () => {
     const pendingCount = inspectionCalls.filter(c => c.status === 'Pending for verification').length;
 
     const modules = [
-        { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: 1 },
+        { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: poCount },
         { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
-        { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
+        { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: inspectionCalls.length },
         { id: 'calls-completed', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
         { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰' },
@@ -78,10 +80,11 @@ const VendorDashboard = () => {
             case 'po-assigned':
                 return <PoAssignedDashboard onSubmitInspectionCall={handleSubmitInspectionCall} />;
             case 'calls-requested':
-                return <CallsRequestedDashboard inspectionCalls={inspectionCalls} />;
+                return <CallsRequestedDashboard inspectionCalls={inspectionCalls} onRefresh={fetchInitialCounts} />;
             case 'calls-completed':
-                return <CallsCompletedDashboard />;
-            default:
+                return <CallsCompletedDashboard inspectionCalls={inspectionCalls} />;
+            case 'finance':
+                return <FinanceDashboard inspectionCalls={inspectionCalls} />;
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
                         <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🏗️</div>
