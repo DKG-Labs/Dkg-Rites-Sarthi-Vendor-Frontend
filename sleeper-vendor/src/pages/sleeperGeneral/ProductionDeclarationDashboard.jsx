@@ -211,7 +211,7 @@ const ProductionDeclarationDashboard = () => {
         const totalCasted = declarations.reduce((acc, d) => acc + (d.totalCastedSleepers || 0), 0);
         // Using || 0 for totalRejectedSleepers as it may be added to the DTO in future
         const totalRejected = declarations.reduce((acc, d) => acc + (d.totalRejectedSleepers || 0), 0);
-        const avgRejectionRate = totalCasted > 0 ? ((totalRejected / totalCasted) * 100).toFixed(1) : "0.0";
+        const avgRejectionRate = (totalCasted > 0 && totalRejected > 0) ? ((totalRejected / totalCasted) * 100).toFixed(1) : "N/A";
 
         return {
             pendingDeclarations: sorted.filter(d => !isVerified(d.status)),
@@ -286,7 +286,9 @@ const ProductionDeclarationDashboard = () => {
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '60px', opacity: 0.05, transform: 'rotate(-15deg)' }}>📉</div>
                     <p style={{ margin: '0 0 8px 0', color: '#e11d48', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Avg. Rejection Rate</p>
                     <p style={{ margin: '0 0 4px 0', color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>Quality Matrix (%)</p>
-                    <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900' }}>{stats.avgRejectionRate}%</h2>
+                    <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900' }}>
+                        {stats.avgRejectionRate}{stats.avgRejectionRate !== "N/A" ? "%" : ""}
+                    </h2>
                 </div>
             </div>
 
