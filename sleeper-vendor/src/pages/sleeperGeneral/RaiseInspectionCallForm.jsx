@@ -119,7 +119,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 const data = await apiService.getCompletedBatches(sleeperType);
                 
                 const filteredData = currentPlantId 
-                    ? data.filter(b => String(b.plantId) === String(currentPlantId))
+                    ? data.filter(b => !b.plantId || String(b.plantId) === String(currentPlantId))
                     : data;
 
                 const mappedBatches = filteredData.map(b => {
