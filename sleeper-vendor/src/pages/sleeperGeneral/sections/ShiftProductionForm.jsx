@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/api';
 import { BASE_URL } from '../../../services/api';
 
-const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isReadOnly }) => {
+const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isReadOnly, currentDeclarations }) => {
     const [masterBenches, setMasterBenches] = useState([]);
     const [masterLongLines, setMasterLongLines] = useState([]);
     const [plantProfiles, setPlantProfiles] = useState([]);
@@ -59,6 +59,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const [unitOptions, setUnitOptions] = useState([]);
     const [editingEntryId, setEditingEntryId] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({
+        show: false,
+        message: '',
+        onConfirm: null
+    });
 
     const getSleeperTypeForBench = (benchNo) => {
         if (!benchNo) return null;
@@ -733,6 +738,253 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         return counts;
     };
 
+    const handleAddStressBench = () => {
+        if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
+        
+        let currentBenchesToAdd = [];
+        if (stressBenchForm.entryMode === 'range') {
+            if (!stressBenchForm.fromNo || !stressBenchForm.toNo) return alert('Bench From and To are required');
+            const from = parseInt(stressBenchForm.fromNo);
+            const to = parseInt(stressBenchForm.toNo);
+            if (from > to) return alert('Bench From cannot be greater than To');
+            for (let i = from; i <= to; i++) currentBenchesToAdd.push(i);
+        } else {
+            if (!stressBenchForm.singleNo) return alert('Bench No is required');
+            currentBenchesToAdd.push(parseInt(stressBenchForm.singleNo));
+        }
+
+        if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+
+        // Check for duplicates in current session
+        let duplicates = [];
+        stressBenchEntries.forEach(entry => {
+            if (editingEntryId === entry.id) return;
+            let entryBenches = [];
+            if (entry.entryMode === 'range') {
+                const f = parseInt(entry.fromNo);
+                const t = parseInt(entry.toNo);
+                for (let i = f; i <= t; i++) entryBenches.push(i);
+            } else {
+                entryBenches.push(parseInt(entry.singleNo));
+            }
+            currentBenchesToAdd.forEach(b => {
+                if (entryBenches.includes(b)) duplicates.push(b);
+            });
+        });
+
+        // Check for duplicates in other declarations of the plant
+        if (currentDeclarations) {
+            currentDeclarations.forEach(pd => {
+                if (initialData && pd.id === initialData.id) return;
+                if (pd.chambers) {
+                    pd.chambers.forEach(c => {
+                        if (c.benchGroups) {
+                            c.benchGroups.forEach(bg => {
+                                const f = parseInt(bg.benchFrom || bg.benchNo);
+                                const t = parseInt(bg.benchTo || bg.benchNo);
+                                if (!isNaN(f) && !isNaN(t)) {
+                                    for (let i = f; i <= t; i++) {
+                                        if (currentBenchesToAdd.includes(i)) duplicates.push(i);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        const uniqueDuplicates = [...new Set(duplicates)];
+        
+        const proceedWithAddition = () => {
+            if (editingEntryId) {
+                setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
+                setEditingEntryId(null);
+            } else {
+                const newEntry = { ...stressBenchForm, id: Date.now() };
+                setStressBenchEntries([...stressBenchEntries, newEntry]);
+            }
+            setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '' });
+            setConfirmModal({ show: false, message: '', onConfirm: null });
+        };
+
+        if (uniqueDuplicates.length > 0) {
+            setConfirmModal({
+                show: true,
+                message: `The bench no ${uniqueDuplicates.join(', ')} already exist. Do you want to proceed with same bench no?`,
+                onConfirm: proceedWithAddition
+            });
+            return;
+        }
+
+        proceedWithAddition();
+    };
+
+    const handleAddLongLine = () => {
+        if (longLineForm.entryMode === 'range') {
+            if (!longLineForm.fromNo || !longLineForm.toNo) return alert('Gang From and To are required');
+        } else {
+            if (!longLineForm.singleNo) return alert('Gang No is required');
+        }
+        if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+
+        let currentGangsToAdd = [];
+        if (longLineForm.entryMode === 'range') {
+            const from = parseInt(longLineForm.fromNo);
+            const to = parseInt(longLineForm.toNo);
+            for (let i = from; i <= to; i++) currentGangsToAdd.push(i);
+        } else {
+            currentGangsToAdd.push(parseInt(longLineForm.singleNo));
+        }
+
+        let duplicates = [];
+        longLineEntries.forEach(entry => {
+            if (editingEntryId === entry.id) return;
+            let entryGangs = [];
+            if (entry.entryMode === 'range') {
+                const f = parseInt(entry.fromNo);
+                const t = parseInt(entry.toNo);
+                for (let i = f; i <= t; i++) entryGangs.push(i);
+            } else {
+                entryGangs.push(parseInt(entry.singleNo));
+            }
+            currentGangsToAdd.forEach(g => {
+                if (entryGangs.includes(g)) duplicates.push(g);
+            });
+        });
+
+        if (currentDeclarations) {
+            currentDeclarations.forEach(pd => {
+                if (initialData && pd.id === initialData.id) return;
+                if (pd.gangs) {
+                    pd.gangs.forEach(g => {
+                        const f = parseInt(g.gangFrom || g.gangNo);
+                        const t = parseInt(g.gangTo || g.gangNo);
+                        if (!isNaN(f) && !isNaN(t)) {
+                            for (let i = f; i <= t; i++) {
+                                if (currentGangsToAdd.includes(i)) duplicates.push(i);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        const uniqueDuplicates = [...new Set(duplicates)];
+        
+        const proceedWithAddition = () => {
+            if (editingEntryId) {
+                setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
+                setEditingEntryId(null);
+            } else {
+                const newEntry = { ...longLineForm, id: Date.now() };
+                setLongLineEntries([...longLineEntries, newEntry]);
+            }
+            setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
+            setConfirmModal({ show: false, message: '', onConfirm: null });
+        };
+
+        if (uniqueDuplicates.length > 0) {
+            setConfirmModal({
+                show: true,
+                message: `The gang no ${uniqueDuplicates.join(', ')} already exist. Do you want to proceed with same gang no?`,
+                onConfirm: proceedWithAddition
+            });
+            return;
+        }
+
+        proceedWithAddition();
+    };
+
+    const handleKeyDownStress = (e) => {
+        if (e.key === 'Enter') handleAddStressBench();
+    };
+
+    const handleKeyDownLongLine = (e) => {
+        if (e.key === 'Enter') handleAddLongLine();
+    };
+
+    const DuplicateBenchConfirmModal = ({ isOpen, message, onYes, onNo }) => {
+        if (!isOpen) return null;
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                backdropFilter: 'blur(8px)',
+                padding: '20px'
+            }}>
+                <div style={{
+                    background: 'white',
+                    padding: '32px',
+                    borderRadius: '24px',
+                    width: '100%',
+                    maxWidth: '450px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    textAlign: 'center',
+                    animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <style>{`
+                        @keyframes modalSlideIn {
+                            from { transform: translateY(20px); opacity: 0; }
+                            to { transform: translateY(0); opacity: 1; }
+                        }
+                    `}</style>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                    <h3 style={{ margin: '0 0 16px 0', color: '#1e293b', fontSize: '20px', fontWeight: '800' }}>Duplicate Bench Detected</h3>
+                    <p style={{ margin: '0 0 32px 0', color: '#64748b', fontSize: '16px', lineHeight: '1.6', fontWeight: '500' }}>{message}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <button 
+                            onClick={onNo}
+                            style={{ 
+                                padding: '14px', 
+                                borderRadius: '14px', 
+                                border: '1.5px solid #e2e8f0', 
+                                background: 'white', 
+                                color: '#64748b', 
+                                fontWeight: '700', 
+                                fontSize: '15px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#cbd5e1'; }}
+                            onMouseOut={(e) => { e.target.style.background = 'white'; e.target.style.borderColor = '#e2e8f0'; }}
+                        >
+                            No, Take Back
+                        </button>
+                        <button 
+                            onClick={onYes}
+                            style={{ 
+                                padding: '14px', 
+                                borderRadius: '14px', 
+                                border: 'none', 
+                                background: 'linear-gradient(135deg, #42818c 0%, #356972 100%)', 
+                                color: 'white', 
+                                fontWeight: '700', 
+                                fontSize: '15px',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(66, 129, 140, 0.3)',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 16px rgba(66, 129, 140, 0.4)'; }}
+                            onMouseOut={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 12px rgba(66, 129, 140, 0.3)'; }}
+                        >
+                            Yes, Proceed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const sectionHeaderStyle = {
         background: '#f8fafc',
         padding: '16px 24px',
@@ -947,23 +1199,23 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
                                         <div>
                                             <label style={labelStyle}>Chamber No.</label>
-                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
+                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
                                         </div>
                                         {stressBenchForm.entryMode === 'range' ? (
                                             <>
                                                 <div>
                                                     <label style={labelStyle}>Bench From</label>
-                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
+                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
                                                     <label style={labelStyle}>Bench To</label>
-                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
+                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
                                                 <label style={labelStyle}>Bench No.</label>
-                                                <input type="number" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <input type="number" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -1013,24 +1265,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         </div>
                                         {!isReadOnly && (
                                             <button
-                                                onClick={() => {
-                                                    if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
-                                                    if (stressBenchForm.entryMode === 'range') {
-                                                        if (!stressBenchForm.fromNo || !stressBenchForm.toNo) return alert('Bench From and To are required');
-                                                    } else {
-                                                        if (!stressBenchForm.singleNo) return alert('Bench No is required');
-                                                    }
-                                                    if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
-                                                    
-                                                    if (editingEntryId) {
-                                                        setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
-                                                        setEditingEntryId(null);
-                                                    } else {
-                                                        const newEntry = { ...stressBenchForm, id: Date.now() };
-                                                        setStressBenchEntries([...stressBenchEntries, newEntry]);
-                                                    }
-                                                    setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '' });
-                                                }}
+                                                onClick={handleAddStressBench}
                                                 style={{ background: editingEntryId ? '#0261c7ff' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
                                             >
                                                 {editingEntryId ? 'Update Entry' : 'Add Entry'}
@@ -1121,17 +1356,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             <>
                                                 <div>
                                                     <label style={labelStyle}>Gang No. From</label>
-                                                    <input type="number" disabled={isReadOnly} value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
+                                                    <input type="number" disabled={isReadOnly} value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
                                                 </div>
                                                 <div>
                                                     <label style={labelStyle}>Gang No. To</label>
-                                                    <input type="number" disabled={isReadOnly} value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
+                                                    <input type="number" disabled={isReadOnly} value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
                                                 </div>
                                             </>
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
                                                 <label style={labelStyle}>Gang No.</label>
-                                                <input type="number" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <input type="number" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -1181,23 +1416,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         </div>
                                         {!isReadOnly && (
                                             <button
-                                                onClick={() => {
-                                                    if (longLineForm.entryMode === 'range') {
-                                                        if (!longLineForm.fromNo || !longLineForm.toNo) return alert('Gang From and To are required');
-                                                    } else {
-                                                        if (!longLineForm.singleNo) return alert('Gang No is required');
-                                                    }
-                                                    if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
-
-                                                    if (editingEntryId) {
-                                                        setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
-                                                        setEditingEntryId(null);
-                                                    } else {
-                                                        const newEntry = { ...longLineForm, id: Date.now() };
-                                                        setLongLineEntries([...longLineEntries, newEntry]);
-                                                    }
-                                                    setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
-                                                }}
+                                                onClick={handleAddLongLine}
                                                 style={{ background: editingEntryId ? '#0284c7' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
                                             >
                                                 {editingEntryId ? 'Update Entry' : 'Add Entry'}
@@ -1493,6 +1712,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     <option key={type} value={type} />
                 ))}
             </datalist>
+
+            <DuplicateBenchConfirmModal 
+                isOpen={confirmModal.show}
+                message={confirmModal.message}
+                onYes={confirmModal.onConfirm}
+                onNo={() => setConfirmModal({ show: false, message: '', onConfirm: null })}
+            />
         </div>
     );
 };
