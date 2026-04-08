@@ -230,6 +230,7 @@ const ProductionDeclarationDashboard = () => {
             lastBatchNumber={declarations.length > 0 ? (declarations[0].batchNumber || '100') : '100'}
             initialData={selectedItem}
             isReadOnly={isReadOnly}
+            currentDeclarations={declarations}
         />;
     }
 
