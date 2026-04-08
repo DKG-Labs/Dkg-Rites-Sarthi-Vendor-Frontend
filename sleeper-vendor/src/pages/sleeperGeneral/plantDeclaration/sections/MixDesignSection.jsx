@@ -6,7 +6,7 @@ const MixDesignSection = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [newMix, setNewMix] = useState({
-        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification'
+        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification'
     });
     const [editingId, setEditingId] = useState(null);
 
@@ -34,6 +34,7 @@ const MixDesignSection = () => {
                 ca2: m.ca2,
                 fa: m.fa,
                 water: m.water,
+                admixture: m.admixtureKg,
                 status: (m.status === 'Pending' || m.status === 'NOT_STARTED' ? 'Pending for verification' : (m.status === 'Completed' || m.status === 'completed' || m.status === 'COMPLETED' || m.status === 'Locked' ? 'Verified & Locked' : (m.status || (m.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setMixDesigns(mappedData);
@@ -58,6 +59,12 @@ const MixDesignSection = () => {
         return cement > 0 ? (water / cement).toFixed(2) : '0.00';
     };
 
+    const calculateAdmixturePercentage = (m) => {
+        const admixture = Number(m.admixture || 0);
+        const cement = Number(m.cement || 0);
+        return cement > 0 ? ((admixture / cement) * 100).toFixed(2) : '0.00';
+    };
+
     const handleAddMix = async () => {
         if (!newMix.iden) {
             alert('Please provide Identification');
@@ -79,6 +86,8 @@ const MixDesignSection = () => {
             ca2: parseFloat(newMix.ca2) || 0,
             fa: parseFloat(newMix.fa) || 0,
             water: parseFloat(newMix.water) || 0,
+            admixtureKg: parseFloat(newMix.admixture) || 0,
+            admixturePercentage: parseFloat(calculateAdmixturePercentage(newMix)),
             acRatio: parseFloat(calculateAC(newMix)),
             wcRatio: parseFloat(calculateWC(newMix)),
             vendorId: userId,
@@ -94,7 +103,7 @@ const MixDesignSection = () => {
             await fetchMixDesigns();
             setEditingId(null);
             setNewMix({
-                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification'
+                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification'
             });
             alert(editingId ? 'Mix design updated successfully' : 'Mix design added successfully');
         } catch (err) {
@@ -242,6 +251,22 @@ const MixDesignSection = () => {
                         />
                     </div>
                     <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>Admixture (Kg/m³)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={newMix.admixture}
+                            onChange={(e) => setNewMix({ ...newMix, admixture: e.target.value })}
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>Admixture (%) (Auto)</label>
+                        <div style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700', color: '#42818c', fontSize: '13px' }}>
+                            {calculateAdmixturePercentage(newMix)}
+                        </div>
+                    </div>
+                    <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>A/C (Auto)</label>
                         <div style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700', color: '#42818c', fontSize: '13px' }}>
                             {calculateAC(newMix)}
@@ -260,7 +285,7 @@ const MixDesignSection = () => {
                         <button
                             onClick={() => {
                                 setEditingId(null);
-                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', status: 'Pending for verification' });
+                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification' });
                             }}
                             style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                         >
@@ -289,6 +314,8 @@ const MixDesignSection = () => {
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>CA2</th>
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>FA</th>
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Water</th>
+                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Admixture</th>
+                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Admixture %</th>
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>A/C</th>
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>W/C</th>
                             <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Status</th>
@@ -306,6 +333,8 @@ const MixDesignSection = () => {
                                 <td style={{ padding: '12px 16px' }}>{mix.ca2}</td>
                                 <td style={{ padding: '12px 16px' }}>{mix.fa}</td>
                                 <td style={{ padding: '12px 16px' }}>{mix.water}</td>
+                                <td style={{ padding: '12px 16px' }}>{mix.admixture}</td>
+                                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateAdmixturePercentage(mix)}%</td>
                                 <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateAC(mix)}</td>
                                 <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateWC(mix)}</td>
                                 <td style={{ padding: '12px 16px' }}>
