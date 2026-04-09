@@ -303,52 +303,53 @@ const MixDesignSection = () => {
 
             {/* Existing Mix Designs Table */}
             <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px' }}>
                     <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                         <tr>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Identification</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Grade</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Authority</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Cement</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>CA1</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>CA2</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>FA</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Water</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Admixture</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Admixture %</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>A/C</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>W/C</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Status</th>
-                            <th style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>Actions</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Identification</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Grade</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Authority</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Cement<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Kg/m³)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>CA1<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Kg/m³)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>CA2<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Kg/m³)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>FA<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Kg/m³)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Water<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Litres)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Admixture<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Kg/m³)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Admixture<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(%)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>A/C</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>W/C</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Status</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {mixDesigns.map(mix => (
                             <tr key={mix.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: '500' }}>{mix.iden}</td>
-                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '2px 8px', background: '#f0f9fa', color: '#42818c', borderRadius: '4px', fontWeight: '600', fontSize: '11px' }}>{mix.grade}</span></td>
-                                <td style={{ padding: '12px 16px' }}>{mix.authority}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.cement}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.ca1}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.ca2}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.fa}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.water}</td>
-                                <td style={{ padding: '12px 16px' }}>{mix.admixture}</td>
-                                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateAdmixturePercentage(mix)}%</td>
-                                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateAC(mix)}</td>
-                                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#42818c' }}>{calculateWC(mix)}</td>
-                                <td style={{ padding: '12px 16px' }}>
+                                <td style={{ padding: '10px 8px', color: '#1e293b', fontWeight: '500' }}>{mix.iden}</td>
+                                <td style={{ padding: '10px 8px' }}><span style={{ padding: '2px 8px', background: '#f0f9fa', color: '#42818c', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>{mix.grade}</span></td>
+                                <td style={{ padding: '10px 8px' }}>{mix.authority}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.cement}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.ca1}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.ca2}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.fa}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.water}</td>
+                                <td style={{ padding: '10px 8px' }}>{mix.admixture}</td>
+                                <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateAdmixturePercentage(mix)}%</td>
+                                <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateAC(mix)}</td>
+                                <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateWC(mix)}</td>
+                                <td style={{ padding: '10px 8px' }}>
                                     <span style={{
                                         padding: '4px 10px',
                                         borderRadius: '20px',
                                         fontSize: '11px',
                                         fontWeight: '600',
+                                        whiteSpace: 'nowrap',
                                         ...getStatusStyle(mix.status)
                                     }}>
                                         {mix.status}
                                     </span>
                                 </td>
-                                <td style={{ padding: '12px 16px' }}>
+                                <td style={{ padding: '10px 8px' }}>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <button
                                             onClick={() => handleEdit(mix)}
