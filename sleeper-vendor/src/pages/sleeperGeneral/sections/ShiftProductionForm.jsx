@@ -296,19 +296,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const isStress = initialData.plantType === 'STRESS' || initialData.plantType === 'Stress Bench';
             if (isStress && initialData.chambers) {
                 const mappedEntries = [];
-                // Use a object to track seen bench patterns per chamber to avoid duplication from backend
-                const seenPatternsPerChamber = {};
 
                 initialData.chambers.forEach(c => {
-                    const chNo = c.chamberNo;
-                    if (!seenPatternsPerChamber[chNo]) seenPatternsPerChamber[chNo] = new Set();
-                    
                     c.benchGroups.forEach(g => {
-                        // Create a pattern key for this bench group to avoid reloading exact duplicates
-                        const patternKey = `${g.mode}-${g.benchNo}-${g.benchFrom}-${g.benchTo}-${g.sleeperType}-${g.mouldPerBench}`;
-                        if (seenPatternsPerChamber[chNo].has(patternKey)) return;
-                        seenPatternsPerChamber[chNo].add(patternKey);
-
                         mappedEntries.push({
                             id: Date.now() + Math.random(), // Unique ID
                             chamberNo: c.chamberNo,
@@ -331,13 +321,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const isLongLine = initialData.plantType === 'LONG_LINE' || initialData.plantType === 'Long Line';
             if (isLongLine && initialData.gangs) {
                 const mappedEntries = [];
-                const seenPatterns = new Set();
                 
                 initialData.gangs.forEach((g, gIdx) => {
-                    const patternKey = `${g.mode}-${g.gangNo}-${g.gangFrom}-${g.gangTo}-${g.sleeperType}-${g.mouldsPerGang}`;
-                    if (seenPatterns.has(patternKey)) return;
-                    seenPatterns.add(patternKey);
-
                     mappedEntries.push({
                         id: Date.now() + gIdx,
                         entryMode: g.mode?.toLowerCase() || 'range',
@@ -750,7 +735,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             for (let i = from; i <= to; i++) currentBenchesToAdd.push(i);
         } else {
             if (!stressBenchForm.singleNo) return alert('Bench No is required');
-            currentBenchesToAdd.push(parseInt(stressBenchForm.singleNo));
+            const benches = stressBenchForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            if (benches.length === 0) return alert('Valid Bench No is required');
+            currentBenchesToAdd.push(...benches);
         }
 
         if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
@@ -797,12 +784,32 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         const uniqueDuplicates = [...new Set(duplicates)];
         
         const proceedWithAddition = () => {
-            if (editingEntryId) {
-                setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
-                setEditingEntryId(null);
+            if (stressBenchForm.entryMode === 'single') {
+                const benches = stressBenchForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                const newEntries = benches.map((bench, idx) => ({
+                    ...stressBenchForm,
+                    singleNo: bench.toString(),
+                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + idx
+                }));
+                
+                if (editingEntryId) {
+                    let updatedEntries = stressBenchEntries.map(e => e.id === editingEntryId ? newEntries[0] : e);
+                    if (newEntries.length > 1) {
+                        updatedEntries = [...updatedEntries, ...newEntries.slice(1)];
+                    }
+                    setStressBenchEntries(updatedEntries);
+                    setEditingEntryId(null);
+                } else {
+                    setStressBenchEntries([...stressBenchEntries, ...newEntries]);
+                }
             } else {
-                const newEntry = { ...stressBenchForm, id: Date.now() };
-                setStressBenchEntries([...stressBenchEntries, newEntry]);
+                if (editingEntryId) {
+                    setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
+                    setEditingEntryId(null);
+                } else {
+                    const newEntry = { ...stressBenchForm, id: Date.now() };
+                    setStressBenchEntries([...stressBenchEntries, newEntry]);
+                }
             }
             setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '' });
             setConfirmModal({ show: false, message: '', onConfirm: null });
@@ -834,7 +841,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const to = parseInt(longLineForm.toNo);
             for (let i = from; i <= to; i++) currentGangsToAdd.push(i);
         } else {
-            currentGangsToAdd.push(parseInt(longLineForm.singleNo));
+            const gangs = longLineForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            if (gangs.length === 0) return alert('Valid Gang No is required');
+            currentGangsToAdd.push(...gangs);
         }
 
         let duplicates = [];
@@ -873,12 +882,32 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         const uniqueDuplicates = [...new Set(duplicates)];
         
         const proceedWithAddition = () => {
-            if (editingEntryId) {
-                setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
-                setEditingEntryId(null);
+            if (longLineForm.entryMode === 'single') {
+                const gangs = longLineForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                const newEntries = gangs.map((gang, idx) => ({
+                    ...longLineForm,
+                    singleNo: gang.toString(),
+                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + idx
+                }));
+                
+                if (editingEntryId) {
+                    let updatedEntries = longLineEntries.map(e => e.id === editingEntryId ? newEntries[0] : e);
+                    if (newEntries.length > 1) {
+                        updatedEntries = [...updatedEntries, ...newEntries.slice(1)];
+                    }
+                    setLongLineEntries(updatedEntries);
+                    setEditingEntryId(null);
+                } else {
+                    setLongLineEntries([...longLineEntries, ...newEntries]);
+                }
             } else {
-                const newEntry = { ...longLineForm, id: Date.now() };
-                setLongLineEntries([...longLineEntries, newEntry]);
+                if (editingEntryId) {
+                    setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
+                    setEditingEntryId(null);
+                } else {
+                    const newEntry = { ...longLineForm, id: Date.now() };
+                    setLongLineEntries([...longLineEntries, newEntry]);
+                }
             }
             setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
             setConfirmModal({ show: false, message: '', onConfirm: null });
@@ -1215,7 +1244,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
                                                 <label style={labelStyle}>Bench No.</label>
-                                                <input type="number" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <input type="text" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No. (e.g. 12, 13)" />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -1366,7 +1395,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         ) : (
                                             <div style={{ gridColumn: 'span 2' }}>
                                                 <label style={labelStyle}>Gang No.</label>
-                                                <input type="number" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No." />
+                                                <input type="text" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No. (e.g. 24, 25)" />
                                             </div>
                                         )}
                                         <div style={{ position: 'relative' }}>
