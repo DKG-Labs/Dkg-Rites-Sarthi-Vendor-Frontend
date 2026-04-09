@@ -1136,8 +1136,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             <div>
                                 <label style={labelStyle}>Batch Number</label>
                                 <input
-                                    type="number"
-                                    placeholder="e.g. 103"
+                                    type="text"
+                                    placeholder="e.g. 103A"
                                     value={formHeader.batchNo}
                                     onChange={(e) => setFormHeader({ ...formHeader, batchNo: e.target.value })}
                                     disabled={isReadOnly}
