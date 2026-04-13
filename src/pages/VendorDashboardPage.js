@@ -2471,11 +2471,12 @@ const VendorDashboardPage = ({ onBack }) => {
                       alignItems: 'center', 
                       gap: '8px',
                       backgroundImage: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                      border: 'none'
+                      border: 'none',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     <span style={{ fontSize: '18px' }}>🔄</span>
-                    Sync PO from IMMS
+                    sync PO
                   </button>
                 </div>
               </div>

@@ -37,10 +37,10 @@ const SyncPOButton = ({ onSuccess, onError }) => {
             <button 
                 onClick={() => setIsModalOpen(true)} 
                 style={buttonStyle}
-                title="Sync new PO from IMMS server"
+                title="sync PO"
             >
                 <span style={{ fontSize: '18px' }}>🔄</span>
-                <span>Sync PO from IMMS</span>
+                <span style={{ whiteSpace: 'nowrap' }}>sync PO</span>
             </button>
 
             <SyncPOModal 

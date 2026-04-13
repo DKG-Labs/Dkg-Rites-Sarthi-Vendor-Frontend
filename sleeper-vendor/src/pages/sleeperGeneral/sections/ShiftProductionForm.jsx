@@ -43,7 +43,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         fromNo: '',
         toNo: '',
         singleNo: '',
-        sleeperType: 'RT-8746',
+        sleeperType: 'RT-8746', // Default can remain RT-8746
         mouldsPerBench: 8
     });
 
@@ -206,7 +206,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     
     const allSleeperTypes = React.useMemo(() => {
         // Hardcoded as per request, others commented out
-        const types = ['RT-8746'];
+        const types = ['RT-8746', 'RT-2496'];
         /* 
         masterBenches.forEach(b => {
             if (b.sleeperCategory) types.add(b.sleeperCategory);
@@ -423,7 +423,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         if (details.sleeperType) {
             setStressBenchForm(prev => ({
                 ...prev,
-                sleeperType: 'RT-8746', // Always default to RT-8746 as per hardcode request
+                sleeperType: prev.sleeperType || 'RT-8746', // Keep current or default
                 mouldsPerBench: details.moulds || prev.mouldsPerBench
             }));
         }
@@ -740,7 +740,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             currentBenchesToAdd.push(...benches);
         }
 
-        if (stressBenchForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+        if (stressBenchForm.sleeperType !== 'RT-8746' && stressBenchForm.sleeperType !== 'RT-2496') {
+            return alert('Sleeper Type RT-8746 or RT-2496 is mandatory');
+        }
 
         // Check for duplicates in current session
         let duplicates = [];
@@ -833,7 +835,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         } else {
             if (!longLineForm.singleNo) return alert('Gang No is required');
         }
-        if (longLineForm.sleeperType !== 'RT-8746') return alert('Sleeper Type RT-8746 is mandatory');
+        if (longLineForm.sleeperType !== 'RT-8746' && longLineForm.sleeperType !== 'RT-2496') {
+            return alert('Sleeper Type RT-8746 or RT-2496 is mandatory');
+        }
 
         let currentGangsToAdd = [];
         if (longLineForm.entryMode === 'range') {
@@ -1250,16 +1254,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         <div style={{ position: 'relative' }}>
                                             <label style={labelStyle}>Sleeper Type</label>
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <input
-                                                    list="sleeper-types-list"
+                                                <select
                                                     disabled={isReadOnly}
                                                     value={stressBenchForm.sleeperType}
-                                                    onFocus={(e) => {
-                                                        e.target.select();
-                                                        // This hack helps some browsers show the list on focus
-                                                        e.target.setAttribute('placeholder', '');
-                                                    }}
-                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setStressBenchForm({ ...stressBenchForm, sleeperType: e.target.value })}
                                                     style={{ 
                                                         ...inputStyle, 
@@ -1269,10 +1266,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                         paddingRight: '40px',
                                                         cursor: 'pointer',
                                                         border: '2px solid #e2e8f0',
-                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)',
+                                                        appearance: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
                                                     }}
-                                                    placeholder="Select or Type"
-                                                />
+                                                >
+                                                    {allSleeperTypes.map(type => (
+                                                        <option key={type} value={type}>{type}</option>
+                                                    ))}
+                                                </select>
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
@@ -1401,16 +1405,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         <div style={{ position: 'relative' }}>
                                             <label style={labelStyle}>Sleeper Type</label>
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <input
-                                                    list="sleeper-types-list"
+                                                <select
                                                     disabled={isReadOnly}
                                                     value={longLineForm.sleeperType}
-                                                    onFocus={(e) => {
-                                                        e.target.select();
-                                                        // This hack helps focus behavior
-                                                        e.target.setAttribute('placeholder', '');
-                                                    }}
-                                                    onBlur={(e) => e.target.setAttribute('placeholder', 'Select or Type')}
                                                     onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
                                                     style={{ 
                                                         ...inputStyle, 
@@ -1420,10 +1417,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                         paddingRight: '40px',
                                                         cursor: 'pointer',
                                                         border: '2px solid #e2e8f0',
-                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
+                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)',
+                                                        appearance: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
                                                     }}
-                                                    placeholder="Select or Type"
-                                                />
+                                                >
+                                                    {allSleeperTypes.map(type => (
+                                                        <option key={type} value={type}>{type}</option>
+                                                    ))}
+                                                </select>
                                                 <span style={{ 
                                                     position: 'absolute', 
                                                     right: '15px', 
@@ -1593,10 +1597,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     }
 
                                     const breakdown = getProductionBreakdown();
-                                    const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746');
+                                    const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746' && type !== 'RT-2496');
 
                                     if (invalidTypes.length > 0) {
-                                        return alert('Form Submission Failed: Only RT-8746 sleeper types are allowed for production declaration.');
+                                        return alert('Form Submission Failed: Only RT-8746 and RT-2496 sleeper types are allowed for production declaration.');
                                     }
 
                                     if (calculateTotalCast() === 0) {
@@ -1736,11 +1740,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     </>
                 )}
             </div>
-            <datalist id="sleeper-types-list">
-                {allSleeperTypes.map(type => (
-                    <option key={type} value={type} />
-                ))}
-            </datalist>
 
             <DuplicateBenchConfirmModal 
                 isOpen={confirmModal.show}

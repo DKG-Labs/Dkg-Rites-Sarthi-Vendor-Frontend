@@ -209,7 +209,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <div style={styles.headerTitle}>
                         <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
                         <div>
-                            <h3 style={styles.title}>{view === 'input' ? 'Fetch PO from IMMS' : 'Verify PO Data'}</h3>
+                            <h3 style={styles.title}>{view === 'input' ? 'sync PO' : 'Verify PO Data'}</h3>
                             <p style={styles.subtitle}>
                                 {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
                             </p>
