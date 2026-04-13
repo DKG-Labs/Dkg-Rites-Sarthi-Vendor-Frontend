@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RaiseInspectionCallForm from './RaiseInspectionCallForm';
 import { apiService } from '../../services/api';
+import SyncPOButton from '../../components/common/SyncPOButton';
 
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -349,6 +350,15 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                         }}>
                             <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{pendingCalls}</div>
                             <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING FOR VERIFICATION</div>
+                        </div>
+
+                        {/* Global Sync PO Button */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginLeft: 10 }}>
+                            <SyncPOButton 
+                                poList={poDataList} 
+                                onSuccess={(res) => alert(`Successfully synced ${res.successCount} of ${res.totalCount} POs`)}
+                                onError={(err) => alert('Sync failed: ' + err.message)}
+                            />
                         </div>
                     </div>
                 </div>

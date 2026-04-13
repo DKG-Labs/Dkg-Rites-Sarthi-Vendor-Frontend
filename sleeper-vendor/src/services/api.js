@@ -1035,5 +1035,73 @@ export const apiService = {
             console.error('API Error:', error);
             throw error;
         }
+    },
+
+    // IMMS Sync APIs
+    authenticateIMMS: async () => {
+        try {
+            const response = await fetch('/immsapi/authenticate', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'accept': '*/*'
+                },
+                body: JSON.stringify({
+                    username: "rites-sarthi",
+                    password: "sarTHI@@speri26"
+                })
+            });
+            const data = await response.json();
+            if (data && data.token) {
+                sessionStorage.setItem('imms_token', data.token);
+                return data.token;
+            }
+            throw new Error('Failed to authenticate with IMMS');
+        } catch (error) {
+            console.error('IMMS Auth Error:', error);
+            throw error;
+        }
+    },
+
+    getIMMSPOData: async (payload) => {
+        try {
+            // Always get a fresh token for every request to ensure reliability
+            const token = await apiService.authenticateIMMS();
+
+            // Using relative path for Vite proxy to bypass CORS
+            const response = await fetch('/immsapi/purchase/getPOData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+ 
+            return await response.json();
+        } catch (error) {
+            console.error('IMMS Get PO Data Error:', error);
+            throw error;
+        }
+    },
+ 
+    savePOData: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/Vendorsync/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Save PO Sync Error:', error);
+            throw error;
+        }
     }
 };
