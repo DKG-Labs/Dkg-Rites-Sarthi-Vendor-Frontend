@@ -1116,5 +1116,20 @@ export const apiService = {
             console.error('Save PO Sync Error:', error);
             throw error;
         }
+    },
+
+    getRlyList: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/vendor-plant/Rlylist`, {
+                method: 'GET',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch Railway list');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error (getRlyList):', error);
+            return [];
+        }
     }
 };

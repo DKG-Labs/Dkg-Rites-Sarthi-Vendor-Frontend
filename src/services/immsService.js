@@ -97,5 +97,21 @@ export const immsService = {
             console.error('Sarthi Save Error:', error);
             throw error;
         }
+    },
+
+    getRlyList: async () => {
+        try {
+            const baseUrl = getBaseUrl();
+            const response = await fetch(`${baseUrl}/vendor-plant/Rlylist`, {
+                method: 'GET',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch Railway list');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error (getRlyList):', error);
+            return [];
+        }
     }
 };

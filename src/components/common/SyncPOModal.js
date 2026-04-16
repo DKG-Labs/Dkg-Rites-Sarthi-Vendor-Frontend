@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { immsService } from '../../services/immsService';
 
 const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
@@ -19,6 +19,37 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const [fetchedData, setFetchedData] = useState(null);
     const [manualCategory, setManualCategory] = useState('');
     const [view, setView] = useState('input'); // input, review
+    const [railways, setRailways] = useState([]);
+    const [railwayLoading, setRailwayLoading] = useState(false);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const fetchRailways = async () => {
+            setRailwayLoading(true);
+            try {
+                const list = await immsService.getRlyList();
+                setRailways(list);
+            } catch (error) {
+                console.error('Error fetching railways:', error);
+            } finally {
+                setRailwayLoading(false);
+            }
+        };
+        if (isOpen) {
+            fetchRailways();
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -113,7 +144,51 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             <div style={styles.grid2col}>
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Railway Code (Rly)</label>
-                    <input name="rly" value={formData.rly} onChange={handleInputChange} style={styles.input} required />
+                    <div ref={dropdownRef} style={{ position: 'relative' }}>
+                        <div 
+                            onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
+                            style={{
+                                ...styles.input,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: railwayLoading ? 'not-allowed' : 'pointer',
+                                backgroundColor: railwayLoading ? '#f1f5f9' : '#fff'
+                            }}
+                        >
+                            <span style={{ color: !formData.rly ? '#94a3b8' : '#1e293b' }}>
+                                {formData.rly 
+                                    ? (railways.find(r => r.rlyCd === formData.rly) ? `${formData.rly}-${railways.find(r => r.rlyCd === formData.rly).rlyShortName}` : formData.rly)
+                                    : (railwayLoading ? 'Loading...' : '-- Select Railway --')
+                                }
+                            </span>
+                            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                        </div>
+                        
+                        {isDropdownOpen && (
+                            <div style={styles.dropdownList}>
+                                {railways.map(r => (
+                                    <div 
+                                        key={r.rlyCd}
+                                        onClick={() => {
+                                            handleInputChange({ target: { name: 'rly', value: r.rlyCd } });
+                                            setIsDropdownOpen(false);
+                                        }}
+                                        style={styles.dropdownOption}
+                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
+                                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                    >
+                                        {r.rlyCd}-{r.rlyShortName}
+                                    </div>
+                                ))}
+                                {railways.length === 0 && !railwayLoading && (
+                                    <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
+                                        No railways found
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div style={styles.formGroup}>
                     <label style={styles.label}>PO Number (poNo)</label>
@@ -404,6 +479,28 @@ const styles = {
         margin: '4px 0',
         fontSize: '13px',
         color: '#1e293b'
+    },
+    dropdownList: {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        borderRadius: '8px',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e2e8f0',
+        zIndex: 10,
+        marginTop: '4px',
+        maxHeight: '200px',
+        overflowY: 'auto',
+        animation: 'fadeIn 0.2s ease'
+    },
+    dropdownOption: {
+        padding: '8px 12px',
+        fontSize: '12px',
+        color: '#1e293b',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s'
     }
 };
 
