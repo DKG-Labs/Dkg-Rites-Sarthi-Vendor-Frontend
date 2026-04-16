@@ -1069,7 +1069,7 @@ export const apiService = {
             // Always get a fresh token for every request to ensure reliability
             const token = await apiService.authenticateIMMS();
 
-            // Using relative path for Vite proxy to bypass CORS
+            // Using relative path for Vite proxy (and Vercel rewrites) to bypass CORS
             const response = await fetch('/immsapi/purchase/getPOData', {
                 method: 'POST',
                 headers: {

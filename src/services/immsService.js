@@ -56,6 +56,7 @@ export const immsService = {
             // Always authenticate first to ensure token freshness (as per Sleeper logic)
             const token = await immsService.authenticateIMMS();
 
+            // Using relative path for Vercel rewrites and local proxy to bypass CORS
             const response = await fetch('/immsapi/purchase/getPOData', {
                 method: 'POST',
                 headers: {

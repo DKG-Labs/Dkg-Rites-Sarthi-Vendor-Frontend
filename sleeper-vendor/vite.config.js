@@ -16,7 +16,7 @@ export default defineConfig({
         }
       },
       '/immsapi/purchase': {
-        target: 'https://trial.ireps.gov.in',
+        target: 'https://ireps.gov.in',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {

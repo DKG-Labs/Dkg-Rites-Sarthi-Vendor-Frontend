@@ -4,7 +4,7 @@ import { apiService } from '../../services/api';
 const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const vcode = sessionStorage.getItem('vendorCode') || ":41647";
     const [formData, setFormData] = useState({
-        rly: '14',
+        rly: '',
         poNo: '',
         poDate: '',
         vcode: vcode
@@ -160,17 +160,27 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                         you cannot sync this data.
                     </div>
                 ) : isNullRequest ? (
-                    <div style={styles.formGroup}>
-                        <label style={styles.label}>Enter Item Category Manually</label>
-                        <input 
+                    <div style={{...styles.formGroup, marginBottom: '20px'}}>
+                        <label style={styles.label}>Select Item Category</label>
+                        <select 
                             value={manualCategory} 
                             onChange={(e) => setManualCategory(e.target.value)}
-                            placeholder="e.g. Sleeper"
-                            style={{...styles.input, borderColor: !manualCategory ? '#ef4444' : '#e2e8f0'}}
+                            style={{
+                                ...styles.input, 
+                                height: '38px', // Increased height for better interaction
+                                borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                            }}
                             required
-                        />
-                        <p style={{color: '#64748b', fontSize: '11px', marginTop: '4px'}}>
-                            * Category was missing in IMMS. Please enter it to continue.
+                        >
+                            <option value="" disabled>-- Select Category --</option>
+                            <option value="Elastic Rail Clips">Elastic Rail Clips</option>
+                            <option value="Rail Pads">Rail Pads</option>
+                            <option value="PSC Mainline Sleeper">PSC Mainline Sleeper</option>
+                        </select>
+                        <p style={{color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4'}}>
+                            * Category was missing in IMMS. Please select the appropriate category to continue.
                         </p>
                     </div>
                 ) : (
@@ -297,7 +307,7 @@ const styles = {
         padding: 0
     },
     body: {
-        padding: '12px 16px',
+        padding: '16px 20px',
         flex: 1
     },
     grid2col: {
@@ -328,7 +338,7 @@ const styles = {
         boxSizing: 'border-box'
     },
     footer: {
-        marginTop: '12px',
+        marginTop: '20px',
         display: 'flex',
         gap: '8px'
     },
