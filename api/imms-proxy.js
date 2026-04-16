@@ -1,21 +1,39 @@
 /**
  * IMMS API Proxy for Vercel Serverless Functions
  * Bypasses CORS and sets required headers (User-Agent) for IREPS integration.
+ * Using CommonJS (module.exports) for maximum compatibility.
  */
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
+    );
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     const { path } = req.query;
     
+    if (!path) {
+        return res.status(400).json({ error: 'Missing path parameter' });
+    }
+
     // Construct the actual target URL
-    // Expected path like: authenticate OR purchase/getPOData
     const targetUrl = `https://ireps.gov.in/immsapi/${path}`;
 
-    console.log(`[Vercel Proxy] Forwarding to: ${targetUrl}`);
+    console.log(`[Vercel Proxy] Forwarding ${req.method} to: ${targetUrl}`);
 
     try {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'User-Agent': 'PostmanRuntime/7.43.0', // Essential for IREPS
+            'User-Agent': 'PostmanRuntime/7.43.0',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         };
@@ -59,4 +77,4 @@ export default async function handler(req, res) {
             error: error.message 
         });
     }
-}
+};
