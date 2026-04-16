@@ -7,27 +7,24 @@
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/immsapi/authenticate",
-      "dest": "https://ireps.gov.in/immsapi/authenticate"
+      "source": "/immsapi/:path*",
+      "destination": "/api/imms-proxy?path=:path*"
     },
     {
-      "src": "/immsapi/purchase/(.*)",
-      "dest": "https://ireps.gov.in/immsapi/purchase/$1"
+      "source": "/railpad/(.*)",
+      "destination": "/railpad/$1"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/railpad/(.*)",
-      "dest": "/railpad/$1"
-    },
-    {
-      "src": "\/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

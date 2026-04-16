@@ -1052,12 +1052,25 @@ export const apiService = {
                     password: "sarTHI@@speri26"
                 })
             });
-            const data = await response.json();
-            if (data && data.token) {
-                sessionStorage.setItem('imms_token', data.token);
-                return data.token;
+
+            // Handle non-JSON responses (usually proxy errors)
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                const text = await response.text();
+                if (text.trim().startsWith('<!DOCTYPE html>')) {
+                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON.');
+                }
+                throw new Error('IMMS server returned non-JSON response.');
             }
-            throw new Error('Failed to authenticate with IMMS');
+
+            const data = await response.json();
+            const token = data.token || data.jwt || data.accessToken || data.Jwt;
+            
+            if (token) {
+                sessionStorage.setItem('imms_token', token);
+                return token;
+            }
+            throw new Error('Failed to authenticate with IMMS - No token received');
         } catch (error) {
             console.error('IMMS Auth Error:', error);
             throw error;
