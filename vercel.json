@@ -1,25 +1,17 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "handle": "filesystem"
+      "source": "/immsapi/:path*",
+      "destination": "/api/imms-proxy?path=:path*"
     },
     {
-      "src": "/railpad/(.*)",
-      "dest": "/railpad/$1"
+      "source": "/railpad/(.*)",
+      "destination": "/railpad/$1"
     },
     {
-      "src": "\/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

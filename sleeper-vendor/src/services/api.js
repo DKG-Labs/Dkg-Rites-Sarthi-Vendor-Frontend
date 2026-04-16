@@ -1035,5 +1035,101 @@ export const apiService = {
             console.error('API Error:', error);
             throw error;
         }
+    },
+
+    // IMMS Sync APIs
+    authenticateIMMS: async () => {
+        try {
+            const response = await fetch('/immsapi/authenticate', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'accept': '*/*'
+                },
+                body: JSON.stringify({
+                    username: "rites-sarthi",
+                    password: "sarTHI@@speri26"
+                })
+            });
+
+            // Handle non-JSON responses (usually proxy errors)
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                const text = await response.text();
+                if (text.trim().startsWith('<!DOCTYPE html>')) {
+                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON.');
+                }
+                throw new Error('IMMS server returned non-JSON response.');
+            }
+
+            const data = await response.json();
+            const token = data.token || data.jwt || data.accessToken || data.Jwt;
+            
+            if (token) {
+                sessionStorage.setItem('imms_token', token);
+                return token;
+            }
+            throw new Error('Failed to authenticate with IMMS - No token received');
+        } catch (error) {
+            console.error('IMMS Auth Error:', error);
+            throw error;
+        }
+    },
+
+    getIMMSPOData: async (payload) => {
+        try {
+            // Always get a fresh token for every request to ensure reliability
+            const token = await apiService.authenticateIMMS();
+
+            // Using relative path for Vite proxy (and Vercel rewrites) to bypass CORS
+            const response = await fetch('/immsapi/purchase/getPOData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+ 
+            return await response.json();
+        } catch (error) {
+            console.error('IMMS Get PO Data Error:', error);
+            throw error;
+        }
+    },
+ 
+    savePOData: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/Vendorsync/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Save PO Sync Error:', error);
+            throw error;
+        }
+    },
+
+    getRlyList: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/vendor-plant/Rlylist`, {
+                method: 'GET',
+                headers: { 'accept': '*/*' }
+            });
+            if (!response.ok) throw new Error('Failed to fetch Railway list');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error (getRlyList):', error);
+            return [];
+        }
     }
 };

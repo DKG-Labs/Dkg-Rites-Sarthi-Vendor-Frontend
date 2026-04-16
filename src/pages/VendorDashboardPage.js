@@ -13,6 +13,7 @@ import ViewInventoryEntryModal from '../components/ViewInventoryEntryModal';
 import ViewMasterEntryModal from '../components/ViewMasterEntryModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import Notification from '../components/Notification';
+import SyncPOModal from '../components/common/SyncPOModal';
 import {
   // VENDOR_PO_LIST,
   VENDOR_REQUESTED_CALLS,
@@ -137,6 +138,7 @@ const VendorDashboardPage = ({ onBack }) => {
   const [poAssignedList, setPoAssignedList] = useState([]);
   const [loadingPOData, setLoadingPOData] = useState(false);
   const [poDataError, setPoDataError] = useState(null);
+  const [isSyncPOModalOpen, setIsSyncPOModalOpen] = useState(false);
 
   // Requested Calls data state - using real API
   const [requestedCalls, setRequestedCalls] = useState([]);
@@ -2460,6 +2462,23 @@ const VendorDashboardPage = ({ onBack }) => {
                     Partially Supplied, Order Executed). Click + to expand PO and view items.
                   </p>
                 </div>
+                <div className="section-header-actions">
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => setIsSyncPOModalOpen(true)}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      backgroundImage: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                      border: 'none',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>🔄</span>
+                    sync PO
+                  </button>
+                </div>
               </div>
 
               {/* Loading and Error States */}
@@ -4321,6 +4340,16 @@ const VendorDashboardPage = ({ onBack }) => {
         onClose={() => setNotification({ message: '', type: 'error' })}
         autoClose={true}
         autoCloseDelay={5000}
+      />
+
+      {/* IMMS PO Sync Modal */}
+      <SyncPOModal
+        isOpen={isSyncPOModalOpen}
+        onClose={() => setIsSyncPOModalOpen(false)}
+        onSuccess={() => {
+          showNotification('POs synchronized successfully!', 'success');
+          fetchPOAssignedData(); // Refresh the PO list
+        }}
       />
     </div>
   );
