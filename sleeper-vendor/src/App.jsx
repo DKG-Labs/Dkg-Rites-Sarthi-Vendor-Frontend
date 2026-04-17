@@ -72,7 +72,7 @@ const App = () => {
   };
 
   return (
-    <BrowserRouter basename="/sleeper-vendor" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppInner
         isAuthenticated={isAuthenticated}
         onLogin={handleLogin}

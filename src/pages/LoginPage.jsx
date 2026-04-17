@@ -118,9 +118,9 @@ const LoginPage = () => {
       if (roles.length > 1) {
         setAvailableRoles(roles);
       } else {
-        // Single role, set it as active and redirect to home
+        // Single role, set it as active and reload
         setActiveRole(roles[0]);
-        window.location.href = '/';
+        window.location.reload();
       }
 
     } catch (err) {
@@ -132,7 +132,7 @@ const LoginPage = () => {
 
   const handleRoleSelect = (role) => {
     setActiveRole(role);
-    window.location.href = '/';
+    window.location.reload();
   };
 
   const parallaxX = pointerRatio.x * 16;
