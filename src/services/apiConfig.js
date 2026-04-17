@@ -94,11 +94,3 @@ export const getDefaultHeaders = (token = null) => {
 
   return headers;
 };
-
-// export default {
-//   getBaseUrl,
-//   API_ENDPOINTS,
-//   REQUEST_TIMEOUT,
-//   getDefaultHeaders
-// };
-
