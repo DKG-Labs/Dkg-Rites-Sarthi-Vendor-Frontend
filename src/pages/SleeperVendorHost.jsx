@@ -22,7 +22,7 @@ const SleeperVendorHost = () => {
     const vendorCode = localStorage.getItem('vendorCode') || '';
     const sleeperVendorUrl = isDevelopment
         ? `http://localhost:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`
-        : `/sleeper-vendor/index.html?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`;
+        : `/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`;
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden', border: 'none' }}>

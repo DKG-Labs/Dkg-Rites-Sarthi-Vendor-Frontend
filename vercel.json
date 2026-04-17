@@ -10,6 +10,10 @@
       "destination": "/railpad/$1"
     },
     {
+      "source": "/sleeper-vendor/(.*)",
+      "destination": "/sleeper-vendor/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
