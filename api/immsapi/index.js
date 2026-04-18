@@ -39,28 +39,17 @@ module.exports = async function (context, req) {
         return;
     }
 
-    // Construct the actual target URL
-    const targetUrl = `https://ireps.gov.in/immsapi/${path}`;
+    // Construct the actual target URL - using www. as it's often the canonical domain
+    const targetUrl = `https://www.ireps.gov.in/immsapi/${path}`;
     context.log(`[Azure Proxy] Forwarding ${req.method} to: ${targetUrl}`);
 
     try {
         const headers = {
-            'Host': 'ireps.gov.in',
+            'Host': 'www.ireps.gov.in',
             'Content-Type': 'application/json',
-            'Accept': 'application/json, text/plain, */*',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Origin': 'https://ireps.gov.in',
-            'Referer': 'https://ireps.gov.in/immsapi/home',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'Pragma': 'no-cache',
+            'Accept': 'application/json',
+            'User-Agent': 'PostmanRuntime/7.43.0',
             'Cache-Control': 'no-cache',
-            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         };
 
