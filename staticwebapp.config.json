@@ -2,5 +2,14 @@
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/assets/*", "/images/*", "/css/*", "/js/*"]
+  },
+  "routes": [
+    {
+      "route": "/immsapi/*",
+      "rewrite": "/api/imms-proxy"
+    }
+  ],
+  "platform": {
+    "apiRuntime": "node:18"
   }
 }
