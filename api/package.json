@@ -1,0 +1,11 @@
+{
+  "name": "sarthi-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for Sarthi IMMS Proxy",
+  "main": "imms-proxy/index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
