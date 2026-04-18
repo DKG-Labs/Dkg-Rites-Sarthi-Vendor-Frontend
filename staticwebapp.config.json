@@ -5,8 +5,8 @@
   },
   "routes": [
     {
-      "route": "/immsapi/*",
-      "rewrite": "/api/immsapi"
+      "route": "/immsapi/(.*)",
+      "rewrite": "/api/immsapi/$1"
     }
   ],
   "platform": {
