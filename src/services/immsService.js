@@ -3,45 +3,38 @@ import { getBaseUrl } from './apiConfig';
 /**
  * Service to handle IMMS PO Synchronization (CRIS Integration)
  * Standardized across Sleeper and ERC modules.
+ * Using Sarthi Backend Proxy for reliability and security.
  */
 export const immsService = {
     /**
-     * Authenticate with CRIS/IMMS to get a JWT token
+     * Authenticate with CRIS/IMMS via Sarthi Backend Proxy
      */
     authenticateIMMS: async () => {
         try {
-            const response = await fetch('/immsapi/authenticate', {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+
+            const response = await fetch(`${baseUrl}/Vendorsync/authenticate`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'accept': '*/*'
-                },
-                body: JSON.stringify({
-                    username: "rites-sarthi",
-                    password: "sarTHI@@speri26"
-                })
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
-            // Handle non-JSON responses (usually proxy errors)
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                const text = await response.text();
-                if (text.trim().startsWith('<!DOCTYPE html>')) {
-                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON. Please ensure "http-proxy-middleware" is working.');
-                }
-                throw new Error('IMMS server returned non-JSON response.');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`IMMS Proxy Auth Failed: ${errorText}`);
             }
 
             const data = await response.json();
-            const token = data.token || data.jwt || data.accessToken || data.Jwt;
+            const immsToken = data.token;
             
-            if (token) {
-                // ERC uses localStorage by default in authService.js
-                localStorage.setItem('imms_token', token);
-                return token;
+            if (immsToken) {
+                localStorage.setItem('imms_token', immsToken);
+                return immsToken;
             }
-            throw new Error('Failed to authenticate with IMMS - No token received');
+            throw new Error('No token received from IMMS Proxy');
         } catch (error) {
             console.error('IMMS Auth Error:', error);
             throw error;
@@ -49,23 +42,25 @@ export const immsService = {
     },
 
     /**
-     * Fetch PO Data from IMMS using the provided rly, poNo, poDate, vcode
+     * Fetch PO Data from CRIS/IMMS via Sarthi Backend Proxy
      */
     getIMMSPOData: async (payload) => {
         try {
-            // Always authenticate first to ensure token freshness (as per Sleeper logic)
-            const token = await immsService.authenticateIMMS();
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
 
-            // Using relative path for Vercel rewrites and local proxy to bypass CORS
-            const response = await fetch('/immsapi/purchase/getPOData', {
+            const response = await fetch(`${baseUrl}/Vendorsync/fetch-po`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(payload)
             });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch PO details via Proxy');
+            }
 
             const result = await response.json();
             return result;
@@ -102,9 +97,13 @@ export const immsService = {
     getRlyList: async () => {
         try {
             const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
             const response = await fetch(`${baseUrl}/vendor-plant/Rlylist`, {
                 method: 'GET',
-                headers: { 'accept': '*/*' }
+                headers: { 
+                    'accept': '*/*',
+                    'Authorization': `Bearer ${token}`
+                }
             });
             if (!response.ok) throw new Error('Failed to fetch Railway list');
             const data = await response.json();
