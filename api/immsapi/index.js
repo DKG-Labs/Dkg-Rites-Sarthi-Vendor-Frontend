@@ -1,10 +1,9 @@
 /**
  * IMMS API Proxy for Azure Functions (Static Web Apps API)
- * Bypasses CORS and sets required headers (User-Agent) for IREPS integration.
- * Adapts the Vercel-style proxy to the Azure Functions signature.
+ * Bypasses CORS and sets required headers (Host, User-Agent, etc) for IREPS integration.
+ * Mounted at /api/immsapi/{*path}
  */
 module.exports = async function (context, req) {
-    // Enable CORS manually (though SWA usually handles this via config)
     const corsHeaders = {
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Origin': '*',
@@ -21,14 +20,21 @@ module.exports = async function (context, req) {
         return;
     }
 
-    // path is captured via the route parameter in function.json {*path}
+    // path is captured via the route parameter {*path}
     const path = context.bindingData.path;
     
     if (!path) {
         context.res = {
             status: 400,
             headers: corsHeaders,
-            body: { error: 'Missing path parameter' }
+            body: { 
+                error: 'Missing path parameter',
+                diag: {
+                    url: req.url,
+                    method: req.method,
+                    bindingData: context.bindingData
+                }
+            }
         };
         return;
     }
@@ -84,7 +90,7 @@ module.exports = async function (context, req) {
                     status: 'SUCCESS_RAW',
                     targetUrl: targetUrl,
                     rawData: data,
-                    token: data // In case the raw data IS the token
+                    token: data 
                 }
             };
         }

@@ -1,19 +1,22 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  // Robust Proxy for IMMS - Handles the /immsapi prefix explicitly
+  // Match the production Azure path /api/immsapi
   app.use(
     createProxyMiddleware({
-      pathFilter: '/immsapi',
+      pathFilter: '/api/immsapi',
       target: 'https://ireps.gov.in',
       changeOrigin: true,
       secure: false,
       onProxyReq: (proxyReq, req, res) => {
+        // Remove headers that cause 417 Expectation Failed on some CRIS servers
         proxyReq.removeHeader('Expect');
         proxyReq.setHeader('User-Agent', 'PostmanRuntime/7.43.0');
         
         // Final log to verify the exact outcome
-        console.log(`[IMMS Proxy] ${req.method} ${req.originalUrl} -> https://ireps.gov.in${proxyReq.path}`);
+        // Note: The outgoing path to IREPS should not have the /api prefix
+        const targetPath = proxyReq.path.replace('/api', '');
+        console.log(`[IMMS Proxy] ${req.method} ${req.originalUrl} -> https://ireps.gov.in${targetPath}`);
       }
     })
   );

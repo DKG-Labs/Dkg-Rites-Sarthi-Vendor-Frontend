@@ -10,7 +10,7 @@ export const immsService = {
      */
     authenticateIMMS: async () => {
         try {
-            const response = await fetch('/immsapi/authenticate', {
+            const response = await fetch('/api/immsapi/authenticate', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ export const immsService = {
             const token = await immsService.authenticateIMMS();
 
             // Using relative path for Vercel rewrites and local proxy to bypass CORS
-            const response = await fetch('/immsapi/purchase/getPOData', {
+            const response = await fetch('/api/immsapi/purchase/getPOData', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
