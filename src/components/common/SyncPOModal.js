@@ -217,12 +217,25 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         const h = fetchedData.PoHdr;
         const d = fetchedData.PoDtl || [];
         
-        // Define the dashboard role for ERC
-        const dashboardRole = "ERC"; 
+        // Get role from localStorage (it's stored as a JSON string array)
+        let userRoles = [];
+        try {
+            userRoles = JSON.parse(localStorage.getItem('roleName') || '[]');
+        } catch (e) {
+            userRoles = [localStorage.getItem('roleName')];
+        }
+
+        // Determine which category this user is allowed to sync
+        const isSleeperUser = userRoles.some(r => r === 'Sleeper Vendor');
+        
+        const dashboardRole = isSleeperUser ? "Sleeper" : "ERC";
+        const allowedCategory = isSleeperUser ? "PSC Mainline Sleeper" : "Elastic Rail Clips";
         
         const currentCat = h.ITEM_CAT_DESCR;
         const isNullRequest = !currentCat;
-        const isMatch = currentCat && currentCat.toLowerCase().includes(dashboardRole.toLowerCase());
+        
+        // Exact match for the category string
+        const isMatch = currentCat === allowedCategory;
         const isMismatch = currentCat && !isMatch;
 
         return (
