@@ -32,10 +32,11 @@ export const immsService = {
             const contentType = response.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
                 const text = await response.text();
+                console.warn('IMMS Non-JSON Response Body:', text);
                 if (text.trim().startsWith('<!DOCTYPE html>')) {
-                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON. Please ensure "http-proxy-middleware" is working and check the node terminal logs.');
+                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON.');
                 }
-                throw new Error('IMMS server returned non-JSON response.');
+                throw new Error(`IMMS server returned non-JSON response: ${text.substring(0, 100)}...`);
             }
 
             const data = await response.json();

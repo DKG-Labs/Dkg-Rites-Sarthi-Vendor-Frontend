@@ -64,26 +64,26 @@ module.exports = async function (context, req) {
         const response = await fetch(targetUrl, fetchOptions);
         const data = await response.text();
 
-        let responseBody;
-        let contentType = 'application/json';
-
         // Try to parse as JSON if possible
         try {
-            responseBody = JSON.parse(data);
+            const jsonData = JSON.parse(data);
+            context.res = {
+                status: response.status,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                body: jsonData
+            };
         } catch (e) {
-            // Return raw text if not JSON
-            responseBody = data;
-            contentType = response.headers.get('content-type') || 'text/plain';
+            // If not JSON, return it wrapped in a JSON object for the frontend
+            context.res = {
+                status: response.status,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                body: { 
+                    status: 'SUCCESS_RAW',
+                    rawData: data,
+                    token: data // In case the raw data IS the token
+                }
+            };
         }
-
-        context.res = {
-            status: response.status,
-            headers: {
-                ...corsHeaders,
-                'Content-Type': contentType
-            },
-            body: responseBody
-        };
     } catch (error) {
         context.log.error('[Azure Proxy Error]:', error);
         context.res = {
