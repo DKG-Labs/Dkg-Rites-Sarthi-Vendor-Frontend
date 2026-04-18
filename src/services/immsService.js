@@ -14,8 +14,7 @@ export const immsService = {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'accept': '*/*'
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     username: "rites-sarthi",
@@ -23,12 +22,18 @@ export const immsService = {
                 })
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`IMMS Auth Failed [${response.status}]:`, errorText);
+                throw new Error(`IMMS Auth Failed with status ${response.status}. Please check credentials and proxy logs.`);
+            }
+
             // Handle non-JSON responses (usually proxy errors)
             const contentType = response.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
                 const text = await response.text();
                 if (text.trim().startsWith('<!DOCTYPE html>')) {
-                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON. Please ensure "http-proxy-middleware" is working.');
+                    throw new Error('Proxy Server Connection Failed: Received HTML instead of JSON. Please ensure "http-proxy-middleware" is working and check the node terminal logs.');
                 }
                 throw new Error('IMMS server returned non-JSON response.');
             }
@@ -41,7 +46,7 @@ export const immsService = {
                 localStorage.setItem('imms_token', token);
                 return token;
             }
-            throw new Error('Failed to authenticate with IMMS - No token received');
+            throw new Error('Failed to authenticate with IMMS - No token received in JSON response');
         } catch (error) {
             console.error('IMMS Auth Error:', error);
             throw error;
