@@ -39,9 +39,12 @@ module.exports = async function (context, req) {
 
     try {
         const headers = {
+            'Host': 'ireps.gov.in',
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'User-Agent': 'PostmanRuntime/7.43.0',
+            'Origin': 'https://ireps.gov.in',
+            'Referer': 'https://ireps.gov.in/immsapi/home',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         };
@@ -79,6 +82,7 @@ module.exports = async function (context, req) {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 body: { 
                     status: 'SUCCESS_RAW',
+                    targetUrl: targetUrl,
                     rawData: data,
                     token: data // In case the raw data IS the token
                 }
