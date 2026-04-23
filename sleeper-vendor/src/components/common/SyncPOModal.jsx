@@ -35,7 +35,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             setRailwayLoading(true);
             try {
                 const list = await apiService.getRlyList();
-                setRailways(list);
+                // Sort railways numerically by their code (e.g., 01-CR before 16-WCR)
+                const sorted = [...list].sort((a, b) => 
+                    String(a.rlyCd).localeCompare(String(b.rlyCd), undefined, { numeric: true })
+                );
+                setRailways(sorted);
             } catch (error) {
                 console.error('Error fetching railways:', error);
             } finally {
