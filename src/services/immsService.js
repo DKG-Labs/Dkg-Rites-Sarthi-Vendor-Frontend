@@ -94,6 +94,54 @@ export const immsService = {
         }
     },
 
+    /**
+     * Save fetched PO MA data to the local Sarthi backend
+     */
+    savePoMaToSarthi: async (payload) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+            
+            const response = await fetch(`${baseUrl}/Vendorsync/savePoMa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Sarthi Save MA Error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Save fetched PO CA data to the local Sarthi backend
+     */
+    savePoCaToSarthi: async (payload) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+            
+            const response = await fetch(`${baseUrl}/Vendorsync/savePoCa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Sarthi Save CA Error:', error);
+            throw error;
+        }
+    },
+
     getRlyList: async () => {
         try {
             const baseUrl = getBaseUrl();
