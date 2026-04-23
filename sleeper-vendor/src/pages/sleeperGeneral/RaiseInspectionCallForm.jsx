@@ -136,6 +136,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         badSleepers: uniqueBad.length,
                         goodSleeperIds: uniqueGood,
                         badSleeperIds: uniqueBad,
+                        goodSleepersData: b.goodSleepers || [],
+                        badSleepersData: b.badSleepers || [],
                         plantId: b.plantId
                     };
                 });
@@ -658,10 +660,21 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     if (selection.batchTouched && selection.goodSelected && selection.goodSelected.size > 0) {
                                         const batch = batches.find(b => b.batchNo === batchNo);
                                         const badSleepers = batch ? batch.badSleeperIds : [];
+                                        
+                                        // Map sleeper numbers to IDs
+                                        const goodSleeperIds = Array.from(selection.goodSelected).map(sno => {
+                                            const found = batch.goodSleepersData.find(s => String(s.sleeperNo).trim() === String(sno).trim());
+                                            return found ? found.sleeperId : null;
+                                        }).filter(id => id !== null);
+
+                                        const badSleeperIds = (batch.badSleepersData || []).map(s => s.sleeperId);
+
                                         payload.batchesSelected.push({
                                             batchNo,
                                             goodSleepers: Array.from(selection.goodSelected),
-                                            badSleepers: badSleepers || []
+                                            badSleepers: badSleepers || [],
+                                            goodSleeperIds,
+                                            badSleeperIds
                                         });
                                     }
                                 }
