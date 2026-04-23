@@ -7,10 +7,15 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const userName = localStorage.getItem('userName');
     const vcode = vendorCode || userName || sessionStorage.getItem('vendorCode') || ":41647";
     
+    const [syncType, setSyncType] = useState('PO DATA'); // PO DATA, POMA DATA, POCA DATA
     const [formData, setFormData] = useState({
         rly: '',
         poNo: '',
         poDate: '',
+        maNo: '',
+        maDate: '',
+        caNo: '',
+        caDate: '',
         vcode: vcode
     });
     const [loading, setLoading] = useState(false);
@@ -22,7 +27,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const [railways, setRailways] = useState([]);
     const [railwayLoading, setRailwayLoading] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [dateErrors, setDateErrors] = useState({});
     const dropdownRef = useRef(null);
+
+    // Today's date string in YYYY-MM-DD format for max date validation
+    const todayStr = new Date().toISOString().split('T')[0];
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -39,7 +48,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             setRailwayLoading(true);
             try {
                 const list = await immsService.getRlyList();
-                setRailways(list);
+                // Sort railways numerically by their code (e.g., 01-CR before 16-WCR)
+                const sorted = [...list].sort((a, b) => {
+                    const numA = parseInt(a.rlyCd, 10);
+                    const numB = parseInt(b.rlyCd, 10);
+                    return numA - numB;
+                });
+                setRailways(sorted);
             } catch (error) {
                 console.error('Error fetching railways:', error);
             } finally {
@@ -58,6 +73,20 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleDateChange = (e) => {
+        const { name, value } = e.target;
+        // Validate: date must not be in the future
+        if (value && value > todayStr) {
+            setDateErrors(prev => ({ ...prev, [name]: 'Date cannot be in the future.' }));
+        } else {
+            setDateErrors(prev => ({ ...prev, [name]: '' }));
+        }
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Returns true if any date field has a validation error
+    const hasDateErrors = () => Object.values(dateErrors).some(err => err);
+
     const formatDate = (dateStr) => {
         if (!dateStr) return "";
         if (dateStr.includes('/')) return dateStr;
@@ -70,24 +99,40 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
     const handleSync = async (e) => {
         if (e) e.preventDefault();
+        if (hasDateErrors()) return; // Block submit if date validation fails
         setLoading(true);
         setStatus('loading');
         setErrorMsg('');
 
         try {
             const finalVcode = formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`;
-            const payload = { ...formData, poDate: formatDate(formData.poDate), vcode: finalVcode };
+            
+            let payload = { rly: formData.rly, poNo: formData.poNo, vcode: finalVcode };
+            
+            if (syncType === 'PO DATA') {
+                payload.poDate = formatDate(formData.poDate);
+            } else if (syncType === 'POMA DATA') {
+                payload.maDate = formatDate(formData.maDate);
+                payload.maNo = formData.maNo;
+            } else if (syncType === 'POCA DATA') {
+                payload.caDate = formatDate(formData.caDate);
+                payload.caNo = formData.caNo;
+            }
 
             console.log('Fetching IMMS Data...', payload);
             const result = await immsService.getIMMSPOData(payload);
             
             if (result && result.status === 'OK' && result.data) {
                 setFetchedData(result.data);
-                setManualCategory(result.data.PoHdr?.ITEM_CAT_DESCR || '');
+                
+                // Determine manual category (existing logic)
+                const header = result.data.PoHdr || result.data.MMP_POMA_HDR || result.data.MMP_POCA_HDR || result.data.header;
+                setManualCategory(header?.ITEM_CAT_DESCR || '');
+                
                 setView('review');
                 setStatus('idle');
             } else {
-                throw new Error(result.error || result.message || 'PO not found or invalid response from IMMS.');
+                throw new Error(result.error || result.message || 'Data not found or invalid response from IMMS.');
             }
         } catch (error) {
             setStatus('error');
@@ -102,19 +147,33 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         setStatus('loading');
         
         try {
-            // Map the PascalCase CRIS format to local backend format
-            const savePayload = {
-                poHdr: {
-                    ...fetchedData.PoHdr,
-                    ITEM_CAT_DESCR: manualCategory // use manual value if it was null
-                },
-                poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
-            };
-
-            const response = await immsService.savePOToSarthi(savePayload);
+            let response;
+            if (syncType === 'PO DATA') {
+                const savePayload = {
+                    poHdr: { ...fetchedData.PoHdr, ITEM_CAT_DESCR: manualCategory },
+                    poDtl: fetchedData.PoDtl.map(item => ({ 
+                        ...item,
+                        // Round quantities to nearest integer since backend expects Integer
+                        QTY: item.QTY ? Math.round(parseFloat(item.QTY)).toString() : item.QTY,
+                        QTY_CANCELLED: item.QTY_CANCELLED ? Math.round(parseFloat(item.QTY_CANCELLED)).toString() : item.QTY_CANCELLED
+                    }))
+                };
+                response = await immsService.savePOToSarthi(savePayload);
+            } else if (syncType === 'POMA DATA') {
+                const savePayload = {
+                    MMP_POMA_HDR: { ...fetchedData.MMP_POMA_HDR },
+                    MMP_POMA_DTL: fetchedData.MMP_POMA_DTL.map(item => ({ ...item }))
+                };
+                response = await immsService.savePoMaToSarthi(savePayload);
+            } else if (syncType === 'POCA DATA') {
+                const savePayload = {
+                    MMP_POCA_HDR: { ...fetchedData.MMP_POCA_HDR || fetchedData.header },
+                    MMP_POCA_DTL: (fetchedData.MMP_POCA_DTL || fetchedData.details).map(item => ({ ...item }))
+                };
+                response = await immsService.savePoCaToSarthi(savePayload);
+            }
             
-            // Check for success in response (standardizing based on immsService response handling)
-            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.success)) {
+            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.success || response.status === 'OK' || response.statusCode === 200)) {
                 setStatus('success');
                 setTimeout(() => {
                     if (onSuccess) onSuccess(response);
@@ -122,7 +181,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     resetModal();
                 }, 2000);
             } else {
-                throw new Error(response.message || response.responseStatus?.message || 'Failed to save PO data to system.');
+                throw new Error(response.message || response.responseStatus?.message || 'Failed to save data to system.');
             }
         } catch (error) {
             setStatus('error');
@@ -141,6 +200,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
     const renderInputView = () => (
         <form onSubmit={handleSync} style={styles.body}>
+            {/* Sync Type dropdown hidden as requested, defaults to PO DATA */}
             <div style={styles.grid2col}>
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Railway Code (Rly)</label>
@@ -181,11 +241,6 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                                         {r.rlyCd}-{r.rlyShortName}
                                     </div>
                                 ))}
-                                {railways.length === 0 && !railwayLoading && (
-                                    <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
-                                        No railways found
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
@@ -194,10 +249,82 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <label style={styles.label}>PO Number (poNo)</label>
                     <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="Enter PO Number" style={styles.input} required />
                 </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>PO Date (poDate)</label>
-                    <input name="poDate" type="date" value={formData.poDate} onChange={handleInputChange} style={styles.input} required />
-                </div>
+
+                {syncType === 'PO DATA' && (
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>PO Date (poDate)</label>
+                        <input
+                            name="poDate"
+                            type="date"
+                            value={formData.poDate}
+                            onChange={handleDateChange}
+                            max={todayStr}
+                            style={{
+                                ...styles.input,
+                                borderColor: dateErrors.poDate ? '#ef4444' : '#e2e8f0'
+                            }}
+                            required
+                        />
+                        {dateErrors.poDate && (
+                            <span style={styles.dateError}>{dateErrors.poDate}</span>
+                        )}
+                    </div>
+                )}
+
+                {syncType === 'POMA DATA' && (
+                    <>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>MA Number (maNo)</label>
+                            <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="Enter MA Number" style={styles.input} required />
+                        </div>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>MA Date (maDate)</label>
+                            <input
+                                name="maDate"
+                                type="date"
+                                value={formData.maDate}
+                                onChange={handleDateChange}
+                                max={todayStr}
+                                style={{
+                                    ...styles.input,
+                                    borderColor: dateErrors.maDate ? '#ef4444' : '#e2e8f0'
+                                }}
+                                required
+                            />
+                            {dateErrors.maDate && (
+                                <span style={styles.dateError}>{dateErrors.maDate}</span>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {syncType === 'POCA DATA' && (
+                    <>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>CA Number (caNo)</label>
+                            <input name="caNo" value={formData.caNo} onChange={handleInputChange} placeholder="Enter CA Number" style={styles.input} required />
+                        </div>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>CA Date (caDate)</label>
+                            <input
+                                name="caDate"
+                                type="date"
+                                value={formData.caDate}
+                                onChange={handleDateChange}
+                                max={todayStr}
+                                style={{
+                                    ...styles.input,
+                                    borderColor: dateErrors.caDate ? '#ef4444' : '#e2e8f0'
+                                }}
+                                required
+                            />
+                            {dateErrors.caDate && (
+                                <span style={styles.dateError}>{dateErrors.caDate}</span>
+                            )}
+                        </div>
+                    </>
+                )}
+
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Vendor Code (vcode)</label>
                     <input value={formData.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9'}} />
@@ -207,15 +334,25 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             <div style={styles.footer}>
                 <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
                 <button type="submit" disabled={loading} style={styles.syncBtn}>
-                    {loading ? 'Fetching...' : 'Fetch PO Details'}
+                    {loading ? 'Fetching...' : `Fetch ${syncType} Details`}
                 </button>
             </div>
         </form>
     );
 
     const renderReviewView = () => {
-        const h = fetchedData.PoHdr;
-        const d = fetchedData.PoDtl || [];
+        let h, d;
+        
+        if (syncType === 'PO DATA') {
+            h = fetchedData.PoHdr;
+            d = fetchedData.PoDtl || [];
+        } else if (syncType === 'POMA DATA') {
+            h = fetchedData.MMP_POMA_HDR;
+            d = fetchedData.MMP_POMA_DTL || [];
+        } else if (syncType === 'POCA DATA') {
+            h = fetchedData.MMP_POCA_HDR || fetchedData.header;
+            d = fetchedData.MMP_POCA_DTL || fetchedData.details || [];
+        }
         
         // Get role from localStorage (it's stored as a JSON string array)
         let userRoles = [];
@@ -241,18 +378,25 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         return (
             <div style={styles.body}>
                 <div style={styles.summaryCard}>
-                    <p style={styles.summaryLine}><strong>PO No:</strong> {h.PO_NO}</p>
-                    <p style={styles.summaryLine}><strong>Current Category:</strong> {currentCat || 'NULL (Not Found)'}</p>
-                    <p style={styles.summaryLine}><strong>Items Found:</strong> {d.length}</p>
+                    <p style={styles.summaryLine}><strong>Type:</strong> {syncType}</p>
+                    <p style={styles.summaryLine}><strong>No:</strong> {h.PO_NO || h.poNo}</p>
+                    {syncType === 'POMA DATA' && <p style={styles.summaryLine}><strong>MA No:</strong> {h.MA_NO || h.maNo}</p>}
+                    {syncType === 'POCA DATA' && <p style={styles.summaryLine}><strong>CA No:</strong> {h.CA_NO || h.caNo}</p>}
+                    <p style={styles.summaryLine}><strong>Category:</strong> {h.ITEM_CAT_DESCR || 'N/A'}</p>
+                    <p style={styles.summaryLine}><strong>Items/Details:</strong> {d.length}</p>
                 </div>
 
                 {isMismatch ? (
                     <div style={styles.errorBanner}>
-                        🚫 <strong>Access Denied:</strong> This PO is categorized as "{currentCat}". 
+                        🚫 <strong>Access Denied:</strong> This record is categorized as "{currentCat}". 
                         Since you are logged in as an <strong>{dashboardRole} Vendor</strong>, 
                         you cannot sync this data.
                     </div>
-                ) : isNullRequest ? (
+                ) : (h.ITEM_CAT_DESCR || manualCategory) ? (
+                    <div style={styles.successBanner}>
+                        ✨ <strong>Verified:</strong> Valid {dashboardRole} record. You can proceed with saving.
+                    </div>
+                ) : (
                     <div style={{...styles.formGroup, marginBottom: '20px'}}>
                         <label style={styles.label}>Select Item Category</label>
                         <select 
@@ -260,7 +404,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                             onChange={(e) => setManualCategory(e.target.value)}
                             style={{
                                 ...styles.input, 
-                                height: '38px', // Increased height for better interaction
+                                height: '38px',
                                 borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
                                 cursor: 'pointer',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
@@ -273,12 +417,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                             <option value="PSC Mainline Sleeper">PSC Mainline Sleeper</option>
                         </select>
                         <p style={{color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4'}}>
-                            * Category was missing in IMMS. Please select the appropriate category to continue.
+                            * Category was missing. Please select to continue.
                         </p>
-                    </div>
-                ) : (
-                    <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} PO. You can proceed with saving.
                     </div>
                 )}
 
@@ -307,7 +447,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <div style={styles.headerTitle}>
                         <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
                         <div>
-                            <h3 style={styles.title}>{view === 'input' ? 'sync PO' : 'Verify PO Data'}</h3>
+                            <h3 style={styles.title}>{view === 'input' ? `sync ${syncType}` : `Verify ${syncType}`}</h3>
                             <p style={styles.subtitle}>
                                 {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
                             </p>
@@ -322,8 +462,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <div style={{...styles.overlay, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 1001}}>
                         <div style={{textAlign: 'center'}} className="fade-in">
                             <div style={{fontSize: '50px'}}>✅</div>
-                            <h3 style={{color: '#0f172a'}}>PO Saved Successfully!</h3>
-                            <p style={{color: '#64748b'}}>The PO has been synced to your dashboard.</p>
+                            <h3 style={{color: '#0f172a'}}>{syncType} Saved Successfully!</h3>
+                            <p style={{color: '#64748b'}}>The data has been synced to your dashboard.</p>
                         </div>
                     </div>
                 )}
@@ -514,6 +654,13 @@ const styles = {
         color: '#1e293b',
         cursor: 'pointer',
         transition: 'background-color 0.2s'
+    },
+    dateError: {
+        display: 'block',
+        color: '#ef4444',
+        fontSize: '10px',
+        fontWeight: '600',
+        marginTop: '3px'
     }
 };
 

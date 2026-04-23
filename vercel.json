@@ -6,11 +6,23 @@
       "destination": "/api/imms-proxy?path=:path*"
     },
     {
-      "source": "/railpad/(.*)",
-      "destination": "/railpad/$1"
+      "source": "/sleeper-vendor/assets/:path*",
+      "destination": "/sleeper-vendor/assets/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/sleeper-vendor/:path*",
+      "destination": "/sleeper-vendor/index.html"
+    },
+    {
+      "source": "/railpad/assets/:path*",
+      "destination": "/railpad/assets/:path*"
+    },
+    {
+      "source": "/railpad/:path*",
+      "destination": "/railpad/index.html"
+    },
+    {
+      "source": "/((?!sleeper-vendor|railpad).*)",
       "destination": "/index.html"
     }
   ]

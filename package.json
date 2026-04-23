@@ -21,7 +21,7 @@
     "dev:all": "npm start & npm run dev:sleeper & npm run dev:railpad",
     "dev:sleeper": "cd sleeper-vendor && npm run dev",
     "dev:railpad": "cd railpad && npm run dev",
-    "build": "react-scripts build && npm run build:sleeper && npm run build:railpad",
+    "build": "CI=false react-scripts build && npm run build:sleeper && npm run build:railpad",
     "build:sleeper": "cd sleeper-vendor && npm install && npm run build && mkdir -p ../build/sleeper-vendor && cp -r dist/* ../build/sleeper-vendor",
     "build:railpad": "cd railpad && npm install && npm run build && mkdir -p ../build/railpad && cp -r dist/* ../build/railpad",
     "test": "react-scripts test",

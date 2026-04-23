@@ -3,7 +3,7 @@ import { getBaseUrl } from './apiConfig';
 /**
  * Service to handle IMMS PO Synchronization (CRIS Integration)
  * Standardized across Sleeper and ERC modules.
- * Now using Backend Proxy to bypass CORS and Firewall restrictions.
+ * Using Sarthi Backend Proxy for reliability and security.
  */
 export const immsService = {
     /**
@@ -91,6 +91,54 @@ export const immsService = {
             return await response.json();
         } catch (error) {
             console.error('Sarthi Save Error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Save fetched PO MA data to the local Sarthi backend
+     */
+    savePoMaToSarthi: async (payload) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+            
+            const response = await fetch(`${baseUrl}/Vendorsync/savePoMa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Sarthi Save MA Error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Save fetched PO CA data to the local Sarthi backend
+     */
+    savePoCaToSarthi: async (payload) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+            
+            const response = await fetch(`${baseUrl}/Vendorsync/savePoCa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Sarthi Save CA Error:', error);
             throw error;
         }
     },
