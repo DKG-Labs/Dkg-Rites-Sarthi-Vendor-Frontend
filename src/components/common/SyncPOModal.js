@@ -200,22 +200,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
     const renderInputView = () => (
         <form onSubmit={handleSync} style={styles.body}>
-            <div style={{ marginBottom: '16px' }}>
-                <label style={styles.label}>Sync Type</label>
-                <select 
-                    value={syncType} 
-                    onChange={(e) => {
-                        setSyncType(e.target.value);
-                        setErrorMsg('');
-                    }} 
-                    style={{...styles.input, height: '38px', cursor: 'pointer'}}
-                >
-                    <option value="PO DATA">PO DATA</option>
-                    <option value="POMA DATA">POMA DATA</option>
-                    <option value="POCA DATA">POCA DATA</option>
-                </select>
-            </div>
-
+            {/* Sync Type dropdown hidden as requested, defaults to PO DATA */}
             <div style={styles.grid2col}>
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Railway Code (Rly)</label>
