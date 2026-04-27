@@ -99,9 +99,7 @@ const App = () => {
       <RailpadHost />
     ) : (
       <div>
-
-        <Header />
-
+        <Header setIsSidebarOpen={setIsSidebarOpen} />
         {/* <header className="app-header">
         <div className="header-left">
           <div className="app-logo">SARTHI</div>
