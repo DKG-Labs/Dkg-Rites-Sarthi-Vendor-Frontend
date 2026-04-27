@@ -1,15 +1,32 @@
 import React from 'react';
+import { getStoredUser, getActiveRole } from '../services/authService';
 
 
 const Header = ({
   setIsSidebarOpen,
   userEmail = 'ie@sarthi.com'
 }) => {
+  const user = getStoredUser();
+  const activeRole = getActiveRole();
 
-const handleLogout = () => {
-  localStorage.clear();
-  window.location.href = '/login';
-};
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = '/login';
+  };
+
+  const isVendor = activeRole === 'Vendor' || activeRole === 'Sleeper Vendor' || (user?.roleName && (user.roleName.includes('Vendor') || user.roleName.includes('Sleeper Vendor')));
+  
+  let displayName = 'Inspection Engineer';
+  if (isVendor) {
+    if (user?.vendorName) {
+      displayName = user.vendorName;
+    } else {
+      displayName = activeRole === 'Vendor' ? 'ERC Vendor' : (activeRole || 'Vendor');
+    }
+  }
+
+  const displayEmail = isVendor ? (user?.userName || userEmail) : userEmail;
+  const avatarText = isVendor ? (user?.vendorName ? user.vendorName.substring(0, 2).toUpperCase() : 'V') : 'IE';
 
 
   return (
@@ -36,17 +53,16 @@ const handleLogout = () => {
       <div className="header-right">
         {/* Sidebar Toggle */}
         
-        {/* Date Time */}
-        <div className="header-datetime">
-          {new Date().toLocaleString()}
-        </div>
+
 
         {/* User */}
         <div className="user-info">
-          <div className="user-avatar">IE</div>
+          <div className="user-avatar">{avatarText}</div>
           <div className="user-meta">
-            <div className="user-role">Vendor Dashboard</div>
-            <div className="user-email">{userEmail}</div>
+            <div className="user-role" title={displayName}>
+              {displayName.length > 30 ? displayName.substring(0, 30) + '...' : displayName}
+            </div>
+            <div className="user-email">{displayEmail}</div>
           </div>
         </div>
 

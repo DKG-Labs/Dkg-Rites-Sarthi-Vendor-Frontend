@@ -107,6 +107,9 @@ export const storeAuthData = (authData, manualLoginId = null) => {
   localStorage.setItem('vendorCode', canonVendorCode);
   
   localStorage.setItem('userName', authData.userName);
+  if (authData.vendorName) {
+    localStorage.setItem('vendorName', authData.vendorName);
+  }
   // Store roleName as a JSON string since it is now a list
   localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));
   localStorage.setItem('rio', authData.rio);
@@ -159,6 +162,7 @@ export const getStoredUser = () => {
   return {
     userId: localStorage.getItem('userId'),
     userName: localStorage.getItem('userName'),
+    vendorName: localStorage.getItem('vendorName'),
     roleName: roleName,
     rio: localStorage.getItem('rio'),
     token: token,
@@ -179,7 +183,9 @@ export const isAuthenticated = () => {
 export const logoutUser = () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('userId');
+  localStorage.removeItem('vendorCode');
   localStorage.removeItem('userName');
+  localStorage.removeItem('vendorName');
   localStorage.removeItem('roleName');
   localStorage.removeItem('rio');
   localStorage.removeItem('activeRole');
