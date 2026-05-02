@@ -123,8 +123,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     : data;
 
                 const mappedBatches = filteredData.map(b => {
-                    const uniqueGood = b.goodSleepers ? Array.from(new Set(b.goodSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
-                    const uniqueBad = b.badSleepers ? Array.from(new Set(b.badSleepers.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString())))) : [];
+                    const goodList = (b.goodSleepers || []).filter(s => s.callRaised !== true && s.callRaised !== "true");
+                    const badList = (b.badSleepers || []).filter(s => s.callRaised !== true && s.callRaised !== "true");
+
+                    const uniqueGood = Array.from(new Set(goodList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
+                    const uniqueBad = Array.from(new Set(badList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
                     
                     return {
                         batchNo: b.batchNumber || b.batchId.toString(),
@@ -136,8 +139,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         badSleepers: uniqueBad.length,
                         goodSleeperIds: uniqueGood,
                         badSleeperIds: uniqueBad,
-                        goodSleepersData: b.goodSleepers || [],
-                        badSleepersData: b.badSleepers || [],
+                        goodSleepersData: goodList,
+                        badSleepersData: badList,
                         plantId: b.plantId
                     };
                 });
@@ -645,6 +648,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 const userId = sessionStorage.getItem('userId');
                                 const vendorCode = sessionStorage.getItem('vendorCode');
                                 
+                                const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+                                const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+                                
                                 const payload = {
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
@@ -653,6 +659,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     totalRejected: summary.totalRejectedCount,
                                     createdBy: userId,
                                     vendorCode: vendorCode,
+                                    plantId: currentPlantId,
                                     batchesSelected: []
                                 };
                                 
