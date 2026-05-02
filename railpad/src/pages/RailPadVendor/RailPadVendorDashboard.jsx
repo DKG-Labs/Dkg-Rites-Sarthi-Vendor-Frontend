@@ -3,6 +3,8 @@ import '../../styles/RailPadVendor.css';
 import PlantDeclarationDashboard from './PlantDeclaration/PlantDeclarationDashboard';
 import InventoryManagementDashboard from './InventoryManagement/InventoryManagementDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDeclarationDashboard';
+import VendorFeedback from '../../components/Feedback/VendorFeedback';
+
 
 const RailPadVendorDashboard = () => {
     const [selectedModule, setSelectedModule] = useState(() => {
@@ -16,8 +18,10 @@ const RailPadVendorDashboard = () => {
     const modules = [
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
-        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' }
+        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
+        { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬' }
     ];
+
 
     const renderContent = () => {
         switch (selectedModule) {
@@ -27,6 +31,14 @@ const RailPadVendorDashboard = () => {
                 return <InventoryManagementDashboard />;
             case 'production-declaration':
                 return <ProductionDeclarationDashboard />;
+            case 'feedback':
+                const railpadUser = {
+                    userId: localStorage.getItem('railpad_userId') || 999,
+                    userName: localStorage.getItem('railpad_userName') || 'RailPad Vendor',
+                    roleName: 'Railpad Vendor'
+                };
+                return <VendorFeedback currentUser={railpadUser} productContext="Railpad Vendor" />;
+
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>

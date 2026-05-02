@@ -161,6 +161,7 @@ export const getStoredUser = () => {
 
   return {
     userId: localStorage.getItem('userId'),
+    vendorCode: localStorage.getItem('vendorCode'),
     userName: localStorage.getItem('userName'),
     vendorName: localStorage.getItem('vendorName'),
     roleName: roleName,

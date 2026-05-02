@@ -40,6 +40,8 @@ import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+import VendorFeedback from '../components/Feedback/VendorFeedback';
+
 
 const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk'];
 
@@ -1608,8 +1610,14 @@ const VendorDashboardPage = ({ onBack }) => {
       id: 'master-updating',
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
+    },
+    {
+      id: 'feedback-system',
+      label: 'Feedback',
+      description: 'Send feedback to Railway Board'
     }
   ];
+
 
   // ============ MASTER ENTRIES HANDLERS ============
   const handleViewMasterEntry = useCallback((entry) => {
@@ -2498,6 +2506,7 @@ const VendorDashboardPage = ({ onBack }) => {
               )}
 
               {/* Custom Expandable PO Table */}
+
               {!loadingPOData && (
                 <>
                   <div className="data-table-wrapper">
@@ -3620,6 +3629,21 @@ const VendorDashboardPage = ({ onBack }) => {
                 </div>
               )}
             </>
+          )}
+
+          {/* 11. Feedback System */}
+          {activeTab === 'feedback-system' && (
+            <div className="feedback-module-wrapper">
+              <div className="vendor-section-header">
+                <div>
+                  <h3 className="vendor-section-header-title">Feedback System</h3>
+                  <p className="vendor-section-header-desc">
+                    Submit your feedback, issues, or suggestions directly to the Railway Board.
+                  </p>
+                </div>
+              </div>
+              <VendorFeedback currentUser={user} productContext="ERC Vendor" />
+            </div>
           )}
         </div>
       </div>
