@@ -650,7 +650,6 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 
                                 const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
                                 const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
-                                
                                 const payload = {
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
