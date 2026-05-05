@@ -17,6 +17,9 @@ const RailPadVendorLogin = ({ onLogin }) => {
         setTimeout(() => {
             setIsLoading(false);
             if (formData.username === 'RailPad' && formData.password === 'password') {
+                localStorage.setItem('railpad_userId', '999');
+                localStorage.setItem('railpad_userName', 'RailPad Vendor');
+                localStorage.setItem('railpad_token', 'mock-token');
                 onLogin();
             } else {
                 setError('Invalid username or password');

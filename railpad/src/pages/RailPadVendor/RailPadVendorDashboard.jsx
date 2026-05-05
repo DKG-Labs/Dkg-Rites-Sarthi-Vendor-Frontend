@@ -3,6 +3,7 @@ import '../../styles/RailPadVendor.css';
 import PlantDeclarationDashboard from './PlantDeclaration/PlantDeclarationDashboard';
 import InventoryManagementDashboard from './InventoryManagement/InventoryManagementDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDeclarationDashboard';
+import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
 
 const RailPadVendorDashboard = () => {
     const [selectedModule, setSelectedModule] = useState(() => {
@@ -14,10 +15,16 @@ const RailPadVendorDashboard = () => {
     }, [selectedModule]);
 
     const modules = [
-        { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
+        { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
+        { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
+        { id: 'verified-locked', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
-        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' }
+        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
+        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
+        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰' },
+        { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' }
     ];
+
 
     const renderContent = () => {
         switch (selectedModule) {
@@ -27,6 +34,8 @@ const RailPadVendorDashboard = () => {
                 return <InventoryManagementDashboard />;
             case 'production-declaration':
                 return <ProductionDeclarationDashboard />;
+            case 'po-assigned':
+                return <PoAssignedDashboard />;
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
@@ -68,7 +77,7 @@ const RailPadVendorDashboard = () => {
             }}>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '10px'
                 }}>
                     {modules.map(mod => (

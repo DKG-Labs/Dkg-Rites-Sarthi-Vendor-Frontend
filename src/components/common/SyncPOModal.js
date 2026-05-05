@@ -7,7 +7,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const userName = localStorage.getItem('userName');
     const vcode = vendorCode || userName || sessionStorage.getItem('vendorCode') || ":41647";
     
-    const [syncType, setSyncType] = useState('PO DATA'); // PO DATA, POMA DATA, POCA DATA
+    const syncType = 'PO DATA'; // PO DATA, POMA DATA, POCA DATA
     const [formData, setFormData] = useState({
         rly: '',
         poNo: '',
