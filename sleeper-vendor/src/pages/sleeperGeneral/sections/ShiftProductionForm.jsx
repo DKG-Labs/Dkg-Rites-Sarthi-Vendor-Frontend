@@ -300,9 +300,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 initialData.chambers.forEach(c => {
                     c.benchGroups.forEach(g => {
                         mappedEntries.push({
-                            id: Date.now() + Math.random(), // Unique ID
+                            id: Date.now() + Math.random(), // Unique ID for form state
                             chamberNo: c.chamberNo,
-                            entryMode: g.mode?.toLowerCase() || 'single', // Assuming 'single' if not specified
+                            chamberId: c.id, // Store original chamber ID
+                            groupId: g.id,   // Store original benchGroup ID
+                            entryMode: g.mode?.toLowerCase() || 'single', 
                             fromNo: g.benchFrom?.toString() || '',
                             toNo: g.benchTo?.toString() || '',
                             singleNo: g.benchNo?.toString() || '',
@@ -310,6 +312,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             mouldsPerBench: g.mouldPerBench || 8,
                             _originalRft: g.rft,
                             _originalSleepers: g.sleepers,
+                            _originalSleeperList: g.sleeperList, // Store original sleeperList
                             _isOld: true
                         });
                     });
@@ -325,6 +328,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 initialData.gangs.forEach((g, gIdx) => {
                     mappedEntries.push({
                         id: Date.now() + gIdx,
+                        originalId: g.id, // Store original gang ID
                         entryMode: g.mode?.toLowerCase() || 'range',
                         fromNo: g.gangFrom?.toString() || '',
                         toNo: g.gangTo?.toString() || '',
@@ -332,7 +336,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         mouldsPerGang: g.mouldsPerGang,
                         sleeperType: g.sleeperType,
                         _isOld: true,
-                        _originalSleepers: g.sleepers
+                        _originalSleepers: g.sleepers,
+                        _originalSleeperList: g.sleeperList // Store original sleeperList
                     });
                 });
                 if (mappedEntries.length > 0) setLongLineEntries(mappedEntries);
@@ -390,15 +395,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const chamberNo = entry.chamberNo;
             if (!acc[chamberNo]) {
                 acc[chamberNo] = {
-                    id: chamberNo, // Use chamberNo as ID for grouping
+                    id: entry.chamberId || 0, // Use stored chamberId or 0
                     chamberNo: chamberNo,
                     benchGroups: []
                 };
             }
             acc[chamberNo].benchGroups.push({
-                id: entry.id,
+                id: entry.groupId || 0, // Use stored groupId or 0
                 entryMode: entry.entryMode,
-                benches: entry.entryMode === 'single' ? [entry.singleNo] : [], // For single, use singleNo
+                benches: entry.entryMode === 'single' ? [entry.singleNo] : [], 
                 fromNo: entry.fromNo,
                 toNo: entry.toNo,
                 singleNo: entry.singleNo,
@@ -406,8 +411,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 sleeperType: entry.sleeperType,
                 _originalRft: entry._originalRft,
                 _originalSleepers: entry._originalSleepers,
+                _originalSleeperList: entry._originalSleeperList,
                 _isOld: entry._isOld
-                // Add other properties if needed for calculations or display
             });
             return acc;
         }, {});
@@ -1631,6 +1636,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                                         chambers: plantType === 'Stress Bench' ? chambers
                                             .map(chamber => ({
+                                                id: chamber.id || 0,
                                                 chamberNo: parseInt(chamber.chamberNo) || 0,
                                                 benchGroups: chamber.benchGroups
                                                     .flatMap(group => {
@@ -1648,15 +1654,19 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                         }
 
                                                         return benchList.map(bench => {
-                                                            const originalRft = group._originalRft !== undefined && bench === group.singleNo ? group._originalRft : getBenchMasterDetails(bench).rft;
-                                                            const originalSleepers = group._originalSleepers && bench === group.singleNo ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
+                                                            const isOriginalBench = group._isOld && bench === group.singleNo;
+                                                            const originalRft = isOriginalBench ? group._originalRft : getBenchMasterDetails(bench).rft;
+                                                            const originalSleepers = isOriginalBench ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
+                                                            const originalSleeperList = isOriginalBench ? group._originalSleeperList : null;
                                                             
                                                             return {
+                                                                id: group.id || 0,
                                                                 benchNo: parseInt(bench) || 0,
                                                                 sleeperType: group.sleeperType,
                                                                 mouldPerBench: parseInt(group.mouldsPerBench) || 0,
                                                                 rft: originalRft,
-                                                                sleepers: originalSleepers
+                                                                sleepers: originalSleepers,
+                                                                sleeperList: originalSleeperList || originalSleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                             };
                                                         });
                                                     })
@@ -1681,13 +1691,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 }
 
                                                 return {
+                                                    id: entry.originalId || 0,
                                                     mode,
                                                     gangFrom,
                                                     gangTo,
                                                     gangNo,
                                                     sleeperType: entry.sleeperType,
                                                     mouldsPerGang,
-                                                    sleepers
+                                                    sleepers,
+                                                    sleeperList: entry._originalSleeperList || sleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                 };
                                             }) : []
                                     };
