@@ -142,8 +142,7 @@ const VendorFeedback = ({ currentUser, productContext = 'Vendor' }) => {
                     )}
                     <form className="feedback-form-v2" onSubmit={handleSubmit}>
                         <div className="form-header">
-                            <h3>Send Feedback to Railway Board</h3>
-                            <p>Sleeper Vendor Feedback Portal — Your message goes directly to the Board.</p>
+                            <h3>submit your feedback, issue & Suggestion</h3>
                         </div>
 
                         <div className="form-group">
