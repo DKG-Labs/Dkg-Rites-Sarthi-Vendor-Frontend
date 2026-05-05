@@ -3636,9 +3636,7 @@ const VendorDashboardPage = ({ onBack }) => {
               <div className="vendor-section-header">
                 <div>
                   <h3 className="vendor-section-header-title">Feedback System</h3>
-                  <p className="vendor-section-header-desc">
-                    Submit your feedback, issues, or suggestions directly to the Railway Board.
-                  </p>
+
                 </div>
               </div>
               <VendorFeedback currentUser={user} productContext="ERC Vendor" />
