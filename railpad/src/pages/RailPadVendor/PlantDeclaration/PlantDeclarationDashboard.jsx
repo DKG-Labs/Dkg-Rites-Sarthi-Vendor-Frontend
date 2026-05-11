@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { plantSetupService } from '../../../services/plantSetupService';
+import { rawMaterialService } from '../../../services/rawMaterialService';
+import { productRecipeService } from '../../../services/productRecipeService';
+import { approvedAshSGService } from '../../../services/approvedAshSGService';
+import { approvedQAPService } from '../../../services/approvedQAPService';
 import PlantSetup from './PlantSetup';
 import RawMaterialSource from './RawMaterialSource';
 import ProductRecipe from './ProductRecipe';
@@ -10,108 +15,48 @@ const PlantDeclarationDashboard = () => {
         return localStorage.getItem('railpad_plant_selectedTab') || 'plant-setup';
     });
 
-    React.useEffect(() => {
+    useEffect(() => {
         localStorage.setItem('railpad_plant_selectedTab', selectedTab);
     }, [selectedTab]);
 
     // Lifted states for persistence across tabs
-    const [plantEntries, setPlantEntries] = useState([
-        {
-            id: 1,
-            manufacturer: "ABC Industries (VEND001)",
-            unitName: "Unit A - Mumbai",
-            address: "Plot 123, MIDC, Mumbai, MH",
-            numLines: 2,
-            capacity: "50,000 Pcs/Month",
-            status: "Verified & Locked"
-        },
-        {
-            id: 2,
-            manufacturer: "ABC Industries (VEND001)",
-            unitName: "Unit B - Pune",
-            address: "Sector 45, Bhosari, Pune, MH",
-            numLines: 3,
-            capacity: "75,000 Pcs/Month",
-            status: "Unlocked for Modification"
-        }
-    ]);
+    const [plantEntries, setPlantEntries] = useState([]);
+    const [materialEntries, setMaterialEntries] = useState([]);
+    const [recipeEntries, setRecipeEntries] = useState([]);
+    const [ashEntries, setAshEntries] = useState([]);
+    const [qapEntries, setQapEntries] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [materialEntries, setMaterialEntries] = useState([
-        {
-            id: 1,
-            materialName: "Virgin Material (RSS1)",
-            supplier: "Global Rubber Exports",
-            docRef: "INV/2024/0045",
-            status: "Verified & Locked"
-        },
-        {
-            id: 2,
-            materialName: "Carbon Black (N-765)",
-            supplier: "B-Chem Solutions",
-            docRef: "BC/TX/9932",
-            status: "Pending Verification"
-        },
-        {
-            id: 3,
-            materialName: "Silica (Fine Grade)",
-            supplier: "Indo Silica Ltd",
-            docRef: "ISL/QT/552",
-            status: "Unlocked for Modification"
+    const fetchAllData = async () => {
+        try {
+            setIsLoading(true);
+            const plantId = localStorage.getItem('railpad_selectedPlantId');
+            if (!plantId) return;
+            
+            const [plantRes, rmRes, recipeRes, ashRes, qapRes] = await Promise.all([
+                plantSetupService.getByPlantId(plantId),
+                rawMaterialService.getByPlantId(plantId),
+                productRecipeService.getByPlantId(plantId),
+                approvedAshSGService.getByPlantId(plantId),
+                approvedQAPService.getByPlantId(plantId)
+            ]);
+            
+            // Note: The backend returns List<ResponseDto>, so we use them directly
+            setPlantEntries(plantRes || []);
+            setMaterialEntries(rmRes || []);
+            setRecipeEntries(recipeRes || []);
+            setAshEntries(ashRes || []);
+            setQapEntries(qapRes || []);
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setIsLoading(false);
         }
-    ]);
+    };
 
-    const [recipeEntries, setRecipeEntries] = useState([
-        {
-            id: 1,
-            recipeId: "Batch-A-6mm-NCRGRSP",
-            padType: "6.00mm NCRGRSP",
-            composition: "Virgin: 52%, Carbon: 20%...",
-            status: "Verified & Locked"
-        }
-    ]);
-
-    const [ashEntries, setAshEntries] = useState([
-        {
-            id: 1,
-            padType: "6.00mm GRSP",
-            ash: "24.5%",
-            sg: "1.21",
-            refNo: "RDSO/QA/88/12",
-            date: "2024-01-15",
-            status: "Verified & Locked"
-        }
-    ]);
-
-    const [qapEntries, setQapEntries] = useState([
-        {
-            id: 1,
-            qapNo: "QAP/RDSO/2024/001",
-            qapApprovalDate: "2024-01-15",
-            qapEffectiveDate: "2024-02-01",
-            qapApprovingAuthority: "RDSO",
-            qapValidityDate: "2025-01-14",
-            selectedPadTypes: ["6.00mm GRSP", "10.00mm GRSP"],
-            productParams: {
-                "6.00mm GRSP": {
-                    minMixTime: "10", maxMixTime: "15",
-                    minMixTemp: "80", maxMixTemp: "90",
-                    mixWeight: "25",
-                    minCureTime: "20", maxCureTime: "25",
-                    minCureTemp: "150", maxCureTemp: "160",
-                    minCurePress: "120", maxCurePress: "130"
-                },
-                "10.00mm GRSP": {
-                    minMixTime: "12", maxMixTime: "18",
-                    minMixTemp: "85", maxMixTemp: "95",
-                    mixWeight: "30",
-                    minCureTime: "22", maxCureTime: "28",
-                    minCureTemp: "155", maxCureTemp: "165",
-                    minCurePress: "125", maxCurePress: "135"
-                }
-            },
-            status: "Verified & Locked"
-        }
-    ]);
+    useEffect(() => {
+        fetchAllData();
+    }, []);
 
     const tabs = [
         { id: 'plant-setup', title: 'Plant Set Up', subtitle: 'General information' },
@@ -124,15 +69,15 @@ const PlantDeclarationDashboard = () => {
     const renderContent = () => {
         switch (selectedTab) {
             case 'plant-setup':
-                return <PlantSetup entries={plantEntries} setEntries={setPlantEntries} />;
+                return <PlantSetup entries={plantEntries} setEntries={setPlantEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
             case 'raw-material':
-                return <RawMaterialSource entries={materialEntries} setEntries={setMaterialEntries} />;
+                return <RawMaterialSource entries={materialEntries} setEntries={setMaterialEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
             case 'product-recipe':
-                return <ProductRecipe entries={recipeEntries} setEntries={setRecipeEntries} />;
+                return <ProductRecipe entries={recipeEntries} setEntries={setRecipeEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
             case 'approved-ash':
-                return <ApprovedAshSG entries={ashEntries} setEntries={setAshEntries} />;
+                return <ApprovedAshSG entries={ashEntries} setEntries={setAshEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
             case 'approved-qap':
-                return <ApprovedQAP entries={qapEntries} setEntries={setQapEntries} />;
+                return <ApprovedQAP entries={qapEntries} setEntries={setQapEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
             default:
                 return null;
         }
@@ -143,8 +88,8 @@ const PlantDeclarationDashboard = () => {
             <div className="ie-tab-row" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '10px',
-                marginBottom: '32px'
+                gap: '16px',
+                marginBottom: '24px'
             }}>
                 {tabs.map(tab => (
                     <div

@@ -6,6 +6,7 @@ const Sidebar = ({ activeItem, onItemClick, isOpen, expanded, onMouseEnter, onMo
             label: 'Rail Pad Vendor',
             items: [
                 { id: 'Vendor', label: 'Dashboard', icon: 'RP' },
+                { id: 'PlantDeclaration', label: 'Plant Declaration', icon: 'PD' },
             ]
         }
     ];

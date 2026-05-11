@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { productionDeclarationService } from '../../../services/productionDeclarationService';
 
 const PRODUCT_TYPES = [
     "6.00mm GRSP",
@@ -16,50 +17,63 @@ const ProductionDeclarationDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const [declarations, setDeclarations] = useState([
-        {
-            id: 1,
-            date: "2024-03-20",
-            shift: "Shift A",
-            lineId: "PL-01",
-            productBlocks: [
-                {
-                    id: 101,
-                    productType: "6.20mm CGRSP",
-                    mode: "Pieces",
-                    batches: [{ id: 102, batchNo: '', compoundABatchNo: 'A-123', compoundBBatchNo: 'B-456', initialWeight: '150.5', finalWeight: '148.2', qty: '4500' }]
-                }
-            ],
-            products: [
-                { type: "6.20mm CGRSP", qty: 4500, unit: "Pieces" }
-            ],
-            status: "Verified"
-        },
-        {
-            id: 2,
-            date: "2024-03-21",
-            shift: "Shift B",
-            lineId: "PL-02",
-            productBlocks: [
-                {
-                    id: 201,
-                    productType: "10.00mm GRSP",
-                    mode: "Sets",
-                    batches: [{ id: 202, batchNo: 'B-789', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '200', finalWeight: '198', qty: '2100' }]
-                }
-            ],
-            products: [
-                { type: "10.00mm GRSP", qty: 2100, unit: "Sets" }
-            ],
-            status: "Pending"
+    const [declarations, setDeclarations] = useState([]);
+
+    const getLatestUserAndPlant = () => {
+        let userInfo = { vendorName: "", vendorCode: "", userId: "1" };
+        const railpadUser = localStorage.getItem('railpad_user');
+        
+        if (railpadUser && railpadUser !== "undefined") {
+            try { 
+                userInfo = JSON.parse(railpadUser); 
+            } catch (e) { console.error(e); }
+        } else {
+            const rpVName = localStorage.getItem('railpad_vendorName');
+            const rpVCode = localStorage.getItem('railpad_vendorCode');
+            const rpUId = localStorage.getItem('railpad_userId');
+
+            const vName = localStorage.getItem('vendorName');
+            const uName = localStorage.getItem('userName');
+            const vCode = localStorage.getItem('vendorCode') || localStorage.getItem('vendor_code') || uName;
+            const uId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+
+            userInfo = {
+                vendorName: rpVName || vName || (uName && !uName.startsWith(':') ? uName : ""),
+                vendorCode: rpVCode || vCode || "",
+                userId: rpUId || uId || "1"
+            };
         }
-    ]);
+
+        let plantInfo = { plantId: "1", plantName: "Default" };
+        const plantStr = localStorage.getItem('selectedRailPlant') || localStorage.getItem('railpad_selectedPlant');
+        const rpPlantId = localStorage.getItem('railpad_selectedPlantId') || localStorage.getItem('plantId') || localStorage.getItem('selectedPlantId');
+
+        if (plantStr && plantStr !== "undefined") {
+            try { 
+                plantInfo = JSON.parse(plantStr); 
+            } catch (e) { 
+                console.error("Error parsing plantStr:", e);
+                if (typeof plantStr === 'string' && plantStr.length > 1) {
+                    plantInfo = { plantId: plantStr, plantName: "Selected Plant" };
+                }
+            }
+        } else if (rpPlantId && rpPlantId !== "undefined") {
+            plantInfo = { 
+                plantId: rpPlantId, 
+                plantName: localStorage.getItem('railpad_selectedPlantName') || localStorage.getItem('plantName') || "Default" 
+            };
+        }
+
+        return { user: userInfo, plant: plantInfo };
+    };
 
     const initialFormState = {
-        date: new Date().toISOString().split('T')[0],
+        productionDate: new Date().toISOString().split('T')[0],
         shift: '',
-        lineId: '',
+        productionLine: '',
         productBlocks: [
             {
                 id: Date.now(),
@@ -72,7 +86,25 @@ const ProductionDeclarationDashboard = () => {
 
     const [formData, setFormData] = useState(initialFormState);
 
-    const isComposite = (type) => type && type.includes('CGRSP');
+    const fetchAllData = async () => {
+        setIsLoading(true);
+        try {
+            const { plant } = getLatestUserAndPlant();
+            const res = await productionDeclarationService.getByPlantId(plant.plantId);
+            const actualData = res?.responseData || (Array.isArray(res) ? res : []);
+            setDeclarations(actualData);
+        } catch (error) {
+            console.error('Error fetching declarations:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAllData();
+    }, []);
+
+    const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
 
     const handleAddProductBlock = () => {
         setFormData(prev => ({
@@ -86,10 +118,10 @@ const ProductionDeclarationDashboard = () => {
         }));
     };
 
-    const handleRemoveProductBlock = (blockId) => {
+    const handleRemoveProductBlock = (id) => {
         setFormData(prev => ({
             ...prev,
-            productBlocks: prev.productBlocks.filter(b => b.id !== blockId)
+            productBlocks: prev.productBlocks.filter(b => b.id !== id)
         }));
     };
 
@@ -115,12 +147,10 @@ const ProductionDeclarationDashboard = () => {
         }));
     };
 
-    const handleBlockChange = (blockId, field, value) => {
+    const handleBlockChange = (id, field, value) => {
         setFormData(prev => ({
             ...prev,
-            productBlocks: prev.productBlocks.map(block => 
-                block.id === blockId ? { ...block, [field]: value } : block
-            )
+            productBlocks: prev.productBlocks.map(block => block.id === id ? { ...block, [field]: value } : block)
         }));
     };
 
@@ -149,34 +179,45 @@ const ProductionDeclarationDashboard = () => {
         return Object.entries(result);
     }, [formData.productBlocks]);
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if(window.confirm('Are you sure you want to delete this declaration?')) {
-            setDeclarations(declarations.filter(d => d.id !== id));
+            try {
+                await productionDeclarationService.delete(id);
+                fetchAllData();
+            } catch (error) {
+                alert('Error deleting: ' + error.message);
+            }
         }
     };
 
     const handleEdit = (decl) => {
-        setFormData({
-            date: decl.date,
-            shift: decl.shift,
-            lineId: decl.lineId,
-            productBlocks: decl.productBlocks
-        });
         setEditingId(decl.id);
         setIsReadOnly(false);
+        setFormData({
+            productionDate: decl.productionDate,
+            shift: decl.shift,
+            productionLine: decl.productionLine,
+            productBlocks: (decl.products || []).map(p => ({
+                id: p.id,
+                productType: p.productType,
+                mode: p.measurementMode,
+                batches: (p.batches || []).map(b => ({
+                    id: b.id,
+                    batchNo: b.batchNo || '',
+                    compoundABatchNo: b.compABatch || '',
+                    compoundBBatchNo: b.compBBatch || '',
+                    initialWeight: b.initialWt || '',
+                    finalWeight: b.finalWt || '',
+                    qty: b.quantity || ''
+                }))
+            }))
+        });
         setIsModalOpen(true);
     };
 
     const handleView = (decl) => {
-        setFormData({
-            date: decl.date,
-            shift: decl.shift,
-            lineId: decl.lineId,
-            productBlocks: decl.productBlocks
-        });
-        setEditingId(decl.id);
+        handleEdit(decl);
         setIsReadOnly(true);
-        setIsModalOpen(true);
     };
 
     const openNewModal = () => {
@@ -186,29 +227,66 @@ const ProductionDeclarationDashboard = () => {
         setIsModalOpen(true);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const newDeclaration = {
-            id: editingId || Date.now(),
-            ...formData,
-            status: 'Pending',
-            products: summary.map(([type, data]) => ({ type, qty: data.qty, unit: data.mode }))
-        };
+        setIsSaving(true);
+        try {
+            const { user, plant } = getLatestUserAndPlant();
 
-        if (editingId) {
-            setDeclarations(declarations.map(d => d.id === editingId ? newDeclaration : d));
-        } else {
-            setDeclarations([newDeclaration, ...declarations]);
+            const payload = {
+                productionDate: formData.productionDate,
+                shift: formData.shift,
+                productionLine: formData.productionLine,
+                vendorName: user.vendorName,
+                vendorCode: user.vendorCode,
+                plantId: plant.plantId,
+                createdBy: user.userId,
+                updatedBy: user.userId,
+                products: formData.productBlocks.map(block => ({
+                    productType: block.productType,
+                    measurementMode: block.mode,
+                    batches: block.batches.map(batch => ({
+                        batchNo: batch.batchNo,
+                        compABatch: batch.compoundABatchNo,
+                        compBBatch: batch.compoundBBatchNo,
+                        initialWt: batch.initialWeight ? parseFloat(batch.initialWeight) : null,
+                        finalWt: batch.finalWeight ? parseFloat(batch.finalWeight) : null,
+                        quantity: parseInt(batch.qty) || 0
+                    }))
+                }))
+            };
+
+            if (editingId) {
+                await productionDeclarationService.update(editingId, payload);
+            } else {
+                await productionDeclarationService.create(payload);
+            }
+            
+            setIsModalOpen(false);
+            fetchAllData();
+            setEditingId(null);
+        } catch (error) {
+            alert('Error saving: ' + error.message);
+        } finally {
+            setIsSaving(false);
         }
-        
-        setIsModalOpen(false);
-        setFormData(initialFormState);
-        setEditingId(null);
     };
 
-    const filteredDeclarations = declarations.filter(d => 
-        activeTab === 'pending' ? d.status === 'Pending' : d.status === 'Verified'
-    );
+    const filteredDeclarations = declarations.filter(d => {
+        const status = (d.status || '').toUpperCase();
+        const isVerified = status === 'VERIFIED' || status === 'APPROVED';
+        return activeTab === 'pending' ? !isVerified : isVerified;
+    });
+
+    const getPendingCount = () => declarations.filter(d => {
+        const status = (d.status || '').toUpperCase();
+        return status !== 'VERIFIED' && status !== 'APPROVED';
+    }).length;
+
+    const getVerifiedCount = () => declarations.filter(d => {
+        const status = (d.status || '').toUpperCase();
+        return status === 'VERIFIED' || status === 'APPROVED';
+    }).length;
 
     return (
         <div className="fade-in railpad-container" style={{ padding: 0 }}>
@@ -232,11 +310,11 @@ const ProductionDeclarationDashboard = () => {
             <div className="grid-container" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', background: 'transparent', border: 'none', padding: 0, marginBottom: '24px' }}>
                 <div className={`ie-tab-card ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>
                     <h3 className="ie-tab-title">Pending Production Verification</h3>
-                    <p className="ie-tab-subtitle">{declarations.filter(d => d.status === 'Pending').length} Declarations Awaiting Audit</p>
+                    <p className="ie-tab-subtitle">{getPendingCount()} Declarations Awaiting Audit</p>
                 </div>
                 <div className={`ie-tab-card ${activeTab === 'verified' ? 'active' : ''}`} onClick={() => setActiveTab('verified')}>
                     <h3 className="ie-tab-title">Verified Production</h3>
-                    <p className="ie-tab-subtitle">{declarations.filter(d => d.status === 'Verified').length} Locked Records</p>
+                    <p className="ie-tab-subtitle">{getVerifiedCount()} Locked Records</p>
                 </div>
             </div>
 
@@ -245,42 +323,43 @@ const ProductionDeclarationDashboard = () => {
                 <table>
                     <thead>
                         <tr>
-                            <th>Date & Shift</th>
-                            <th>Line ID</th>
-                            <th>Product Details</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: 'right' }}>Actions</th>
+                            <th style={{ width: '20%', fontSize: '13px' }}>Date & Shift</th>
+                            <th style={{ width: '15%', fontSize: '13px' }}>Line ID</th>
+                            <th style={{ width: '30%', fontSize: '13px' }}>Product Details</th>
+                            <th style={{ width: '15%', textAlign: 'center', fontSize: '13px' }}>Status</th>
+                            <th style={{ width: '20%', textAlign: 'center', fontSize: '13px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredDeclarations.map(decl => (
                             <tr key={decl.id}>
                                 <td>
-                                    <div style={{ fontWeight: '800', color: 'var(--text-main)' }}>{decl.date}</div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>{decl.shift}</div>
+                                    <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '14px' }}>{decl.productionDate}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', marginTop: '4px' }}>{decl.shift}</div>
                                 </td>
-                                <td><span style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{decl.lineId}</span></td>
+                                <td><span style={{ fontWeight: '700', color: 'var(--primary-color)', fontSize: '14px' }}>{decl.productionLine}</span></td>
                                 <td>
-                                    {decl.products.map((p, i) => (
-                                        <div key={i} style={{ fontSize: '12px', marginBottom: '4px' }}>
-                                            <span style={{ fontWeight: '700' }}>{p.type}:</span> {p.qty.toLocaleString()} {p.unit}
+                                    {decl.products?.map((p, i) => (
+                                        <div key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>
+                                            <span style={{ fontWeight: '700' }}>{p.productType}:</span> {p.batches?.reduce((sum, b) => sum + (b.quantity || 0), 0).toLocaleString()} {p.measurementMode}
                                         </div>
                                     ))}
                                 </td>
-                                <td>
-                                    <span className={`badge ${decl.status === 'Verified' ? 'badge-verified' : 'badge-pending'}`}>
+                                <td style={{ textAlign: 'center' }}>
+                                    <span className={`badge ${decl.status === 'VERIFIED' || decl.status === 'APPROVED' ? 'badge-verified' : 'badge-pending'}`} style={{ margin: 0, fontSize: '12px', padding: '6px 12px' }}>
                                         {decl.status}
                                     </span>
                                 </td>
-                                <td style={{ textAlign: 'right' }}>
-                                    {decl.status === 'Pending' ? (
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button className="btn-secondary" onClick={() => handleEdit(decl)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>Edit</button>
-                                            <button className="btn-secondary" onClick={() => handleDelete(decl.id)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px', color: '#ef4444', borderColor: '#fee2e2' }}>Delete</button>
-                                        </div>
-                                    ) : (
-                                        <button className="btn-secondary" onClick={() => handleView(decl)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>View Details</button>
-                                    )}
+                                <td style={{ textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                        <button className="btn-secondary" onClick={() => handleView(decl)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px' }}>View</button>
+                                        {(decl.status || '').toUpperCase() !== 'VERIFIED' && (decl.status || '').toUpperCase() !== 'APPROVED' && (
+                                            <>
+                                                <button className="btn-secondary" onClick={() => handleEdit(decl)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px' }}>Edit</button>
+                                                <button className="btn-secondary" onClick={() => handleDelete(decl.id)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px', color: '#ef4444', borderColor: '#fee2e2' }}>Delete</button>
+                                            </>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -309,7 +388,7 @@ const ProductionDeclarationDashboard = () => {
                                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Date of Production</label>
-                                        <input type="date" className="form-input" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} required disabled={isReadOnly} />
+                                        <input type="date" className="form-input" value={formData.productionDate} onChange={(e) => setFormData({...formData, productionDate: e.target.value})} required disabled={isReadOnly} />
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Shift</label>
@@ -320,7 +399,7 @@ const ProductionDeclarationDashboard = () => {
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Production Line ID</label>
-                                        <select className="form-select" value={formData.lineId} onChange={(e) => setFormData({...formData, lineId: e.target.value})} required disabled={isReadOnly}>
+                                        <select className="form-select" value={formData.productionLine} onChange={(e) => setFormData({...formData, productionLine: e.target.value})} required disabled={isReadOnly}>
                                             <option value="">Select Line</option>
                                             <option value="PL-01">PL-01 (Main Line)</option>
                                             <option value="PL-02">PL-02 (Secondary)</option>
