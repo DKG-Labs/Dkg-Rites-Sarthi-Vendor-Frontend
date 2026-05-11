@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../../styles/RailPadVendor.css';
 import PlantDeclarationDashboard from './PlantDeclaration/PlantDeclarationDashboard';
 import InventoryManagementDashboard from './InventoryManagement/InventoryManagementDashboard';
@@ -7,10 +7,14 @@ import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
 
 const RailPadVendorDashboard = () => {
     const [selectedModule, setSelectedModule] = useState(() => {
-        return localStorage.getItem('railpad_selectedModule') || 'inventory-management';
+        return localStorage.getItem('railpad_selectedModule') || 'po-assigned';
     });
 
-    React.useEffect(() => {
+    const vendorName = localStorage.getItem('railpad_vendorName') || 'RailPad Vendor';
+    const plantName = localStorage.getItem('railpad_selectedPlantName');
+    const plantId = localStorage.getItem('railpad_selectedPlantId');
+
+    useEffect(() => {
         localStorage.setItem('railpad_selectedModule', selectedModule);
     }, [selectedModule]);
 
@@ -50,18 +54,47 @@ const RailPadVendorDashboard = () => {
     return (
         <div className="railpad-container" style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
             <header style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <span style={{ 
+                                background: '#e0f2fe', 
+                                color: '#0369a1', 
+                                padding: '4px 12px', 
+                                borderRadius: '20px', 
+                                fontSize: '12px', 
+                                fontWeight: '700',
+                                border: '1px solid #bae6fd'
+                            }}>
+                                🏢 {vendorName}
+                            </span>
+                            {plantName && (
+                                <span style={{ 
+                                    background: '#f0fdf4', 
+                                    color: '#166534', 
+                                    padding: '4px 12px', 
+                                    borderRadius: '20px', 
+                                    fontSize: '12px', 
+                                    fontWeight: '700',
+                                    border: '1px solid #bbf7d0'
+                                }}>
+                                    📍 {plantName} {plantId ? `(${plantId})` : ''}
+                                </span>
+                            )}
+                        </div>
                         <h1 style={{
                             fontSize: '32px',
                             fontWeight: '800',
                             color: '#0f172a',
-                            letterSpacing: '-0.025em'
+                            letterSpacing: '-0.025em',
+                            margin: 0
                         }}>
                             Rail-Pad Vendor Dashboard
                         </h1>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
-                            Quality assurance and production management system
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '14px', fontWeight: '500' }}>
+                            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
                     </div>
                 </div>

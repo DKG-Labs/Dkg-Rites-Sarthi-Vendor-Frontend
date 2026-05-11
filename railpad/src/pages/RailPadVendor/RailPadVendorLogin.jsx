@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { loginUser, storeAuthData } from '../../services/authService.js';
+import { plantMappingService } from '../../services/plantMappingService.js';
 
-const RailPadVendorLogin = ({ onLogin }) => {
+const RailPadVendorLogin = ({ onLogin, onPlantsFetched }) => {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -8,23 +10,24 @@ const RailPadVendorLogin = ({ onLogin }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            // 1. Real Login
+            const userData = await loginUser(formData.username, formData.password, 'VENDOR');
+            storeAuthData(userData, formData.username);
+
+            // Login successful, proceed to app
+            onLogin();
+        } catch (err) {
+            console.error('Login failed:', err);
+            setError(err.message || 'Invalid username or password');
+        } finally {
             setIsLoading(false);
-            if (formData.username === 'RailPad' && formData.password === 'password') {
-                localStorage.setItem('railpad_userId', '999');
-                localStorage.setItem('railpad_userName', 'RailPad Vendor');
-                localStorage.setItem('railpad_token', 'mock-token');
-                onLogin();
-            } else {
-                setError('Invalid username or password');
-            }
-        }, 1000);
+        }
     };
 
     return (
@@ -93,10 +96,11 @@ const RailPadVendorLogin = ({ onLogin }) => {
                             border: 'none',
                             fontSize: '1rem',
                             fontWeight: '700',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            opacity: isLoading ? 0.7 : 1
                         }}
                     >
-                        {isLoading ? 'Signing in...' : 'Sign In'}
+                        {isLoading ? 'Processing...' : 'Sign In'}
                     </button>
                 </form>
             </div>

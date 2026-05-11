@@ -1,7 +1,22 @@
 import React, { useState } from 'react';
+import { approvedAshSGService } from '../../../services/approvedAshSGService';
 
-const ApprovedAshSG = ({ entries, setEntries }) => {
+const ApprovedAshSG = ({ entries, setEntries, onRefresh, isLoading }) => {
+    const user = (() => {
+        const vName = localStorage.getItem('railpad_vendorName');
+        const vCode = localStorage.getItem('railpad_vendorCode');
+        const uId = localStorage.getItem('railpad_userId');
+
+        return {
+            vendorName: vName || "",
+            vendorCode: vCode || "",
+            userId: uId || "1"
+        };
+    })();
+
+    const [isSaving, setIsSaving] = useState(false);
     const [view, setView] = useState('list');
+    const [statusTab, setStatusTab] = useState('PENDING');
     const [padType, setPadType] = useState('');
     const [formData, setFormData] = useState({
         ashA: '', ashB: '', sgA: '', sgB: '', refNo: '', date: ''
@@ -9,6 +24,20 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
     const [errors, setErrors] = useState({});
     const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
+
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
+
+    const filteredEntries = (entries || []).filter(entry => {
+        if (statusTab === 'PENDING') {
+            return pendingStatuses.includes(entry.status);
+        } else {
+            return verifiedStatuses.includes(entry.status);
+        }
+    });
+
+    const pendingCount = (entries || []).filter(e => pendingStatuses.includes(e.status)).length;
+    const verifiedCount = (entries || []).filter(e => verifiedStatuses.includes(e.status)).length;
 
     const padTypes = ["6.00mm GRSP", "10.00mm GRSP", "6.20mm CGRSP", "10.00mm CGRSP", "6.00mm NCRGRSP", "10.00mm NCRGRSP"];
 
@@ -42,59 +71,67 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
     const handleEdit = (entry) => {
         setEditingEntry(entry);
         setPadType(entry.padType);
-
-        // Reconstruct form data from display strings if necessary, 
-        // or better yet, store the raw values in the entry.
-        if (entry.rawValues) {
-            setFormData(entry.rawValues);
-        } else {
-            // Fallback for existing entries
-            const ashVals = entry.ash.split(' / ');
-            const sgVals = entry.sg.split(' / ');
-            setFormData({
-                ashA: ashVals[0]?.replace('%', '') || '',
-                ashB: ashVals[1]?.replace('%', '') || '',
-                sgA: sgVals[0] || '',
-                sgB: sgVals[1] || '',
-                refNo: entry.refNo,
-                date: entry.date
-            });
-        }
+        setFormData({
+            ashA: entry.ashContentA || '',
+            ashB: entry.ashContentB || '',
+            sgA: entry.specificGravityA || '',
+            sgB: entry.specificGravityB || '',
+            refNo: entry.approvalRefNo || '',
+            date: entry.approvalDate || ''
+        });
         setView('form');
     };
 
-    const handleSubmit = (e) => {
+    const handleDelete = async (id) => {
+        if (window.confirm('Are you sure you want to delete this baseline?')) {
+            try {
+                await approvedAshSGService.delete(id);
+                onRefresh();
+            } catch (error) {
+                alert('Error deleting entry: ' + error.message);
+            }
+        }
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (Object.keys(errors).length === 0) {
-            const entryIsCGRSP = isCGRSP(padType);
-            const entryData = {
-                padType: padType,
-                ash: entryIsCGRSP ? `${formData.ashA}% / ${formData.ashB}%` : `${formData.ashA}%`,
-                sg: entryIsCGRSP ? `${formData.sgA} / ${formData.sgB}` : formData.sgA,
-                refNo: formData.refNo,
-                date: formData.date,
-                rawValues: { ...formData },
-                status: "Pending Verification"
-            };
-
-            if (editingEntry) {
-                const updatedEntries = entries.map(entry =>
-                    entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
-                );
-                setEntries(updatedEntries);
-                setEditingEntry(null);
-            } else {
-                const newEntry = {
-                    id: Date.now(),
-                    ...entryData
+            setIsSaving(true);
+            try {
+                const plantId = localStorage.getItem('railpad_selectedPlantId');
+                const payload = {
+                    vendorName: user?.vendorName || "",
+                    vendorCode: user?.vendorCode || "",
+                    plantId: plantId || "1",
+                    shift: "General",
+                    padType: padType,
+                    ashContentA: parseFloat(formData.ashA),
+                    specificGravityA: parseFloat(formData.sgA),
+                    ashContentB: formData.ashB ? parseFloat(formData.ashB) : null,
+                    specificGravityB: formData.sgB ? parseFloat(formData.sgB) : null,
+                    approvalRefNo: formData.refNo,
+                    approvalDate: formData.date,
+                    status: "PENDING",
+                    createdBy: user?.userId || 1,
+                    updatedBy: user?.userId || 1
                 };
-                setEntries([...entries, newEntry]);
-            }
 
-            setView('list');
-            // Reset form
-            setPadType('');
-            setFormData({ ashA: '', ashB: '', sgA: '', sgB: '', refNo: '', date: '' });
+                if (editingEntry) {
+                    await approvedAshSGService.update(editingEntry.id, payload);
+                } else {
+                    await approvedAshSGService.create(payload);
+                }
+
+                onRefresh();
+                setView('list');
+                setPadType('');
+                setFormData({ ashA: '', ashB: '', sgA: '', sgB: '', refNo: '', date: '' });
+                setEditingEntry(null);
+            } catch (error) {
+                alert('Error saving entry: ' + error.message);
+            } finally {
+                setIsSaving(false);
+            }
         }
     };
 
@@ -113,65 +150,97 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
                 )}
             </div>
 
-            {view === 'list' ? (
-                <div className="table-container fade-in">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Rail Pad Type</th>
-                                <th>Appr. Ash (%)</th>
-                                <th>Appr. S.G.</th>
-                                <th>Approval Reference</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th style={{ textAlign: 'right' }}>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {entries.map(entry => (
-                                <tr key={entry.id}>
-                                    <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{entry.padType}</td>
-                                    <td>{entry.ash}</td>
-                                    <td>{entry.sg}</td>
-                                    <td>{entry.refNo}</td>
-                                    <td>{entry.date}</td>
-                                    <td>
-                                        <span className={`badge ${entry.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'}`}>
-                                            {entry.status}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            {(entry.status === 'Pending Verification' || entry.status === 'Unlocked for Modification') && (
-                                                <button
-                                                    onClick={() => handleEdit(entry)}
-                                                    style={{
-                                                        padding: '4px 10px',
-                                                        fontSize: '11px',
-                                                        background: 'rgba(66, 129, 140, 0.1)',
-                                                        color: 'var(--primary-color)',
-                                                        border: '1px solid var(--primary-color)',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer',
-                                                        fontWeight: '700'
-                                                    }}
-                                                >
-                                                    Modify
-                                                </button>
-                                            )}
-                                            <button
-                                                className="btn-secondary"
-                                                style={{ padding: '0.4rem 1rem', fontSize: '11px' }}
-                                                onClick={() => { setSelectedEntry(entry); setView('details'); }}
-                                            >
-                                                Details
-                                            </button>
-                                        </div>
-                                    </td>
+            {isLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div className="spinner"></div>
+                    <p>Loading baseline entries...</p>
+                </div>
+            ) : view === 'list' ? (
+                <div className="fade-in">
+                    <div className="status-tabs-row">
+                        <button 
+                            onClick={() => setStatusTab('PENDING')}
+                            className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}
+                        >
+                            <span className="dot pending"></span>
+                            Pending Verification
+                            <span className="count-badge">{pendingCount}</span>
+                        </button>
+                        <button 
+                            onClick={() => setStatusTab('COMPLETED')}
+                            className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}
+                        >
+                            <span className="dot success"></span>
+                            Verified Baselines
+                            <span className="count-badge">{verifiedCount}</span>
+                        </button>
+                    </div>
+
+                    <div className="table-container fade-in">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Rail Pad Type</th>
+                                    <th>Appr. Ash (%)</th>
+                                    <th>Appr. S.G.</th>
+                                    <th>Reference No.</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th style={{ textAlign: 'center' }}>Action</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filteredEntries.length > 0 ? (
+                                    filteredEntries.map(entry => (
+                                        <tr key={entry.id}>
+                                            <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{entry.padType}</td>
+                                            <td>
+                                                {entry.ashContentA}%
+                                                {isCGRSP(entry.padType) && entry.ashContentB && ` / ${entry.ashContentB}%`}
+                                            </td>
+                                            <td>
+                                                {entry.specificGravityA}
+                                                {isCGRSP(entry.padType) && entry.specificGravityB && ` / ${entry.specificGravityB}`}
+                                            </td>
+                                            <td>{entry.approvalRefNo}</td>
+                                            <td>{entry.approvalDate}</td>
+                                            <td>
+                                                <span className={`badge ${verifiedStatuses.includes(entry.status) ? 'badge-verified' : 'badge-pending'}`}>
+                                                    {entry.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <div className="action-buttons-group" style={{ justifyContent: 'center' }}>
+                                                    <button onClick={() => { setSelectedEntry(entry); setView('details'); }} className="btn-icon-action view">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                        Details
+                                                    </button>
+                                                    {pendingStatuses.includes(entry.status) && (
+                                                        <>
+                                                            <button onClick={() => handleEdit(entry)} className="btn-icon-action edit">
+                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                                                Edit
+                                                            </button>
+                                                            <button onClick={() => handleDelete(entry.id)} className="btn-icon-action delete">
+                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                                                Delete
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                            No {statusTab === 'PENDING' ? 'pending' : 'verified'} entries found for this plant.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ) : view === 'form' ? (
                 <div className="form-container fade-in">
@@ -183,41 +252,40 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group" style={{ maxWidth: '400px', marginBottom: '24px' }}>
-                            <label className="form-label">Rail Pad Type Selection</label>
-                            <select className="form-select" value={padType} onChange={(e) => setPadType(e.target.value)} required >
-                                <option value="">Select Type</option>
-                                {padTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                            <div className="form-group">
+                                <label className="form-label">Rail Pad Type Selection</label>
+                                <select className="form-select" value={padType} onChange={(e) => setPadType(e.target.value)} required >
+                                    <option value="">Select Type</option>
+                                    {padTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
                         </div>
 
                         {padType && (
-                            <div style={{ background: 'var(--accent-bg)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(66, 129, 140, 0.15)', marginTop: '24px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Baseline Details {isCGRSP(padType) ? '(Dual Layer Compounds)' : ''}
-                                </div>
-                                <div className="form-grid">
+                            <div style={{ marginTop: '24px' }}>
+                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                                     <div className="form-group">
-                                        <label className="form-label">Appr. Ash Content {isCGRSP(padType) ? '(A-Hard Side)' : '(%)'}</label>
+                                        <label className="form-label">Appr. Ash Content {isCGRSP(padType) ? '(A-Hard Side) (%)' : '(%)'}</label>
                                         <input type="number" step="0.01" className="form-input" value={formData.ashA} onChange={(e) => handleFieldChange('ashA', e.target.value)} required />
-                                        {errors.ashA && <div className="error-msg">{errors.ashA}</div>}
+                                        {errors.ashA && <div className="error-msg-sm">{errors.ashA}</div>}
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Appr. Specific Gravity {isCGRSP(padType) ? '(A)' : ''}</label>
                                         <input type="number" step="0.01" className="form-input" value={formData.sgA} onChange={(e) => handleFieldChange('sgA', e.target.value)} required />
-                                        {errors.sgA && <div className="error-msg">{errors.sgA}</div>}
+                                        {errors.sgA && <div className="error-msg-sm">{errors.sgA}</div>}
                                     </div>
                                     {isCGRSP(padType) && (
                                         <>
                                             <div className="form-group">
-                                                <label className="form-label">Appr. Ash Content (B-Soft Side)</label>
+                                                <label className="form-label">Appr. Ash Content (B-Soft Side) (%)</label>
                                                 <input type="number" step="0.01" className="form-input" value={formData.ashB} onChange={(e) => handleFieldChange('ashB', e.target.value)} required />
-                                                {errors.ashB && <div className="error-msg">{errors.ashB}</div>}
+                                                {errors.ashB && <div className="error-msg-sm">{errors.ashB}</div>}
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">Appr. Specific Gravity (B)</label>
                                                 <input type="number" step="0.01" className="form-input" value={formData.sgB} onChange={(e) => handleFieldChange('sgB', e.target.value)} required />
-                                                {errors.sgB && <div className="error-msg">{errors.sgB}</div>}
+                                                {errors.sgB && <div className="error-msg-sm">{errors.sgB}</div>}
                                             </div>
                                         </>
                                     )}
@@ -233,9 +301,9 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
                             </div>
                         )}
 
-                        <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button type="submit" className="btn-primary" disabled={Object.keys(errors).length > 0 || !padType} style={{ padding: '0.8rem 3rem', opacity: (Object.keys(errors).length > 0 || !padType) ? 0.5 : 1 }}>
-                                {editingEntry ? 'Update Baseline' : 'Submit Baseline'}
+                        <div className="form-actions">
+                            <button type="submit" className="btn-primary" disabled={Object.keys(errors).length > 0 || !padType || isSaving}>
+                                {isSaving ? 'Saving...' : (editingEntry ? 'Update Baseline' : 'Submit Baseline')}
                             </button>
                         </div>
                     </form>
@@ -250,54 +318,83 @@ const ApprovedAshSG = ({ entries, setEntries }) => {
                         <button className="btn-secondary" onClick={() => setView('list')} style={{ padding: '0.5rem 1.5rem', fontWeight: '700' }}>Back to List</button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px', padding: '20px', background: 'var(--accent-bg)', borderRadius: '12px' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '700' }}>Rail Pad Type</label>
-                            <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.padType}</div>
+                <div className="details-card fade-in">
+                    <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--primary-color)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ background: 'var(--primary-color)', color: '#fff', width: '20px', height: '20px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>1</span>
+                        Identification & Status
+                    </div>
+                    <div className="info-grid">
+                        <div className="info-item">
+                            <div className="info-label">Rail Pad Type</div>
+                            <div className="info-value">{selectedEntry?.padType}</div>
                         </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '700' }}>Current Status</label>
-                            <span className={`badge ${selectedEntry?.status === 'Verified & Locked' ? 'badge-verified' : 'badge-pending'}`}>
-                                {selectedEntry?.status}
-                            </span>
+                        <div className="info-item">
+                            <div className="info-label">Current Status</div>
+                            <div className="info-value">
+                                <span className={`badge ${verifiedStatuses.includes(selectedEntry?.status) ? 'badge-verified' : 'badge-pending'}`}>
+                                    {selectedEntry?.status}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="info-item">
+                            <div className="info-label">Approval Reference</div>
+                            <div className="info-value">{selectedEntry?.approvalRefNo}</div>
+                        </div>
+                        <div className="info-item">
+                            <div className="info-label">Approval Date</div>
+                            <div className="info-value">{selectedEntry?.approvalDate}</div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                        <div style={{ background: 'rgba(66, 129, 140, 0.03)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(66, 129, 140, 0.1)' }}>
-                            <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '20px', marginTop: 0 }}>Approved Values</h4>
+                    <div className="section-divider"></div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Approved Ash (%)</label>
-                                    <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>{selectedEntry?.ash}</div>
+                    <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--primary-color)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ background: 'var(--primary-color)', color: '#fff', width: '20px', height: '20px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>2</span>
+                        Approved Parameters
+                    </div>
+
+                    <div className="params-grid">
+                        <div className="param-box">
+                            <div className="param-box-header">
+                                <span>📉</span>
+                                <h4>Approved Ash Content</h4>
+                            </div>
+                            <div style={{ padding: '16px 0' }}>
+                                <div style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                                    {selectedEntry?.ashContentA}%
+                                    {isCGRSP(selectedEntry?.padType) && selectedEntry?.ashContentB && (
+                                        <span style={{ color: 'var(--primary-color)', marginLeft: '8px' }}>/ {selectedEntry?.ashContentB}%</span>
+                                    )}
                                 </div>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Approved Specific Gravity</label>
-                                    <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>{selectedEntry?.sg}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                    {isCGRSP(selectedEntry?.padType) ? 'A-Side / B-Side Ash Content' : 'Approved Ash Content Percentage'}
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                            <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '20px', marginTop: 0 }}>Reference Details</h4>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Approval Reference</label>
-                                    <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.refNo}</div>
+                        <div className="param-box">
+                            <div className="param-box-header">
+                                <span>⚖️</span>
+                                <h4>Specific Gravity</h4>
+                            </div>
+                            <div style={{ padding: '16px 0' }}>
+                                <div style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                                    {selectedEntry?.specificGravityA}
+                                    {isCGRSP(selectedEntry?.padType) && selectedEntry?.specificGravityB && (
+                                        <span style={{ color: 'var(--primary-color)', marginLeft: '8px' }}>/ {selectedEntry?.specificGravityB}</span>
+                                    )}
                                 </div>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Approval Date</label>
-                                    <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{selectedEntry?.date}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                    {isCGRSP(selectedEntry?.padType) ? 'A-Side / B-Side S.G.' : 'Approved Specific Gravity Value'}
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
                     {isCGRSP(selectedEntry?.padType) && (
-                        <div style={{ marginTop: '24px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            <i style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: 'var(--text-main)' }}>Note on Multi-Layer Composition:</i>
+                        <div style={{ marginTop: '24px', padding: '16px', background: '#f0f9ff', borderRadius: '12px', border: '1px solid #bae6fd', fontSize: '12px', color: '#0369a1', lineHeight: '1.5' }}>
+                            <strong style={{ display: 'block', marginBottom: '4px' }}>Note on Multi-Layer Composition:</strong>
                             The values shown above are represented as <b>Layer A (Hard) / Layer B (Soft)</b>. For monitoring purposes, individual layer values must be verified against their respective baselines.
                         </div>
                     )}
