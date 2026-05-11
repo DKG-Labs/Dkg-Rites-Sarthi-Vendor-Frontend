@@ -21,7 +21,7 @@ const Header = ({
     if (user?.vendorName) {
       displayName = user.vendorName;
     } else {
-      displayName = activeRole === 'Vendor' ? 'ERC Vendor' : (activeRole || 'Vendor');
+      displayName = activeRole === 'Vendor' ? 'ERC Vendor' : (activeRole === 'Rail Vendor' ? 'Railpad Vendor' : (activeRole || 'Vendor'));
     }
   }
 

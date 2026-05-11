@@ -86,9 +86,9 @@ const App = () => {
     hasRole(activeRole, 'SLEEPER_VENDOR') ||
     (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Sleeper Vendor') || hasRole(user.roleName, 'SLEEPER_VENDOR')));
 
-  const isRailPadRole = hasRole(activeRole, 'Rail Pad Vendor') ||
+  const isRailPadRole = hasRole(activeRole, 'Rail Vendor') ||
     hasRole(activeRole, 'RAILPAD_USER') ||
-    (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Rail Pad Vendor') || hasRole(user.roleName, 'RAILPAD_USER')));
+    (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Rail Vendor') || hasRole(user.roleName, 'RAILPAD_USER')));
 
   return (
     !isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (

@@ -6,6 +6,7 @@ export const API_BASE_URL = isLocal
 
 // For Deployment:
 // export const API_BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
+// export const API_BASE_URL =  "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
 
 export const API_CONFIG = {
     PRODUCTION_DECLARATION: `${API_BASE_URL}/rail-production-declaration`,
