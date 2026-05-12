@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { productionDeclarationService } from '../../../services/productionDeclarationService';
+import { API_CONFIG } from '../../../services/config';
 
 const PRODUCT_TYPES = [
     "6.00mm GRSP",
@@ -17,8 +18,19 @@ const ProductionDeclarationDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [currentEditingStatus, setCurrentEditingStatus] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [notification, setNotification] = useState(null);
+    const [pendingTransitions, setPendingTransitions] = useState([]);
+
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type, fading: false });
+        setTimeout(() => {
+            setNotification(prev => prev ? { ...prev, fading: true } : null);
+            setTimeout(() => setNotification(null), 400);
+        }, 3000);
+    };
 
     const [declarations, setDeclarations] = useState([]);
 
@@ -89,10 +101,24 @@ const ProductionDeclarationDashboard = () => {
     const fetchAllData = async () => {
         setIsLoading(true);
         try {
-            const { plant } = getLatestUserAndPlant();
+            const { plant, user } = getLatestUserAndPlant();
+            
+            // 1. Fetch declarations
             const res = await productionDeclarationService.getByPlantId(plant.plantId);
             const actualData = res?.responseData || (Array.isArray(res) ? res : []);
             setDeclarations(actualData);
+
+            // 2. Fetch pending transitions for workflow mapping
+            const transUrl = `${API_CONFIG.RAILPAD_WORKFLOW}/allPendingWorkflowTransition?roleName=Rail%20Vendor`;
+            const transRes = await fetch(transUrl, {
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            const transData = await transRes.json();
+            if (transData.responseStatus?.statusCode === 0) {
+                const transitions = transData.responseData || [];
+                setPendingTransitions(transitions);
+                console.log(`[Workflow] Found ${transitions.length} pending tasks for Rail Vendor`);
+            }
         } catch (error) {
             console.error('Error fetching declarations:', error);
         } finally {
@@ -184,14 +210,16 @@ const ProductionDeclarationDashboard = () => {
             try {
                 await productionDeclarationService.delete(id);
                 fetchAllData();
+                showNotification('Declaration deleted successfully');
             } catch (error) {
-                alert('Error deleting: ' + error.message);
+                showNotification('Error deleting: ' + error.message, 'error');
             }
         }
     };
 
     const handleEdit = (decl) => {
         setEditingId(decl.id);
+        setCurrentEditingStatus(decl.status);
         setIsReadOnly(false);
         setFormData({
             productionDate: decl.productionDate,
@@ -230,6 +258,8 @@ const ProductionDeclarationDashboard = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSaving(true);
+        console.log('[Submit] Starting submission for ID:', editingId);
+
         try {
             const { user, plant } = getLatestUserAndPlant();
 
@@ -257,16 +287,90 @@ const ProductionDeclarationDashboard = () => {
             };
 
             if (editingId) {
+                // 1. PERSIST DATA
                 await productionDeclarationService.update(editingId, payload);
+                console.log('[Submit] Data updated successfully');
+                
+                // 2. TRIGGER WORKFLOW: ONLY IF RETURNED
+                if (currentEditingStatus?.toUpperCase() === 'RETURNED') {
+                    console.log('[Workflow] Status is RETURNED, triggering RESUBMIT...');
+                    let transitionId = null;
+
+                    // Step A: Check memory
+                    const existing = pendingTransitions.find(t => t.requestId?.toString() === editingId.toString());
+                    if (existing) {
+                        transitionId = existing.workflowTransitionId;
+                    }
+
+                    // Step B: Fallback - Deep Scan History
+                    if (!transitionId) {
+                        try {
+                            const historyUrl = `${API_CONFIG.RAILPAD_WORKFLOW}/WorkflowTransitionHistory?requestId=${editingId}`;
+                            console.log('[Workflow] Fetching history from:', historyUrl);
+                            const historyRes = await fetch(historyUrl, { headers: { 'Authorization': `Bearer ${user.token}` } });
+                            const historyData = await historyRes.json();
+                            console.log('[Workflow] History response:', historyData);
+                            
+                            // Check both responseData and data fields (depending on ResponseBuilder)
+                            const results = historyData.responseData || historyData.data || [];
+                            if (results.length > 0) {
+                                const latest = results[results.length - 1];
+                                transitionId = latest.workflowTransitionId;
+                                console.log('[Workflow] Found Transition ID:', transitionId);
+                            } else {
+                                console.warn('[Workflow] No history found for Request:', editingId);
+                            }
+                        } catch (hErr) {
+                            console.error('[Workflow] History scan failed:', hErr);
+                        }
+                    }
+
+                    // Step C: Trigger Transition
+                    if (transitionId) {
+                        try {
+                            const wfRes = await fetch(`${API_CONFIG.RAILPAD_WORKFLOW}/performTransitionAction`, {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${user.token}`
+                                },
+                                body: JSON.stringify({
+                                    workflowTransitionId: transitionId,
+                                    requestId: editingId.toString(),
+                                    moduleId: 3,
+                                    action: 'RESUBMIT',
+                                    remarks: 'Corrected data resubmitted by vendor',
+                                    actionBy: user.userId,
+                                    shift: formData.shift
+                                })
+                            });
+                            
+                            const wfData = await wfRes.json();
+                            if (wfRes.ok) {
+                                console.log('[Workflow] RESUBMIT successful:', wfData);
+                            } else {
+                                console.error('[Workflow] RESUBMIT failed:', wfData);
+                            }
+                        } catch (wfErr) {
+                            console.error('[Workflow] Network error during RESUBMIT:', wfErr);
+                        }
+                    }
+                } else {
+                    console.log('[Workflow] Status is not RETURNED, skipping workflow trigger.');
+                }
+                
+                showNotification('Declaration updated successfully');
             } else {
+                // CREATE NEW RECORD
                 await productionDeclarationService.create(payload);
+                showNotification('Production successfully declared');
             }
             
             setIsModalOpen(false);
             fetchAllData();
             setEditingId(null);
         } catch (error) {
-            alert('Error saving: ' + error.message);
+            showNotification('Error saving: ' + error.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -274,18 +378,18 @@ const ProductionDeclarationDashboard = () => {
 
     const filteredDeclarations = declarations.filter(d => {
         const status = (d.status || '').toUpperCase();
-        const isVerified = status === 'VERIFIED' || status === 'APPROVED';
+        const isVerified = status === 'VERIFIED' || status === 'APPROVED' || status === 'COMPLETED';
         return activeTab === 'pending' ? !isVerified : isVerified;
     });
 
     const getPendingCount = () => declarations.filter(d => {
         const status = (d.status || '').toUpperCase();
-        return status !== 'VERIFIED' && status !== 'APPROVED';
+        return status !== 'VERIFIED' && status !== 'APPROVED' && status !== 'COMPLETED';
     }).length;
 
     const getVerifiedCount = () => declarations.filter(d => {
         const status = (d.status || '').toUpperCase();
-        return status === 'VERIFIED' || status === 'APPROVED';
+        return status === 'VERIFIED' || status === 'APPROVED' || status === 'COMPLETED';
     }).length;
 
     return (
@@ -305,6 +409,19 @@ const ProductionDeclarationDashboard = () => {
                     Declare New Production
                 </button>
             </div>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="pv-notification-container">
+                    <div className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}>
+                        <div className="pv-notification-icon">{notification.type === 'success' ? '✅' : '❌'}</div>
+                        <div className="pv-notification-content">
+                            <span className="pv-notification-title">{notification.type === 'success' ? 'Success' : 'Attention'}</span>
+                            <span className="pv-notification-message">{notification.message}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Dashboard Tabs */}
             <div className="grid-container" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', background: 'transparent', border: 'none', padding: 0, marginBottom: '24px' }}>
@@ -353,7 +470,7 @@ const ProductionDeclarationDashboard = () => {
                                 <td style={{ textAlign: 'center' }}>
                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                         <button className="btn-secondary" onClick={() => handleView(decl)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px' }}>View</button>
-                                        {(decl.status || '').toUpperCase() !== 'VERIFIED' && (decl.status || '').toUpperCase() !== 'APPROVED' && (
+                                        {(decl.status || '').toUpperCase() !== 'VERIFIED' && (decl.status || '').toUpperCase() !== 'APPROVED' && (decl.status || '').toUpperCase() !== 'COMPLETED' && (
                                             <>
                                                 <button className="btn-secondary" onClick={() => handleEdit(decl)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px' }}>Edit</button>
                                                 <button className="btn-secondary" onClick={() => handleDelete(decl.id)} style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px', color: '#ef4444', borderColor: '#fee2e2' }}>Delete</button>
@@ -529,8 +646,15 @@ const ProductionDeclarationDashboard = () => {
                         <div className="modal-footer">
                             <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>{isReadOnly ? 'Close' : 'Cancel'}</button>
                             {!isReadOnly && (
-                                <button type="submit" form="declaration-form" className="btn-primary" style={{ padding: '8px 32px' }}>
-                                    {editingId ? 'Update Declaration' : 'Submit Declaration'}
+                                <button 
+                                    type="submit" 
+                                    form="declaration-form" 
+                                    className={`btn-primary ${isSaving ? 'btn-loading' : ''}`} 
+                                    style={{ padding: '8px 32px' }}
+                                    disabled={isSaving}
+                                >
+                                    {isSaving && <div className="btn-spinner"></div>}
+                                    {isSaving ? (editingId ? 'Updating...' : 'Saving...') : (editingId ? 'Update Declaration' : 'Submit Declaration')}
                                 </button>
                             )}
                         </div>

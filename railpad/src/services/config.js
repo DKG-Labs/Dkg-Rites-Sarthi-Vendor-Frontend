@@ -17,5 +17,6 @@ export const API_CONFIG = {
     APPROVED_ASH_SG: `${API_BASE_URL}/rail-approved-ash-sg`,
     APPROVED_QAP: `${API_BASE_URL}/rail-approved-qap`,
     AUTH: `${API_BASE_URL.replace('/api', '')}/auth`,
-    PO_ASSIGNED: `${API_BASE_URL.replace('/api', '')}/vendor/po-assigned`
+    PO_ASSIGNED: `${API_BASE_URL.replace('/api', '')}/vendor/po-assigned`,
+    RAILPAD_WORKFLOW: `${API_BASE_URL}/railpad-workflow`
 };
