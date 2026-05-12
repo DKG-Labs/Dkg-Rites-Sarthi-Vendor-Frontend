@@ -94,19 +94,8 @@ const LoginPage = () => {
       return;
     }
 
-    // Static credentials for RailPad application
-    if (userId.toLowerCase() === 'railpad' && password === 'password') {
-      const railpadUser = {
-        roleName: ['RAILPAD_USER'],
-        userId: 'railpad',
-        email: 'railpad@sarthi.com'
-      };
-      storeAuthData(railpadUser);
-      window.location.reload();
-      return;
-    }
-
     try {
+      setIsLoading(true); // Added this as it was missing from the block but needed for the try block below
       const userData = await loginUser(userId, password, loginType);
 
       // Store basic auth data first

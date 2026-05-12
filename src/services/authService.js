@@ -114,8 +114,9 @@ export const storeAuthData = (authData, manualLoginId = null) => {
   localStorage.setItem('roleName', JSON.stringify(Array.isArray(authData.roleName) ? authData.roleName : [authData.roleName]));
   localStorage.setItem('rio', authData.rio);
 
-  // Clear any previously active role
+  // Clear any previously active role and plant selection
   localStorage.removeItem('activeRole');
+  localStorage.removeItem('selectedRailPlant');
 };
 
 /**

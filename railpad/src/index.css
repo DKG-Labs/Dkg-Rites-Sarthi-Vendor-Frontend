@@ -796,6 +796,32 @@ textarea:focus {
     color: var(--text-main);
     transform: translateY(-1px);
     box-shadow: none;
+}.btn-primary:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Centering form buttons */
@@ -1544,7 +1570,88 @@ textarea:focus {
 .param-box-header h4 {
     margin: 0;
     font-size: 13px;
+    font-weight: 800;/* --- Toast Notifications --- */
+.pv-notification-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.pv-notification {
+    pointer-events: auto;
+    min-width: 320px;
+    max-width: 450px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border-left: 4px solid #cbd5e1;
+}
+
+.pv-notification.success {
+    border-left-color: #21808d;
+}
+
+.pv-notification.error {
+    border-left-color: #ef4444;
+}
+
+.pv-notification-content {
+    flex: 1;
+}
+
+.pv-notification-title {
+    display: block;
     font-weight: 800;
+    font-size: 13px;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+
+.pv-notification-message {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.pv-notification-icon {
+    font-size: 20px;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.pv-notification.fade-out {
+    animation: slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
     color: var(--primary-color);
     text-transform: uppercase;
 }

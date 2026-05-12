@@ -36,6 +36,17 @@ const App = () => {
         }
     }
 
+    // Fallback to main portal keys if railpad keys are missing (common on same origin)
+    const authToken = localStorage.getItem('authToken');
+    const railpadToken = localStorage.getItem('railpad_token');
+    
+    if (!railpadToken && authToken) {
+        localStorage.setItem('railpad_token', authToken);
+        if (localStorage.getItem('vendorCode')) localStorage.setItem('railpad_vendorCode', localStorage.getItem('vendorCode'));
+        if (localStorage.getItem('vendorName')) localStorage.setItem('railpad_vendorName', localStorage.getItem('vendorName'));
+        if (localStorage.getItem('userId'))     localStorage.setItem('railpad_userId', localStorage.getItem('userId'));
+    }
+
     return isBypass || !!localStorage.getItem('railpad_token');
   });
 
