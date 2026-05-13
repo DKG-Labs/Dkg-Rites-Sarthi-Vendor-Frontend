@@ -8,9 +8,8 @@ import CallsCompletedDashboard from './CallsCompletedDashboard';
 import FinanceDashboard from './FinanceDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
 import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
-import VendorFeedback from '../../components/Feedback/VendorFeedback';
+// import VendorFeedback from '../../components/Feedback/VendorFeedback';
 import { apiService } from '../../services/api';
-
 
 import { useLocation } from 'react-router-dom';
 
@@ -67,7 +66,7 @@ const VendorDashboard = () => {
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
         { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄' },
-        { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬' }
+        // { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬' }
     ];
 
 
@@ -89,6 +88,7 @@ const VendorDashboard = () => {
                 return <CallsCompletedDashboard inspectionCalls={inspectionCalls} />;
             case 'finance':
                 return <FinanceDashboard inspectionCalls={inspectionCalls} />;
+            /*
             case 'feedback':
                 const sleeperUser = {
                     userId: sessionStorage.getItem('userId'),       // numeric DB id (e.g. "183") → used for API calls
@@ -99,13 +99,9 @@ const VendorDashboard = () => {
                 };
 
                 return <VendorFeedback currentUser={sleeperUser} productContext="Sleeper Vendor" />;
-                return (
-                    <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-                        <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🏗️</div>
-                        <h3>{modules.find(m => m.id === selectedModule)?.title}</h3>
-                        <p>This module is currently under development.</p>
-                    </div>
-                );
+            */
+            default:
+                return null;
         }
     };
 

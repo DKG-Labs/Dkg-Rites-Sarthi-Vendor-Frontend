@@ -40,8 +40,7 @@ import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import VendorFeedback from '../components/Feedback/VendorFeedback';
-
+// import VendorFeedback from '../components/Feedback/VendorFeedback';
 
 const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk'];
 
@@ -1610,12 +1609,12 @@ const VendorDashboardPage = ({ onBack }) => {
       id: 'master-updating',
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
-    },
-    {
-      id: 'feedback-system',
-      label: 'Feedback',
-      description: 'Send feedback to Railway Board'
     }
+    // {
+    //   id: 'feedback-system',
+    //   label: 'Feedback',
+    //   description: 'Send feedback to Railway Board'
+    // }
   ];
 
 
@@ -3632,7 +3631,7 @@ const VendorDashboardPage = ({ onBack }) => {
           )}
 
           {/* 11. Feedback System */}
-          {activeTab === 'feedback-system' && (
+          {/* {activeTab === 'feedback-system' && (
             <div className="feedback-module-wrapper">
               <div className="vendor-section-header">
                 <div>
@@ -3644,7 +3643,7 @@ const VendorDashboardPage = ({ onBack }) => {
               </div>
               <VendorFeedback currentUser={user} productContext="ERC Vendor" />
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
