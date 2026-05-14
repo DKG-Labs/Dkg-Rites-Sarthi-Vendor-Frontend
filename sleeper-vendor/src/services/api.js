@@ -1,6 +1,6 @@
-export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
+//export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
 //export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
-// export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
+export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -1040,17 +1040,13 @@ export const apiService = {
     // IMMS Sync APIs
     authenticateIMMS: async () => {
         try {
-            const response = await fetch('/immsapi/authenticate', {
+            const sarthiToken = sessionStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/Vendorsync/authenticate`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'accept': '*/*'
-                },
-                body: JSON.stringify({
-                    username: "rites-sarthi",
-                    password: "sarTHI@@speri26"
-                })
+                    'Authorization': `Bearer ${sarthiToken}`
+                }
             });
 
             // Handle non-JSON responses (usually proxy errors)
@@ -1079,16 +1075,13 @@ export const apiService = {
 
     getIMMSPOData: async (payload) => {
         try {
-            // Always get a fresh token for every request to ensure reliability
-            const token = await apiService.authenticateIMMS();
+            const token = sessionStorage.getItem('token');
 
-            // Using relative path for Vite proxy (and Vercel rewrites) to bypass CORS
-            const response = await fetch('/immsapi/purchase/getPOData', {
+            const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(payload)
             });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/api';
+import { generateOfferListPDF } from '../../utils/offerListGenerator';
 
 // ─── Status Configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -92,7 +93,7 @@ const WorkflowTag = () => (
 );
 
 // ─── Call Detail Popup ────────────────────────────────────────────────────────
-const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDownload }) => {
+const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDownload, onDownloadOfferList }) => {
     const [activeTab, setActiveTab] = useState('details');
     if (!call) return null;
     const cfg = STATUS_CONFIG[call.status] || {};
@@ -281,6 +282,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                         </div>
                     )}
 
+
                     {/* TAB: Actions */}
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -299,6 +301,27 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                                     style={{
                                         padding: '9px 20px', borderRadius: 8, border: 'none', flexShrink: 0,
                                         background: 'linear-gradient(135deg, #0d3b3f, #21808d)',
+                                        color: '#fff', fontWeight: 700, fontSize: 12,
+                                        cursor: 'pointer', whiteSpace: 'nowrap',
+                                        boxShadow: '0 2px 8px rgba(33,128,141,0.3)'
+                                    }}
+                                >⬇ Download</button>
+                            </div>
+
+                            {/* Download Sleeper Offer List — added as requested */}
+                            <div style={{
+                                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '16px 18px',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 800, fontSize: 13, color: '#0f172a', marginBottom: 3 }}>📋 Download Sleeper Offer List</div>
+                                    <div style={{ fontSize: 11, color: '#64748b' }}>Download the list of sleepers offered for this inspection call.</div>
+                                </div>
+                                <button
+                                    onClick={() => onDownloadOfferList(call)}
+                                    style={{
+                                        padding: '9px 20px', borderRadius: 8, border: 'none', flexShrink: 0,
+                                        background: 'linear-gradient(135deg, #21808d, #0d3b3f)',
                                         color: '#fff', fontWeight: 700, fontSize: 12,
                                         cursor: 'pointer', whiteSpace: 'nowrap',
                                         boxShadow: '0 2px 8px rgba(33,128,141,0.3)'
@@ -797,6 +820,7 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                     onWithdraw={(c) => { setSelectedCall(null); handleWithdraw(c); }}
                     onResubmit={(c) => { handleResubmit(c); }}
                     onDownload={(c) => showToast(`Call letter for ${c.callNo} downloading...`, 'info')}
+                    onDownloadOfferList={(c) => generateOfferListPDF(c)}
                 />
             )}
 

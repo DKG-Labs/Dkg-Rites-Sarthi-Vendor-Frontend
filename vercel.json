@@ -22,7 +22,7 @@
       "destination": "/railpad/index.html"
     },
     {
-      "source": "/((?!sleeper-vendor|railpad).*)",
+      "source": "/((?!sleeper-vendor|railpad|api|immsapi).*)",
       "destination": "/index.html"
     }
   ]
