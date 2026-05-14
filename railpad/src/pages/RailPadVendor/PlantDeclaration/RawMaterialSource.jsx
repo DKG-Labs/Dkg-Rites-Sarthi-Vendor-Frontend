@@ -134,29 +134,55 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
         setView('details');
     };
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 12px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 80, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 100, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 140, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in">
-            <div className="section-header" style={{ marginBottom: '24px' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Raw Material Source</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Establish traceability for virgin material and chemicals</p>
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+            }}>
+                <div className="section-header" style={{ marginBottom: view === 'list' ? '24px' : '0' }}>
+                    <div>
+                        <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Raw Material Source</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Establish traceability for virgin material and chemicals</p>
+                    </div>
+                    {view === 'list' && (
+                        <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setFormData({ materialName: '', materialType: '', supplierName: '', docRefNo: '', docDate: '' }); }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                            Add New Entry
+                        </button>
+                    )}
                 </div>
-                {view === 'list' && (
-                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setFormData({ materialName: '', materialType: '', supplierName: '', docRefNo: '', docDate: '' }); }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                        Add New Entry
-                    </button>
-                )}
-            </div>
 
-            {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div className="spinner"></div>
-                    <p>Loading raw material entries...</p>
-                </div>
-            ) : view === 'list' ? (
-                <div className="fade-in">
-                    <div className="status-tabs-row">
+                {view === 'list' && (
+                    <div className="status-tabs-row" style={{ marginBottom: 0 }}>
                         <button 
                             onClick={() => setStatusTab('PENDING')}
                             className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}
@@ -174,6 +200,11 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                             <span className="count-badge">{verifiedCount}</span>
                         </button>
                     </div>
+                )}
+            </div>
+
+            {view === 'list' ? (
+                <div className="fade-in">
 
                     <div className="table-container fade-in">
                         <table>
@@ -187,7 +218,15 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEntries.length > 0 ? (
+                                {isLoading ? (
+                                    <>
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                    </>
+                                ) : filteredEntries.length > 0 ? (
                                     filteredEntries.map(entry => (
                                         <tr key={entry.id}>
                                             <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>

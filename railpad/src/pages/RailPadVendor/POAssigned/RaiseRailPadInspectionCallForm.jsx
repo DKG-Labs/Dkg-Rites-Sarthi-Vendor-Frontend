@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { inventoryService } from '../../../services/inventoryService';
+import inspectionCallService from '../../../services/inspectionCallService';
+import { formatDateDDMMYY } from '../../../utils/dateUtils';
+import {
+    Calendar, Package, ClipboardList, CheckCircle2,
+    AlertCircle, Trash2, ChevronDown, ChevronUp, Plus, Minus,
+    Info, Search
+} from 'lucide-react';
+import { API_CONFIG } from '../../../services/config';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const RAIL_PAD_TYPES = [
@@ -14,40 +23,7 @@ const RAIL_PAD_TYPES = [
 const UOM_OPTIONS = ['Nos.', 'Set'];
 
 // ─── Mock Inventory Data ──────────────────────────────────────────────────────
-const MOCK_ACCEPTED_INVENTORY = [
-    {
-        productionDate: '2026-04-20',
-        batches: [
-            { id: 'batch-1', batchNo: 'RP/26/04/20-01', type: '6.00mm GRSP', qty: 5000, pending: 5000 },
-            { id: 'batch-2', batchNo: 'RP/26/04/20-02', type: '6.00mm GRSP', qty: 5000, pending: 5000 },
-            { id: 'batch-3', batchNo: 'RP/26/04/20-03', type: '10.00mm NCRGRSP', qty: 2500, pending: 2500 },
-        ]
-    },
-    {
-        productionDate: '2026-04-21',
-        batches: [
-            { id: 'batch-4', batchNo: 'RP/26/04/21-01', type: '6.00mm GRSP', qty: 5000, pending: 5000 },
-            { id: 'batch-5', batchNo: 'RP/26/04/21-02', type: '6.20mm CGRSP', qty: 4000, pending: 4000, compoundA: 'A-991', compoundB: 'B-991' },
-            { id: 'batch-6', batchNo: 'RP/26/04/21-03', type: '6.20mm CGRSP', qty: 4000, pending: 4000, compoundA: 'A-992', compoundB: 'B-992' },
-        ]
-    },
-    {
-        productionDate: '2026-04-22',
-        batches: [
-            { id: 'batch-7', batchNo: 'RP/26/04/22-01', type: '6.00mm GRSP', qty: 8000, pending: 8000 },
-            { id: 'batch-8', batchNo: 'RP/26/04/22-02', type: '6.00mm NCRGRSP', qty: 5000, pending: 5000 },
-        ]
-    }
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatDateDDMMYY = (dateStr) => {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = String(date.getFullYear()).slice(-2);
-    return `${day}/${month}/${year}`;
-};
+// (Mock data removed)
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 const SectionHeader = ({ label, step, color = '#21808d' }) => (
@@ -69,44 +45,81 @@ const SectionHeader = ({ label, step, color = '#21808d' }) => (
     </div>
 );
 
-const StatBox = ({ label, value, highlight, color, suffix }) => (
+const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
     <div style={{
-        background: '#fff',
-        border: `1px solid ${highlight ? '#fee2e2' : '#e2e8f0'}`,
+        background: highlight ? 'linear-gradient(135deg, #fefce8, #fef9c3)' : '#fff',
+        border: `1px solid ${highlight ? '#fde047' : '#e2e8f0'}`,
         borderRadius: 12, padding: '16px 20px', minWidth: 150, flex: 1,
-        boxShadow: highlight ? '0 4px 12px rgba(239,68,68,0.05)' : '0 1px 3px rgba(0,0,0,0.02)'
+        boxShadow: highlight ? '0 4px 12px rgba(234,179,8,0.1)' : '0 1px 3px rgba(0,0,0,0.02)',
+        display: 'flex', alignItems: 'center', gap: '16px'
     }}>
-        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-        <div style={{
-            fontSize: '22px', fontWeight: 900,
-            color: color || (highlight ? '#dc2626' : '#1e293b'), lineHeight: 1,
-            display: 'flex', alignItems: 'baseline', gap: '4px'
-        }}>
-            {value} {suffix && <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>{suffix}</span>}
+        {Icon && <div style={{ color: color || '#21808d', opacity: 0.8 }}><Icon size={24} /></div>}
+        <div>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+            <div style={{
+                fontSize: '22px', fontWeight: 900,
+                color: color || (highlight ? '#dc2626' : '#1e293b'), lineHeight: 1,
+                display: 'flex', alignItems: 'baseline', gap: '4px'
+            }}>
+                {value} {suffix && <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>{suffix}</span>}
+            </div>
         </div>
     </div>
 );
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
-const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall }) => {
+const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall }) => {
     // Form State
-    const [railPadType, setRailPadType] = useState(RAIL_PAD_TYPES[0]);
+    const [railPadType, setRailPadType] = useState('');
     const [uom, setUom] = useState(UOM_OPTIONS[0]);
-    const [desiredDate, setDesiredDate] = useState('2026-05-02');
+    const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
     const [totalQtyToOffer, setTotalQtyToOffer] = useState('');
     const [noOfLots, setNoOfLots] = useState(1);
-    
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Inventory State
+    const [inventory, setInventory] = useState([]);
+    const [loadingInventory, setLoadingInventory] = useState(false);
+    const [notification, setNotification] = useState(null);
+
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        if (type === 'success') {
+            setTimeout(() => {
+                setNotification(null);
+                onClose();
+            }, 3000);
+        } else {
+            setTimeout(() => setNotification(null), 5000);
+        }
+    };
+
     // Dynamic Lots State
-    const [lots, setLots] = useState([{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]); 
-    
+    const [lots, setLots] = useState([{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]);
+
     // UI State
     const [expandedLots, setExpandedLots] = useState({ 0: true });
     const [expandedDates, setExpandedDates] = useState({});
-    
+
     // Partial Declaration UI State
     const [activePartialLotIdx, setActivePartialLotIdx] = useState(null);
 
     // ─── Effects ──────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const fetchInventory = async () => {
+            if (!plantId) return;
+            try {
+                setLoadingInventory(true);
+                const data = await inventoryService.getAcceptedInventory(plantId, railPadType);
+                setInventory(data || []);
+            } catch (error) {
+                console.error('Error fetching inventory:', error);
+            } finally {
+                setLoadingInventory(false);
+            }
+        };
+        fetchInventory();
+    }, [plantId, railPadType]);
     useEffect(() => {
         const count = parseInt(noOfLots) || 0;
         if (count > 0) {
@@ -130,14 +143,73 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
     const minLotsRequired = Math.ceil((parseInt(totalQtyToOffer) || 0) / lotLimit);
     const lotCountError = noOfLots < minLotsRequired ? `Minimum ${minLotsRequired} lots required for this quantity (IRS T-55 Constraint).` : null;
 
-    const filteredInventory = useMemo(() => {
-        return MOCK_ACCEPTED_INVENTORY.map(dateGroup => ({
-            ...dateGroup,
-            batches: dateGroup.batches.filter(b => b.type === railPadType)
-        })).filter(group => group.batches.length > 0);
-    }, [railPadType]);
+    const getLotSum = (lot) => Object.values(lot?.selectedBatches || {}).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
 
-    const getLotSum = (lot) => Object.values(lot.selectedBatches).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
+    const filteredInventory = useMemo(() => {
+        if (!Array.isArray(inventory)) return [];
+        return inventory.map(group => ({
+            productionDate: group.castingDate,
+            batches: (group.batches || []).map(b => ({
+                id: b.infoId || b.id,
+                batchNo: b.batchNo,
+                type: b.productType,
+                qty: b.acceptedQty || b.quantity,
+                pending: b.acceptedQty || b.quantity
+            }))
+        }));
+    }, [inventory]);
+
+    const totalOfferedFromLots = lots.reduce((acc, lot) => acc + getLotSum(lot), 0);
+    const totalMatchesOffered = totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0);
+    const isValid = totalMatchesOffered && totalOfferedFromLots > 0 && !lotCountError;
+
+    const handleSubmit = async () => {
+        try {
+            setIsSubmitting(true);
+            const userId = localStorage.getItem('railpad_userId');
+
+            const payload = {
+                poNo: `${poNo}/${srItem?.itemSrNo || srItem?.srNo || '01'}`,
+                vendorCode: vendorCode || srItem?.vendorCode || 'V001',
+                plantId: plantId,
+                railPadType: railPadType,
+                totalQty: parseInt(totalQtyToOffer),
+                noOfLots: parseInt(noOfLots),
+                inspectionDate: desiredDate,
+                createdBy: userId,
+                updatedBy: userId,
+                lots: lots.map(lot => ({
+                    lotNo: lot.lotNo,
+                    lotSize: getLotSum(lot),
+                    batches: Object.entries(lot.selectedBatches).map(([batchId, qty]) => {
+                        let batchInfo = null;
+                        (inventory || []).forEach(group => {
+                            const found = (group.batches || []).find(b => String(b.infoId) === String(batchId));
+                            if (found) batchInfo = { ...found, productionDate: group.castingDate };
+                        });
+
+                        return {
+                            batchNo: batchInfo?.batchNo,
+                            quantity: parseInt(qty),
+                            productionDate: batchInfo?.productionDate
+                        };
+                    })
+                }))
+            };
+
+            const result = await inspectionCallService.create(payload);
+
+
+
+            showNotification(`✅ Inspection Call raised successfully!\nCall No: ${result}`, 'success');
+        } catch (error) {
+            console.error("[Submit Inspection Call] Error:", error);
+            showNotification("❌ Failed to raise inspection call.", 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
     const handleBatchSelection = (lotIdx, batch, checked) => {
@@ -145,13 +217,13 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
             const newLots = [...prev];
             const currentLot = { ...newLots[lotIdx] };
             const newSelected = { ...currentLot.selectedBatches };
-            
+
             if (checked) {
-                newSelected[batch.id] = batch.pending; 
+                newSelected[batch.id] = batch.pending;
             } else {
                 delete newSelected[batch.id];
             }
-            
+
             currentLot.selectedBatches = newSelected;
             newLots[lotIdx] = currentLot;
             return newLots;
@@ -174,12 +246,12 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
             const newLots = [...prev];
             const currentLot = { ...newLots[lotIdx] };
             const newSelected = { ...currentLot.selectedBatches };
-            
+
             dateGroup.batches.forEach(b => {
                 if (checked) newSelected[b.id] = b.pending;
                 else delete newSelected[b.id];
             });
-            
+
             currentLot.selectedBatches = newSelected;
             newLots[lotIdx] = currentLot;
             return newLots;
@@ -188,27 +260,17 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
 
     const isBatchSelected = (lotIdx, batchId) => lots[lotIdx]?.selectedBatches[batchId] !== undefined;
 
-    // ─── Submission Logic ─────────────────────────────────────────────────────
-    const totalOfferedFromLots = lots.reduce((acc, l) => acc + getLotSum(l), 0);
-    const allLotsWithinLimits = lots.every(l => getLotSum(l) > 0 && getLotSum(l) <= lotLimit);
-    const totalMatchesOffered = totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0);
-
-    const isValid = !lotCountError && 
-                    desiredDate && 
-                    totalQtyToOffer > 0 && 
-                    allLotsWithinLimits &&
-                    totalMatchesOffered;
 
     // ─── Styles ───────────────────────────────────────────────────────────────
     const overlayStyle = {
         position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)',
-        backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', 
+        backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex',
         alignItems: 'center', justifyContent: 'center', padding: '24px'
     };
-    
+
     const modalStyle = {
         background: '#fff', width: '100%', maxWidth: '1200px', maxHeight: '95vh',
-        borderRadius: '24px', display: 'flex', flexDirection: 'column', 
+        borderRadius: '24px', display: 'flex', flexDirection: 'column',
         boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', overflow: 'hidden',
         border: '1px solid rgba(255,255,255,0.1)'
     };
@@ -226,8 +288,9 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '6px', textTransform: 'uppercase' }}>
                             RAISE FINAL INSPECTION CALL
                         </div>
-                        <div style={{ color: '#fff', fontSize: '24px', fontWeight: 900, letterSpacing: '-0.02em' }}>
-                            {poNo || '06255012201348'} — SR. No. {srItem.srNo || '001'}
+                        <div style={{ color: '#fff', fontSize: '24px', fontWeight: 900, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Package size={24} />
+                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '001'}
                         </div>
                     </div>
                     <button onClick={onClose} style={{
@@ -235,12 +298,12 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                         width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer',
                         fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'all 0.2s'
-                    }}>×</button>
+                    }}><Plus style={{ transform: 'rotate(45deg)' }} /></button>
                 </div>
 
                 {/* ── Scrollable Body ── */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-                    
+
                     {/* ════ SECTION A ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
@@ -255,7 +318,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                             </div>
                             <div>
                                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SR. NO.</div>
-                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '18px' }}>{srItem.srNo || '001'}</div>
+                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '18px' }}>{srItem?.itemSrNo || srItem?.srNo || '001'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL DATE</div>
@@ -265,11 +328,11 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                         <div style={{ paddingLeft: '48px' }}>
                             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PO STATUS TRACKER</div>
                             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                <StatBox label="Total Quantity on Order" value={(srItem.orderedQty || 59420).toLocaleString()} />
-                                <StatBox label="Quantity Offered Till Now" value={(srItem.offeredTillNow || 0).toLocaleString()} color="#7c3aed" />
-                                <StatBox label="Quantity Accepted Till Now" value={(srItem.acceptedTillNow || 0).toLocaleString()} color="#16a34a" />
-                                <StatBox label="Quantity Rejected Till Now" value="0" color="#ef4444" />
-                                <StatBox label="Qty Due for Dispatch" value={(srItem.due || 59420).toLocaleString()} highlight />
+                                <StatBox label="Total Quantity on Order" value={(srItem?.orderedQty || 59420).toLocaleString()} Icon={ClipboardList} />
+                                <StatBox label="Quantity Offered Till Now" value={(srItem?.offeredTillNow || 0).toLocaleString()} color="#7c3aed" Icon={Package} />
+                                <StatBox label="Quantity Accepted Till Now" value={(srItem?.acceptedTillNow || 0).toLocaleString()} color="#16a34a" Icon={CheckCircle2} />
+                                <StatBox label="Quantity Rejected Till Now" value="0" color="#ef4444" Icon={AlertCircle} />
+                                <StatBox label="Qty Due for Dispatch" value={(srItem?.due || 59420).toLocaleString()} highlight Icon={Calendar} />
                             </div>
                         </div>
                     </div>
@@ -285,6 +348,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                                 <div>
                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>RAIL PAD TYPE <span style={{ color: '#ef4444' }}>*</span></label>
                                     <select value={railPadType} onChange={e => setRailPadType(e.target.value)} style={{ width: '100%', height: '46px', padding: '0 16px', borderRadius: '10px', border: '2px solid #e2e8f0', fontWeight: 800, color: '#1e293b', background: '#f8fafc', fontSize: '14px', outline: 'none' }}>
+                                        <option value="" disabled>Select Rail Pad Type</option>
                                         {RAIL_PAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
@@ -304,12 +368,23 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                             <div style={{ display: 'flex', gap: '32px' }}>
                                 <div style={{ flex: 1 }}>
                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Qty to be Offered</label>
-                                    <input type="number" value={totalQtyToOffer} onChange={e => setTotalQtyToOffer(e.target.value)} placeholder="Enter quantity" style={{ width: '100%', height: '46px', padding: '0 16px', borderRadius: '10px', border: '2px solid #e2e8f0', fontWeight: 900, fontSize: '18px', color: '#0891b2' }} />
-                                    {totalQtyToOffer > (srItem.due || 59420) && <p style={{ color: '#dc2626', fontSize: '11px', marginTop: '8px', fontWeight: 800 }}>⚠️ Cannot exceed Qty Due for Dispatch!</p>}
+                                    <input
+                                        type="text"
+                                        value={totalQtyToOffer}
+                                        onChange={e => setTotalQtyToOffer(e.target.value.replace(/[^0-9]/g, ''))}
+                                        placeholder="Enter quantity"
+                                        style={{ width: '100%', height: '46px', padding: '0 16px', borderRadius: '10px', border: '2px solid #e2e8f0', fontWeight: 900, fontSize: '18px', color: '#0891b2' }}
+                                    />
+                                    {totalQtyToOffer > (srItem?.due || 59420) && <p style={{ color: '#dc2626', fontSize: '11px', marginTop: '8px', fontWeight: 800 }}>⚠️ Cannot exceed Qty Due for Dispatch!</p>}
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>No. of Lots to be Offered</label>
-                                    <input type="number" value={noOfLots} onChange={e => setNoOfLots(e.target.value)} style={{ width: '100%', height: '46px', padding: '0 16px', borderRadius: '10px', border: lotCountError ? '2px solid #ef4444' : '2px solid #e2e8f0', fontWeight: 900, fontSize: '18px', color: '#1e293b' }} />
+                                    <input
+                                        type="text"
+                                        value={noOfLots}
+                                        onChange={e => setNoOfLots(e.target.value.replace(/[^0-9]/g, ''))}
+                                        style={{ width: '100%', height: '46px', padding: '0 16px', borderRadius: '10px', border: lotCountError ? '2px solid #ef4444' : '2px solid #e2e8f0', fontWeight: 900, fontSize: '18px', color: '#1e293b' }}
+                                    />
                                     {lotCountError && <p style={{ color: '#dc2626', fontSize: '11px', marginTop: '8px', fontWeight: 800 }}>⚠️ {lotCountError}</p>}
                                 </div>
                             </div>
@@ -323,31 +398,31 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                     }}>
                         <SectionHeader step="C" label="Dynamic Lot Formation (Collapsible Sections)" color="#0891b2" />
                         <div style={{ paddingLeft: '48px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            {lots.map((lot, idx) => {
+                            {lots.map((lot, lotIdx) => {
                                 const lotSum = getLotSum(lot);
                                 return (
                                     <div key={lot.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                                        <div 
-                                            onClick={() => setExpandedLots(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                                            style={{ 
+                                        <div
+                                            onClick={() => setExpandedLots(prev => ({ ...prev, [lotIdx]: !prev[lotIdx] }))}
+                                            style={{
                                                 background: '#f8fafc', padding: '16px 24px', cursor: 'pointer',
                                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                borderBottom: expandedLots[idx] ? '1px solid #e2e8f0' : 'none'
+                                                borderBottom: expandedLots[lotIdx] ? '1px solid #e2e8f0' : 'none'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                 <span style={{ fontWeight: 900, color: '#0891b2', fontSize: '15px' }}>{lot.lotNo}</span>
-                                                <span style={{ 
+                                                <span style={{
                                                     fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px',
                                                     background: lotSum > 0 && lotSum <= lotLimit ? '#dcfce7' : '#fee2e2',
                                                     color: lotSum > 0 && lotSum <= lotLimit ? '#166534' : '#991b1b'
                                                 }}>
                                                     {lotSum.toLocaleString()} / {lotLimit.toLocaleString()} (Max)
                                                 </span>
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setActivePartialLotIdx(idx);
+                                                        setActivePartialLotIdx(lotIdx);
                                                     }}
                                                     style={{
                                                         marginLeft: '12px', padding: '6px 12px', borderRadius: '6px',
@@ -360,28 +435,28 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                                                     <span>(+) Partial Declaration</span>
                                                 </button>
                                             </div>
-                                            <span style={{ fontSize: '12px', color: '#64748b' }}>{expandedLots[idx] ? '▲' : '▼'}</span>
+                                            <span style={{ fontSize: '12px', color: '#64748b' }}>{expandedLots[lotIdx] ? '▲' : '▼'}</span>
                                         </div>
-                                        
-                                        {expandedLots[idx] && (
+
+                                        {expandedLots[lotIdx] && (
                                             <div style={{ padding: '24px' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>Lot No.</label>
-                                                        <input 
-                                                            type="text" value={lot.lotNo} 
+                                                        <input
+                                                            type="text" value={lot.lotNo}
                                                             onChange={e => {
                                                                 const newLots = [...lots];
-                                                                newLots[idx].lotNo = e.target.value;
+                                                                newLots[lotIdx].lotNo = e.target.value;
                                                                 setLots(newLots);
                                                             }}
-                                                            style={{ width: '100%', height: '40px', padding: '0 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 700 }} 
+                                                            style={{ width: '100%', height: '40px', padding: '0 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 700 }}
                                                         />
                                                     </div>
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>Lot Size (Auto-Calculated)</label>
-                                                        <div style={{ 
-                                                            width: '100%', height: '40px', padding: '0 12px', borderRadius: '8px', 
+                                                        <div style={{
+                                                            width: '100%', height: '40px', padding: '0 12px', borderRadius: '8px',
                                                             border: '2px solid #0891b2', background: '#ecfeff',
                                                             display: 'flex', alignItems: 'center', fontSize: '16px', fontWeight: 900, color: '#0891b2'
                                                         }}>
@@ -396,41 +471,75 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                                                     {/* Batch Tree */}
                                                     <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                                        <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '16px', textTransform: 'uppercase' }}>Accepted Inventory (Date-Wise)</div>
+                                                        <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '16px', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
+                                                            <span>Accepted Inventory (Date-Wise)</span>
+                                                            {loadingInventory && <span style={{ color: '#0891b2', fontSize: '10px' }}>Refreshing...</span>}
+                                                        </div>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            {filteredInventory.map(dateGroup => (
-                                                                <div key={dateGroup.productionDate} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                                                                    <div style={{ padding: '10px 16px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                            <input type="checkbox" checked={dateGroup.batches.every(b => isBatchSelected(idx, b.id))} onChange={e => handleDateMasterToggle(idx, dateGroup, e.target.checked)} />
-                                                                            <span style={{ fontSize: '13px', fontWeight: 800 }}>{formatDateDDMMYY(dateGroup.productionDate)}</span>
-                                                                        </div>
-                                                                        <button onClick={() => setExpandedDates(p => ({...p, [dateGroup.productionDate]: !p[dateGroup.productionDate]}))} style={{ border: 'none', background: 'transparent', fontSize: '10px', cursor: 'pointer' }}>{expandedDates[dateGroup.productionDate] ? '▼' : '▲'}</button>
-                                                                    </div>
-                                                                    {!expandedDates[dateGroup.productionDate] && (
-                                                                        <div style={{ padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                                                                            {dateGroup.batches.map(batch => (
-                                                                                <div key={batch.id} style={{ 
-                                                                                    padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', 
-                                                                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px',
-                                                                                    minWidth: '200px'
-                                                                                }}>
-                                                                                    <input type="checkbox" checked={isBatchSelected(idx, batch.id)} onChange={e => handleBatchSelection(idx, batch, e.target.checked)} />
-                                                                                    <div style={{ flex: 1 }}>
-                                                                                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{batch.batchNo}</div>
-                                                                                        {batch.compoundA && (
-                                                                                            <div style={{ fontSize: '10px', color: '#0891b2', fontWeight: 700 }}>
-                                                                                                {batch.compoundA} + {batch.compoundB}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{batch.pending.toLocaleString()} Nos.</div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
+                                                            {loadingInventory && filteredInventory.length === 0 ? (
+                                                                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 700 }}>
+                                                                    ⏳ Fetching accepted batches from database...
                                                                 </div>
-                                                            ))}
+                                                            ) : filteredInventory.length === 0 ? (
+                                                                <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444', background: '#fef2f2', borderRadius: '12px', border: '1px dashed #fee2e2' }}>
+                                                                    <div style={{ fontSize: '24px', marginBottom: '12px' }}>🚫</div>
+                                                                    <div style={{ fontSize: '14px', fontWeight: 800 }}>No Accepted Inventory Found</div>
+                                                                    <div style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px', opacity: 0.8 }}>No production verification records exist for {railPadType} at this plant.</div>
+                                                                </div>
+                                                            ) : (
+                                                                filteredInventory.map(dateGroup => (
+                                                                    <div key={dateGroup.productionDate} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                                                                        <div style={{ padding: '12px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                                                    checked={dateGroup.batches.every(b => isBatchSelected(lotIdx, b.id))}
+                                                                                    onChange={e => handleDateMasterToggle(lotIdx, dateGroup, e.target.checked)}
+                                                                                />
+                                                                                <span style={{ fontSize: '14px', fontWeight: 900, color: '#334155' }}>{formatDateDDMMYY(dateGroup.productionDate)}</span>
+                                                                                <span style={{ fontSize: '11px', fontWeight: 800, background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '12px' }}>{dateGroup.batches.length} Batches</span>
+                                                                            </div>
+                                                                            <button onClick={() => setExpandedDates(p => ({ ...p, [dateGroup.productionDate]: !p[dateGroup.productionDate] }))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                                                                                {expandedDates[dateGroup.productionDate] ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                                                                            </button>
+                                                                        </div>
+                                                                        <div style={{ padding: '8px 12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px', background: '#fcfcfd' }}>
+                                                                            {dateGroup.batches.map(batch => {
+                                                                                const isSelected = isBatchSelected(lotIdx, batch.id);
+                                                                                return (
+                                                                                    <div
+                                                                                        key={batch.id}
+                                                                                        onClick={() => handleBatchSelection(lotIdx, batch, !isSelected)}
+                                                                                        style={{
+                                                                                            padding: '6px 10px', borderRadius: '8px', background: isSelected ? '#0f172a' : '#fff',
+                                                                                            border: `1.5px solid ${isSelected ? '#0f172a' : '#e2e8f0'}`,
+                                                                                            display: 'flex', alignItems: 'center', gap: '8px',
+                                                                                            cursor: 'pointer', transition: 'all 0.1s',
+                                                                                            boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+                                                                                        }}
+                                                                                    >
+                                                                                        <div style={{
+                                                                                            width: '16px', height: '16px', borderRadius: '4px',
+                                                                                            border: `1.5px solid ${isSelected ? '#38bdf8' : '#cbd5e1'}`,
+                                                                                            background: isSelected ? '#38bdf8' : 'transparent',
+                                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#0f172a' : '#fff'
+                                                                                        }}>
+                                                                                            {isSelected && <CheckCircle2 size={12} strokeWidth={3} />}
+                                                                                        </div>
+                                                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                            <div style={{ fontSize: '11px', fontWeight: 800, color: isSelected ? '#fff' : '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Batch no : {batch.batchNo}</div>
+                                                                                            <div style={{ fontSize: '9px', color: isSelected ? '#94a3b8' : '#64748b', fontWeight: 700 }}>
+                                                                                                accepted no : {batch.qty.toLocaleString()} ({uom})
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -439,10 +548,10 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                                             </div>
                                         )}
                                     </div>
-                                    );
-                                })}
-                            </div>
+                                );
+                            })}
                         </div>
+                    </div>
 
                     {/* ════ SECTION D ════ */}
                     <div style={{
@@ -482,18 +591,30 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                 {/* ── Footer ── */}
                 <div style={{ padding: '24px 32px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 700 }}>
-                        {totalOfferedFromLots === 0 ? "No pads selected yet" : <span>Total Offered: <span style={{ color: totalMatchesOffered ? '#16a34a' : '#ef4444', fontWeight: 900, fontSize: '16px' }}>{totalOfferedFromLots.toLocaleString()}</span> / {parseInt(totalQtyToOffer).toLocaleString() || 0}</span>}
+                        {totalOfferedFromLots === 0 ? "No pads selected yet" : <span>Total Offered: <span style={{ color: totalMatchesOffered ? '#16a34a' : '#ef4444', fontWeight: 900, fontSize: '16px' }}>{totalOfferedFromLots.toLocaleString()}</span> / {(parseInt(totalQtyToOffer) || 0).toLocaleString()}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '16px' }}>
                         <button onClick={onClose} style={{ padding: '12px 32px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 800, fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
-                        <button disabled={!isValid} onClick={() => onSubmitInspectionCall({})} style={{ padding: '12px 36px', borderRadius: '12px', border: 'none', background: isValid ? 'linear-gradient(135deg, #21808d, #0d3b3f)' : '#e2e8f0', color: isValid ? '#fff' : '#94a3b8', fontWeight: 900, fontSize: '14px', cursor: isValid ? 'pointer' : 'not-allowed', boxShadow: isValid ? '0 10px 20px -5px rgba(33,128,141,0.4)' : 'none' }}>Submit Inspection Call</button>
+                        <button
+                            disabled={!isValid || isSubmitting}
+                            onClick={handleSubmit}
+                            style={{
+                                padding: '12px 36px', borderRadius: '12px', border: 'none',
+                                background: isValid ? 'linear-gradient(135deg, #21808d, #0d3b3f)' : '#e2e8f0',
+                                color: isValid ? '#fff' : '#94a3b8', fontWeight: 900, fontSize: '14px',
+                                cursor: isValid ? 'pointer' : 'not-allowed',
+                                boxShadow: isValid ? '0 10px 20px -5px rgba(33,128,141,0.4)' : 'none'
+                            }}
+                        >
+                            {isSubmitting ? 'Submitting...' : 'Submit Inspection Call'}
+                        </button>
                     </div>
                 </div>
             </div>
 
             {/* ── Partial Offering Modal ── */}
             {activePartialLotIdx !== null && (
-                <PartialOfferingModal 
+                <PartialOfferingModal
                     lot={lots[activePartialLotIdx]}
                     inventory={filteredInventory}
                     onClose={() => setActivePartialLotIdx(null)}
@@ -507,6 +628,27 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
                     }}
                 />
             )}
+            {/* ─── Notification Overlay ────────────────────────────────── */}
+            {notification && (
+                <div style={{
+                    position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)',
+                    background: notification.type === 'success' ? '#065f46' : '#991b1b',
+                    color: '#fff', padding: '16px 24px', borderRadius: '12px',
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    zIndex: 10000, minWidth: '320px', animation: 'slideDown 0.3s ease-out'
+                }}>
+                    {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                    <div style={{ fontWeight: 600, whiteSpace: 'pre-line' }}>{notification.message}</div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideDown {
+                    from { transform: translate(-50%, -100%); opacity: 0; }
+                    to { transform: translate(-50%, 0); opacity: 1; }
+                }
+            `}</style>
         </div>,
         document.body
     );
@@ -514,27 +656,31 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspect
 
 // ─── Partial Offering Modal Component ──────────────────────────────────────────
 const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
-    // Start with empty configuration so user can pick from the lot's selected batches
-    const [selectedBatches, setSelectedBatches] = useState({});
+    // Initialize with existing selections from the lot
+    const [selectedBatches, setSelectedBatches] = useState(lot.selectedBatches || {});
 
     const allBatches = useMemo(() => {
         const list = [];
-        inventory.forEach(group => {
-            group.batches.forEach(b => {
-                // Only show batches that were selected in the main lot form (Section C)
-                if (lot.selectedBatches && lot.selectedBatches[b.id] !== undefined) {
-                    list.push({ ...b, productionDate: group.productionDate });
-                }
+        // 'inventory' prop here is actually 'filteredInventory' passed from parent
+        (inventory || []).forEach(group => {
+            (group.batches || []).forEach(b => {
+                list.push({
+                    id: b.id,
+                    batchNo: b.batchNo,
+                    pending: b.pending || b.qty || 0,
+                    productionDate: group.productionDate
+                });
             });
         });
         return list;
-    }, [inventory, lot.selectedBatches]);
+    }, [inventory]);
 
-    const handleAddBatch = (batchId) => {
-        if (!batchId) return;
-        const batch = allBatches.find(b => b.id === batchId);
-        if (batch && !selectedBatches[batchId]) {
-            setSelectedBatches(prev => ({ ...prev, [batchId]: batch.pending }));
+    const handleAddBatch = (val) => {
+        if (!val) return;
+        // Convert both to string to handle potential number/string mismatch
+        const batch = allBatches.find(b => String(b.id) === String(val));
+        if (batch && !selectedBatches[batch.id]) {
+            setSelectedBatches(prev => ({ ...prev, [batch.id]: batch.pending }));
         }
     };
 
@@ -555,7 +701,7 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
     return (
         <div style={{
             position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)',
-            backdropFilter: 'blur(8px)', zIndex: 11000, display: 'flex', 
+            backdropFilter: 'blur(8px)', zIndex: 11000, display: 'flex',
             alignItems: 'center', justifyContent: 'center', padding: '24px'
         }}>
             <div style={{
@@ -565,36 +711,39 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
                 border: '1px solid rgba(0,0,0,0.05)'
             }}>
                 {/* Header */}
-                <div style={{ 
+                <div style={{
                     padding: '24px 32px', background: 'linear-gradient(135deg, #0891b2, #0e7490)', color: '#fff',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}>
-                    <div>
-                        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.8, textTransform: 'uppercase' }}>Declaration for {lot.lotNo}</div>
-                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>Partial Offering Configuration</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <ClipboardList size={32} />
+                        <div>
+                            <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.8, textTransform: 'uppercase' }}>Declaration for {lot.lotNo}</div>
+                            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>Partial Offering Configuration</h3>
+                        </div>
                     </div>
-                    <button onClick={onClose} style={{ 
-                        background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', 
+                    <button onClick={onClose} style={{
+                        background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff',
                         width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer',
                         fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>×</button>
+                    }}><Plus style={{ transform: 'rotate(45deg)' }} /></button>
                 </div>
 
                 <div style={{ padding: '32px', overflowY: 'auto', maxHeight: '65vh', background: '#fcfcfd' }}>
                     {/* Batch Selector */}
-                    <div style={{ 
-                        background: '#fff', padding: '20px', borderRadius: '16px', 
+                    <div style={{
+                        background: '#fff', padding: '20px', borderRadius: '16px',
                         border: '1px solid #e2e8f0', marginBottom: '24px',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                     }}>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                             Add Production Batch to Lot
                         </label>
-                        <select 
+                        <select
                             onChange={(e) => handleAddBatch(e.target.value)}
                             value=""
-                            style={{ 
-                                width: '100%', height: '48px', padding: '0 16px', 
+                            style={{
+                                width: '100%', height: '48px', padding: '0 16px',
                                 borderRadius: '12px', border: '2px solid #e2e8f0',
                                 fontWeight: 800, color: '#1e293b', background: '#f8fafc',
                                 outline: 'none', cursor: 'pointer'
@@ -603,14 +752,14 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
                             <option value="" disabled>Search or Select Batch...</option>
                             {availableOptions.map(b => (
                                 <option key={b.id} value={b.id}>
-                                    {b.batchNo} — {b.pending.toLocaleString()} Nos available ({formatDateDDMMYY(b.productionDate)})
+                                    {b.batchNo || 'Unnamed Batch'} — {b.pending.toLocaleString()} Nos available ({formatDateDDMMYY(b.productionDate)})
                                 </option>
                             ))}
                         </select>
                         {availableOptions.length === 0 && (
                             <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                                {allBatches.length === 0 
-                                    ? "No batches selected in Section C for this lot." 
+                                {allBatches.length === 0
+                                    ? "No batches selected in Section C for this lot."
                                     : "All selected batches from lot are already configured."}
                             </p>
                         )}
@@ -626,21 +775,23 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {Object.entries(selectedBatches).length === 0 ? (
-                            <div style={{ 
-                                padding: '48px', textAlign: 'center', color: '#94a3b8', 
+                            <div style={{
+                                padding: '48px', textAlign: 'center', color: '#94a3b8',
                                 background: '#fff', border: '2px dashed #e2e8f0', borderRadius: '16px',
                             }}>
-                                <div style={{ fontSize: '24px', marginBottom: '12px' }}>📦</div>
+                                <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+                                    <Package size={48} />
+                                </div>
                                 <div style={{ fontSize: '14px', fontWeight: 700 }}>No batches selected yet</div>
                                 <div style={{ fontSize: '12px', fontWeight: 500, marginTop: '4px' }}>Use the dropdown above to add batches to this lot</div>
                             </div>
                         ) : (
                             Object.entries(selectedBatches).map(([batchId, qty]) => {
-                                const batch = allBatches.find(b => b.id === batchId);
+                                const batch = allBatches.find(b => String(b.id) === String(batchId));
                                 const isInvalid = qty <= 0 || qty > (batch?.pending || 0);
-                                
+
                                 return (
-                                    <div key={batchId} style={{ 
+                                    <div key={batchId} style={{
                                         padding: '16px 20px', background: '#fff', borderRadius: '16px', border: `1px solid ${isInvalid ? '#fee2e2' : '#e2e8f0'}`,
                                         display: 'flex', alignItems: 'center', gap: '20px',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
@@ -655,12 +806,12 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
                                         <div style={{ width: '160px' }}>
                                             <div style={{ fontSize: '10px', fontWeight: 900, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>Quantity to Offer</div>
                                             <div style={{ position: 'relative' }}>
-                                                <input 
-                                                    type="number" 
+                                                <input
+                                                    type="number"
                                                     value={qty}
                                                     onChange={(e) => handleQtyChange(batchId, e.target.value, batch?.pending)}
-                                                    style={{ 
-                                                        width: '100%', height: '40px', padding: '0 12px', 
+                                                    style={{
+                                                        width: '100%', height: '40px', padding: '0 12px',
                                                         borderRadius: '8px', border: `2px solid ${isInvalid ? '#ef4444' : '#0891b2'}`,
                                                         fontWeight: 900, fontSize: '16px', color: '#0891b2',
                                                         outline: 'none', background: isInvalid ? '#fff1f2' : '#f0f9ff'
@@ -668,18 +819,18 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
                                                 />
                                             </div>
                                         </div>
-                                        <button 
-                                            onClick={() => handleRemove(batchId)} 
-                                            style={{ 
-                                                width: '36px', height: '36px', border: 'none', 
-                                                background: '#fee2e2', color: '#ef4444', 
+                                        <button
+                                            onClick={() => handleRemove(batchId)}
+                                            style={{
+                                                width: '36px', height: '36px', border: 'none',
+                                                background: '#fee2e2', color: '#ef4444',
                                                 borderRadius: '10px', cursor: 'pointer', fontSize: '16px',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 transition: 'all 0.2s'
                                             }}
                                             onMouseOver={(e) => e.currentTarget.style.background = '#fecaca'}
                                             onMouseOut={(e) => e.currentTarget.style.background = '#fee2e2'}
-                                        >×</button>
+                                        ><Trash2 size={18} /></button>
                                     </div>
                                 );
                             })
@@ -696,13 +847,13 @@ const PartialOfferingModal = ({ lot, inventory, onClose, onSubmit }) => {
                     </div>
                     <div style={{ display: 'flex', gap: '16px' }}>
                         <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 800, fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
-                        <button 
+                        <button
                             disabled={Object.keys(selectedBatches).length === 0}
                             onClick={() => onSubmit(selectedBatches)}
-                            style={{ 
-                                padding: '12px 32px', borderRadius: '12px', border: 'none', 
-                                background: Object.keys(selectedBatches).length === 0 ? '#e2e8f0' : 'linear-gradient(135deg, #0891b2, #0e7490)', 
-                                color: Object.keys(selectedBatches).length === 0 ? '#94a3b8' : '#fff', 
+                            style={{
+                                padding: '12px 32px', borderRadius: '12px', border: 'none',
+                                background: Object.keys(selectedBatches).length === 0 ? '#e2e8f0' : 'linear-gradient(135deg, #0891b2, #0e7490)',
+                                color: Object.keys(selectedBatches).length === 0 ? '#94a3b8' : '#fff',
                                 fontWeight: 900, fontSize: '14px', cursor: Object.keys(selectedBatches).length === 0 ? 'not-allowed' : 'pointer',
                                 boxShadow: Object.keys(selectedBatches).length === 0 ? 'none' : '0 10px 15px -3px rgba(8,145,178,0.3)'
                             }}

@@ -59,9 +59,7 @@ const Sidebar = ({ activeItem, onItemClick, isOpen, expanded, onMouseEnter, onMo
                 ))}
             </nav>
 
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', fontSize: 'var(--fs-xxs)', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                {expanded ? 'v1.2.0' : 'v1.2'}
-            </div>
+
         </aside>
     );
 };

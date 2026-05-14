@@ -162,32 +162,58 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
         setView('details');
     };
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 12px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 80, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 50, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in">
-            <div className="section-header" style={{ marginBottom: '24px' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Plant Set Up</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+            }}>
+                <div className="section-header" style={{ marginBottom: view === 'list' ? '24px' : '0' }}>
+                    <div>
+                        <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Plant Set Up</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
+                    </div>
+                    {view === 'list' && (
+                        <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setNumUnits(0); setUnitSections([]); }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                            Add New Entry
+                        </button>
+                    )}
                 </div>
-                {view === 'list' && (
-                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setNumUnits(0); setUnitSections([]); }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                        Add New Entry
-                    </button>
-                )}
-            </div>
 
-            {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div className="spinner"></div>
-                    <p>Loading plant entries...</p>
-                </div>
-            ) : view === 'list' ? (
-                <div className="fade-in">
+                {view === 'list' && (
                     <div style={{ 
                         display: 'flex', 
                         gap: '12px', 
-                        marginBottom: '20px',
                         background: 'rgba(241, 245, 249, 0.5)',
                         padding: '8px',
                         borderRadius: '12px',
@@ -248,6 +274,11 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}>{verifiedCount}</span>
                         </button>
                     </div>
+                )}
+            </div>
+
+            {view === 'list' ? (
+                <div className="fade-in">
 
                     <div className="table-container fade-in">
                         <table>
@@ -261,7 +292,15 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEntries.length > 0 ? (
+                                {isLoading ? (
+                                    <>
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                    </>
+                                ) : filteredEntries.length > 0 ? (
                                     filteredEntries.map(entry => (
                                         <tr key={entry.id}>
                                             <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>
