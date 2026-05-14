@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RaiseRailPadInspectionCallForm from './RaiseRailPadInspectionCallForm';
+import poAssignedService from '../../../services/poAssignedService';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -22,7 +23,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0 }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
 
@@ -106,6 +107,8 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0 }) => {
                 <RaiseRailPadInspectionCallForm
                     srItem={item}
                     poNo={poNo}
+                    plantId={plantId}
+                    vendorCode={vendorCode}
                     onClose={() => setShowForm(false)}
                     onSubmitInspectionCall={onSubmitInspectionCall}
                 />
@@ -115,7 +118,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0 }) => {
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode }) => {
     const [expanded, setExpanded] = useState(false);
 
     const items = po.poItem || po.srItems || [];
@@ -241,6 +244,8 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                                 isLast={idx === items.length - 1}
                                                 onSubmitInspectionCall={onSubmitInspectionCall}
                                                 idx={idx}
+                                                plantId={plantId}
+                                                vendorCode={vendorCode}
                                             />
                                         ))}
                                     </tbody>
@@ -264,69 +269,30 @@ const thStyle = {
 };
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-const PoAssignedDashboard = () => {
+const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const [search, setSearch] = useState('');
     const [perPage, setPerPage] = useState(10);
     const [page, setPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [poDataList, setPoDataList] = useState([]);
 
-    const [loading, setLoading] = useState(false);
-    
-    // Mock Data for RailPad POs
-    const [poDataList, setPoDataList] = useState([
-        {
-            poNo: '7023101150',
-            poDate: '12-08-2025',
-            rlyShortName: 'WCR',
-            purchasingAuthority: 'Dy. CE/TP/WCR',
-            itemCategory: '6.00mm GRSP',
-            qty: 250000,
-            unit: 'Nos.',
-            totalValue: 12500000,
-            status: 'Active',
-            srItems: [
-                {
-                    srNo: '1',
-                    description: '6.00mm GRSP to RDSO Drg. No. T-3711',
-                    consignee: 'SSE/P.Way/WCR/JBP',
-                    orderedQty: 100000,
-                    offeredTillNow: 40000,
-                    acceptedTillNow: 35000,
-                    due: 65000
-                },
-                {
-                    srNo: '2',
-                    description: '6.00mm GRSP to RDSO Drg. No. T-3711',
-                    consignee: 'SSE/P.Way/WCR/BPL',
-                    orderedQty: 150000,
-                    offeredTillNow: 0,
-                    acceptedTillNow: 0,
-                    due: 150000
-                }
-            ]
-        },
-        {
-            poNo: '7023102260',
-            poDate: '25-09-2025',
-            rlyShortName: 'NCR',
-            purchasingAuthority: 'Dy. CE/TP/NCR',
-            itemCategory: '10.00mm CGRSP',
-            qty: 80000,
-            unit: 'Sets',
-            totalValue: 8800000,
-            status: 'Active',
-            srItems: [
-                {
-                    srNo: '1',
-                    description: '10.00mm Composite GRSP to RDSO Drg. No. T-8521',
-                    consignee: 'SSE/P.Way/NCR/PRYJ',
-                    orderedQty: 80000,
-                    offeredTillNow: 10000,
-                    acceptedTillNow: 10000,
-                    due: 70000
-                }
-            ]
+    const fetchPoData = async () => {
+        try {
+            setLoading(true);
+            const data = await poAssignedService.getPoAssigned(vendorCode);
+            setPoDataList(Array.isArray(data) ? data : (data.responseData || []));
+        } catch (error) {
+            console.error('Error fetching PO data:', error);
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        if (vendorCode) {
+            fetchPoData();
+        }
+    }, [vendorCode]);
 
     const activePOs = poDataList.filter(p => (p.status || 'Active') === 'Active').length;
     const pendingCalls = poDataList.reduce((acc, po) =>
@@ -335,10 +301,10 @@ const PoAssignedDashboard = () => {
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
         return poDataList.filter(po =>
-            (po.poNo && po.poNo.toLowerCase().includes(q)) ||
-            (po.rlyShortName && po.rlyShortName.toLowerCase().includes(q)) ||
-            (po.purchasingAuthority && po.purchasingAuthority.toLowerCase().includes(q)) ||
-            (po.itemCategory && po.itemCategory.toLowerCase().includes(q))
+            (po.poNo && String(po.poNo).toLowerCase().includes(q)) ||
+            (po.rlyShortName && String(po.rlyShortName).toLowerCase().includes(q)) ||
+            (po.purchasingAuthority && String(po.purchasingAuthority).toLowerCase().includes(q)) ||
+            (po.itemCategory && String(po.itemCategory).toLowerCase().includes(q))
         );
     }, [search, poDataList]);
 
@@ -352,71 +318,88 @@ const PoAssignedDashboard = () => {
 
     return (
         <div className="fade-in">
-            {/* ── Page Header ── */}
-            <div style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-                    <div>
-                        <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: 22, fontWeight: 800 }}>
-                            PO Assigned to Vendor
-                        </h2>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-                            List of all active Rail Pad Purchase Orders. Expand PO to view item details and raise inspection calls.
-                        </p>
-                    </div>
-                    {/* Summary badges */}
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{
-                            background: '#f0fdf4', border: '1.5px solid #bbf7d0',
-                            borderRadius: 12, padding: '8px 16px', textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a', lineHeight: 1 }}>{activePOs}</div>
-                            <div style={{ fontSize: 10, color: '#166534', fontWeight: 600, marginTop: 2 }}>ACTIVE POs</div>
-                        </div>
-                        <div style={{
-                            background: '#fef9ec', border: '1.5px solid #fde68a',
-                            borderRadius: 12, padding: '8px 16px', textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{pendingCalls}</div>
-                            <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING CALLS</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Filter Bar ── */}
+            <style>{`
+                @keyframes pulse {
+                    0% { opacity: 0.6; }
+                    50% { opacity: 1; }
+                    100% { opacity: 0.6; }
+                }
+            `}</style>
+            {/* ── Page Header & Filter Bar Container ── */}
             <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: 16, gap: 12, flexWrap: 'wrap'
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
             }}>
-                <div style={{ position: 'relative', flex: '0 0 300px' }}>
-                    <span style={{
-                        position: 'absolute', left: 12, top: '50%',
-                        transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 14
-                    }}>🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search PO No., Authority..."
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        style={{
-                            width: '100%', height: 38, padding: '0 12px 0 36px',
-                            border: '1.5px solid #e2e8f0', borderRadius: 8,
-                            fontSize: 13, color: '#0f172a', background: '#fff'
-                        }}
-                    />
+                {/* ── Page Header ── */}
+                <div style={{ marginBottom: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                        <div>
+                            <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: 22, fontWeight: 800 }}>
+                                PO Assigned to Vendor
+                            </h2>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
+                                List of all active Rail Pad Purchase Orders. Expand PO to view item details and raise inspection calls.
+                            </p>
+                        </div>
+                        {/* Summary badges */}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{
+                                background: '#f0fdf4', border: '1.5px solid #bbf7d0',
+                                borderRadius: 12, padding: '8px 16px', textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a', lineHeight: 1 }}>{activePOs}</div>
+                                <div style={{ fontSize: 10, color: '#166534', fontWeight: 600, marginTop: 2 }}>ACTIVE POs</div>
+                            </div>
+                            <div style={{
+                                background: '#fef9ec', border: '1.5px solid #fde68a',
+                                borderRadius: 12, padding: '8px 16px', textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{pendingCalls}</div>
+                                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING CALLS</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748b' }}>
-                    <span>Show</span>
-                    <select
-                        value={perPage}
-                        onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
-                        style={{
-                            height: 34, padding: '0 8px', border: '1.5px solid #e2e8f0',
-                            borderRadius: 8, fontSize: 12, color: '#0f172a', background: '#fff', cursor: 'pointer'
-                        }}
-                    >
-                        {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
-                    </select>
+
+                {/* ── Filter Bar ── */}
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    gap: 12, flexWrap: 'wrap'
+                }}>
+                    <div style={{ position: 'relative', flex: '0 0 300px' }}>
+                        <span style={{
+                            position: 'absolute', left: 12, top: '50%',
+                            transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 14
+                        }}>🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Search PO No., Authority..."
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setPage(1); }}
+                            style={{
+                                width: '100%', height: 38, padding: '0 12px 0 36px',
+                                border: '1.5px solid #e2e8f0', borderRadius: 8,
+                                fontSize: 13, color: '#0f172a', background: '#fff'
+                            }}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748b' }}>
+                        <span>Show</span>
+                        <select
+                            value={perPage}
+                            onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
+                            style={{
+                                height: 34, padding: '0 8px', border: '1.5px solid #e2e8f0',
+                                borderRadius: 8, fontSize: 12, color: '#0f172a', background: '#fff', cursor: 'pointer'
+                            }}
+                        >
+                            {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -441,11 +424,20 @@ const PoAssignedDashboard = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
-                                        Loading PO Data...
-                                    </td>
-                                </tr>
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={i} style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+                                        <td style={{ padding: '20px 12px' }}><div style={{ width: 28, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}>
+                                            <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 4 }}></div>
+                                            <div style={{ width: 80, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+                                        </td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 150, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 180, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4, margin: '0 auto' }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4, marginLeft: 'auto' }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 70, height: 20, background: '#f1f5f9', borderRadius: 10, margin: '0 auto' }}></div></td>
+                                    </tr>
+                                ))
                             ) : paginated.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
@@ -461,6 +453,8 @@ const PoAssignedDashboard = () => {
                                         index={idx}
                                         isLast={idx === paginated.length - 1}
                                         onSubmitInspectionCall={onSubmitInspectionCall}
+                                        plantId={plantId}
+                                        vendorCode={vendorCode}
                                     />
                                 ))
                             )}

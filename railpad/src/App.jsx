@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from './components/Layout/MainLayout';
 import RailPadVendorDashboard from './pages/RailPadVendor/RailPadVendorDashboard';
 import RailPadVendorLogin from './pages/RailPadVendor/RailPadVendorLogin';
@@ -10,50 +10,73 @@ import { logoutUser } from './services/authService.js';
  */
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const railpadToken = localStorage.getItem('railpad_token');
+    const authToken = localStorage.getItem('authToken');
+    return !!railpadToken || !!authToken || new URLSearchParams(window.location.search).get('bypassAuth') === 'true';
+  });
+
+  const [selectedPlant, setSelectedPlant] = useState(() => {
+    const id = localStorage.getItem('railpad_selectedPlantId');
+    const name = localStorage.getItem('railpad_selectedPlantName');
+    // Treat "1" as invalid/placeholder to force modal
+    return (id && id !== "1") ? { plantId: id, plantName: name } : null;
+  });
+
+  const [vendorCode, setVendorCode] = useState(() => localStorage.getItem('railpad_vendorCode'));
+  const [vendorName, setVendorName] = useState(() => localStorage.getItem('railpad_vendorName') || 'RailPad Vendor');
+
+  const [activeItem, setActiveItem] = useState('Vendor');
+
+  useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const isBypass = searchParams.get('bypassAuth') === 'true';
     
-    // Capture URL params and store them with railpad_ prefix
+    // Capture URL params
     const urlVendorCode = searchParams.get('vendorCode');
     const urlVendorName = searchParams.get('vendorName');
     const urlUserId = searchParams.get('userId');
     const urlToken = searchParams.get('token');
     const urlPlant = searchParams.get('selectedRailPlant');
 
-    if (urlVendorCode) localStorage.setItem('railpad_vendorCode', urlVendorCode);
-    if (urlVendorName) localStorage.setItem('railpad_vendorName', urlVendorName);
+    if (urlVendorCode) {
+        localStorage.setItem('railpad_vendorCode', urlVendorCode);
+        setVendorCode(urlVendorCode);
+    }
+    if (urlVendorName) {
+        localStorage.setItem('railpad_vendorName', urlVendorName);
+        setVendorName(urlVendorName);
+    }
     if (urlUserId) localStorage.setItem('railpad_userId', urlUserId);
-    if (urlToken) localStorage.setItem('railpad_token', urlToken);
+    if (urlToken) {
+        localStorage.setItem('railpad_token', urlToken);
+        setIsAuthenticated(true);
+    }
     
     if (urlPlant) {
         localStorage.setItem('selectedRailPlant', urlPlant);
         try {
             const p = JSON.parse(urlPlant);
             localStorage.setItem('railpad_selectedPlantId', p.plantId || urlPlant);
+            localStorage.setItem('railpad_selectedPlantName', p.plantName || "Selected Plant");
+            setSelectedPlant({ plantId: p.plantId || urlPlant, plantName: p.plantName || "Selected Plant" });
         } catch (e) {
-            // It's a plain string, use it directly
             localStorage.setItem('railpad_selectedPlantId', urlPlant);
+            setSelectedPlant({ plantId: urlPlant, plantName: "Selected Plant" });
         }
     }
 
-    // Fallback to main portal keys if railpad keys are missing (common on same origin)
+    // Sync with main portal if needed
     const authToken = localStorage.getItem('authToken');
     const railpadToken = localStorage.getItem('railpad_token');
-    
     if (!railpadToken && authToken) {
         localStorage.setItem('railpad_token', authToken);
-        if (localStorage.getItem('vendorCode')) localStorage.setItem('railpad_vendorCode', localStorage.getItem('vendorCode'));
-        if (localStorage.getItem('vendorName')) localStorage.setItem('railpad_vendorName', localStorage.getItem('vendorName'));
-        if (localStorage.getItem('userId'))     localStorage.setItem('railpad_userId', localStorage.getItem('userId'));
+        setIsAuthenticated(true);
     }
-
-    return isBypass || !!localStorage.getItem('railpad_token');
-  });
-
-  const [activeItem, setActiveItem] = useState('Vendor');
+  }, []);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
+    setVendorCode(localStorage.getItem('railpad_vendorCode'));
+    setVendorName(localStorage.getItem('railpad_vendorName') || 'RailPad Vendor');
   };
 
   const handleLogout = () => {
@@ -62,14 +85,25 @@ const App = () => {
     setIsAuthenticated(false);
   };
 
+  const handlePlantSelect = (plant) => {
+    localStorage.setItem('railpad_selectedPlantId', plant.plantId);
+    localStorage.setItem('railpad_selectedPlantName', plant.plantName);
+    setSelectedPlant(plant);
+  };
+
   const renderContent = () => {
+    const contextProps = {
+        selectedPlant,
+        plantId: selectedPlant?.plantId
+    };
+
     switch (activeItem) {
       case 'Vendor':
-        return <RailPadVendorDashboard />;
+        return <RailPadVendorDashboard {...contextProps} />;
       case 'PlantDeclaration':
-        return <PlantDeclarationDashboard />;
+        return <PlantDeclarationDashboard {...contextProps} />;
       default:
-        return <RailPadVendorDashboard />;
+        return <RailPadVendorDashboard {...contextProps} />;
     }
   };
 
@@ -78,7 +112,15 @@ const App = () => {
       {!isAuthenticated ? (
         <RailPadVendorLogin onLogin={handleLoginSuccess} />
       ) : (
-        <MainLayout activeItem={activeItem} onItemClick={setActiveItem} onLogout={handleLogout}>
+        <MainLayout 
+            activeItem={activeItem} 
+            onItemClick={setActiveItem} 
+            onLogout={handleLogout}
+            selectedPlant={selectedPlant}
+            onPlantSelect={handlePlantSelect}
+            vendorCode={vendorCode}
+            vendorName={vendorName}
+        >
           {renderContent()}
         </MainLayout>
       )}

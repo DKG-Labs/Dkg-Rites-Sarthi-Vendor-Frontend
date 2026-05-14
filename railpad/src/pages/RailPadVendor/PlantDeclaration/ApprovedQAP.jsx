@@ -527,36 +527,75 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
         );
     }
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 12px' }}>
+                <div style={{ width: 100, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 140, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in">
-            <div className="section-header" style={{ marginBottom: '24px' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Approved QAP Values</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Define master reference for process validation</p>
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+            }}>
+                <div className="section-header" style={{ marginBottom: '24px' }}>
+                    <div>
+                        <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Approved QAP Values</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Define master reference for process validation</p>
+                    </div>
+                    <button className="btn-primary" onClick={openAdd}>+ Add New Entry</button>
                 </div>
-                <button className="btn-primary" onClick={openAdd}>+ Add New Entry</button>
+
+                <div className="status-tabs-row" style={{ marginBottom: 0 }}>
+                    <button onClick={() => setStatusTab('PENDING')} className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}>
+                        <span className="dot pending"></span> Pending ({pendingCount})
+                    </button>
+                    <button onClick={() => setStatusTab('COMPLETED')} className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}>
+                        <span className="dot success"></span> Verified ({verifiedCount})
+                    </button>
+                </div>
             </div>
 
-            {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><div className="spinner"></div><p>Loading QAP entries...</p></div>
-            ) : (
-                <>
-                    <div className="status-tabs-row">
-                        <button onClick={() => setStatusTab('PENDING')} className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}>
-                            <span className="dot pending"></span> Pending ({pendingCount})
-                        </button>
-                        <button onClick={() => setStatusTab('COMPLETED')} className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}>
-                            <span className="dot success"></span> Verified ({verifiedCount})
-                        </button>
-                    </div>
-
-                    <div className="table-container fade-in">
-                        <table>
-                            <thead>
-                                <tr><th>QAP No.</th><th>Pad Types</th><th>Mixing</th><th>Moulding</th><th>Status</th><th style={{ textAlign: 'center' }}>Action</th></tr>
-                            </thead>
-                            <tbody>
-                                {filteredEntries.length === 0 ? (
+                <div className="table-container fade-in">
+                    <table>
+                        <thead>
+                            <tr><th>QAP No.</th><th>Pad Types</th><th>Mixing</th><th>Moulding</th><th>Status</th><th style={{ textAlign: 'center' }}>Action</th></tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <>
+                                    <SkeletonRow />
+                                    <SkeletonRow />
+                                    <SkeletonRow />
+                                    <SkeletonRow />
+                                    <SkeletonRow />
+                                </>
+                            ) : filteredEntries.length === 0 ? (
                                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No QAP entries found.</td></tr>
                                 ) : (
                                     filteredEntries.map(entry => (
@@ -592,8 +631,7 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
                             </tbody>
                         </table>
                     </div>
-                </>
-            )}
+
         </div>
     );
 };

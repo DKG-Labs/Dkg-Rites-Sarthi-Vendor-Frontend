@@ -4,23 +4,43 @@ import PlantDeclarationDashboard from './PlantDeclaration/PlantDeclarationDashbo
 import InventoryManagementDashboard from './InventoryManagement/InventoryManagementDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDeclarationDashboard';
 import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
+import RequestedCallsDashboard from './RequestedCalls/RequestedCallsDashboard';
+import inspectionCallService from '../../services/inspectionCallService';
 
-const RailPadVendorDashboard = () => {
+const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
     const [selectedModule, setSelectedModule] = useState(() => {
         return localStorage.getItem('railpad_selectedModule') || 'po-assigned';
     });
+    const [requestedCallsCount, setRequestedCallsCount] = useState(0);
 
     const vendorName = localStorage.getItem('railpad_vendorName') || 'RailPad Vendor';
-    const plantName = localStorage.getItem('railpad_selectedPlantName');
-    const plantId = localStorage.getItem('railpad_selectedPlantId');
+    const plantName = selectedPlant?.plantName || localStorage.getItem('railpad_selectedPlantName');
+    let plantId = propPlantId || selectedPlant?.plantId || localStorage.getItem('railpad_selectedPlantId');
+    if (plantId === "1") plantId = null;
 
     useEffect(() => {
         localStorage.setItem('railpad_selectedModule', selectedModule);
     }, [selectedModule]);
 
+    useEffect(() => {
+        fetchCounts();
+    }, []);
+
+    const fetchCounts = async () => {
+        try {
+            const vendorCode = localStorage.getItem('railpad_vendorCode');
+            if (vendorCode) {
+                const calls = await inspectionCallService.getByVendor(vendorCode);
+                setRequestedCallsCount(Array.isArray(calls) ? calls.length : 0);
+            }
+        } catch (err) {
+            console.error("Error fetching module counts:", err);
+        }
+    };
+
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
-        { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
+        { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: requestedCallsCount },
         { id: 'verified-locked', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
@@ -31,15 +51,24 @@ const RailPadVendorDashboard = () => {
 
 
     const renderContent = () => {
+        const contextProps = {
+            plantId,
+            vendorCode: localStorage.getItem('railpad_vendorCode'),
+            vendorName,
+            selectedModule
+        };
+
         switch (selectedModule) {
             case 'plant-declaration':
-                return <PlantDeclarationDashboard />;
+                return <PlantDeclarationDashboard {...contextProps} />;
             case 'inventory-management':
-                return <InventoryManagementDashboard />;
+                return <InventoryManagementDashboard {...contextProps} />;
             case 'production-declaration':
-                return <ProductionDeclarationDashboard />;
+                return <ProductionDeclarationDashboard {...contextProps} />;
             case 'po-assigned':
-                return <PoAssignedDashboard />;
+                return <PoAssignedDashboard {...contextProps} />;
+            case 'requested-calls':
+                return <RequestedCallsDashboard {...contextProps} />;
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
@@ -53,18 +82,28 @@ const RailPadVendorDashboard = () => {
 
     return (
         <div className="railpad-container" style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
-            <header style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <header style={{ 
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px' 
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <span style={{ 
                                 background: '#e0f2fe', 
                                 color: '#0369a1', 
-                                padding: '4px 12px', 
+                                padding: '6px 14px', 
                                 borderRadius: '20px', 
                                 fontSize: '12px', 
                                 fontWeight: '700',
-                                border: '1px solid #bae6fd'
+                                border: '1px solid #bae6fd',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
                             }}>
                                 🏢 {vendorName}
                             </span>
@@ -72,11 +111,14 @@ const RailPadVendorDashboard = () => {
                                 <span style={{ 
                                     background: '#f0fdf4', 
                                     color: '#166534', 
-                                    padding: '4px 12px', 
+                                    padding: '6px 14px', 
                                     borderRadius: '20px', 
                                     fontSize: '12px', 
                                     fontWeight: '700',
-                                    border: '1px solid #bbf7d0'
+                                    border: '1px solid #bbf7d0',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
                                 }}>
                                     📍 {plantName} {plantId ? `(${plantId})` : ''}
                                 </span>
@@ -87,13 +129,23 @@ const RailPadVendorDashboard = () => {
                             fontWeight: '800',
                             color: '#0f172a',
                             letterSpacing: '-0.025em',
-                            margin: 0
+                            margin: 0,
+                            lineHeight: '1.2'
                         }}>
                             Rail-Pad Vendor Dashboard
                         </h1>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '14px', fontWeight: '500' }}>
+                    <div style={{ 
+                        textAlign: 'right',
+                        background: '#f8fafc',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Today's Date
+                        </p>
+                        <p style={{ margin: '4px 0 0 0', color: '#0f172a', fontSize: '16px', fontWeight: '700' }}>
                             {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
                     </div>

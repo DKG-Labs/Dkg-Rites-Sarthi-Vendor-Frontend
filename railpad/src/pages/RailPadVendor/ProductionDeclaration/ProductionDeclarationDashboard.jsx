@@ -13,7 +13,7 @@ const PRODUCT_TYPES = [
 
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
 
-const ProductionDeclarationDashboard = () => {
+const ProductionDeclarationDashboard = ({ plantId }) => {
     const [activeTab, setActiveTab] = useState('pending');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
@@ -101,10 +101,16 @@ const ProductionDeclarationDashboard = () => {
     const fetchAllData = async () => {
         setIsLoading(true);
         try {
-            const { plant, user } = getLatestUserAndPlant();
+            const { plant: localPlant, user } = getLatestUserAndPlant();
+            const actualPlantId = plantId || localPlant.plantId;
             
+            if (!actualPlantId || actualPlantId === "1") {
+                console.warn("[Dashboard] Skipping fetch: Invalid plantId", actualPlantId);
+                return;
+            }
+
             // 1. Fetch declarations
-            const res = await productionDeclarationService.getByPlantId(plant.plantId);
+            const res = await productionDeclarationService.getByPlantId(actualPlantId);
             const actualData = res?.responseData || (Array.isArray(res) ? res : []);
             setDeclarations(actualData);
 
@@ -128,7 +134,7 @@ const ProductionDeclarationDashboard = () => {
 
     useEffect(() => {
         fetchAllData();
-    }, []);
+    }, [plantId]);
 
     const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
 
@@ -392,6 +398,32 @@ const ProductionDeclarationDashboard = () => {
         return status === 'VERIFIED' || status === 'APPROVED' || status === 'COMPLETED';
     }).length;
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 100, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 60, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 140, height: 12, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 180, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12, margin: '0 auto' }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in railpad-container" style={{ padding: 0 }}>
             {/* Dashboard Header */}
@@ -448,7 +480,14 @@ const ProductionDeclarationDashboard = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredDeclarations.map(decl => (
+                        {isLoading ? (
+                            <>
+                                <SkeletonRow />
+                                <SkeletonRow />
+                                <SkeletonRow />
+                                <SkeletonRow />
+                            </>
+                        ) : filteredDeclarations.map(decl => (
                             <tr key={decl.id}>
                                 <td>
                                     <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '14px' }}>{decl.productionDate}</div>
