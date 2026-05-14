@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RaiseRailPadInspectionCallForm from './RaiseRailPadInspectionCallForm';
 import poAssignedService from '../../../services/poAssignedService';
+import SyncPOButton from '../../../components/common/SyncPOButton';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -344,6 +345,14 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                             <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
                                 List of all active Rail Pad Purchase Orders. Expand PO to view item details and raise inspection calls.
                             </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                            <SyncPOButton 
+                                vendorCode={vendorCode}
+                                plantId={plantId}
+                                onSuccess={() => fetchPoData()}
+                                onError={(err) => alert('Sync failed: ' + err.message)}
+                            />
                         </div>
                         {/* Summary badges */}
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

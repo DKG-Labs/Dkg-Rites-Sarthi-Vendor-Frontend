@@ -21,5 +21,6 @@ export const API_CONFIG = {
     PO_DATA: `${API_BASE_URL}/vendor/poData`,
     RAILPAD_WORKFLOW: `${API_BASE_URL}/railpad-workflow`,
     IE_PRODUCTION_VERIFICATION: `${API_BASE_URL}/ie-production-verification`,
-    RAIL_INSPECTION_CALL: `${API_BASE_URL}/rail-inspection-call`
+    RAIL_INSPECTION_CALL: `${API_BASE_URL}/rail-inspection-call`,
+    SYNC: `${API_BASE_URL}/sync`
 };

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { productionDeclarationService } from '../../../services/productionDeclarationService';
+import poAssignedService from '../../../services/poAssignedService';
 import { API_CONFIG } from '../../../services/config';
 
 const PRODUCT_TYPES = [
@@ -13,7 +14,7 @@ const PRODUCT_TYPES = [
 
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
 
-const ProductionDeclarationDashboard = ({ plantId }) => {
+const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode }) => {
     const [activeTab, setActiveTab] = useState('pending');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
@@ -23,6 +24,8 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState(null);
     const [pendingTransitions, setPendingTransitions] = useState([]);
+    const [pos, setPos] = useState([]);
+    const [posLoading, setPosLoading] = useState(false);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type, fading: false });
@@ -86,6 +89,7 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
         productionDate: new Date().toISOString().split('T')[0],
         shift: '',
         productionLine: '',
+        poNo: '',
         productBlocks: [
             {
                 id: Date.now(),
@@ -97,6 +101,23 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
     };
 
     const [formData, setFormData] = useState(initialFormState);
+
+    const fetchPOs = async () => {
+        try {
+            setPosLoading(true);
+            const { user } = getLatestUserAndPlant();
+            const vcode = propVendorCode || user.vendorCode;
+            if (vcode) {
+                const data = await poAssignedService.getPoAssigned(vcode);
+                const list = Array.isArray(data) ? data : (data.responseData || []);
+                setPos(list);
+            }
+        } catch (error) {
+            console.error('Error fetching POs:', error);
+        } finally {
+            setPosLoading(false);
+        }
+    };
 
     const fetchAllData = async () => {
         setIsLoading(true);
@@ -134,7 +155,8 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
 
     useEffect(() => {
         fetchAllData();
-    }, [plantId]);
+        fetchPOs();
+    }, [plantId, propVendorCode]);
 
     const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
 
@@ -231,6 +253,7 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
             productionDate: decl.productionDate,
             shift: decl.shift,
             productionLine: decl.productionLine,
+            poNo: decl.poNo || '',
             productBlocks: (decl.products || []).map(p => ({
                 id: p.id,
                 productType: p.productType,
@@ -273,6 +296,7 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
                 productionDate: formData.productionDate,
                 shift: formData.shift,
                 productionLine: formData.productionLine,
+                poNo: formData.poNo,
                 vendorName: user.vendorName,
                 vendorCode: user.vendorCode,
                 plantId: plant.plantId,
@@ -473,7 +497,8 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
                     <thead>
                         <tr>
                             <th style={{ width: '20%', fontSize: '13px' }}>Date & Shift</th>
-                            <th style={{ width: '15%', fontSize: '13px' }}>Line ID</th>
+                            <th style={{ width: '12%', fontSize: '13px' }}>Line ID</th>
+                            <th style={{ width: '15%', fontSize: '13px' }}>PO Number</th>
                             <th style={{ width: '30%', fontSize: '13px' }}>Product Details</th>
                             <th style={{ width: '15%', textAlign: 'center', fontSize: '13px' }}>Status</th>
                             <th style={{ width: '20%', textAlign: 'center', fontSize: '13px' }}>Actions</th>
@@ -494,6 +519,7 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
                                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', marginTop: '4px' }}>{decl.shift}</div>
                                 </td>
                                 <td><span style={{ fontWeight: '700', color: 'var(--primary-color)', fontSize: '14px' }}>{decl.productionLine}</span></td>
+                                <td><span style={{ fontWeight: '600', color: '#64748b', fontSize: '13px' }}>{decl.poNo || '—'}</span></td>
                                 <td>
                                     {decl.products?.map((p, i) => (
                                         <div key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>
@@ -541,7 +567,7 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
                                     <div style={{ background: 'var(--primary-color)', color: 'white', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800' }}>1</div>
                                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>Shift Information</h3>
                                 </div>
-                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Date of Production</label>
                                         <input type="date" className="form-input" value={formData.productionDate} onChange={(e) => setFormData({...formData, productionDate: e.target.value})} required disabled={isReadOnly} />
@@ -559,6 +585,21 @@ const ProductionDeclarationDashboard = ({ plantId }) => {
                                             <option value="">Select Line</option>
                                             <option value="PL-01">PL-01 (Main Line)</option>
                                             <option value="PL-02">PL-02 (Secondary)</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">PO Number</label>
+                                        <select 
+                                            className="form-select" 
+                                            value={formData.poNo} 
+                                            onChange={(e) => setFormData({...formData, poNo: e.target.value})} 
+                                            required 
+                                            disabled={isReadOnly || posLoading}
+                                        >
+                                            <option value="">{posLoading ? 'Loading POs...' : 'Select PO'}</option>
+                                            {pos.map(p => (
+                                                <option key={p.poNo} value={p.poNo}>{p.poNo}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
