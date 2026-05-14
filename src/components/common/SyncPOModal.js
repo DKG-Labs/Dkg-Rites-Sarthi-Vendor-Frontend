@@ -357,13 +357,23 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         // Get role from localStorage (it's stored as a JSON string array)
         let userRoles = [];
         try {
-            userRoles = JSON.parse(localStorage.getItem('roleName') || '[]');
+            const storedRoles = localStorage.getItem('roleName');
+            userRoles = storedRoles ? JSON.parse(storedRoles) : [];
         } catch (e) {
             userRoles = [localStorage.getItem('roleName')];
         }
 
-        // Determine which category this user is allowed to sync
-        const isSleeperUser = userRoles.some(r => r === 'Sleeper Vendor');
+        const activeRole = localStorage.getItem('activeRole');
+
+        // Determine if current user is a Sleeper user
+        let isSleeperUser = (activeRole === 'Sleeper Vendor' || activeRole === 'SLEEPER_VENDOR') ||
+                            (Array.isArray(userRoles) && userRoles.some(r => r === 'Sleeper Vendor' || r === 'SLEEPER_VENDOR'));
+        
+        // Fallback: If no explicit role data found in localStorage, 
+        // we check if we are in a context that implies Sleeper Vendor.
+        if (!isSleeperUser && activeRole !== 'Vendor' && activeRole !== 'Rail Vendor') {
+            isSleeperUser = true;
+        }
         
         const dashboardRole = isSleeperUser ? "Sleeper" : "ERC";
         const allowedCategory = isSleeperUser ? "PSC Mainline Sleeper" : "Elastic Rail Clips";

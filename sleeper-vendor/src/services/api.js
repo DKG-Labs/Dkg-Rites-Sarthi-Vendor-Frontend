@@ -1095,7 +1095,7 @@ export const apiService = {
  
     savePOData: async (payload) => {
         try {
-            const response = await fetch(`${BASE_URL}/api/Vendorsync/save`, {
+            const response = await fetch(`${BASE_URL}/Vendorsync/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
