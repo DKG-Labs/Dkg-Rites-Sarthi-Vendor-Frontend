@@ -158,7 +158,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         fetchPOs();
     }, [plantId, propVendorCode]);
 
-    const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
+    const isComposite = (type) => type?.includes('CGRSP');
 
     const handleAddProductBlock = () => {
         setFormData(prev => ({
