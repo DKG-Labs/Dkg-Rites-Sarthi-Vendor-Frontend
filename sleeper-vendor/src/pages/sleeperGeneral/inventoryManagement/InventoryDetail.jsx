@@ -60,7 +60,7 @@ const InventoryDetail = ({ material, onBack }) => {
             case 'sgci-insert':
                 return [{
                     id: 'INV-SGCI-404', ...common, totalQtyReceived: 5000, details: {
-                        grade: 'MK-III Insert', manufacturer: 'Adianth', ewayBillNo: 'EW-8821', ewayDate: '2026-02-12', icNo: 'IC-882', icDate: '2026-02-10'
+                        grade: 'T-6901', manufacturer: 'Adianth', ewayBillNo: 'EW-8821', ewayDate: '2026-02-12', icNo: 'IC-882', icDate: '2026-02-10'
                     }
                 }];
             case 'dowel':
@@ -152,7 +152,7 @@ const InventoryDetail = ({ material, onBack }) => {
                 ];
             case 'sgci-insert':
                 return [
-                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.', 'Status'
+                    'Date of Receipt', 'Type of Insert', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.', 'Status'
                 ];
             default:
                 return ['Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Quantity', 'Status'];

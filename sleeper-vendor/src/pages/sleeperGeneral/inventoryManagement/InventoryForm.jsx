@@ -178,7 +178,7 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 break;
             case 'sgci-insert':
                 base.details = {
-                    grade: 'MK-III Insert',
+                    grade: 'T-6901',
                     manufacturer: 'Adianth',
                     ewayBillNo: '',
                     ewayDate: new Date().toISOString().split('T')[0],
@@ -909,10 +909,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 return (
                     <div style={gridStyle}>
                         <div style={groupStyle}>
-                            <label style={labelStyle}>Grade / Type</label>
-                            <select value={formData.details.grade || 'MK-III Insert'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
-                                <option value="MK-III Insert">MK-III Insert</option>
-                                <option value="MK-V Insert">MK-V Insert</option>
+                            <label style={labelStyle}>Type of Insert</label>
+                            <select value={formData.details.grade || 'T-6901'} onChange={(e) => handleChange(e, 'grade', true)} required style={inputStyle}>
+                                <option value="T-6901">T-6901</option>
+                                <option value="T-3815">T-3815</option>
+                                <option value="T-3705">T-3705</option>
                             </select>
                         </div>
                         <div style={groupStyle}>
