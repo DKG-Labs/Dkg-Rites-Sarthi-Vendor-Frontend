@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { productionDeclarationService } from '../../../services/productionDeclarationService';
 import poAssignedService from '../../../services/poAssignedService';
 import { API_CONFIG } from '../../../services/config';
@@ -13,6 +13,224 @@ const PRODUCT_TYPES = [
 ];
 
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
+
+const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef(null);
+    const searchInputRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            searchInputRef.current.focus();
+        } else {
+            setSearchTerm('');
+        }
+    }, [isOpen]);
+
+    const filteredOptions = useMemo(() => {
+        return options.filter(opt => {
+            const label = opt.label || '';
+            const val = opt.value || '';
+            return label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                   val.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+    }, [options, searchTerm]);
+
+    const selectedOption = options.find(opt => opt.value === value);
+
+    const handleSelect = (val) => {
+        onChange(val);
+        setIsOpen(false);
+    };
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <input 
+                type="text" 
+                value={value || ''} 
+                onChange={() => {}} 
+                required 
+                style={{ 
+                    opacity: 0, 
+                    position: 'absolute', 
+                    width: 0, 
+                    height: 0, 
+                    pointerEvents: 'none' 
+                }} 
+            />
+            <div
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 12px',
+                    height: '40px',
+                    border: isOpen ? '1px solid var(--primary-color)' : '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    fontSize: 'var(--fs-md)',
+                    background: disabled ? '#f1f5f9' : '#fff',
+                    color: selectedOption ? 'var(--text-main)' : '#94a3b8',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    boxShadow: isOpen ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+                    transition: 'all 0.2s',
+                    boxSizing: 'border-box'
+                }}
+            >
+                <span 
+                    title={selectedOption ? selectedOption.label : placeholder}
+                    style={{ 
+                        whiteSpace: 'nowrap', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        fontWeight: selectedOption ? '600' : 'normal'
+                    }}
+                >
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <svg 
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5"
+                    style={{ 
+                        transform: isOpen ? 'rotate(180deg)' : 'none', 
+                        transition: 'transform 0.2s',
+                        color: '#64748b',
+                        flexShrink: 0
+                    }}
+                >
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    right: 0,
+                    minWidth: '100%',
+                    width: 'max-content',
+                    maxWidth: '400px',
+                    zIndex: 1050,
+                    background: '#fff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: '260px',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e2e8f0', 
+                        background: '#f8fafc',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}>
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                        </svg>
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder={searchPlaceholder}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                width: '100%',
+                                outline: 'none',
+                                fontSize: '13px',
+                                padding: '4px 0',
+                                color: 'var(--text-main)'
+                            }}
+                        />
+                        {searchTerm && (
+                            <button 
+                                type="button" 
+                                onClick={() => setSearchTerm('')} 
+                                style={{ 
+                                    background: 'transparent', 
+                                    border: 'none', 
+                                    color: '#64748b', 
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    padding: '0 4px'
+                                }}
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ overflowY: 'auto', flex: 1, padding: '4px' }}>
+                        {loading ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                                Loading POs...
+                            </div>
+                        ) : filteredOptions.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                                No POs found
+                            </div>
+                        ) : (
+                             filteredOptions.map(opt => (
+                                <div
+                                    key={opt.value}
+                                    onClick={() => handleSelect(opt.value)}
+                                    title={opt.label}
+                                    style={{
+                                        padding: '10px 12px',
+                                        fontSize: '13px',
+                                        color: opt.value === value ? '#fff' : 'var(--text-main)',
+                                        background: opt.value === value ? 'var(--primary-color)' : 'transparent',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                        fontWeight: opt.value === value ? '600' : 'normal',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (opt.value !== value) {
+                                            e.target.style.background = '#f1f5f9';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (opt.value !== value) {
+                                            e.target.style.background = 'transparent';
+                                        }
+                                    }}
+                                >
+                                    {opt.label}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode }) => {
     const [activeTab, setActiveTab] = useState('pending');
@@ -96,7 +314,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             {
                 id: Date.now(),
                 productType: '',
-                mode: 'Pieces',
+                mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }
         ]
@@ -212,7 +430,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         fetchProductionLines();
     }, [plantId, propVendorCode]);
 
-    const isComposite = (type) => type?.includes('CGRSP');
+    const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
 
     const handleAddProductBlock = () => {
         setFormData(prev => ({
@@ -220,7 +438,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             productBlocks: [...prev.productBlocks, {
                 id: Date.now(),
                 productType: '',
-                mode: 'Pieces',
+                mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }]
         }));
@@ -287,6 +505,30 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         return Object.entries(result);
     }, [formData.productBlocks]);
 
+    const poOptions = useMemo(() => {
+        const list = pos.map(p => {
+            const formattedDate = p.poDate ? p.poDate.split('-').reverse().join('-') : '';
+            const label = formattedDate ? `${p.poNo} (${formattedDate})` : p.poNo;
+            return { value: p.poNo, label };
+        });
+        
+        // Add defensive fallback
+        if (formData.poNo && !list.some(opt => opt.value === formData.poNo)) {
+            list.push({ value: formData.poNo, label: formData.poNo });
+        }
+        
+        return list;
+    }, [pos, formData.poNo]);
+
+    const lineOptions = useMemo(() => {
+        const list = Array.isArray(productionLines) ? [...productionLines] : [];
+        // Add defensive fallback
+        if (formData.productionLine && !list.some(opt => opt.value === formData.productionLine)) {
+            list.push({ value: formData.productionLine, label: formData.productionLine });
+        }
+        return list;
+    }, [productionLines, formData.productionLine]);
+
     const handleDelete = async (id) => {
         if(window.confirm('Are you sure you want to delete this declaration?')) {
             try {
@@ -311,7 +553,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             productBlocks: (decl.products || []).map(p => ({
                 id: p.id,
                 productType: p.productType,
-                mode: p.measurementMode,
+                mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
                 batches: (p.batches || []).map(b => ({
                     id: b.id,
                     batchNo: b.batchNo || '',
@@ -634,35 +876,29 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Production Line ID</label>
-                                        <select 
-                                            className="form-select" 
-                                            value={formData.productionLine} 
-                                            onChange={(e) => setFormData({...formData, productionLine: e.target.value})} 
-                                            required 
-                                            disabled={isReadOnly || linesLoading}
-                                        >
-                                            <option value="">{linesLoading ? 'Loading Lines...' : 'Select Line'}</option>
-                                            {productionLines.map(line => (
-                                                <option key={line.value} value={line.value}>{line.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">PO Number</label>
-                                        <select 
-                                            className="form-select" 
-                                            value={formData.poNo} 
-                                            onChange={(e) => setFormData({...formData, poNo: e.target.value})} 
-                                            required 
-                                            disabled={isReadOnly || posLoading}
-                                        >
-                                            <option value="">{posLoading ? 'Loading POs...' : 'Select PO'}</option>
-                                            {pos.map(p => (
-                                                <option key={p.poNo} value={p.poNo}>{p.poNo}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                         <label className="form-label">Production Line ID</label>
+                                         <SearchableSelect
+                                             value={formData.productionLine}
+                                             onChange={(val) => setFormData({...formData, productionLine: val})}
+                                             options={lineOptions}
+                                             placeholder={linesLoading ? 'Loading Lines...' : 'Select Line'}
+                                             searchPlaceholder="Search Line..."
+                                             loading={linesLoading}
+                                             disabled={isReadOnly}
+                                         />
+                                     </div>
+                                     <div className="form-group">
+                                          <label className="form-label">PO Number</label>
+                                          <SearchableSelect
+                                              value={formData.poNo}
+                                              onChange={(val) => setFormData({...formData, poNo: val})}
+                                              options={poOptions}
+                                              placeholder={posLoading ? 'Loading POs...' : 'Select PO'}
+                                              searchPlaceholder="Search PO..."
+                                              loading={posLoading}
+                                              disabled={isReadOnly}
+                                          />
+                                     </div>
                                 </div>
                             </div>
 
@@ -697,13 +933,65 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                                 </div>
                                                 <div className="form-group">
                                                     <label className="form-label">Measurement Mode</label>
-                                                    <div className="toggle-container" style={{ height: '40px' }}>
-                                                        <span className="toggle-label" style={{ color: block.mode === 'Pieces' ? 'var(--primary-color)' : '#94a3b8' }}>Pieces</span>
-                                                        <label className="switch">
-                                                            <input type="checkbox" checked={block.mode === 'Sets'} onChange={(e) => handleBlockChange(block.id, 'mode', e.target.checked ? 'Sets' : 'Pieces')} disabled={isReadOnly} />
-                                                            <span className="slider"></span>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '24px', 
+                                                        height: '40px',
+                                                        boxSizing: 'border-box'
+                                                    }}>
+                                                        <label style={{ 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            gap: '8px', 
+                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                            fontSize: 'var(--fs-md)',
+                                                            color: 'var(--text-main)',
+                                                            fontWeight: block.mode !== 'Sets' ? '600' : 'normal',
+                                                            margin: 0
+                                                        }}>
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`measurementMode-${block.id}`} 
+                                                                value="Nos" 
+                                                                checked={block.mode !== 'Sets'} 
+                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Nos')} 
+                                                                disabled={isReadOnly}
+                                                                style={{ 
+                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: 'var(--primary-color)'
+                                                                }}
+                                                            />
+                                                            Nos
                                                         </label>
-                                                        <span className="toggle-label" style={{ color: block.mode === 'Sets' ? 'var(--primary-color)' : '#94a3b8' }}>Sets</span>
+                                                        <label style={{ 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            gap: '8px', 
+                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                            fontSize: 'var(--fs-md)',
+                                                            color: 'var(--text-main)',
+                                                            fontWeight: block.mode === 'Sets' ? '600' : 'normal',
+                                                            margin: 0
+                                                        }}>
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`measurementMode-${block.id}`} 
+                                                                value="Sets" 
+                                                                checked={block.mode === 'Sets'} 
+                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Sets')} 
+                                                                disabled={isReadOnly}
+                                                                style={{ 
+                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: 'var(--primary-color)'
+                                                                }}
+                                                            />
+                                                            Sets
+                                                        </label>
                                                     </div>
                                                 </div>
                                             </div>
