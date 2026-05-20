@@ -27,7 +27,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
 
-    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
 
     const filteredEntries = (entries || []).filter(entry => {
@@ -188,7 +188,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                             className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}
                         >
                             <span className="dot pending"></span>
-                            Pending Verification
+                            Pending
                             <span className="count-badge">{pendingCount}</span>
                         </button>
                         <button 
@@ -196,7 +196,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                             className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}
                         >
                             <span className="dot success"></span>
-                            Verified Stock
+                            Verified
                             <span className="count-badge">{verifiedCount}</span>
                         </button>
                     </div>

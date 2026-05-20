@@ -26,6 +26,8 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
     const [pendingTransitions, setPendingTransitions] = useState([]);
     const [pos, setPos] = useState([]);
     const [posLoading, setPosLoading] = useState(false);
+    const [productionLines, setProductionLines] = useState([]);
+    const [linesLoading, setLinesLoading] = useState(false);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type, fading: false });
@@ -153,9 +155,61 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         }
     };
 
+    const fetchProductionLines = async () => {
+        try {
+            setLinesLoading(true);
+            const { plant: localPlant, user } = getLatestUserAndPlant();
+            const actualPlantId = plantId || localPlant.plantId;
+            
+            if (!actualPlantId || actualPlantId === "1") {
+                return;
+            }
+
+            const token = localStorage.getItem('authToken') || user.token;
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            const res = await fetch(`${API_CONFIG.PLANT_SETUP}/plant?plantId=${actualPlantId}`, { headers });
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Get units from all setups (verified or not)
+                const setups = Array.isArray(data) ? data : [];
+                const generatedLines = [];
+                
+                setups.forEach(setup => {
+                    if (setup.units && Array.isArray(setup.units)) {
+                        setup.units.forEach(unit => {
+                            const name = unit.unitName || 'Line';
+                            const num = parseInt(unit.numLines) || 0;
+                            for (let i = 1; i <= num; i++) {
+                                const val = `${name}-${i}`;
+                                if (!generatedLines.some(x => x.value === val)) {
+                                    generatedLines.push({
+                                        value: val,
+                                        label: val
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                setProductionLines(generatedLines);
+            } else {
+                setProductionLines([]);
+            }
+        } catch (error) {
+            console.error('Error fetching production lines:', error);
+            setProductionLines([]);
+        } finally {
+            setLinesLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchAllData();
         fetchPOs();
+        fetchProductionLines();
     }, [plantId, propVendorCode]);
 
     const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
@@ -581,10 +635,17 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Production Line ID</label>
-                                        <select className="form-select" value={formData.productionLine} onChange={(e) => setFormData({...formData, productionLine: e.target.value})} required disabled={isReadOnly}>
-                                            <option value="">Select Line</option>
-                                            <option value="PL-01">PL-01 (Main Line)</option>
-                                            <option value="PL-02">PL-02 (Secondary)</option>
+                                        <select 
+                                            className="form-select" 
+                                            value={formData.productionLine} 
+                                            onChange={(e) => setFormData({...formData, productionLine: e.target.value})} 
+                                            required 
+                                            disabled={isReadOnly || linesLoading}
+                                        >
+                                            <option value="">{linesLoading ? 'Loading Lines...' : 'Select Line'}</option>
+                                            {productionLines.map(line => (
+                                                <option key={line.value} value={line.value}>{line.label}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="form-group">

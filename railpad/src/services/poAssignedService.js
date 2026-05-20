@@ -43,16 +43,13 @@ const poAssignedService = {
 
   authenticateIMMS: async () => {
     try {
-      const response = await fetch('/immsapi/authenticate', {
+      const sarthiToken = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/authenticate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          username: "rites-sarthi",
-          password: "sarTHI@@speri26"
-        })
+          'Authorization': `Bearer ${sarthiToken}`
+        }
       });
 
       const data = await response.json();
@@ -62,7 +59,7 @@ const poAssignedService = {
         sessionStorage.setItem('imms_token', token);
         return token;
       }
-      throw new Error('Failed to authenticate with IMMS');
+      throw new Error('Failed to authenticate with IMMS - No token received');
     } catch (error) {
       console.error('IMMS Auth Error:', error);
       throw error;
@@ -71,16 +68,19 @@ const poAssignedService = {
 
   getIMMSPOData: async (payload) => {
     try {
-      const token = await poAssignedService.authenticateIMMS();
-      const response = await fetch('/immsapi/purchase/getPOData', {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to fetch PO details via Proxy');
+      }
       return await response.json();
     } catch (error) {
       console.error('IMMS Get PO Data Error:', error);
@@ -90,10 +90,12 @@ const poAssignedService = {
 
   savePOData: async (payload) => {
     try {
-      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/Vendorsync/save`, {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/save`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -106,7 +108,13 @@ const poAssignedService = {
 
   getRlyList: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/vendor-plant/Rlylist`);
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/vendor-plant/Rlylist`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch Railway list');
       const data = await response.json();
       return data.responseData || [];

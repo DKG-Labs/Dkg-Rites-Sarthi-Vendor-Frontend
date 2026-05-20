@@ -5,6 +5,7 @@ import Silica from './Silica';
 import NylonCord from './NylonCord';
 import ChemicalIngredients from './ChemicalIngredients';
 import { APPROVED_SUPPLIERS } from './inventoryUtils';
+import { rawMaterialService } from '../../../services/rawMaterialService';
 
 
 
@@ -16,14 +17,40 @@ const MATERIAL_TABS = [
     { id: 'chemical', title: 'Other Chemical Ingredients', subtitle: 'Activators, accelerators & more' },
 ];
 
-const InventoryManagementDashboard = () => {
+const InventoryManagementDashboard = ({ vendorCode }) => {
     const [selectedTab, setSelectedTab] = useState(() => {
         return localStorage.getItem('railpad_inventory_selectedTab') || 'virgin';
     });
+    const [dynamicSuppliers, setDynamicSuppliers] = useState([]);
 
     React.useEffect(() => {
         localStorage.setItem('railpad_inventory_selectedTab', selectedTab);
     }, [selectedTab]);
+
+    React.useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const vCode = vendorCode || localStorage.getItem('railpad_vendorCode');
+                if (vCode) {
+                    const response = await rawMaterialService.getByVendor(vCode);
+                    if (Array.isArray(response)) {
+                        const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
+                        const names = response
+                            .filter(item => item.status && verifiedStatuses.includes(item.status.toUpperCase()))
+                            .map(item => item.supplierName)
+                            .filter(name => name && name.trim().length > 0);
+                        const uniqueNames = [...new Set(names)];
+                        if (uniqueNames.length > 0) {
+                            setDynamicSuppliers(uniqueNames);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching suppliers from raw material source:", err);
+            }
+        };
+        fetchSuppliers();
+    }, [vendorCode]);
 
     // ── Per-material inventory state ─────────────────────────────────────────
     const [virginEntries, setVirginEntries] = useState([]);
@@ -61,10 +88,11 @@ const InventoryManagementDashboard = () => {
     const kpis = getKpis(entriesMap[selectedTab]);
 
     const renderContent = () => {
+        const suppliersList = dynamicSuppliers.length > 0 ? dynamicSuppliers : APPROVED_SUPPLIERS;
         const commonProps = {
             entries: entriesMap[selectedTab],
             setEntries: settersMap[selectedTab],
-            approvedSuppliers: APPROVED_SUPPLIERS,
+            approvedSuppliers: suppliersList,
             allInvoices: [
                 ...virginEntries, ...carbonEntries, ...silicaEntries,
                 ...nylonEntries, ...chemicalEntries,

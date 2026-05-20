@@ -1086,6 +1086,10 @@ export const apiService = {
                 body: JSON.stringify(payload)
             });
  
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch PO details via Proxy');
+            }
             return await response.json();
         } catch (error) {
             console.error('IMMS Get PO Data Error:', error);

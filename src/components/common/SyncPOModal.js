@@ -136,7 +136,42 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             }
         } catch (error) {
             setStatus('error');
-            setErrorMsg(error.message || 'Sync failed. Check connection.');
+            const rawMsg = error.message || '';
+            let friendlyMsg = 'Sync failed. Please verify your PO details are correct and RITES is the inspecting agency.';
+            
+            // Check if there is an embedded JSON error payload from CRIS
+            let hasCrisError = false;
+            try {
+                const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+                const jsonStart = cleanMsg.indexOf('{');
+                const jsonEnd = cleanMsg.lastIndexOf('}');
+                if (jsonStart !== -1 && jsonEnd !== -1) {
+                    const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed && parsed.error) {
+                        friendlyMsg = `CRIS ERROR: ${parsed.error}`;
+                        hasCrisError = true;
+                    }
+                }
+            } catch (e) {
+                // ignore parse failure
+            }
+
+            if (!hasCrisError) {
+                if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
+                    friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
+                } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
+                    friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
+                } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
+                    friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
+                } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
+                    friendlyMsg = 'Network error. Please check your internet connection.';
+                } else if (rawMsg) {
+                    friendlyMsg = rawMsg;
+                }
+            }
+            
+            setErrorMsg(friendlyMsg);
         } finally {
             setLoading(false);
         }

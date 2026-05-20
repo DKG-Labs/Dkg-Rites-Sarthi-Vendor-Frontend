@@ -223,7 +223,7 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [activeProductTab, setActiveProductTab] = useState(null);
     const [form, setForm] = useState(emptyForm());
 
-    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
 
     const filteredEntries = (entries || []).filter(entry => {
@@ -572,11 +572,21 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
                 </div>
 
                 <div className="status-tabs-row" style={{ marginBottom: 0 }}>
-                    <button onClick={() => setStatusTab('PENDING')} className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}>
-                        <span className="dot pending"></span> Pending ({pendingCount})
+                    <button 
+                        onClick={() => setStatusTab('PENDING')} 
+                        className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}
+                    >
+                        <span className="dot pending"></span>
+                        Pending
+                        <span className="count-badge">{pendingCount}</span>
                     </button>
-                    <button onClick={() => setStatusTab('COMPLETED')} className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}>
-                        <span className="dot success"></span> Verified ({verifiedCount})
+                    <button 
+                        onClick={() => setStatusTab('COMPLETED')} 
+                        className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}
+                    >
+                        <span className="dot success"></span>
+                        Verified
+                        <span className="count-badge">{verifiedCount}</span>
                     </button>
                 </div>
             </div>
