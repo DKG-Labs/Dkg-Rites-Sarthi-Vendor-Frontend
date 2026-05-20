@@ -421,7 +421,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '20px' }}>
-                                    <label className="form-label">Production Items Selection</label>
+                                    <label className="form-label">Production Items Selection <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: '11px' }}>(Optional)</span></label>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginTop: '4px' }}>
                                         {productOptions.map(prod => (
                                             <div
@@ -450,36 +450,33 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 {unit.selectedProducts.map((prod, pIdx) => (
                                     <div key={pIdx} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginTop: '12px', border: '1px solid rgba(66, 129, 140, 0.15)' }}>
                                         <div style={{ fontWeight: '800', marginBottom: '12px', fontSize: '11px', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            RDSO Approval for {prod.name}
+                                            RDSO Approval for {prod.name} <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'none' }}>(Optional)</span>
                                         </div>
                                         <div className="form-grid">
                                             <div className="form-group">
-                                                <label className="form-label">RDSO Appr. No.</label>
+                                                <label className="form-label">RDSO Appr. No. <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     className="form-input"
                                                     value={prod.approvalNo}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalNo', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">date</label>
+                                                <label className="form-label">date <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     type="date"
                                                     className="form-input"
                                                     value={prod.approvalDate}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalDate', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">Approved Capacity</label>
+                                                <label className="form-label">Approved Capacity <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     type="number"
                                                     className="form-input"
                                                     value={prod.capacity}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'capacity', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                         </div>
