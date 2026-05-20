@@ -22,7 +22,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
 
-    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
 
     const filteredEntries = (entries || []).filter(entry => {
@@ -238,7 +238,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}
                         >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span>
-                            Pending Declaration
+                            Pending
                             <span style={{ 
                                 background: 'rgba(66, 129, 140, 0.08)', 
                                 padding: '2px 8px', 
@@ -265,7 +265,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}
                         >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                            Verified Production
+                            Verified
                             <span style={{ 
                                 background: 'rgba(66, 129, 140, 0.08)', 
                                 padding: '2px 8px', 

@@ -59,7 +59,8 @@ export const immsService = {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch PO details via Proxy');
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch PO details via Proxy');
             }
 
             const result = await response.json();
