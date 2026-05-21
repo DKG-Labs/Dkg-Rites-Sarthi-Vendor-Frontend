@@ -885,6 +885,24 @@ const inspectionCallService = {
       throw error;
     }
   },
+
+  /**
+   * Get workflow transition history for a specific request ID
+   * @param {string} requestId - Request ID (e.g. call number or production declaration ID)
+   * @returns {Promise<Object>} - API response with workflow history
+   */
+  getWorkflowHistory: async (requestId) => {
+    try {
+      console.log(`📋 Fetching workflow transition history for Request ID: ${requestId}`);
+      const response = await httpClient.get(
+        `/railpad-workflow/WorkflowTransitionHistory?requestId=${encodeURIComponent(requestId)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching workflow transition history:', error);
+      throw error;
+    }
+  },
 };
 
 export default inspectionCallService;
