@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { apiService } from '../../../services/api';
 
-const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
+const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData }) => {
     const formatDateForBackend = (dateStr) => {
         if (!dateStr) return null;
         // Handle yyyy-MM-dd from input
@@ -49,6 +49,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
 
             // Map backend fields back to form details context
             if (material.id === 'hts-wire') {
+                const localDataStr = initialData.id ? localStorage.getItem(`hts_relaxation_${initialData.id}`) : null;
+                let localData = {};
+                if (localDataStr) {
+                    try { localData = JSON.parse(localDataStr); } catch (e) {}
+                }
                 base.details = {
                     ...base.details,
                     grade: initialData.gradeSpec || base.details.grade,
@@ -57,8 +62,10 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     invoiceDate: formatDateForInput(initialData.invoiceDate),
                     icNo: initialData.ritesIcNumber || base.details.icNo,
                     icDate: formatDateForInput(initialData.ritesIcDate),
-                    relaxationTest: initialData.relaxationTest === 'Yes' ? 'Y' : (initialData.relaxationTest === 'No' ? 'N' : base.details.relaxationTest),
-                    relaxationDate: formatDateForInput(initialData.relaxationTestDate),
+                    relaxationTest: initialData.relaxationTest || localData.relaxationTest || '100 Hours Test',
+                    relaxationTestTc: initialData.relaxationTestTc || localData.relaxationTestTc || '',
+                    relaxationDate: formatDateForInput(initialData.relaxationTestDate) || (localData.relaxationTestDate ? formatDateForInput(localData.relaxationTestDate) : ''),
+                    relaxationValidity: formatDateForInput(initialData.relaxationTestValidity) || (localData.relaxationTestValidity ? formatDateForInput(localData.relaxationTestValidity) : ''),
                     coilEntries: initialData.coilDetails?.map(c => ({
                         type: c.entryType?.toLowerCase(),
                         coilFrom: c.coilFrom,
@@ -137,7 +144,10 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     manufacturer: 'Tata Steel',
                     invoiceNo: '',
                     invoiceDate: '',
-                    relaxationTest: 'Y',
+                    relaxationTest: '100 Hours Test',
+                    relaxationTestTc: '',
+                    relaxationDate: '',
+                    relaxationValidity: '',
                     // coilEntries: array of { type: 'range'|'single', coilFrom, coilTo, coilNo, lotNo, qty }
                     coilEntries: [],
                     // temporary input state
@@ -211,6 +221,11 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
             };
 
             if (material.id === 'hts-wire') {
+                const localDataStr = initialData.id ? localStorage.getItem(`hts_relaxation_${initialData.id}`) : null;
+                let localData = {};
+                if (localDataStr) {
+                    try { localData = JSON.parse(localDataStr); } catch (e) {}
+                }
                 base.details = {
                     ...base.details,
                     grade: initialData.gradeSpec,
@@ -219,8 +234,10 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     invoiceDate: formatDateForInput(initialData.invoiceDate),
                     icNo: initialData.ritesIcNumber,
                     icDate: formatDateForInput(initialData.ritesIcDate),
-                    relaxationTest: initialData.relaxationTest === 'Yes' ? 'Y' : 'N',
-                    relaxationDate: formatDateForInput(initialData.relaxationTestDate),
+                    relaxationTest: initialData.relaxationTest || localData.relaxationTest || '100 Hours Test',
+                    relaxationTestTc: initialData.relaxationTestTc || localData.relaxationTestTc || '',
+                    relaxationDate: formatDateForInput(initialData.relaxationTestDate) || (localData.relaxationTestDate ? formatDateForInput(localData.relaxationTestDate) : ''),
+                    relaxationValidity: formatDateForInput(initialData.relaxationTestValidity) || (localData.relaxationTestValidity ? formatDateForInput(localData.relaxationTestValidity) : ''),
                     coilEntries: initialData.coilDetails?.map(c => ({
                         type: c.entryType?.toLowerCase(),
                         coilFrom: c.coilFrom,
@@ -287,6 +304,48 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
         }
     }, [initialData, material.id]);
 
+    useEffect(() => {
+        if (material.id === 'hts-wire') {
+            const testType = formData.details?.relaxationTest;
+            const testDateStr = formData.details?.relaxationDate;
+            if (testType && testDateStr) {
+                try {
+                    const testDate = new Date(testDateStr);
+                    if (!isNaN(testDate.getTime())) {
+                        let validityDate = new Date(testDate);
+                        if (testType === '1000 Hours Test') {
+                            validityDate.setFullYear(validityDate.getFullYear() + 1);
+                        } else if (testType === '100 Hours Test') {
+                            validityDate.setMonth(validityDate.getMonth() + 6);
+                        }
+                        const validityStr = validityDate.toISOString().split('T')[0];
+                        if (formData.details?.relaxationValidity !== validityStr) {
+                            setFormData(prev => ({
+                                ...prev,
+                                details: {
+                                    ...prev.details,
+                                    relaxationValidity: validityStr
+                                }
+                            }));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error calculating validity date', e);
+                }
+            } else {
+                if (formData.details?.relaxationValidity) {
+                    setFormData(prev => ({
+                        ...prev,
+                        details: {
+                            ...prev.details,
+                            relaxationValidity: ''
+                        }
+                    }));
+                }
+            }
+        }
+    }, [formData.details?.relaxationTest, formData.details?.relaxationDate, material.id]);
+
     const handleChange = (e, field, isDetail = false) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         if (isDetail) {
@@ -296,6 +355,14 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
             });
         } else {
             setFormData({ ...formData, [field]: value });
+        }
+    };
+    const isReadOnly = initialData && (initialData.status === 'Completed' || initialData.status === 'Locked');
+
+    const handleDeleteClick = async () => {
+        if (onDelete && initialData?.id) {
+            onClose();
+            await onDelete(initialData.id);
         }
     };
 
@@ -356,8 +423,10 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                     invoiceDate: formatDateForBackend(finalDetails.invoiceDate),
                     ritesIcNumber: finalDetails.icNo,
                     ritesIcDate: formatDateForBackend(finalDetails.icDate),
-                    relaxationTest: finalDetails.relaxationTest === 'Y' ? 'Yes' : 'No',
+                    relaxationTest: finalDetails.relaxationTest,
+                    relaxationTestTc: finalDetails.relaxationTestTc,
                     relaxationTestDate: formatDateForBackend(finalDetails.relaxationDate),
+                    relaxationTestValidity: formatDateForBackend(finalDetails.relaxationValidity),
                     vendorId: userId,
                     vendorCode: vendorCode,
                     createdBy: userId,
@@ -372,7 +441,17 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                         entryType: c.type?.toUpperCase() || 'SINGLE'
                     }))
                 };
-                await apiService.saveHtsWire(payload);
+                const savedResponse = await apiService.saveHtsWire(payload);
+                const savedId = savedResponse?.responseData?.id || savedResponse?.id || payload.id;
+                if (savedId) {
+                    const localData = {
+                        relaxationTest: finalDetails.relaxationTest,
+                        relaxationTestTc: finalDetails.relaxationTestTc,
+                        relaxationTestDate: formatDateForBackend(finalDetails.relaxationDate),
+                        relaxationTestValidity: formatDateForBackend(finalDetails.relaxationValidity)
+                    };
+                    localStorage.setItem(`hts_relaxation_${savedId}`, JSON.stringify(localData));
+                }
             } else if (material.id === 'cement') {
                 const payload = {
                     id: initialData?.id,
@@ -672,15 +751,24 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                             <div style={groupStyle}><label style={labelStyle}>RITES IC Number</label><input type="text" value={formData.details.icNo || ''} onChange={(e) => handleChange(e, 'icNo', true)} required style={inputStyle} /></div>
                             <div style={groupStyle}><label style={labelStyle}>RITES IC Date</label><input type="date" value={formData.details.icDate || ''} onChange={(e) => handleChange(e, 'icDate', true)} required style={inputStyle} /></div>
                             <div style={groupStyle}>
-                                <label style={labelStyle}>Relaxation Test (Y/N)</label>
-                                <select value={formData.details.relaxationTest || ''} onChange={(e) => handleChange(e, 'relaxationTest', true)} style={inputStyle}>
-                                    <option value="Y">Yes</option>
-                                    <option value="N">No</option>
+                                <label style={labelStyle}>Relaxation Test</label>
+                                <select value={formData.details.relaxationTest || ''} onChange={(e) => handleChange(e, 'relaxationTest', true)} required style={inputStyle}>
+                                    <option value="100 Hours Test">100 Hours Test</option>
+                                    <option value="1000 Hours Test">1000 Hours Test</option>
                                 </select>
                             </div>
-                            {formData.details.relaxationTest !== 'N' && (
-                                <div style={groupStyle}><label style={labelStyle}>Relaxation Test Date</label><input type="date" value={formData.details.relaxationDate || ''} onChange={(e) => handleChange(e, 'relaxationDate', true)} style={inputStyle} /></div>
-                            )}
+                            <div style={groupStyle}>
+                                <label style={labelStyle}>Relaxation Test TC No.</label>
+                                <input type="text" value={formData.details.relaxationTestTc || ''} onChange={(e) => handleChange(e, 'relaxationTestTc', true)} required placeholder="Enter TC Number" style={inputStyle} />
+                            </div>
+                            <div style={groupStyle}>
+                                <label style={labelStyle}>Relaxation Test Date</label>
+                                <input type="date" value={formData.details.relaxationDate || ''} onChange={(e) => handleChange(e, 'relaxationDate', true)} required style={inputStyle} />
+                            </div>
+                            <div style={groupStyle}>
+                                <label style={labelStyle}>Relaxation Test Validity</label>
+                                <input type="date" value={formData.details.relaxationValidity || ''} readOnly style={{ ...inputStyle, background: '#f8fafc', color: '#64748b' }} />
+                            </div>
                         </div>
 
                         {/* Coil Entry Panel */}
@@ -1021,22 +1109,38 @@ const InventoryForm = ({ material, onClose, onSubmit, initialData }) => {
                 animation: 'modalFadeIn 0.3s ease-out'
             }}>
                 <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>
-                        {initialData ? 'Edit' : 'Add New'} {material.name}
+                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isReadOnly ? `View ${material.name} Details` : (initialData ? `Edit ${material.name}` : `Add New ${material.name}`)}
+                        {isReadOnly && <span style={{ fontSize: '11px', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '8px', fontWeight: '700' }}>🔒 Verified & Locked</span>}
                     </h2>
                     <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>×</button>
                 </div>
                 <form onSubmit={handleSubmit} style={{ padding: '32px' }}>
-                    <div style={groupStyle}>
-                        <label style={labelStyle}>Date of Receipt</label>
-                        <input type="date" value={formData.date} onChange={(e) => handleChange(e, 'date')} required style={{ ...inputStyle, padding: '12px', border: '2px solid #f1f5f9' }} />
-                    </div>
-                    {renderFields()}
+                    <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={groupStyle}>
+                            <label style={labelStyle}>Date of Receipt</label>
+                            <input type="date" value={formData.date} onChange={(e) => handleChange(e, 'date')} required style={{ ...inputStyle, padding: '12px', border: '2px solid #f1f5f9' }} />
+                        </div>
+                        {renderFields()}
+                    </fieldset>
                     <div style={{ marginTop: '32px', display: 'flex', gap: '12px', background: 'white', pt: '16px' }}>
-                        <button type="button" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', color: '#64748b' }}>Cancel</button>
-                        <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#42818c', color: 'white', fontWeight: '700', boxShadow: isSubmitting ? 'none' : '0 10px 15px -3px rgba(66, 129, 140, 0.2)', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
-                            {isSubmitting ? 'Saving...' : (initialData ? 'Update Inventory' : 'Save Inventory')}
-                        </button>
+                        {isReadOnly ? (
+                            <button type="button" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#42818c', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(66, 129, 140, 0.2)' }}>
+                                Close
+                            </button>
+                        ) : (
+                            <>
+                                <button type="button" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', color: '#64748b', cursor: 'pointer' }}>Cancel</button>
+                                {initialData && (
+                                    <button type="button" onClick={handleDeleteClick} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1px solid #ffe4e6', background: '#fff1f2', fontWeight: '700', color: '#e11d48', cursor: 'pointer' }}>
+                                        Delete Entry
+                                    </button>
+                                )}
+                                <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#42818c', color: 'white', fontWeight: '700', boxShadow: isSubmitting ? 'none' : '0 10px 15px -3px rgba(66, 129, 140, 0.2)', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
+                                    {isSubmitting ? 'Saving...' : (initialData ? 'Update Inventory' : 'Save Inventory')}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </form>
             </div>

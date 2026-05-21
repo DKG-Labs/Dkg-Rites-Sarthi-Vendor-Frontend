@@ -61,13 +61,13 @@ const VendorDashboard = () => {
         { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: inspectionCalls.length },
         { id: 'calls-completed', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
-        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
-        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰' },
+        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
+        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
-        { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
+        { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
-        { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄' },
-        { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬' }
+        { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄', underDevelopment: true },
+        { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬', hidden: true }
     ];
 
 
@@ -153,10 +153,11 @@ const VendorDashboard = () => {
                                 padding: '10px 14px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
-                                display: 'flex',
+                                display: mod.hidden ? 'none' : 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                height: '85px',
+                                minHeight: '85px',
+                                height: 'auto',
                                 width: '100%',
                                 boxSizing: 'border-box',
                                 boxShadow: selectedModule === mod.id ? '0 0 0 1px #3b82f6' : 'none'
@@ -191,6 +192,28 @@ const VendorDashboard = () => {
                                 }}>
                                     {mod.subtitle}
                                 </span>
+                                {mod.underDevelopment && (
+                                    <span style={{
+                                        alignSelf: 'flex-start',
+                                        background: selectedModule === mod.id ? '#fffbeb' : '#fffbeb',
+                                        color: '#b45309',
+                                        border: '1px solid #fde68a',
+                                        borderRadius: '4px',
+                                        fontSize: '8.5px',
+                                        fontWeight: '800',
+                                        padding: '2px 6px',
+                                        marginTop: '4px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.03em',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        lineHeight: '1'
+                                    }}>
+                                        <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                        Under Development
+                                    </span>
+                                )}
                             </div>
                             <div style={{
                                 display: 'flex',
