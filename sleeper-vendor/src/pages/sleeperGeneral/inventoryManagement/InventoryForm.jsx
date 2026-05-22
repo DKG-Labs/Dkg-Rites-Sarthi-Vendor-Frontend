@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { apiService } from '../../../services/api';
 
-const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData }) => {
+const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, existingEntries }) => {
     const formatDateForBackend = (dateStr) => {
         if (!dateStr) return null;
         // Handle yyyy-MM-dd from input
@@ -391,6 +391,72 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData }) =
         const plantId = selectedPlant ? selectedPlant.plantId : '';
 
         const finalDetails = { ...formData.details };
+
+        // Duplicate Invoice validation
+        let invoiceNum = '';
+        if (material.id === 'hts-wire') {
+            invoiceNum = finalDetails.invoiceNo;
+        } else if (material.id === 'aggregates') {
+            invoiceNum = finalDetails.challanNo;
+        } else {
+            invoiceNum = finalDetails.ewayBillNo;
+        }
+
+        if (invoiceNum && typeof invoiceNum === 'string') {
+            invoiceNum = invoiceNum.trim().toLowerCase();
+        } else {
+            invoiceNum = '';
+        }
+
+        if (invoiceNum) {
+            let entriesToCheck = existingEntries;
+            if (!entriesToCheck) {
+                try {
+                    const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
+                    const filterByPlant = (items) => {
+                        if (!currentPlantId || !Array.isArray(items)) return items || [];
+                        return items.filter(item => String(item.plantId) === String(currentPlantId));
+                    };
+
+                    let apiData = [];
+                    if (material.id === 'hts-wire') {
+                        apiData = filterByPlant(await apiService.getHtsWires());
+                    } else if (material.id === 'cement') {
+                        apiData = filterByPlant(await apiService.getCements());
+                    } else if (material.id === 'dowel') {
+                        apiData = filterByPlant(await apiService.getDowels());
+                    } else if (material.id === 'aggregates') {
+                        apiData = filterByPlant(await apiService.getAggregates());
+                    } else if (material.id === 'admixture') {
+                        apiData = filterByPlant(await apiService.getAdmixtures());
+                    } else if (material.id === 'sgci-insert') {
+                        apiData = filterByPlant(await apiService.getSgciInserts());
+                    }
+                    entriesToCheck = apiData || [];
+                } catch (err) {
+                    console.error("Error fetching existing entries for duplication validation:", err);
+                    entriesToCheck = [];
+                }
+            }
+
+            if (entriesToCheck && entriesToCheck.length > 0) {
+                const isDuplicate = entriesToCheck.some(entry => {
+                    // Skip the current entry we are editing
+                    if (initialData && initialData.id && String(entry.id) === String(initialData.id)) {
+                        return false;
+                    }
+                    const entryInvoice = (material.id === 'aggregates' ? entry.challanNumber : entry.invoiceNumber) || '';
+                    return String(entryInvoice).trim().toLowerCase() === invoiceNum;
+                });
+
+                if (isDuplicate) {
+                    alert(`Duplicate Entry! Invoice / Challan number "${invoiceNum.toUpperCase()}" already exists for this vendor.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+        }
 
         try {
             if (material.id === 'hts-wire') {

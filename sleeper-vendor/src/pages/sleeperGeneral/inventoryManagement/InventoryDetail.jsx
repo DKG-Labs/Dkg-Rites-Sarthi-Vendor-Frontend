@@ -531,6 +531,7 @@ const InventoryDetail = ({ material, onBack }) => {
                     onSubmit={handleFormSubmit}
                     onDelete={handleDelete}
                     initialData={editingEntry}
+                    existingEntries={entries}
                 />
             )}
         </div>
