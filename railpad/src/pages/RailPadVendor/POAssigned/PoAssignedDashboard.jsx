@@ -119,7 +119,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl }) => {
     const [expanded, setExpanded] = useState(false);
 
     const items = po.poItem || po.srItems || [];
@@ -154,7 +154,23 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode 
                 </td>
                 {/* PO No. & Date */}
                 <td style={{ padding: '16px 8px' }}>
-                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{po.poNo}</div>
+                    <div 
+                        onClick={(e) => {
+                            if (po.pdfPath) {
+                                e.stopPropagation();
+                                setViewingPdfUrl(po.pdfPath);
+                            }
+                        }}
+                        style={{ 
+                            fontWeight: 800, 
+                            color: po.pdfPath ? '#21808d' : '#0f172a', 
+                            fontSize: 13,
+                            textDecoration: po.pdfPath ? 'underline' : 'none',
+                            cursor: po.pdfPath ? 'pointer' : 'default'
+                        }}
+                    >
+                        {po.poNo}
+                    </div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Dated: {po.poDate}</div>
                 </td>
                 {/* Purchasing Authority */}
@@ -274,6 +290,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const [search, setSearch] = useState('');
     const [perPage, setPerPage] = useState(10);
     const [page, setPage] = useState(1);
+    const [viewingPdfUrl, setViewingPdfUrl] = useState(null);
     const [loading, setLoading] = useState(true);
     const [poDataList, setPoDataList] = useState([]);
 
@@ -316,6 +333,127 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
         const callNo = `RPCALL/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
         alert(`✅ Inspection Call Raised Successfully!\n\nCall No: ${callNo}\nPO No: ${payload.poNo}\nQty Offered: ${payload.totalQtyOffered}\nNo. of Lots: ${payload.noOfLots}`);
     };
+
+    if (viewingPdfUrl) {
+        return (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '80vh', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button
+                        onClick={() => setViewingPdfUrl(null)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 16px',
+                            backgroundColor: '#f1f5f9',
+                            color: '#334155',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            transition: 'all 0.2s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                    >
+                        ← Back to Dashboard
+                    </button>
+                    <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 16 }}>PO Document Viewer</span>
+                </div>
+                {viewingPdfUrl.includes('ireps.gov.in') ? (
+                    <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '40px 24px',
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 12,
+                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        margin: '20px auto',
+                        maxWidth: '650px',
+                        width: '100%'
+                    }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            backgroundColor: '#eff6ff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '20px',
+                            boxShadow: '0 4px 10px rgba(59, 130, 246, 0.15)'
+                        }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <h3 style={{ fontSize: '1.4rem', fontWeight: '700', color: '#1e3a8a', marginBottom: '12px', fontFamily: 'inherit' }}>
+                            Indian Railways Portal (IREPS) Document
+                        </h3>
+                        <p style={{ fontSize: '0.95rem', color: '#475569', maxWidth: '480px', lineHeight: '1.6', marginBottom: '24px', fontFamily: 'inherit' }}>
+                            Due to strict security protocols enforced by the Indian Railways portal (<code style={{ backgroundColor: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: '#334155' }}>ireps.gov.in</code>), direct embedding is restricted. Please click the button below to view the official document.
+                        </p>
+                        <a
+                            href={viewingPdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '12px 28px',
+                                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                color: '#ffffff',
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                textDecoration: 'none',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 12px rgba(37, 99, 236, 0.25)',
+                                transition: 'all 0.2s',
+                                cursor: 'pointer',
+                                border: 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 236, 0.35)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 236, 0.25)';
+                            }}
+                        >
+                            <span>Open PO Document</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </div>
+                ) : (
+                    <iframe
+                        src={viewingPdfUrl}
+                        title="PO PDF"
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 12,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                        }}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="fade-in">
@@ -464,6 +602,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         onSubmitInspectionCall={onSubmitInspectionCall}
                                         plantId={plantId}
                                         vendorCode={vendorCode}
+                                        setViewingPdfUrl={setViewingPdfUrl}
                                     />
                                 ))
                             )}

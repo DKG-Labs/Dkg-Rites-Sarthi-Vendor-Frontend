@@ -1,5 +1,5 @@
-export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-//export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
+//export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
+export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
 //export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const apiService = {
     // HTS Wire APIs
