@@ -67,17 +67,6 @@ const PlantDeclarationDashboard = ({ plantId }) => {
     ];
 
     const renderContent = () => {
-        const activeTabObj = tabs.find(t => t.id === selectedTab);
-        if (activeTabObj?.underDevelopment) {
-            return (
-                <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🏗️</div>
-                    <h3 style={{ color: '#0f172a', fontWeight: '700', fontSize: '18px', marginBottom: '8px' }}>{activeTabObj.title}</h3>
-                    <p style={{ color: '#64748b', fontSize: '14px' }}>This module is currently under construction.</p>
-                </div>
-            );
-        }
-
         switch (selectedTab) {
             case 'plant-setup':
                 return <PlantSetup entries={plantEntries} setEntries={setPlantEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
