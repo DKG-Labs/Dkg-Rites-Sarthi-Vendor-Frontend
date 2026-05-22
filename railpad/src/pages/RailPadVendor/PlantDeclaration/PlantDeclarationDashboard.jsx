@@ -60,13 +60,24 @@ const PlantDeclarationDashboard = ({ plantId }) => {
 
     const tabs = [
         { id: 'plant-setup', title: 'Plant Set Up', subtitle: 'General information' },
-        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details' },
-        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition' },
-        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters' },
-        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits' }
+        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details', underDevelopment: true },
+        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition', underDevelopment: true },
+        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters', underDevelopment: true },
+        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits', underDevelopment: true }
     ];
 
     const renderContent = () => {
+        const activeTabObj = tabs.find(t => t.id === selectedTab);
+        if (activeTabObj?.underDevelopment) {
+            return (
+                <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🏗️</div>
+                    <h3 style={{ color: '#0f172a', fontWeight: '700', fontSize: '18px', marginBottom: '8px' }}>{activeTabObj.title}</h3>
+                    <p style={{ color: '#64748b', fontSize: '14px' }}>This module is currently under construction.</p>
+                </div>
+            );
+        }
+
         switch (selectedTab) {
             case 'plant-setup':
                 return <PlantSetup entries={plantEntries} setEntries={setPlantEntries} onRefresh={fetchAllData} isLoading={isLoading} />;
@@ -103,9 +114,37 @@ const PlantDeclarationDashboard = ({ plantId }) => {
                         key={tab.id}
                         className={`ie-tab-card ${selectedTab === tab.id ? 'active' : ''}`}
                         onClick={() => setSelectedTab(tab.id)}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                        }}
                     >
                         <h3>{tab.title}</h3>
                         <p>{tab.subtitle}</p>
+                        {tab.underDevelopment && (
+                            <span style={{
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                borderRadius: '4px',
+                                fontSize: '8.5px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                lineHeight: '1',
+                                marginTop: '2px'
+                            }}>
+                                <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                Under Construction
+                            </span>
+                        )}
                     </div>
                 ))}
                 </div>
