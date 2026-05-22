@@ -58,15 +58,15 @@ const VendorDashboard = () => {
 
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: poCount },
-        { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: inspectionCalls.length },
-        { id: 'calls-completed', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
+        { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
-        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true },
+        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true, hidden: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
-        { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄', underDevelopment: true },
+        { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄', underDevelopment: true, hidden: true },
+        { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔' },
         { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬', hidden: true }
     ];
 
