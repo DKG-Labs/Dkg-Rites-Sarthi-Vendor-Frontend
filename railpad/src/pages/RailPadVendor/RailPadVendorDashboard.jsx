@@ -45,8 +45,8 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
-        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true },
-        { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️', underDevelopment: true }
+        /* { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true }, */
+        { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' }
     ];
 
 

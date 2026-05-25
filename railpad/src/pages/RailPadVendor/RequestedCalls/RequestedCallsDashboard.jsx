@@ -13,6 +13,8 @@ const RequestedCallsDashboard = ({ vendorCode }) => {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
     const [selectedCall, setSelectedCall] = useState(null);
+    const [transitionHistory, setTransitionHistory] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     useEffect(() => {
         fetchCalls();
@@ -44,15 +46,32 @@ const RequestedCallsDashboard = ({ vendorCode }) => {
     const handleViewDetails = async (callId) => {
         try {
             setLoadingDetails(true);
+            setLoadingHistory(true);
             const detailedCall = await inspectionCallService.getById(callId);
             setSelectedCall(detailedCall);
+            
+            if (detailedCall && detailedCall.callNo) {
+                try {
+                    const historyRes = await inspectionCallService.getWorkflowHistory(detailedCall.callNo);
+                    if (historyRes && historyRes.success && Array.isArray(historyRes.data)) {
+                        setTransitionHistory(historyRes.data);
+                    } else {
+                        setTransitionHistory([]);
+                    }
+                } catch (hErr) {
+                    console.error("Error fetching workflow history:", hErr);
+                    setTransitionHistory([]);
+                }
+            }
         } catch (err) {
             console.error("Error fetching call details:", err);
             // Fallback to local data if fetch fails
             const localCall = calls.find(c => c.id === callId);
             setSelectedCall(localCall);
+            setTransitionHistory([]);
         } finally {
             setLoadingDetails(false);
+            setLoadingHistory(false);
         }
     };
 
@@ -91,7 +110,17 @@ const RequestedCallsDashboard = ({ vendorCode }) => {
     }
 
     if (selectedCall) {
-        return <CallDetailsView call={selectedCall} onBack={() => setSelectedCall(null)} />;
+        return (
+            <CallDetailsView 
+                call={selectedCall} 
+                transitionHistory={transitionHistory}
+                loadingHistory={loadingHistory}
+                onBack={() => {
+                    setSelectedCall(null);
+                    setTransitionHistory([]);
+                }} 
+            />
+        );
     }
 
     return (
@@ -208,7 +237,108 @@ const RequestedCallsDashboard = ({ vendorCode }) => {
     );
 };
 
-const CallDetailsView = ({ call, onBack }) => {
+const getActionActivityDetails = (tx) => {
+    const action = (tx.action || '').toUpperCase();
+    
+    switch (action) {
+        case 'CREATED':
+            return {
+                title: 'Call Raised',
+                text: tx.remarks || 'Inspection call successfully submitted by vendor.',
+                icon: <Plus size={12} />,
+                color: '#2563eb' // Blue
+            };
+        case 'VERIFY':
+            return {
+                title: 'Call Verified by RIO',
+                text: tx.remarks || 'Verified and forwarded by RIO Help Desk.',
+                icon: <CheckCircle2 size={12} />,
+                color: '#10b981' // Green
+            };
+        case 'MAIN_IE_SCHEDULE_CALL':
+            return {
+                title: 'Inspection Scheduled',
+                text: tx.remarks || 'Call scheduled for inspection by Main IE.',
+                icon: <Calendar size={12} />,
+                color: '#06b6d4' // Cyan
+            };
+        case 'RESCHEDULE_CALL':
+            return {
+                title: 'Inspection Rescheduled',
+                text: tx.remarks || 'Call rescheduled for inspection by Main IE.',
+                icon: <Calendar size={12} />,
+                color: '#f59e0b' // Amber
+            };
+        case 'INITIATE_CALL':
+            return {
+                title: 'Inspection Initiated',
+                text: tx.remarks || 'Physical inspection initiated by Main IE.',
+                icon: <Clock size={12} />,
+                color: '#3b82f6' // Blue
+            };
+        case 'PAUSE':
+            return {
+                title: 'Inspection Paused',
+                text: tx.remarks || 'Inspection paused temporarily by Main IE.',
+                icon: <Clock size={12} />,
+                color: '#ef4444' // Red
+            };
+        case 'RESUME':
+            return {
+                title: 'Inspection Resumed',
+                text: tx.remarks || 'Inspection resumed by Main IE.',
+                icon: <CheckCircle2 size={12} />,
+                color: '#10b981' // Green
+            };
+        case 'WITHHELD':
+            return {
+                title: 'Inspection Withheld',
+                text: tx.remarks || 'Inspection withheld by Main IE.',
+                icon: <AlertCircle size={12} />,
+                color: '#ef4444' // Red
+            };
+        case 'RETURN_TO_VENDOR':
+            return {
+                title: 'Call Returned to Vendor',
+                text: tx.remarks || 'Call returned for corrections.',
+                icon: <AlertCircle size={12} />,
+                color: '#ef4444' // Red
+            };
+        case 'RESUBMIT':
+            return {
+                title: 'Call Resubmitted',
+                text: tx.remarks || 'Call details corrected and resubmitted by vendor.',
+                icon: <Plus size={12} />,
+                color: '#3b82f6' // Blue
+            };
+        case 'COMPLETED':
+        case 'FINISH':
+            return {
+                title: 'Inspection Completed',
+                text: tx.remarks || 'Inspection completed successfully by Main IE.',
+                icon: <CheckCircle2 size={12} />,
+                color: '#10b981' // Green
+            };
+        case 'IC_GENERATION':
+        case 'IC_ISSUE':
+            return {
+                title: 'IC Certificate Issued',
+                text: tx.remarks || 'Inspection Certificate generated.',
+                icon: <FileText size={12} />,
+                color: '#10b981' // Green
+            };
+        default:
+            const formattedTitle = action.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return {
+                title: formattedTitle || 'Workflow Update',
+                text: tx.remarks || `Status: ${tx.status || 'PENDING'}`,
+                icon: <Info size={12} />,
+                color: '#64748b' // Slate
+            };
+    }
+};
+
+const CallDetailsView = ({ call, transitionHistory, loadingHistory, onBack }) => {
     return (
         <div className="fade-in">
             <button 
@@ -242,7 +372,9 @@ const CallDetailsView = ({ call, onBack }) => {
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', opacity: 0.8 }}>CURRENT STATUS</div>
                         <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px 20px', borderRadius: '30px', fontSize: '14px', fontWeight: 900, border: '1px solid rgba(255,255,255,0.3)' }}>
-                            PENDING VERIFICATION
+                            {transitionHistory && transitionHistory.length > 0 
+                                ? (transitionHistory[transitionHistory.length - 1].jobStatus || transitionHistory[transitionHistory.length - 1].status || 'PENDING VERIFICATION').replace(/_/g, ' ')
+                                : 'PENDING VERIFICATION'}
                         </div>
                     </div>
                 </div>
@@ -297,11 +429,98 @@ const CallDetailsView = ({ call, onBack }) => {
                     {/* Timeline / Activity */}
                     <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', padding: '24px' }}>
                         <h4 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Activity</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: '11px', top: '24px', bottom: '0', width: '2px', background: '#f1f5f9' }}></div>
-                            <ActivityItem icon={<Plus size={12} />} title="Call Raised" date={formatDateDDMMYY(call.inspectionDate)} text="Inspection call successfully submitted by vendor." active />
-                            <ActivityItem icon={<Clock size={12} />} title="Pending IE Allocation" date="Waiting..." text="Request is in queue for Inspection Engineer allocation." />
-                        </div>
+                        
+                        {loadingHistory ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '14px', padding: '12px 0' }}>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>Loading call activity...</span>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative' }}>
+                                <div style={{ position: 'absolute', left: '11px', top: '24px', bottom: '12px', width: '2px', background: '#f1f5f9' }}></div>
+                                
+                                {transitionHistory && transitionHistory.length > 0 ? (
+                                    <>
+                                        {transitionHistory.map((tx, idx) => {
+                                            const details = getActionActivityDetails(tx);
+                                            const isLast = idx === transitionHistory.length - 1;
+                                            const hasNextRole = tx.nextRole && tx.status !== 'COMPLETED';
+                                            const isActive = isLast && !hasNextRole;
+                                            
+                                            return (
+                                                <ActivityItem 
+                                                    key={tx.workflowTransitionId || idx}
+                                                    icon={details.icon} 
+                                                    title={details.title} 
+                                                    date={tx.createdDate ? formatDateDDMMYY(tx.createdDate) : formatDateDDMMYY(call.inspectionDate)} 
+                                                    text={details.text} 
+                                                    active={isActive}
+                                                    customColor={details.color}
+                                                />
+                                            );
+                                        })}
+                                        
+                                        {(() => {
+                                            const lastTx = transitionHistory[transitionHistory.length - 1];
+                                            if (lastTx && lastTx.nextRole && lastTx.status !== 'COMPLETED') {
+                                                const nextRole = lastTx.nextRole;
+                                                const lastAction = (lastTx.action || '').toUpperCase();
+                                                
+                                                let pendingTitle = 'Pending Verification';
+                                                let pendingText = `Awaiting action by ${nextRole}.`;
+                                                
+                                                if (nextRole === 'RIO Help Desk') {
+                                                    pendingTitle = 'Pending RIO Verification';
+                                                    pendingText = 'Awaiting review and verification by RIO Help Desk.';
+                                                } else if (nextRole === 'Rail Main IE') {
+                                                    if (lastAction === 'VERIFY' || lastAction === 'RESUBMIT') {
+                                                        pendingTitle = 'Pending IE Allocation';
+                                                        pendingText = 'Request is in queue for Inspection Engineer allocation.';
+                                                    } else if (lastAction === 'MAIN_IE_SCHEDULE_CALL') {
+                                                        pendingTitle = 'Pending Inspection';
+                                                        pendingText = 'Inspection scheduled. Awaiting physical inspection start by IE.';
+                                                    } else if (lastAction === 'INITIATE_CALL' || lastAction === 'RESUME') {
+                                                        pendingTitle = 'Inspection in Progress';
+                                                        pendingText = 'Inspection is currently underway by IE.';
+                                                    } else if (lastAction === 'PAUSE') {
+                                                        pendingTitle = 'Inspection Paused';
+                                                        pendingText = 'Inspection has been temporarily paused by IE.';
+                                                    }
+                                                }
+                                                
+                                                return (
+                                                    <ActivityItem 
+                                                        icon={<Clock size={12} />} 
+                                                        title={pendingTitle} 
+                                                        date="Waiting..." 
+                                                        text={pendingText} 
+                                                        active={true}
+                                                    />
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+                                    </>
+                                ) : (
+                                    <>
+                                        <ActivityItem 
+                                            icon={<Plus size={12} />} 
+                                            title="Call Raised" 
+                                            date={formatDateDDMMYY(call.inspectionDate)} 
+                                            text="Inspection call successfully submitted by vendor." 
+                                            active={false} 
+                                        />
+                                        <ActivityItem 
+                                            icon={<Clock size={12} />} 
+                                            title="Pending Verification" 
+                                            date="Waiting..." 
+                                            text="Request is in queue for verification." 
+                                            active={true} 
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -316,25 +535,30 @@ const InfoRow = ({ label, value }) => (
     </div>
 );
 
-const ActivityItem = ({ icon, title, date, text, active }) => (
-    <div style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1 }}>
-        <div style={{ 
-            width: '24px', height: '24px', borderRadius: '50%', 
-            background: active ? '#2563eb' : '#f1f5f9', 
-            color: active ? '#fff' : '#94a3b8',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: active ? '0 0 0 4px rgba(37,99,235,0.1)' : 'none'
-        }}>
-            {icon}
-        </div>
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontWeight: 800, color: active ? '#1e293b' : '#94a3b8', fontSize: '13px' }}>{title}</div>
-                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>{date}</div>
+const ActivityItem = ({ icon, title, date, text, active, customColor }) => {
+    const bgColor = active ? (customColor || '#2563eb') : '#f1f5f9';
+    const textColor = active ? '#fff' : '#94a3b8';
+    
+    return (
+        <div style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1 }}>
+            <div style={{ 
+                width: '24px', height: '24px', borderRadius: '50%', 
+                background: bgColor, 
+                color: textColor,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: active ? `0 0 0 4px ${bgColor}1a` : 'none'
+            }}>
+                {icon}
             </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>{text}</div>
+            <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ fontWeight: 800, color: active ? '#1e293b' : '#94a3b8', fontSize: '13px' }}>{title}</div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap' }}>{date}</div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>{text}</div>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export default RequestedCallsDashboard;

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { productionDeclarationService } from '../../../services/productionDeclarationService';
 import poAssignedService from '../../../services/poAssignedService';
 import { API_CONFIG } from '../../../services/config';
@@ -390,17 +391,33 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             if (res.ok) {
                 const data = await res.json();
                 
-                // Get units from all setups (verified or not)
-                const setups = Array.isArray(data) ? data : [];
+                const cleanUnitName = (name) => {
+                    if (!name) return "";
+                    let cleaned = name;
+                    if (cleaned.startsWith(':')) {
+                        cleaned = cleaned.substring(1);
+                    }
+                    if (cleaned.includes('/')) {
+                        const parts = cleaned.split('/');
+                        return parts[1];
+                    }
+                    return cleaned;
+                };
+
+                // Get units only from verified setups
+                const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
+                const setups = (Array.isArray(data) ? data : []).filter(setup => 
+                    setup.status && verifiedStatuses.includes(setup.status.toUpperCase())
+                );
                 const generatedLines = [];
                 
                 setups.forEach(setup => {
                     if (setup.units && Array.isArray(setup.units)) {
                         setup.units.forEach(unit => {
-                            const name = unit.unitName || 'Line';
+                            const name = cleanUnitName(unit.unitName || 'Line');
                             const num = parseInt(unit.numLines) || 0;
                             for (let i = 1; i <= num; i++) {
-                                const val = `${name}-${i}`;
+                                const val = `${name}- Line ${i}`;
                                 if (!generatedLines.some(x => x.value === val)) {
                                     generatedLines.push({
                                         value: val,
@@ -763,16 +780,63 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             </div>
 
             {/* Notification Toast */}
-            {notification && (
-                <div className="pv-notification-container">
-                    <div className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}>
-                        <div className="pv-notification-icon">{notification.type === 'success' ? '✅' : '❌'}</div>
-                        <div className="pv-notification-content">
-                            <span className="pv-notification-title">{notification.type === 'success' ? 'Success' : 'Attention'}</span>
-                            <span className="pv-notification-message">{notification.message}</span>
+            {notification && createPortal(
+                <div className="pv-notification-container" style={{
+                    position: 'fixed',
+                    top: '24px',
+                    right: '24px',
+                    zIndex: 99999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    pointerEvents: 'none'
+                }}>
+                    <div 
+                        className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}
+                        style={{
+                            pointerEvents: 'auto',
+                            minWidth: '340px',
+                            maxWidth: '450px',
+                            padding: '16px 20px',
+                            borderRadius: '16px',
+                            background: '#ffffff',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            borderLeft: `5px solid ${notification.type === 'success' ? '#21808d' : '#ef4444'}`,
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        <div style={{ fontSize: '24px', flexShrink: 0 }}>
+                            {notification.type === 'success' ? '✅' : '❌'}
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ 
+                                display: 'block', 
+                                fontWeight: '800', 
+                                fontSize: '14px', 
+                                color: '#1e293b',
+                                lineHeight: '1.2',
+                                margin: 0
+                            }}>
+                                {notification.type === 'success' ? 'Success' : 'Attention'}
+                            </span>
+                            <span style={{ 
+                                display: 'block', 
+                                fontSize: '13px', 
+                                color: '#64748b',
+                                lineHeight: '1.4',
+                                fontWeight: '500',
+                                margin: 0
+                            }}>
+                                {notification.message}
+                            </span>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Dashboard Tabs */}

@@ -21,7 +21,32 @@ const VendorEditRequest = () => {
                     case '2': res = await apiService.getStressBenches(); res = res.find(p => p.id == requestId); setModuleName('Bench Mould Master'); break;
                     case '3': res = await apiService.getRawMaterialSources(); res = res.find(p => p.id == requestId); setModuleName('Raw Material Source'); break;
                     case '4': res = await apiService.getMixDesigns(); res = res.find(p => p.id == requestId); setModuleName('Mix Design'); break;
-                    case '5': res = await apiService.getHtsWireById(requestId); setModuleName('HTS Wire'); break;
+                    case '5': {
+                        res = await apiService.getHtsWireById(requestId);
+                        const record = res.responseData || res;
+                        const localDataStr = localStorage.getItem(`hts_relaxation_${requestId}`);
+                        if (localDataStr) {
+                            try {
+                                const localData = JSON.parse(localDataStr);
+                                const merged = {
+                                    ...record,
+                                    relaxationTest: record.relaxationTest || localData.relaxationTest || '',
+                                    relaxationTestTc: record.relaxationTestTc || localData.relaxationTestTc || '',
+                                    relaxationTestDate: record.relaxationTestDate || localData.relaxationTestDate || '',
+                                    relaxationTestValidity: record.relaxationTestValidity || localData.relaxationTestValidity || ''
+                                };
+                                if (res.responseData) {
+                                    res.responseData = merged;
+                                } else {
+                                    res = merged;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing local relaxation data', e);
+                            }
+                        }
+                        setModuleName('HTS Wire');
+                        break;
+                    }
                     case '6': res = await apiService.getCementById(requestId); setModuleName('Cement Inventory'); break;
                     case '7': res = await apiService.getAdmixtureById(requestId); setModuleName('Admixture Receipt'); break;
                     case '8': res = await apiService.getAggregateById(requestId); setModuleName('Aggregate Receipt'); break;

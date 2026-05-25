@@ -60,10 +60,10 @@ const PlantDeclarationDashboard = ({ plantId }) => {
 
     const tabs = [
         { id: 'plant-setup', title: 'Plant Set Up', subtitle: 'General information' },
-        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details' },
-        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition' },
-        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters' },
-        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits' }
+        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details', underDevelopment: true },
+        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition', underDevelopment: true },
+        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters', underDevelopment: true },
+        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits', underDevelopment: true }
     ];
 
     const renderContent = () => {
@@ -103,9 +103,37 @@ const PlantDeclarationDashboard = ({ plantId }) => {
                         key={tab.id}
                         className={`ie-tab-card ${selectedTab === tab.id ? 'active' : ''}`}
                         onClick={() => setSelectedTab(tab.id)}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                        }}
                     >
                         <h3>{tab.title}</h3>
                         <p>{tab.subtitle}</p>
+                        {tab.underDevelopment && (
+                            <span style={{
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                borderRadius: '4px',
+                                fontSize: '8.5px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                lineHeight: '1',
+                                marginTop: '2px'
+                            }}>
+                                <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                Under Construction
+                            </span>
+                        )}
                     </div>
                 ))}
                 </div>

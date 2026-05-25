@@ -7,6 +7,7 @@ const InventoryDetail = ({ material, onBack }) => {
     const [editingEntry, setEditingEntry] = useState(null);
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState('unverified'); // 'unverified' or 'verified'
 
     const fetchEntries = async () => {
         setLoading(true);
@@ -21,7 +22,25 @@ const InventoryDetail = ({ material, onBack }) => {
 
             let data = [];
             if (material.id === 'hts-wire') {
-                data = filterByPlant(await apiService.getHtsWires());
+                const apiData = filterByPlant(await apiService.getHtsWires());
+                data = apiData.map(entry => {
+                    const localDataStr = localStorage.getItem(`hts_relaxation_${entry.id}`);
+                    if (localDataStr) {
+                        try {
+                            const localData = JSON.parse(localDataStr);
+                            return {
+                                ...entry,
+                                relaxationTest: entry.relaxationTest || localData.relaxationTest || '',
+                                relaxationTestTc: entry.relaxationTestTc || localData.relaxationTestTc || '',
+                                relaxationTestDate: entry.relaxationTestDate || localData.relaxationTestDate || '',
+                                relaxationTestValidity: entry.relaxationTestValidity || localData.relaxationTestValidity || ''
+                            };
+                        } catch (e) {
+                            console.error('Error parsing local relaxation data', e);
+                        }
+                    }
+                    return entry;
+                });
             } else if (material.id === 'cement') {
                 data = filterByPlant(await apiService.getCements());
             } else if (material.id === 'dowel') {
@@ -60,7 +79,7 @@ const InventoryDetail = ({ material, onBack }) => {
             case 'sgci-insert':
                 return [{
                     id: 'INV-SGCI-404', ...common, totalQtyReceived: 5000, details: {
-                        grade: 'MK-III Insert', manufacturer: 'Adianth', ewayBillNo: 'EW-8821', ewayDate: '2026-02-12', icNo: 'IC-882', icDate: '2026-02-10'
+                        grade: 'T-6901', manufacturer: 'Adianth', ewayBillNo: 'EW-8821', ewayDate: '2026-02-12', icNo: 'IC-882', icDate: '2026-02-10'
                     }
                 }];
             case 'dowel':
@@ -85,6 +104,10 @@ const InventoryDetail = ({ material, onBack }) => {
         used: material.id === 'hts-wire' ? 43.5 : (material.id === 'cement' ? 150 : 0),
         get balance() { return this.procured - this.used; }
     };
+
+    const unverifiedEntries = entries.filter(entry => entry.status !== 'Completed' && entry.status !== 'Locked');
+    const verifiedEntries = entries.filter(entry => entry.status === 'Completed' || entry.status === 'Locked');
+    const filteredEntries = activeTab === 'verified' ? verifiedEntries : unverifiedEntries;
 
     const handleFormSubmit = () => {
         setShowForm(false);
@@ -136,7 +159,9 @@ const InventoryDetail = ({ material, onBack }) => {
                 ];
             case 'hts-wire':
                 return [
-                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.', 'Total Quantity (Kg)', 'Coil Details', 'Status'
+                    'Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Invoice No.',
+                    'Relaxation Test', 'Relaxation TC & Date', 'Relaxation Validity',
+                    'Total Quantity (Kg)', 'Coil Details', 'Status'
                 ];
             case 'dowel':
                 return [
@@ -152,7 +177,7 @@ const InventoryDetail = ({ material, onBack }) => {
                 ];
             case 'sgci-insert':
                 return [
-                    'Date of Receipt', 'Grade/Type', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.', 'Status'
+                    'Date of Receipt', 'Type of Insert', 'Manufacturer', 'Invoice No.', 'Total Qty Received (Nos.)', 'RITES IC No.', 'Status'
                 ];
             default:
                 return ['Date of Receipt', 'Grade/Spec', 'Manufacturer', 'Quantity', 'Status'];
@@ -194,6 +219,41 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.gradeSpec}</td>
                         <td style={tdStyle}>{entry.manufacturer}</td>
                         <td style={tdStyle}>{entry.invoiceNumber}</td>
+                        <td style={tdStyle}>{entry.relaxationTest || '-'}</td>
+                        <td style={tdStyle}>
+                            {entry.relaxationTestTc ? entry.relaxationTestTc : ''}
+                            {entry.relaxationTestDate ? ` (${entry.relaxationTestDate})` : ''}
+                            {!entry.relaxationTestTc && !entry.relaxationTestDate && '-'}
+                        </td>
+                        <td style={tdStyle}>
+                            {entry.relaxationTestValidity || (() => {
+                                if (entry.relaxationTestDate && entry.relaxationTest) {
+                                    try {
+                                        const parts = entry.relaxationTestDate.split('/');
+                                        if (parts.length === 3) {
+                                            const day = parseInt(parts[0], 10);
+                                            const month = parseInt(parts[1], 10) - 1;
+                                            const year = parseInt(parts[2], 10);
+                                            const date = new Date(year, month, day);
+                                            if (!isNaN(date.getTime())) {
+                                                if (entry.relaxationTest === '1000 Hours Test') {
+                                                    date.setFullYear(date.getFullYear() + 1);
+                                                } else if (entry.relaxationTest === '100 Hours Test') {
+                                                    date.setMonth(date.getMonth() + 6);
+                                                }
+                                                const d = String(date.getDate()).padStart(2, '0');
+                                                const m = String(date.getMonth() + 1).padStart(2, '0');
+                                                const y = date.getFullYear();
+                                                return `${d}/${m}/${y}`;
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                    }
+                                }
+                                return '-';
+                            })()}
+                        </td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={{ ...tdStyle, maxWidth: '220px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                             {coilSummary}
@@ -318,6 +378,104 @@ const InventoryDetail = ({ material, onBack }) => {
                     </button>
                 </div>
 
+                {/* Modern Pill Tab Switcher */}
+                <div style={{ padding: '16px 24px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                        background: '#f1f5f9',
+                        borderRadius: '16px',
+                        padding: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}>
+                        {/* Tab: Pending Declaration / Unverified */}
+                        <button
+                            onClick={() => setActiveTab('unverified')}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 18px',
+                                background: activeTab === 'unverified' ? 'white' : 'transparent',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                boxShadow: activeTab === 'unverified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)' : 'none',
+                                transition: 'all 0.2s ease',
+                                outline: 'none'
+                            }}
+                        >
+                            <span style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: '#f59e0b',
+                                display: 'inline-block'
+                            }}></span>
+                            <span style={{
+                                color: '#374151',
+                                fontWeight: '700',
+                                fontSize: '13px'
+                            }}>
+                                Pending Declaration
+                            </span>
+                            <span style={{
+                                background: '#ecfdf5',
+                                color: '#047857',
+                                padding: '2px 8px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700'
+                            }}>
+                                {unverifiedEntries.length}
+                            </span>
+                        </button>
+
+                        {/* Tab: Verified Production / Verified */}
+                        <button
+                            onClick={() => setActiveTab('verified')}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 18px',
+                                background: activeTab === 'verified' ? 'white' : 'transparent',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                boxShadow: activeTab === 'verified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)' : 'none',
+                                transition: 'all 0.2s ease',
+                                outline: 'none'
+                            }}
+                        >
+                            <span style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: '#34d399',
+                                display: 'inline-block'
+                            }}></span>
+                            <span style={{
+                                color: '#374151',
+                                fontWeight: '700',
+                                fontSize: '13px'
+                            }}>
+                                Verified Production
+                            </span>
+                            <span style={{
+                                background: '#e5e7eb',
+                                color: '#374151',
+                                padding: '2px 8px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700'
+                            }}>
+                                {verifiedEntries.length}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                     {loading ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading inventory records...</div>
@@ -330,17 +488,32 @@ const InventoryDetail = ({ material, onBack }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {entries.length === 0 ? (
+                                {filteredEntries.length === 0 ? (
                                     <tr><td colSpan={getColumns().length + 1} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No records found.</td></tr>
                                 ) : (
-                                    entries.map((entry, idx) => (
+                                    filteredEntries.map((entry, idx) => (
                                         <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                             {renderRow(entry)}
                                             <td style={{ padding: '16px 24px' }}>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button onClick={() => handleEdit(entry)} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Edit</button>
-                                                    <button onClick={() => handleDelete(entry.id)} style={{ background: '#fff1f2', border: '1px solid #ffe4e6', color: '#e11d48', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Delete</button>
-                                                </div>
+                                                <button
+                                                    onClick={() => handleEdit(entry)}
+                                                    style={{
+                                                        background: '#f8fafc',
+                                                        border: '1px solid #e2e8f0',
+                                                        color: '#42818c',
+                                                        padding: '6px 14px',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    👁 View
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -351,7 +524,16 @@ const InventoryDetail = ({ material, onBack }) => {
                 </div>
             </div>
 
-            {showForm && <InventoryForm material={material} onClose={() => { setShowForm(false); setEditingEntry(null); }} onSubmit={handleFormSubmit} initialData={editingEntry} />}
+            {showForm && (
+                <InventoryForm
+                    material={material}
+                    onClose={() => { setShowForm(false); setEditingEntry(null); }}
+                    onSubmit={handleFormSubmit}
+                    onDelete={handleDelete}
+                    initialData={editingEntry}
+                    existingEntries={entries}
+                />
+            )}
         </div>
     );
 };

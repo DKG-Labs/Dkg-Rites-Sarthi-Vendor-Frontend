@@ -6,7 +6,7 @@ const MixDesignSection = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [newMix, setNewMix] = useState({
-        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification'
+        iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', gradingLower: '', gradingUpper: '', status: 'Pending for verification'
     });
     const [editingId, setEditingId] = useState(null);
 
@@ -35,6 +35,8 @@ const MixDesignSection = () => {
                 fa: m.fa,
                 water: m.water,
                 admixture: m.admixtureKg,
+                gradingLower: m.gradingRangeLower !== null && m.gradingRangeLower !== undefined ? m.gradingRangeLower : '',
+                gradingUpper: m.gradingRangeUpper !== null && m.gradingRangeUpper !== undefined ? m.gradingRangeUpper : '',
                 status: (m.status === 'Pending' || m.status === 'NOT_STARTED' ? 'Pending for verification' : (m.status === 'Completed' || m.status === 'completed' || m.status === 'COMPLETED' || m.status === 'Locked' ? 'Verified & Locked' : (m.status || (m.updatedDate ? 'Verified & Locked' : 'Pending for verification'))))
             }));
             setMixDesigns(mappedData);
@@ -65,6 +67,30 @@ const MixDesignSection = () => {
         return cement > 0 ? ((admixture / cement) * 100).toFixed(2) : '0.00';
     };
 
+    const calculateCA1Proportion = (m) => {
+        const ca1 = Number(m.ca1 || 0);
+        const ca2 = Number(m.ca2 || 0);
+        const fa = Number(m.fa || 0);
+        const total = ca1 + ca2 + fa;
+        return total > 0 ? ((ca1 / total) * 100).toFixed(2) : '0.00';
+    };
+
+    const calculateCA2Proportion = (m) => {
+        const ca1 = Number(m.ca1 || 0);
+        const ca2 = Number(m.ca2 || 0);
+        const fa = Number(m.fa || 0);
+        const total = ca1 + ca2 + fa;
+        return total > 0 ? ((ca2 / total) * 100).toFixed(2) : '0.00';
+    };
+
+    const calculateFAProportion = (m) => {
+        const ca1 = Number(m.ca1 || 0);
+        const ca2 = Number(m.ca2 || 0);
+        const fa = Number(m.fa || 0);
+        const total = ca1 + ca2 + fa;
+        return total > 0 ? ((fa / total) * 100).toFixed(2) : '0.00';
+    };
+
     const handleAddMix = async () => {
         if (!newMix.iden) {
             alert('Please provide Identification');
@@ -90,6 +116,11 @@ const MixDesignSection = () => {
             admixturePercentage: parseFloat(calculateAdmixturePercentage(newMix)),
             acRatio: parseFloat(calculateAC(newMix)),
             wcRatio: parseFloat(calculateWC(newMix)),
+            ca1Proportion: parseFloat(calculateCA1Proportion(newMix)),
+            ca2Proportion: parseFloat(calculateCA2Proportion(newMix)),
+            faProportion: parseFloat(calculateFAProportion(newMix)),
+            gradingRangeLower: parseFloat(newMix.gradingLower) || 0,
+            gradingRangeUpper: parseFloat(newMix.gradingUpper) || 0,
             vendorId: userId,
             vendorCode: vendorCode,
             createdBy: userId,
@@ -103,7 +134,7 @@ const MixDesignSection = () => {
             await fetchMixDesigns();
             setEditingId(null);
             setNewMix({
-                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification'
+                iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', gradingLower: '', gradingUpper: '', status: 'Pending for verification'
             });
             alert(editingId ? 'Mix design updated successfully' : 'Mix design added successfully');
         } catch (err) {
@@ -278,6 +309,46 @@ const MixDesignSection = () => {
                             {calculateWC(newMix)}
                         </div>
                     </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>CA1 Proportion (%) (Auto)</label>
+                        <div style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700', color: '#42818c', fontSize: '13px' }}>
+                            {calculateCA1Proportion(newMix)}%
+                        </div>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>CA2 Proportion (%) (Auto)</label>
+                        <div style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700', color: '#42818c', fontSize: '13px' }}>
+                            {calculateCA2Proportion(newMix)}%
+                        </div>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>FA Proportion (%) (Auto)</label>
+                        <div style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700', color: '#42818c', fontSize: '13px' }}>
+                            {calculateFAProportion(newMix)}%
+                        </div>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>Grading Range (Lower % Limit)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 45"
+                            value={newMix.gradingLower}
+                            onChange={(e) => setNewMix({ ...newMix, gradingLower: e.target.value })}
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>Grading Range (Upper % Limit)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 55"
+                            value={newMix.gradingUpper}
+                            onChange={(e) => setNewMix({ ...newMix, gradingUpper: e.target.value })}
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
@@ -285,7 +356,7 @@ const MixDesignSection = () => {
                         <button
                             onClick={() => {
                                 setEditingId(null);
-                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', status: 'Pending for verification' });
+                                setNewMix({ iden: '', grade: 'M60', authority: 'RDSO', cement: '', ca1: '', ca2: '', fa: '', water: '', admixture: '', gradingLower: '', gradingUpper: '', status: 'Pending for verification' });
                             }}
                             style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                         >
@@ -318,6 +389,8 @@ const MixDesignSection = () => {
                             <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Admixture<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(%)</span></th>
                             <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>A/C</th>
                             <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>W/C</th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Mix Proportions (%)<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(CA1 / CA2 / FA)</span></th>
+                            <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Grading Range (%)<br/><span style={{fontSize: '9px', fontWeight: '500'}}>(Lower - Upper)</span></th>
                             <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Status</th>
                             <th style={{ padding: '10px 8px', color: '#64748b', fontWeight: '600' }}>Actions</th>
                         </tr>
@@ -337,6 +410,12 @@ const MixDesignSection = () => {
                                 <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateAdmixturePercentage(mix)}%</td>
                                 <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateAC(mix)}</td>
                                 <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>{calculateWC(mix)}</td>
+                                <td style={{ padding: '10px 8px', fontWeight: '600', color: '#42818c' }}>
+                                    {calculateCA1Proportion(mix)}% / {calculateCA2Proportion(mix)}% / {calculateFAProportion(mix)}%
+                                </td>
+                                <td style={{ padding: '10px 8px', color: '#1e293b', fontWeight: '500' }}>
+                                    {mix.gradingLower !== '' && mix.gradingUpper !== '' ? `${mix.gradingLower}% - ${mix.gradingUpper}%` : '-'}
+                                </td>
                                 <td style={{ padding: '10px 8px' }}>
                                     <span style={{
                                         padding: '4px 10px',

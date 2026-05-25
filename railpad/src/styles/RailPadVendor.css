@@ -129,7 +129,8 @@
     justify-content: center;
     gap: 8px;
     text-align: center;
-    height: 95px;
+    min-height: 95px;
+    height: auto;
     width: 100%;
     box-sizing: border-box;
 }

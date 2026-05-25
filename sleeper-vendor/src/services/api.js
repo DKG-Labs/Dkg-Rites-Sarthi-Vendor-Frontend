@@ -1043,7 +1043,7 @@ export const apiService = {
             const sarthiToken = sessionStorage.getItem('token');
             const response = await fetch(`${BASE_URL}/Vendorsync/authenticate`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${sarthiToken}`
                 }
@@ -1061,7 +1061,7 @@ export const apiService = {
 
             const data = await response.json();
             const token = data.token || data.jwt || data.accessToken || data.Jwt;
-            
+
             if (token) {
                 sessionStorage.setItem('imms_token', token);
                 return token;
@@ -1085,7 +1085,6 @@ export const apiService = {
                 },
                 body: JSON.stringify(payload)
             });
- 
             if (!response.ok) {
                 const text = await response.text();
                 throw new Error(text || 'Failed to fetch PO details via Proxy');
@@ -1096,7 +1095,7 @@ export const apiService = {
             throw error;
         }
     },
- 
+
     savePOData: async (payload) => {
         try {
             const response = await fetch(`${BASE_URL}/Vendorsync/save`, {
