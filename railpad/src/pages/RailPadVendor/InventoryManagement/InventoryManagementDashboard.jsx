@@ -34,15 +34,7 @@ const InventoryManagementDashboard = ({ vendorCode }) => {
                 if (vCode) {
                     const response = await rawMaterialService.getByVendor(vCode);
                     if (Array.isArray(response)) {
-                        const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
-                        const names = response
-                            .filter(item => item.status && verifiedStatuses.includes(item.status.toUpperCase()))
-                            .map(item => item.supplierName)
-                            .filter(name => name && name.trim().length > 0);
-                        const uniqueNames = [...new Set(names)];
-                        if (uniqueNames.length > 0) {
-                            setDynamicSuppliers(uniqueNames);
-                        }
+                        setDynamicSuppliers(response);
                     }
                 }
             } catch (err) {
@@ -88,11 +80,11 @@ const InventoryManagementDashboard = ({ vendorCode }) => {
     const kpis = getKpis(entriesMap[selectedTab]);
 
     const renderContent = () => {
-        const suppliersList = dynamicSuppliers.length > 0 ? dynamicSuppliers : APPROVED_SUPPLIERS;
         const commonProps = {
             entries: entriesMap[selectedTab],
             setEntries: settersMap[selectedTab],
-            approvedSuppliers: suppliersList,
+            approvedSuppliers: APPROVED_SUPPLIERS,
+            sourceObjects: dynamicSuppliers,
             allInvoices: [
                 ...virginEntries, ...carbonEntries, ...silicaEntries,
                 ...nylonEntries, ...chemicalEntries,

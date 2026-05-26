@@ -24,8 +24,23 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
         docRefNo: '',
         docDate: ''
     });
-    const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
+    const [editingEntry, setEditingEntry] = useState(null);
+    const [activeCard, setActiveCard] = useState('');
+
+    const getActiveCardFromMaterial = (mat) => {
+        if (['Virgin Material', 'Carbon Black', 'Silica', 'Nylon Cord'].includes(mat)) return mat;
+        if (['Activator', 'Accelerator', 'Antioxidant', 'Plasticizer'].includes(mat)) return 'chemical';
+        return '';
+    };
+
+    const MATERIAL_TABS = [
+        { id: 'Virgin Material', title: 'Virgin Material – Rubber', subtitle: 'Natural & synthetic rubber' },
+        { id: 'Carbon Black', title: 'Carbon Black', subtitle: 'Reinforcing filler grades' },
+        { id: 'Silica', title: 'Silica', subtitle: 'Particle-size validated' },
+        { id: 'Nylon Cord', title: 'Nylon Cord', subtitle: 'Denier-validated cord' },
+        { id: 'chemical', title: 'Other Chemical Ingredients', subtitle: 'Activators, accelerators & more' },
+    ];
 
     const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
@@ -66,8 +81,18 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
         });
     };
 
+    const handleCardClick = (tabId) => {
+        setActiveCard(tabId);
+        setFormData({
+            ...formData,
+            materialName: tabId === 'chemical' ? '' : tabId,
+            materialType: ''
+        });
+    };
+
     const handleEdit = (entry) => {
         setEditingEntry(entry);
+        setActiveCard(getActiveCardFromMaterial(entry.materialName));
         setFormData({
             materialName: entry.materialName,
             materialType: entry.materialType,
@@ -121,6 +146,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                 docRefNo: '',
                 docDate: ''
             });
+            setActiveCard('');
             setEditingEntry(null);
         } catch (error) {
             alert('Error saving entry: ' + error.message);
@@ -174,7 +200,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                         <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Establish traceability for virgin material and chemicals</p>
                     </div>
                     {view === 'list' && (
-                        <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setFormData({ materialName: '', materialType: '', supplierName: '', docRefNo: '', docDate: '' }); }}>
+                        <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setActiveCard(''); setFormData({ materialName: '', materialType: '', supplierName: '', docRefNo: '', docDate: '' }); }}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
                             Add New Entry
                         </button>
@@ -212,7 +238,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 <tr>
                                     <th>Raw Material Name</th>
                                     <th>Supplier / Source</th>
-                                    <th>Document Reference</th>
+                                    <th>Doc No.</th>
                                     <th>Status</th>
                                     <th style={{ textAlign: 'center' }}>Action</th>
                                 </tr>
@@ -282,21 +308,50 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                            <div className="form-group">
-                                <label className="form-label">Name of Raw Material</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.materialName}
-                                    onChange={handleMaterialChange}
-                                    required
-                                >
-                                    <option value="">Select Material</option>
-                                    {materialOptions.map(m => (
-                                        <option key={m} value={m}>{m}</option>
-                                    ))}
-                                </select>
+                        <div style={{ gridColumn: '1 / -1', marginBottom: '16px' }}>
+                            <label className="form-label" style={{ marginBottom: '12px' }}>Select Material Category <span style={{ color: '#dc2626' }}>*</span></label>
+                            <div className="ie-tab-row" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(5, 1fr)',
+                                gap: '10px'
+                            }}>
+                                {MATERIAL_TABS.map(tab => (
+                                    <div
+                                        key={tab.id}
+                                        className={`ie-tab-card ${activeCard === tab.id ? 'active' : ''}`}
+                                        onClick={() => handleCardClick(tab.id)}
+                                        style={{ height: 'auto', padding: '16px' }}
+                                    >
+                                        <h3 style={{ fontSize: '13px', marginBottom: '4px' }}>{tab.title}</h3>
+                                        <p style={{ fontSize: '11px' }}>{tab.subtitle}</p>
+                                    </div>
+                                ))}
                             </div>
+                        </div>
+
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                            {activeCard === 'chemical' && (
+                                <div className="form-group">
+                                    <label className="form-label">Ingredient Category <span style={{ color: '#dc2626' }}>*</span></label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.materialName}
+                                        onChange={handleMaterialChange}
+                                        required
+                                    >
+                                        <option value="">Select Category</option>
+                                        {["Activator", "Accelerator", "Antioxidant", "Plasticizer"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {activeCard && activeCard !== 'chemical' && (
+                                <div className="form-group" style={{ display: 'none' }}>
+                                    <input type="hidden" value={formData.materialName} />
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label className="form-label">Type of Raw Material</label>
@@ -332,13 +387,11 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Doc Reference No.</label>
+                                <label className="form-label">Doc No.</label>
                                 <input
                                     className="form-input"
-                                    placeholder="Invoice / e-way bill"
                                     value={formData.docRefNo}
                                     onChange={(e) => setFormData({ ...formData, docRefNo: e.target.value })}
-                                    required
                                 />
                             </div>
 
@@ -349,7 +402,6 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                                     className="form-input"
                                     value={formData.docDate}
                                     onChange={(e) => setFormData({ ...formData, docDate: e.target.value })}
-                                    required
                                 />
                             </div>
                         </div>
@@ -404,7 +456,7 @@ const RawMaterialSource = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 <h4>Reference Details</h4>
                             </div>
                             <div className="param-row">
-                                <span className="param-label">Document Ref. No.</span>
+                                <span className="param-label">Doc No.</span>
                                 <span className="param-value">{selectedEntry?.docRefNo}</span>
                             </div>
                             <div className="param-row">
