@@ -12,13 +12,25 @@ const EMPTY = {
     quantity: '', document: null,
 };
 
-const CarbonBlack = ({ entries, setEntries, approvedSuppliers, allInvoices }) => {
+const CarbonBlack = ({ entries, setEntries, approvedSuppliers, sourceObjects, allInvoices }) => {
     const [view, setView] = useState('list');
     const [form, setForm] = useState(EMPTY);
     const [errors, setErrors] = useState({});
     const [editId, setEditId] = useState(null);
 
     const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+    const availableSuppliers = React.useMemo(() => {
+        if (sourceObjects && sourceObjects.length > 0) {
+            const filtered = sourceObjects.filter(src => 
+                src.materialName?.trim().toLowerCase() === 'carbon black' && 
+                src.materialType?.trim().toLowerCase() === form.type?.trim().toLowerCase()
+            );
+            const names = [...new Set(filtered.map(src => src.supplierName).filter(Boolean))];
+            return names;
+        }
+        return [];
+    }, [sourceObjects, form.type]);
 
     const validate = () => {
         const errs = {};
@@ -95,7 +107,7 @@ const CarbonBlack = ({ entries, setEntries, approvedSuppliers, allInvoices }) =>
                         <div className="inv-form-grid">
                             <FormDate label="Date of Receipt" value={form.dateOfReceipt} onChange={v => set('dateOfReceipt', v)} error={errors.dateOfReceipt} />
                             <FormSelect label="Type / Grade" value={form.type} options={CB_TYPES} onChange={v => set('type', v)} error={errors.type} />
-                            <FormSelect label="Source of Supply" value={form.sourceOfSupply} options={approvedSuppliers} onChange={v => set('sourceOfSupply', v)} error={errors.sourceOfSupply} placeholder="Select approved supplier" />
+                            <FormSelect label="Source of Supply" value={form.sourceOfSupply} options={availableSuppliers} onChange={v => set('sourceOfSupply', v)} error={errors.sourceOfSupply} placeholder="Select approved supplier" />
                             <FormInput label="Invoice Number" value={form.invoiceNumber} onChange={v => set('invoiceNumber', v)} error={errors.invoiceNumber} placeholder="e.g. BC/TX/9932" />
                             <FormInput label="E-way Bill Number" value={form.ewayBillNumber} onChange={v => set('ewayBillNumber', v)} error={errors.ewayBillNumber} placeholder="Numeric" />
                             <FormDate label="Invoice Date" value={form.invoiceDate} onChange={v => set('invoiceDate', v)} error={errors.invoiceDate} />
