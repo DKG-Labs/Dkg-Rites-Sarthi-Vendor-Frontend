@@ -197,21 +197,13 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                         {items.length} SR Item{items.length > 1 ? 's' : ''}
                     </div>
                 </td>
-                {/* Status */}
-                <td style={{ padding: '16px 8px', textAlign: 'center' }}>
-                    <StatusBadge status={po.status || 'Active'} />
-                    {activeSrCount > 0 && (
-                        <div style={{ fontSize: 10, color: '#21808d', fontWeight: 600, marginTop: 4 }}>
-                            {activeSrCount} pending for verification SR{activeSrCount > 1 ? 's' : ''}
-                        </div>
-                    )}
-                </td>
+
             </tr>
 
             {/* Expanded Sub-Table */}
             {expanded && (
                 <tr style={{ borderBottom: isLast ? 'none' : '1px solid #e2e8f0' }}>
-                    <td colSpan={7} style={{ padding: 0 }}>
+                    <td colSpan={6} style={{ padding: 0 }}>
                         <div style={{
                             margin: '0 0 12px 44px',
                             border: '1.5px solid #a7d8dc',
@@ -550,7 +542,6 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                 <th style={thStyle}>Item Category</th>
                                 <th style={{ ...thStyle, textAlign: 'center' }}>PO Quantity</th>
                                 <th style={{ ...thStyle, textAlign: 'right' }}>Total PO Value</th>
-                                <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -566,12 +557,11 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 180, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4, margin: '0 auto' }}></div></td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4, marginLeft: 'auto' }}></div></td>
-                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 70, height: 20, background: '#f1f5f9', borderRadius: 10, margin: '0 auto' }}></div></td>
                                     </tr>
                                 ))
                             ) : paginated.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                    <td colSpan={6} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
                                         No POs found matching your search.
                                     </td>

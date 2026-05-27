@@ -889,15 +889,69 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             )}
 
             {/* Dashboard Tabs */}
-            <div className="grid-container" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', background: 'transparent', border: 'none', padding: 0, marginBottom: '24px' }}>
-                <div className={`ie-tab-card ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>
-                    <h3 className="ie-tab-title">Pending Production Verification</h3>
-                    <p className="ie-tab-subtitle">{getPendingCount()} Declarations Awaiting Audit</p>
-                </div>
-                <div className={`ie-tab-card ${activeTab === 'verified' ? 'active' : ''}`} onClick={() => setActiveTab('verified')}>
-                    <h3 className="ie-tab-title">Verified Production</h3>
-                    <p className="ie-tab-subtitle">{getVerifiedCount()} Locked Records</p>
-                </div>
+            <div style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                background: 'rgba(241, 245, 249, 0.5)',
+                padding: '8px',
+                borderRadius: '12px',
+                width: 'fit-content',
+                marginBottom: '24px'
+            }}>
+                <button 
+                    onClick={() => setActiveTab('pending')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeTab === 'pending' ? 'white' : 'transparent',
+                        color: activeTab === 'pending' ? 'var(--primary-color)' : 'var(--text-muted)',
+                        boxShadow: activeTab === 'pending' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span>
+                    Pending Production Verification
+                    <span style={{ 
+                        background: 'rgba(66, 129, 140, 0.08)', 
+                        padding: '2px 8px', 
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                    }}>{getPendingCount()}</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('verified')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeTab === 'verified' ? 'white' : 'transparent',
+                        color: activeTab === 'verified' ? 'var(--primary-color)' : 'var(--text-muted)',
+                        boxShadow: activeTab === 'verified' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                    Verified Production
+                    <span style={{ 
+                        background: 'rgba(66, 129, 140, 0.08)', 
+                        padding: '2px 8px', 
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                    }}>{getVerifiedCount()}</span>
+                </button>
             </div>
 
             {/* Content Table */}

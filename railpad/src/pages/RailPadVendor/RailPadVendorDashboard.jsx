@@ -41,7 +41,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
         { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: requestedCallsCount },
-        { id: 'verified-locked', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
+        { id: 'verified-locked', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
