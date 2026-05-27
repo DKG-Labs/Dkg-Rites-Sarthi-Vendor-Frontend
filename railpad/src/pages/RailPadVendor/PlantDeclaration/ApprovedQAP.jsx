@@ -68,24 +68,90 @@ const MultiSelect = ({ options, selected, onChange }) => {
 
     return (
         <div style={{ position: 'relative' }} ref={containerRef}>
-            <div className="form-input multi-select-trigger" onClick={() => setOpen(o => !o)}>
-                {selected.length === 0 && <span style={{ color: '#94a3b8' }}>Select pad types…</span>}
+            <div 
+                onClick={() => setOpen(o => !o)}
+                style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 14px',
+                    border: open ? '1px solid var(--primary-color)' : '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    background: '#fff',
+                    cursor: 'pointer',
+                    minHeight: '42px',
+                    boxShadow: open ? '0 0 0 3px rgba(33,128,141,0.1)' : 'none',
+                    transition: 'all 0.2s'
+                }}
+            >
+                {selected.length === 0 && <span style={{ color: '#94a3b8', fontSize: '14px' }}>Select pad types...</span>}
                 {selected.map(s => (
-                    <span key={s} className="tag">
+                    <span key={s} style={{
+                        background: 'rgba(33,128,141,0.1)',
+                        color: 'var(--primary-color)',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
                         {s}
-                        <span className="tag-close" onClick={e => { e.stopPropagation(); toggle(s); }}>×</span>
+                        <span 
+                            onClick={e => { e.stopPropagation(); toggle(s); }}
+                            style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', lineHeight: 1 }}
+                        >×</span>
                     </span>
                 ))}
-                <span style={{ marginLeft: 'auto', color: '#94a3b8' }}>▾</span>
+                <span style={{ marginLeft: 'auto', color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
             </div>
             {open && (
-                <div className="dropdown-menu">
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    right: 0,
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                    zIndex: 50,
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    padding: '8px'
+                }}>
                     {options.map(opt => (
-                        <div key={opt} onClick={() => toggle(opt)} className={`dropdown-item ${selected.includes(opt) ? 'active' : ''}`}>
-                            <span className={`checkbox ${selected.includes(opt) ? 'checked' : ''}`}>
-                                {selected.includes(opt) && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        <div 
+                            key={opt} 
+                            onClick={() => toggle(opt)} 
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                background: selected.includes(opt) ? 'rgba(33,128,141,0.05)' : 'transparent',
+                                transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => !selected.includes(opt) && (e.currentTarget.style.background = '#f8fafc')}
+                            onMouseLeave={e => !selected.includes(opt) && (e.currentTarget.style.background = 'transparent')}
+                        >
+                            <span style={{
+                                width: '18px',
+                                height: '18px',
+                                border: selected.includes(opt) ? 'none' : '2px solid #cbd5e1',
+                                background: selected.includes(opt) ? 'var(--primary-color)' : '#fff',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {selected.includes(opt) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                             </span>
-                            {opt}
+                            <span style={{ fontSize: '14px', color: '#1e293b', fontWeight: selected.includes(opt) ? '600' : '400' }}>{opt}</span>
                         </div>
                     ))}
                 </div>
