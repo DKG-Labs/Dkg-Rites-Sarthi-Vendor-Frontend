@@ -492,23 +492,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                 onError={(err) => alert('Sync failed: ' + err.message)}
                             />
                         </div>
-                        {/* Summary badges */}
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <div style={{
-                                background: '#f0fdf4', border: '1.5px solid #bbf7d0',
-                                borderRadius: 12, padding: '8px 16px', textAlign: 'center'
-                            }}>
-                                <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a', lineHeight: 1 }}>{activePOs}</div>
-                                <div style={{ fontSize: 10, color: '#166534', fontWeight: 600, marginTop: 2 }}>ACTIVE POs</div>
-                            </div>
-                            <div style={{
-                                background: '#fef9ec', border: '1.5px solid #fde68a',
-                                borderRadius: 12, padding: '8px 16px', textAlign: 'center'
-                            }}>
-                                <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{pendingCalls}</div>
-                                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>PENDING CALLS</div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 

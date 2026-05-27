@@ -48,18 +48,20 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout, selectedPlant
             <div className="main-content-wrapper">
                 <header className="main-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button
-                            className="mobile-menu-btn"
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            aria-label="Open menu"
-                            style={{ background: '#f5f5f5', border: 'none', borderRadius: '4px', padding: '8px', display: 'flex' }}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                        </button>
+                        <div className="brand-block" style={{ display: 'flex', alignItems: 'center', gap: '24px', marginLeft: '8px' }}>
+                            <img
+                                src="/railpad/sarthi-logo.png"
+                                alt="SARTHI Logo"
+                                className="brand-logo"
+                                style={{ height: '64px', width: 'auto' }}
+                            />
+                            <div className="brand-text" style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div className="brand-title" style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', letterSpacing: '0.5px', lineHeight: '1.2' }}>SARTHI</div>
+                                <div className="brand-subtitle" style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+                                    System for Automated Review, Tracking & Holistic Inspection
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
