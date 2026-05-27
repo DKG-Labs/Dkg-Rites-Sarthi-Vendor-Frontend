@@ -973,8 +973,8 @@ export const RaiseInspectionCallForm = ({
       // Formula: (mtQty * 1000) / 1.133
       maxErc = (qty * 1000) / 1.133;
     } else if (ercType === 'J-Type') {
-      // Formula: (mtQty * 1000) / 1.100
-      maxErc = (qty * 1000) / 1.100;
+      // Formula: (mtQty * 1000) / 0.928
+      maxErc = (qty * 1000) / 0.928;
     }
 
     return Math.floor(maxErc);
@@ -996,7 +996,7 @@ export const RaiseInspectionCallForm = ({
       maxErc = (qty * 1000) / 1.133;
     } else if (ercType === 'J-Type') {
       // Use default conversion factor for J-Type
-      maxErc = (qty * 1000) / 1.100;
+      maxErc = (qty * 1000) / 0.928;
     }
 
     return Math.floor(maxErc);
@@ -2866,7 +2866,7 @@ export const RaiseInspectionCallForm = ({
                     <FormField
                       label="Max ERC can be manufactured from this Manufacturer - Heat No. combination for this PO Sr. No."
                       name={`heat_${index}_maxErc`}
-                      hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 1.100'}` : 'Select ERC type to calculate'}
+                      hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 0.928'}` : 'Select ERC type to calculate'}
                       fullWidth
                     >
                       <input
@@ -3033,7 +3033,7 @@ export const RaiseInspectionCallForm = ({
                   hint={`Formula: (Total Offered Qty MT × 1000) / Division Factor
                         MK-III: Division Factor = 0.928426
                         MK-V: Division Factor = 1.133
-                        J-Type: Division Factor = 1.100${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
+                        J-Type: Division Factor = 0.928${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
                 >
                   <input
                     type="text"

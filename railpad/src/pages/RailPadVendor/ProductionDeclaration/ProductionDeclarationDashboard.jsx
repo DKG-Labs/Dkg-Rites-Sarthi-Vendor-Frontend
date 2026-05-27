@@ -603,6 +603,55 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         console.log('[Submit] Starting submission for ID:', editingId);
 
         try {
+            // Validation: Check for duplicate batch numbers
+            const existingBatchesForDate = new Set();
+            
+            declarations.forEach(decl => {
+                if (decl.productionDate === formData.productionDate && decl.id !== editingId) {
+                    if (decl.products && Array.isArray(decl.products)) {
+                        decl.products.forEach(p => {
+                            if (p.batches && Array.isArray(p.batches)) {
+                                p.batches.forEach(b => {
+                                    if (b.batchNo) {
+                                        existingBatchesForDate.add(b.batchNo.toLowerCase());
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+
+            const formBatches = new Set();
+            let duplicateBatchFound = null;
+
+            for (const block of formData.productBlocks) {
+                for (const batch of block.batches) {
+                    if (batch.batchNo) {
+                        const batchLower = batch.batchNo.toLowerCase();
+                        
+                        if (existingBatchesForDate.has(batchLower)) {
+                            duplicateBatchFound = batch.batchNo;
+                            break;
+                        }
+                        
+                        if (formBatches.has(batchLower)) {
+                            showNotification(`Batch number "${batch.batchNo}" is entered multiple times in the form.`, 'error');
+                            setIsSaving(false);
+                            return;
+                        }
+                        formBatches.add(batchLower);
+                    }
+                }
+                if (duplicateBatchFound) break;
+            }
+
+            if (duplicateBatchFound) {
+                showNotification(`Batch number "${duplicateBatchFound}" is already declared for the selected date.`, 'error');
+                setIsSaving(false);
+                return;
+            }
+
             const { user, plant } = getLatestUserAndPlant();
 
             const payload = {
