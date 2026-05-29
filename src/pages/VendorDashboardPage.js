@@ -1951,6 +1951,7 @@ const VendorDashboardPage = ({ onBack }) => {
     setSelectedMasterEntry(null);
   }, []);
 
+  // eslint-disable-next-line no-unused-vars
   const handleModifyCall = async (call) => {
     // Fetch full IC details to pre-fill the form
     showNotification(`Fetching details for Call: ${call.call_no}...`, 'info');
@@ -5617,14 +5618,14 @@ const VendorDashboardPage = ({ onBack }) => {
                   {/* Action 3: Modify Call */}
                   <button
                     disabled={!isAllowed}
-                    onClick={() => {
+                    /* onClick={() => {
                       setIsActionsModalOpen(false);
                       setSelectedCallForActions(null);
                       if (needsWorkflow) {
                         showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');
                       }
                       handleModifyCall(row);
-                    }}
+                    }} */
                     title={!isAllowed ? `Action Restricted: Modify is not allowed for status "${row.status}"` : (needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call")}
                     style={{
                       display: 'flex',
