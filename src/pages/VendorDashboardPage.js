@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm, ApprovalForm, GaugeForm } from '../components/CalibrationForms';
 import { PaymentForm } from '../components/PaymentForm';
-import { RaiseInspectionCallForm } from '../components/RaiseInspectionCallForm';
+import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
 import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
 import NewInventoryEntryForm from '../components/NewInventoryEntryForm';
 import AddSubPOForm from '../components/AddSubPOForm';
@@ -32,6 +32,8 @@ import {
   VENDOR_SUB_PO_LIST
 } from '../data/vendorMockData';
 import { formatDate } from '../utils/helpers';
+import { generateCallLetterPDF } from '../utils/generateCallLetterPDF';
+import { getBaseUrl } from '../services/apiConfig';
 import useVendorWorkflow from '../hooks/useVendorWorkflow';
 import inspectionCallService from '../services/inspectionCallService';
 import poAssignedService from '../services/poAssignedService';
@@ -43,6 +45,12 @@ import EditIcon from '@mui/icons-material/Edit';
 // import VendorFeedback from '../components/Feedback/VendorFeedback';
 
 const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk'];
+
+const cleanSerialNo = (serial) => {
+  if (!serial) return '';
+  const parts = String(serial).split('/');
+  return parts[parts.length - 1].trim();
+};
 
 const VendorDashboardPage = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('po-assigned');
@@ -63,6 +71,10 @@ const VendorDashboardPage = ({ onBack }) => {
   // Modal state for Raise Inspection Request form
   const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
   const [selectedPOItem, setSelectedPOItem] = useState(null);
+  // Modify mode state
+  const [isModifyMode, setIsModifyMode] = useState(false);
+  const [isViewOnlyMode, setIsViewOnlyMode] = useState(false);
+  const [modifyingCall, setModifyingCall] = useState(null);
 
   // Modal state for Add Sub PO form
   const [isAddSubPOModalOpen, setIsAddSubPOModalOpen] = useState(false);
@@ -101,6 +113,10 @@ const VendorDashboardPage = ({ onBack }) => {
   const [withdrawRemarks, setWithdrawRemarks] = useState('');
   const [selectedCallForWithdraw, setSelectedCallForWithdraw] = useState(null);
   const [withdrawing, setWithdrawing] = useState(false);
+
+  // Actions popup modal states
+  const [isActionsModalOpen, setIsActionsModalOpen] = useState(false);
+  const [selectedCallForActions, setSelectedCallForActions] = useState(null);
 
   // Payment filter state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
@@ -883,6 +899,10 @@ const VendorDashboardPage = ({ onBack }) => {
   const handleCloseInspectionModal = () => {
     setIsInspectionModalOpen(false);
     setSelectedPOItem(null);
+    // Reset modify and view mode
+    setIsModifyMode(false);
+    setIsViewOnlyMode(false);
+    setModifyingCall(null);
   };
 
   const handleSubmitInspectionRequest = async (data) => {
@@ -1123,6 +1143,213 @@ const VendorDashboardPage = ({ onBack }) => {
       // Show user-friendly error message
       setNotification({
         message: `❌ Failed to raise inspection call\n\n${errorMessage}${errorDetails}`,
+        type: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============ MODIFY INSPECTION CALL HANDLER ============
+  const handleSubmitModifyRequest = async (data) => {
+    if (!modifyingCall) return;
+    setIsLoading(true);
+    try {
+      const icNumber = modifyingCall.call_no;
+      const updatedBy = String(user.userId);
+
+      if (data.type_of_call === 'Raw Material') {
+        // Build only the modified fields for InspectionCallRequestDto
+        const icFields = {
+          desiredInspectionDate: data.desired_inspection_date || null,
+          placeOfInspection: data.placeOfInspection || null,
+          remarks: data.remarks || null,
+          ercType: data.type_of_erc || null,
+          updatedBy
+        };
+
+        // Build only the modified fields for RmInspectionDetailsRequestDto
+        const heatQuantities = (data.rm_heat_tc_mapping || []).map(heat => ({
+          heatNumber: heat.heatNumber || null,
+          manufacturer: heat.manufacturer || null,
+          offeredQty: parseFloat(heat.offeredQty) || null,
+          tcNumber: heat.tcNumber || null,
+          tcDate: heat.tcDate || null,
+          tcQuantity: parseFloat(heat.tcQty) || null,
+          qtyLeft: null,
+          qtyAccepted: null,
+          qtyRejected: null,
+          rejectionReason: null
+        }));
+
+        const chemicalAnalysis = (data.rm_heat_tc_mapping || []).map(heat => ({
+          heatNumber: heat.heatNumber || null,
+          carbon: parseFloat(heat.chemical_carbon) || null,
+          manganese: parseFloat(heat.chemical_manganese) || null,
+          silicon: parseFloat(heat.chemical_silicon) || null,
+          sulphur: parseFloat(heat.chemical_sulphur) || null,
+          phosphorus: parseFloat(heat.chemical_phosphorus) || null,
+          chromium: parseFloat(heat.chemical_chromium) || null
+        }));
+
+        const rmFields = {
+          totalOfferedQtyMt: parseFloat(data.rm_total_offered_qty_mt) || null,
+          offeredQtyErc: parseInt(data.rm_offered_qty_erc) || null,
+          heatNumbers: heatQuantities.map(h => h.heatNumber).filter(Boolean).join(',') || null,
+          tcNumber: heatQuantities[0]?.tcNumber || null,
+          tcDate: heatQuantities[0]?.tcDate || null,
+          tcQuantity: heatQuantities[0]?.tcQuantity || null,
+          manufacturer: heatQuantities[0]?.manufacturer || null,
+          heatQuantities: heatQuantities.length > 0 ? heatQuantities : null,
+          chemicalAnalysis: chemicalAnalysis.length > 0 ? chemicalAnalysis : null
+        };
+
+        // Remove null values from top-level rmFields (only send non-null to backend)
+        const filteredRmFields = Object.fromEntries(
+          Object.entries(rmFields).filter(([, v]) => v !== null && v !== undefined)
+        );
+        const filteredIcFields = Object.fromEntries(
+          Object.entries(icFields).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        );
+
+        const response = await inspectionCallService.modifyRMInspectionCall(
+          icNumber,
+          filteredIcFields,
+          filteredRmFields
+        );
+
+        if (response && response.success !== false) {
+          setNotification({
+            message: `✅ Inspection Call ${icNumber} modified successfully!`,
+            type: 'success'
+          });
+          handleCloseInspectionModal();
+          fetchRequestedCalls();
+        } else {
+          throw new Error('Modification failed on the server');
+        }
+      } else if (data.type_of_call === 'Process') {
+        const icFields = {
+          desiredInspectionDate: data.desired_inspection_date || null,
+          placeOfInspection: data.placeOfInspection || null,
+          remarks: data.remarks || null,
+          ercType: data.type_of_erc || null,
+          updatedBy
+        };
+
+        const processDetails = (data.process_lot_heat_mapping || []).map(lotHeat => ({
+          rmIcNumber: data.process_rm_ic_numbers && data.process_rm_ic_numbers.length > 0
+            ? data.process_rm_ic_numbers.join(',')
+            : null,
+          lotNumber: lotHeat.lotNumber || null,
+          heatNumber: lotHeat.heatNumber || null,
+          manufacturer: lotHeat.manufacturer || null,
+          manufacturerHeat: lotHeat.manufacturerHeat || null,
+          offeredQty: parseInt(lotHeat.offeredQty) || null,
+          totalAcceptedQtyRm: parseInt(lotHeat.totalAcceptedQtyRm) || null,
+          declaredLotSize: parseInt(lotHeat.declaredLotSize) || null,
+          tentativeStartDate: lotHeat.tentativeStartDate || null,
+          companyId: data.company_id || null,
+          companyName: data.company_name || null,
+          unitId: data.unit_id || null,
+          unitName: data.unit_name || null,
+          unitAddress: data.unit_address || null
+        }));
+
+        const filteredIcFields = Object.fromEntries(
+          Object.entries(icFields).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        );
+
+        const response = await inspectionCallService.modifyProcessInspectionCall(
+          icNumber,
+          filteredIcFields,
+          processDetails
+        );
+
+        if (response && response.success !== false) {
+          setNotification({
+            message: `✅ Process Inspection Call ${icNumber} modified successfully!`,
+            type: 'success'
+          });
+          handleCloseInspectionModal();
+          fetchRequestedCalls();
+        } else {
+          throw new Error('Modification failed on the server');
+        }
+      } else if (data.type_of_call === 'Final') {
+        const icFields = {
+          desiredInspectionDate: data.desired_inspection_date || null,
+          placeOfInspection: data.placeOfInspection || null,
+          remarks: data.remarks || null,
+          ercType: data.type_of_erc || null,
+          updatedBy
+        };
+
+        const finalDetails = {
+          rmIcNumbers: data.final_rm_ic_numbers || [],
+          processIcNumbers: data.final_process_ic_numbers || [],
+          rmIcNumber: data.final_rm_ic_numbers && data.final_rm_ic_numbers.length > 0
+            ? data.final_rm_ic_numbers[0]
+            : null,
+          processIcNumber: data.final_process_ic_numbers && data.final_process_ic_numbers.length > 0
+            ? data.final_process_ic_numbers[0]
+            : null,
+          companyId: parseInt(data.company_id) || null,
+          companyName: data.company_name || null,
+          unitId: parseInt(data.unit_id) || null,
+          unitName: data.unit_name || null,
+          unitAddress: data.unit_address || null,
+          totalLots: data.final_lot_numbers ? data.final_lot_numbers.length : 0,
+          totalOfferedQty: parseInt(data.final_total_qty) || 0
+        };
+
+        const lotDetails = (data.final_lots_data || []).map(lot => ({
+          lotNumber: lot.lotNumber || null,
+          heatNumber: lot.heatNo || '',
+          manufacturer: '',
+          manufacturerHeat: lot.heatNo || '',
+          offeredQty: parseInt(lot.offeredQty) || null,
+          noOfBags: parseInt(lot.noOfBags) || null,
+          processIcNumber: data.final_process_ic_numbers && data.final_process_ic_numbers.length > 0
+            ? data.final_process_ic_numbers.join(',')
+            : null
+        }));
+
+        const filteredIcFields = Object.fromEntries(
+          Object.entries(icFields).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        );
+        const filteredFinalDetails = Object.fromEntries(
+          Object.entries(finalDetails).filter(([, v]) => v !== null && v !== undefined)
+        );
+
+        const response = await inspectionCallService.modifyFinalInspectionCall(
+          icNumber,
+          filteredIcFields,
+          filteredFinalDetails,
+          lotDetails
+        );
+
+        if (response && response.success !== false) {
+          setNotification({
+            message: `✅ Final Inspection Call ${icNumber} modified successfully!`,
+            type: 'success'
+          });
+          handleCloseInspectionModal();
+          fetchRequestedCalls();
+        } else {
+          throw new Error('Modification failed on the server');
+        }
+      } else {
+        setNotification({
+          message: `⚠️ Unknown call type: ${data.type_of_call}`,
+          type: 'warning'
+        });
+        handleCloseInspectionModal();
+      }
+    } catch (error) {
+      console.error('❌ Error modifying inspection call:', error);
+      setNotification({
+        message: `❌ Failed to modify inspection call: ${error.message || 'Unknown error'}`,
         type: 'error'
       });
     } finally {
@@ -1435,6 +1662,7 @@ const VendorDashboardPage = ({ onBack }) => {
   };
 
   const handleCompletedCallsSort = (column) => {
+    if (column === 'actions') return;
     if (completedCallsSortColumn === column) {
       setCompletedCallsSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -1458,6 +1686,43 @@ const VendorDashboardPage = ({ onBack }) => {
   const handleDownloadIC = (call) => {
     console.log('Downloading IC for:', call.ic_number);
     showNotification(`Downloading Inspection Certificate: ${call.ic_number}\nFor Call: ${call.call_no}`, 'info');
+  };
+
+  // Download Call Letter handler
+  const handleDownloadCallLetter = async (call) => {
+    if (!call?.call_no) {
+      showNotification('Call ID not found. Cannot generate PDF.', 'error');
+      return;
+    }
+    showNotification('Fetching call letter details...', 'info');
+    try {
+      const url = `${getBaseUrl()}/call-letter/details?requestId=${encodeURIComponent(call.call_no)}`;
+      const token = localStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      };
+      const response = await fetch(url, { method: 'GET', headers });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch call letter details`);
+      }
+      const json = await response.json();
+      const details = json.responseData ?? json.data ?? json;
+
+      // Merge on top of existing call data
+      const enrichedCall = { 
+        ...call, 
+        ...details,
+        callNumber: call.call_no,
+        poNumber: call.po_no
+      };
+      
+      generateCallLetterPDF(enrichedCall);
+      showNotification('Call Letter PDF downloaded successfully!', 'success');
+    } catch (err) {
+      console.error('Failed to generate Call Letter PDF:', err);
+      showNotification('Failed to fetch call letter details. Please try again.', 'error');
+    }
   };
 
   // Download Inspection Documents handler
@@ -1686,13 +1951,627 @@ const VendorDashboardPage = ({ onBack }) => {
     setSelectedMasterEntry(null);
   }, []);
 
-  const handleModifyCall = (call) => {
-    // Logic to modify call - this would typically open the Raise Inspection Call form with populated data
-    showNotification(`Opening modification form for Call: ${call.call_no}`, 'info');
-    // In real implementation:
-    // setSelectedPOItem({ po: ..., item: ..., subPO: ... });
-    // setEditingCall(call);
-    // setIsInspectionModalOpen(true);
+  const handleModifyCall = async (call) => {
+    // Fetch full IC details to pre-fill the form
+    showNotification(`Fetching details for Call: ${call.call_no}...`, 'info');
+    try {
+      let prefilledData = null;
+      const matchingPO = poAssignedList.find(p => p.po_no === (call.po_no || call.poNo));
+      const poDateVal = matchingPO ? matchingPO.po_date : '';
+
+      if (call.stage === 'Raw Material') {
+        const response = await inspectionCallService.getICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const ic = response.data;
+          const rmDetails = ic.rmInspectionDetails || {};
+          const heatQuantities = ic.rmHeatQuantities || rmDetails.rmHeatQuantities || [];
+
+          // Map backend IC DTO fields back to form fields
+          prefilledData = {
+            // Common fields
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal,
+            po_description: rmDetails.itemDescription || '',
+            po_qty: rmDetails.itemQuantity || 0,
+            po_unit: rmDetails.unitOfMeasurement || '',
+            type_of_call: ic.typeOfCall || call.stage || 'Raw Material',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+            // Heat TC mapping from rmInspectionDetails
+            rm_heat_tc_mapping: (heatQuantities && heatQuantities.length > 0)
+              ? heatQuantities.map((h, idx) => {
+                const chem = h.chemicalAnalyses?.[0] || {};
+                return {
+                  id: Date.now() + idx,
+                  heatNumber: h.heatNumber || '',
+                  supplierName: h.manufacturer || '',
+                  compositeKey: `${h.heatNumber}|${h.manufacturer}`,
+                  tcNumber: h.tcNumber || '',
+                  tcDate: h.tcDate || '',
+                  manufacturer: h.manufacturer || '',
+                  invoiceNo: rmDetails.invoiceNumber || '',
+                  invoiceDate: rmDetails.invoiceDate || '',
+                  subPoNumber: rmDetails.subPoNumber || '',
+                  subPoDate: rmDetails.subPoDate || '',
+                  subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                  subPoTotalValue: '',
+                  tcQty: h.tcQuantity ? `${h.tcQuantity}` : '',
+                  tcQtyRemaining: h.qtyLeft && h.qtyLeft !== 'null' ? `${h.qtyLeft}` : '',
+                  offeredQty: h.offeredQty || '',
+                  maxQty: h.qtyLeft && h.qtyLeft !== 'null' ? h.qtyLeft : '',
+                  unit: rmDetails.unitOfMeasurement || '',
+                  isLoading: false,
+                  isLoadingChemical: false,
+                  chemicalAutoFetched: !!h.chemicalAnalyses?.length,
+                  chemicalReadOnly: false,
+                  // Chemical analysis - per heat (mapped from chemicalAnalyses array)
+                  chemical_carbon: chem.carbon || '',
+                  chemical_manganese: chem.manganese || '',
+                  chemical_silicon: chem.silicon || '',
+                  chemical_sulphur: chem.sulphur || '',
+                  chemical_phosphorus: chem.phosphorus || ''
+                };
+              })
+              : [{
+                id: Date.now(),
+                heatNumber: rmDetails.heatNumbers || '',
+                supplierName: rmDetails.manufacturer || '',
+                compositeKey: `${rmDetails.heatNumbers}|${rmDetails.manufacturer}`,
+                tcNumber: rmDetails.tcNumber || '',
+                tcDate: rmDetails.tcDate || '',
+                manufacturer: rmDetails.manufacturer || '',
+                invoiceNo: rmDetails.invoiceNumber || '',
+                invoiceDate: rmDetails.invoiceDate || '',
+                subPoNumber: rmDetails.subPoNumber || '',
+                subPoDate: rmDetails.subPoDate || '',
+                subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                subPoTotalValue: '',
+                tcQty: rmDetails.tcQuantity ? `${rmDetails.tcQuantity}` : '',
+                tcQtyRemaining: '',
+                offeredQty: rmDetails.totalOfferedQtyMt || '',
+                maxQty: '',
+                unit: rmDetails.unitOfMeasurement || '',
+                isLoading: false,
+                isLoadingChemical: false,
+                chemicalAutoFetched: false,
+                chemicalReadOnly: false,
+                chemical_carbon: '',
+                chemical_manganese: '',
+                chemical_silicon: '',
+                chemical_sulphur: '',
+                chemical_phosphorus: ''
+              }],
+            rm_total_offered_qty_mt: rmDetails.totalOfferedQtyMt || 0,
+            rm_offered_qty_erc: rmDetails.offeredQtyErc || 0,
+            // Process & Final defaults
+            process_rm_ic_numbers: [],
+            process_book_set_nos: [],
+            process_lot_heat_mapping: [{
+              id: Date.now(),
+              lotNumber: '', heatNumber: '', manufacturer: '',
+              manufacturerHeat: '', offeredQty: '', totalAcceptedQtyRm: '',
+              declaredLotSize: '', tentativeStartDate: ''
+            }],
+            final_rm_ic_numbers: [],
+            final_process_ic_numbers: [],
+            final_lots_data: [],
+            final_lot_numbers: [],
+            final_manufacturer_heat: '',
+            final_erc_qty: '',
+            final_total_qty: '',
+            final_hdpe_bags: '',
+            final_total_erc_qty: '',
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      } else if (call.stage === 'Process') {
+        const response = await inspectionCallService.getProcessICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const data = response.data;
+          const ic = data.inspectionCall || {};
+          const detailsList = data.processInspectionDetails || [];
+          const mappings = data.processRmIcMappings || [];
+
+          prefilledData = {
+            // Common fields
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal || data.poData?.poDate || '',
+            po_description: '',
+            po_qty: call.quantity_offered || 0,
+            po_unit: '',
+            type_of_call: ic.typeOfCall || call.stage || 'Process',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+            
+            // Process fields – derive RM IC numbers from mappings; fall back to
+            // detail rows when the mapping table is empty (older records)
+            process_rm_ic_numbers: (() => {
+              const fromMappings = mappings.map(m => m.rmIcNumber).filter(Boolean);
+              if (fromMappings.length > 0) return fromMappings;
+              // Fallback: collect unique rmIcNumber values from detail rows
+              const fromDetails = [...new Set(
+                detailsList.map(d => d.rmIcNumber).filter(Boolean)
+              )];
+              return fromDetails;
+            })(),
+            process_lot_heat_mapping: detailsList.map((d, idx) => ({
+              id: Date.now() + idx,
+              lotNumber: d.lotNumber || '',
+              heatNumber: d.heatNumber || '',
+              manufacturer: d.manufacturer || '',
+              manufacturerHeat: d.manufacturerHeat || `${d.manufacturer || ''} - ${d.heatNumber || ''}`,
+              compositeKey: `${d.heatNumber}|${d.manufacturer}`,
+              offeredQty: d.offeredQty || '',
+              totalAcceptedQtyRm: d.totalAcceptedQtyRm || '',
+              declaredLotSize: d.declaredLotSize || '',
+              tentativeStartDate: d.tentativeStartDate || ''
+            })),
+            
+            // Raw Material and Final fields defaults
+            rm_heat_tc_mapping: [{
+              id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
+              tcNumber: '', tcDate: '', manufacturer: '', invoiceNo: '', invoiceDate: '',
+              subPoNumber: '', subPoDate: '', subPoQty: '', subPoTotalValue: '',
+              tcQty: '', tcQtyRemaining: '', offeredQty: '', maxQty: '', unit: '',
+              isLoading: false, isLoadingChemical: false, chemicalAutoFetched: false,
+              chemicalReadOnly: false, chemical_carbon: '', chemical_manganese: '',
+              chemical_silicon: '', chemical_sulphur: '', chemical_phosphorus: ''
+            }],
+            rm_total_offered_qty_mt: 0,
+            rm_offered_qty_erc: 0,
+            final_rm_ic_numbers: [],
+            final_process_ic_numbers: [],
+            final_lots_data: [],
+            final_lot_numbers: [],
+            final_manufacturer_heat: '',
+            final_erc_qty: '',
+            final_total_qty: '',
+            final_hdpe_bags: '',
+            final_total_erc_qty: '',
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      } else if (call.stage === 'Final') {
+        const response = await inspectionCallService.getFinalICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const data = response.data;
+          const ic = data.inspectionCall || {};
+          const finalDetails = data.finalInspectionDetails || {};
+          const lotDetails = data.finalLotDetails || [];
+
+          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').filter(Boolean) : [];
+          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').filter(Boolean) : [];
+          const lotNumbers = lotDetails.map(d => d.lotNumber).filter(Boolean);
+
+          prefilledData = {
+            // Common fields
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal,
+            po_description: '',
+            po_qty: call.quantity_offered || 0,
+            po_unit: '',
+            type_of_call: ic.typeOfCall || call.stage || 'Final',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+
+            // Final fields
+            final_rm_ic_numbers: rmIcList,
+            final_process_ic_numbers: processIcList,
+            final_lot_numbers: lotNumbers,
+            final_manufacturer_heat: lotDetails[0]?.manufacturerHeat || '',
+            final_erc_qty: finalDetails.totalOfferedQty || '',
+            final_total_qty: String(finalDetails.totalOfferedQty || ''),
+            final_hdpe_bags: lotDetails.reduce((sum, d) => sum + (d.noOfBags || 0), 0) || '',
+            final_lots_data: lotDetails.map(d => ({
+              lotNumber: d.lotNumber || '',
+              heatNo: d.heatNumber || '',
+              acceptedQtyProcess: 0,
+              offeredEarlier: 0,
+              futureBalance: 0,
+              offeredQty: d.offeredQty || '',
+              noOfBags: d.noOfBags || ''
+            })),
+            
+            // Raw Material and Process fields defaults
+            rm_heat_tc_mapping: [{
+              id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
+              tcNumber: '', tcDate: '', manufacturer: '', invoiceNo: '', invoiceDate: '',
+              subPoNumber: '', subPoDate: '', subPoQty: '', subPoTotalValue: '',
+              tcQty: '', tcQtyRemaining: '', offeredQty: '', maxQty: '', unit: '',
+              isLoading: false, isLoadingChemical: false, chemicalAutoFetched: false,
+              chemicalReadOnly: false, chemical_carbon: '', chemical_manganese: '',
+              chemical_silicon: '', chemical_sulphur: '', chemical_phosphorus: ''
+            }],
+            rm_total_offered_qty_mt: 0,
+            rm_offered_qty_erc: 0,
+            process_rm_ic_numbers: [],
+            process_lot_heat_mapping: [{
+              id: Date.now(),
+              lotNumber: '', heatNumber: '', manufacturer: '',
+              manufacturerHeat: '', offeredQty: '', totalAcceptedQtyRm: '',
+              declaredLotSize: '', tentativeStartDate: ''
+            }],
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      }
+
+      // Build a minimal PO & item context for the form
+      const poContext = {
+        po_no: call.po_no || '',
+        zone_name: call.rlyShortName || 'N/A',
+        po_date: poDateVal,
+        description: matchingPO?.description || '',
+        quantity: call.quantity_offered || 0,
+        unit: matchingPO?.unit || ''
+      };
+      const itemContext = {
+        po_serial_no: call.poSerialNo || '',
+        item_qty: call.quantity_offered || 0,
+        item_unit: '',
+        qty_already_inspected_rm: 0,
+        qty_already_inspected_process: 0,
+        qty_already_inspected_final: 0,
+        ...prefilledData
+      };
+
+      setModifyingCall(call);
+      setIsModifyMode(true);
+      setSelectedPOItem({ po: poContext, item: itemContext, subPO: null });
+      setIsInspectionModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching IC details for modify:', error);
+      showNotification(`Failed to load call details: ${error.message}`, 'error');
+    }
+  };
+
+  const handleViewCallDetails = async (call) => {
+    // Fetch full IC details to view the form
+    showNotification(`Fetching details for Call: ${call.call_no}...`, 'info');
+    try {
+      let prefilledData = null;
+      const matchingPO = poAssignedList.find(p => p.po_no === (call.po_no || call.poNo));
+      const poDateVal = matchingPO ? matchingPO.po_date : '';
+
+      if (call.stage === 'Raw Material') {
+        const response = await inspectionCallService.getICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const ic = response.data;
+          const rmDetails = ic.rmInspectionDetails || {};
+          const heatQuantities = ic.rmHeatQuantities || rmDetails.rmHeatQuantities || [];
+
+          // Map backend IC DTO fields back to form fields
+          prefilledData = {
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal,
+            po_description: rmDetails.itemDescription || '',
+            po_qty: rmDetails.itemQuantity || 0,
+            po_unit: rmDetails.unitOfMeasurement || '',
+            type_of_call: ic.typeOfCall || call.stage || 'Raw Material',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+            rm_heat_tc_mapping: (heatQuantities && heatQuantities.length > 0)
+              ? heatQuantities.map((h, idx) => {
+                const chem = h.chemicalAnalyses?.[0] || {};
+                return {
+                  id: Date.now() + idx,
+                  heatNumber: h.heatNumber || '',
+                  supplierName: h.manufacturer || '',
+                  compositeKey: `${h.heatNumber}|${h.manufacturer}`,
+                  tcNumber: h.tcNumber || '',
+                  tcDate: h.tcDate || '',
+                  manufacturer: h.manufacturer || '',
+                  invoiceNo: rmDetails.invoiceNumber || '',
+                  invoiceDate: rmDetails.invoiceDate || '',
+                  subPoNumber: rmDetails.subPoNumber || '',
+                  subPoDate: rmDetails.subPoDate || '',
+                  subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                  subPoTotalValue: '',
+                  tcQty: h.tcQuantity ? `${h.tcQuantity}` : '',
+                  tcQtyRemaining: h.qtyLeft && h.qtyLeft !== 'null' ? `${h.qtyLeft}` : '',
+                  offeredQty: h.offeredQty || '',
+                  maxQty: h.qtyLeft && h.qtyLeft !== 'null' ? h.qtyLeft : '',
+                  unit: rmDetails.unitOfMeasurement || '',
+                  isLoading: false,
+                  isLoadingChemical: false,
+                  chemicalAutoFetched: !!h.chemicalAnalyses?.length,
+                  chemicalReadOnly: false,
+                  chemical_carbon: chem.carbon || '',
+                  chemical_manganese: chem.manganese || '',
+                  chemical_silicon: chem.silicon || '',
+                  chemical_sulphur: chem.sulphur || '',
+                  chemical_phosphorus: chem.phosphorus || ''
+                };
+              })
+              : [{
+                id: Date.now(),
+                heatNumber: rmDetails.heatNumbers || '',
+                supplierName: rmDetails.manufacturer || '',
+                compositeKey: `${rmDetails.heatNumbers}|${rmDetails.manufacturer}`,
+                tcNumber: rmDetails.tcNumber || '',
+                tcDate: rmDetails.tcDate || '',
+                manufacturer: rmDetails.manufacturer || '',
+                invoiceNo: rmDetails.invoiceNumber || '',
+                invoiceDate: rmDetails.invoiceDate || '',
+                subPoNumber: rmDetails.subPoNumber || '',
+                subPoDate: rmDetails.subPoDate || '',
+                subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                subPoTotalValue: '',
+                tcQty: rmDetails.tcQuantity ? `${rmDetails.tcQuantity}` : '',
+                tcQtyRemaining: '',
+                offeredQty: rmDetails.totalOfferedQtyMt || '',
+                maxQty: '',
+                unit: rmDetails.unitOfMeasurement || '',
+                isLoading: false,
+                isLoadingChemical: false,
+                chemicalAutoFetched: false,
+                chemicalReadOnly: false,
+                chemical_carbon: '',
+                chemical_manganese: '',
+                chemical_silicon: '',
+                chemical_sulphur: '',
+                chemical_phosphorus: ''
+              }],
+            rm_total_offered_qty_mt: rmDetails.totalOfferedQtyMt || 0,
+            rm_offered_qty_erc: rmDetails.offeredQtyErc || 0,
+            process_rm_ic_numbers: [],
+            process_book_set_nos: [],
+            process_lot_heat_mapping: [{
+              id: Date.now(),
+              lotNumber: '', heatNumber: '', manufacturer: '',
+              manufacturerHeat: '', offeredQty: '', totalAcceptedQtyRm: '',
+              declaredLotSize: '', tentativeStartDate: ''
+            }],
+            final_rm_ic_numbers: [],
+            final_process_ic_numbers: [],
+            final_lots_data: [],
+            final_lot_numbers: [],
+            final_manufacturer_heat: '',
+            final_erc_qty: '',
+            final_total_qty: '',
+            final_hdpe_bags: '',
+            final_total_erc_qty: '',
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      } else if (call.stage === 'Process') {
+        const response = await inspectionCallService.getProcessICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const data = response.data;
+          const ic = data.inspectionCall || {};
+          const detailsList = data.processInspectionDetails || [];
+          const mappings = data.processRmIcMappings || [];
+
+          prefilledData = {
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal || data.poData?.poDate || '',
+            po_description: '',
+            po_qty: call.quantity_offered || 0,
+            po_unit: '',
+            type_of_call: ic.typeOfCall || call.stage || 'Process',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+            process_rm_ic_numbers: (() => {
+              const fromMappings = mappings.map(m => m.rmIcNumber).filter(Boolean);
+              if (fromMappings.length > 0) return fromMappings;
+              const fromDetails = [...new Set(
+                detailsList.map(d => d.rmIcNumber).filter(Boolean)
+              )];
+              return fromDetails;
+            })(),
+            process_lot_heat_mapping: detailsList.map((d, idx) => ({
+              id: Date.now() + idx,
+              lotNumber: d.lotNumber || '',
+              heatNumber: d.heatNumber || '',
+              manufacturer: d.manufacturer || '',
+              manufacturerHeat: d.manufacturerHeat || `${d.manufacturer || ''} - ${d.heatNumber || ''}`,
+              compositeKey: `${d.heatNumber}|${d.manufacturer}`,
+              offeredQty: d.offeredQty || '',
+              totalAcceptedQtyRm: d.totalAcceptedQtyRm || '',
+              declaredLotSize: d.declaredLotSize || '',
+              tentativeStartDate: d.tentativeStartDate || ''
+            })),
+            rm_heat_tc_mapping: [{
+              id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
+              tcNumber: '', tcDate: '', manufacturer: '', invoiceNo: '', invoiceDate: '',
+              subPoNumber: '', subPoDate: '', subPoQty: '', subPoTotalValue: '',
+              tcQty: '', tcQtyRemaining: '', offeredQty: '', maxQty: '', unit: '',
+              isLoading: false, isLoadingChemical: false, chemicalAutoFetched: false,
+              chemicalReadOnly: false, chemical_carbon: '', chemical_manganese: '',
+              chemical_silicon: '', chemical_sulphur: '', chemical_phosphorus: ''
+            }],
+            rm_total_offered_qty_mt: 0,
+            rm_offered_qty_erc: 0,
+            final_rm_ic_numbers: [],
+            final_process_ic_numbers: [],
+            final_lots_data: [],
+            final_lot_numbers: [],
+            final_manufacturer_heat: '',
+            final_erc_qty: '',
+            final_total_qty: '',
+            final_hdpe_bags: '',
+            final_total_erc_qty: '',
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      } else if (call.stage === 'Final') {
+        const response = await inspectionCallService.getFinalICDetailsByNumber(call.call_no);
+        if (response && response.data) {
+          const data = response.data;
+          const ic = data.inspectionCall || {};
+          const finalDetails = data.finalInspectionDetails || {};
+          const lotDetails = data.finalLotDetails || [];
+
+          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').filter(Boolean) : [];
+          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').filter(Boolean) : [];
+          const lotNumbers = lotDetails.map(d => d.lotNumber).filter(Boolean);
+
+          prefilledData = {
+            po_no: ic.poNo || call.po_no || '',
+            po_serial_no: ic.poSerialNo || call.poSerialNo || '',
+            po_date: poDateVal,
+            po_description: '',
+            po_qty: call.quantity_offered || 0,
+            po_unit: '',
+            type_of_call: ic.typeOfCall || call.stage || 'Final',
+            type_of_erc: ic.ercType || '',
+            desired_inspection_date: ic.desiredInspectionDate || '',
+            company_id: ic.companyId ? String(ic.companyId) : '',
+            company_name: ic.companyName || '',
+            unit_id: ic.unitId ? String(ic.unitId) : '',
+            unit_name: ic.unitName || '',
+            unit_address: ic.unitAddress || '',
+            remarks: ic.remarks || '',
+            placeOfInspection: ic.placeOfInspection || '',
+            final_rm_ic_numbers: rmIcList,
+            final_process_ic_numbers: processIcList,
+            final_lot_numbers: lotNumbers,
+            final_manufacturer_heat: lotDetails[0]?.manufacturerHeat || '',
+            final_erc_qty: finalDetails.totalOfferedQty || '',
+            final_total_qty: String(finalDetails.totalOfferedQty || ''),
+            final_hdpe_bags: lotDetails.reduce((sum, d) => sum + (d.noOfBags || 0), 0) || '',
+            final_lots_data: lotDetails.map(d => ({
+              lotNumber: d.lotNumber || '',
+              heatNo: d.heatNumber || '',
+              acceptedQtyProcess: 0,
+              offeredEarlier: 0,
+              futureBalance: 0,
+              offeredQty: d.offeredQty || '',
+              noOfBags: d.noOfBags || ''
+            })),
+            rm_heat_tc_mapping: [{
+              id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
+              tcNumber: '', tcDate: '', manufacturer: '', invoiceNo: '', invoiceDate: '',
+              subPoNumber: '', subPoDate: '', subPoQty: '', subPoTotalValue: '',
+              tcQty: '', tcQtyRemaining: '', offeredQty: '', maxQty: '', unit: '',
+              isLoading: false, isLoadingChemical: false, chemicalAutoFetched: false,
+              chemicalReadOnly: false, chemical_carbon: '', chemical_manganese: '',
+              chemical_silicon: '', chemical_sulphur: '', chemical_phosphorus: ''
+            }],
+            rm_total_offered_qty_mt: 0,
+            rm_offered_qty_erc: 0,
+            process_rm_ic_numbers: [],
+            process_lot_heat_mapping: [{
+              id: Date.now(),
+              lotNumber: '', heatNumber: '', manufacturer: '',
+              manufacturerHeat: '', offeredQty: '', totalAcceptedQtyRm: '',
+              declaredLotSize: '', tentativeStartDate: ''
+            }],
+            qty_already_inspected_rm: 0,
+            qty_already_inspected_process: 0,
+            qty_already_inspected_final: 0,
+            zone_name: call.rlyShortName || '',
+            amendment_no: '',
+            amendment_date: '',
+            vendor_contact_name: '',
+            vendor_contact_phone: ''
+          };
+        }
+      }
+
+      // Build a minimal PO & item context for the form
+      const poContext = {
+        po_no: call.po_no || '',
+        zone_name: call.rlyShortName || 'N/A',
+        po_date: poDateVal,
+        description: matchingPO?.description || '',
+        quantity: call.quantity_offered || 0,
+        unit: matchingPO?.unit || ''
+      };
+      const itemContext = {
+        po_serial_no: call.poSerialNo || '',
+        item_qty: call.quantity_offered || 0,
+        item_unit: '',
+        qty_already_inspected_rm: 0,
+        qty_already_inspected_process: 0,
+        qty_already_inspected_final: 0,
+        ...prefilledData
+      };
+
+      setModifyingCall(call);
+      setIsModifyMode(false);
+      setIsViewOnlyMode(true);
+      setSelectedPOItem({ po: poContext, item: itemContext, subPO: null });
+      setIsInspectionModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching IC details for view:', error);
+      showNotification(`Failed to load call details: ${error.message}`, 'error');
+    }
   };
 
   const handleWithdrawCall = (call) => {
@@ -1751,6 +2630,7 @@ const VendorDashboardPage = ({ onBack }) => {
     {
       key: 'po_no',
       label: 'PO No.',
+      width: '150px',
       render: (value, po) => {
         if (po.pdfPath) {
           return (
@@ -1778,30 +2658,34 @@ const VendorDashboardPage = ({ onBack }) => {
     {
       key: 'po_date',
       label: 'PO Date',
+      width: '120px',
       render: (value) => formatDate(value)
     },
-    { key: 'zone_name', label: 'Zone Name' },
-    { key: 'description', label: 'Vendor Name' },
-    { key: 'quantity', label: 'Qty' },
-    { key: 'unit', label: 'Unit' },
+    { key: 'zone_name', label: 'Zone Name', width: '120px' },
+    { key: 'description', label: 'Vendor Name', width: '220px' },
+    { key: 'quantity', label: 'Qty', width: '100px' },
+    { key: 'unit', label: 'Unit', width: '80px' },
     // { key: 'location', label: 'Location' },
     {
       key: 'status',
       label: 'Status',
+      width: '130px',
       render: (value) => <StatusBadge status={value} />
     }
   ];
 
   const requestedColumns = [
-    { key: 'call_no', label: 'Call No.' },
+    { key: 'call_no', label: 'Call No.', width: '110px' },
     {
       key: 'poCombined',
       label: 'PO/ Sr. No.',
-      render: (_, row) => `${row.rlyShortName} / ${row.po_no} / ${row.poSerialNo}`
+      width: '190px',
+      render: (_, row) => `${row.rlyShortName} / ${row.po_no} / ${cleanSerialNo(row.poSerialNo)}`
     },
     {
       key: 'inspectionDetail',
       label: 'Detail of Inspection Call',
+      width: '210px',
       render: (_, row) => {
         let details = `${row.ercType || ''} (${row.stage})`;
         if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
@@ -1810,21 +2694,16 @@ const VendorDashboardPage = ({ onBack }) => {
         return details;
       }
     },
-    { key: 'ieName', label: 'IE Assigned' },
-    {
-      key: 'call_date',
-      label: 'Desired Date of Call',
-      render: (value) => formatDate(value)
-    },
     {
       key: 'quantity_offered',
       label: 'Qty Offered',
+      width: '120px',
       render: (val, row) => `${val} ${row.uom || ''}`
     },
-    { key: 'unitName', label: 'Unit Name' },
     {
       key: 'status',
       label: 'Status',
+      width: '160px',
       render: (val, row) => (
         <div>
           <StatusBadge status={val} />
@@ -1839,103 +2718,84 @@ const VendorDashboardPage = ({ onBack }) => {
     {
       key: 'actions',
       label: 'Action',
-      render: (_, row) => {
-        // Statuses that require workflow approval for modify/withdraw
-        const workflowRequiredStatuses = [
-          'Call assigned to IE',
-          'Call Scheduled by IE',
-          'Under Inspection',
-          'Call Withheld',
-          'Inspection Completed & Pending for IC Issuance'
-        ];
-
-        const needsWorkflow = workflowRequiredStatuses.includes(row.status);
-        const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
-
-        const handleActionClick = (e, actionType) => {
-          e.stopPropagation();
-          if (!isAllowed) {
-            showNotification(`Action Restricted: ${actionType} is not allowed for status "${row.status}". Only initial statuses allow this.`, 'warning');
-            return;
-          }
-
-          if (actionType === 'Modify') {
-            if (needsWorkflow) {
-              showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');
-            }
-            handleModifyCall(row);
-          } else {
-            if (needsWorkflow) {
-              showNotification(`Workflow Required: Withdrawing call ${row.call_no} requires approval.`, 'info');
-            }
-            handleWithdrawCall(row);
-          }
-        };
-
-        return (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-            <button
-              className="master-action-btn master-action-edit"
-              onClick={(e) => handleActionClick(e, 'Modify')}
-              title={!isAllowed ? "Action Restricted" : (needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call")}
-              style={{
-                width: 'auto',
-                minWidth: '75px',
-                padding: '6px 12px',
-                fontSize: '13px',
-                backgroundColor: isAllowed ? '#dbeafe' : '#f3f4f6',
-                borderColor: isAllowed ? '#3b82f6' : '#d1d5db',
-                color: isAllowed ? '#1e40af' : '#6b7280',
-                whiteSpace: 'nowrap',
-                opacity: isAllowed ? 1 : 0.7,
-                cursor: isAllowed ? 'pointer' : 'not-allowed'
-              }}
-            >
-              Modify
-            </button>
-            <button
-              className="master-action-btn master-action-delete"
-              onClick={(e) => handleActionClick(e, 'Withdraw')}
-              title={!isAllowed ? "Action Restricted" : (needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call")}
-              style={{
-                width: 'auto',
-                minWidth: '85px',
-                padding: '6px 12px',
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
-                backgroundColor: isAllowed ? undefined : '#f3f4f6',
-                borderColor: isAllowed ? undefined : '#d1d5db',
-                color: isAllowed ? undefined : '#6b7280',
-                opacity: isAllowed ? 1 : 0.7,
-                cursor: isAllowed ? 'pointer' : 'not-allowed'
-              }}
-            >
-              Withdraw
-            </button>
-          </div>
-        );
-      }
+      width: '130px',
+      render: (_, row) => (
+        <button
+          className="master-action-btn master-action-view"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedCallForActions(row);
+            setIsActionsModalOpen(true);
+          }}
+          title="View Actions"
+          style={{
+            width: 'auto',
+            minWidth: '105px',
+            padding: '6px 12px',
+            fontSize: '13px',
+            whiteSpace: 'nowrap',
+            backgroundColor: '#3b82f6',
+            borderColor: '#2563eb',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontWeight: '500',
+            borderRadius: '6px'
+          }}
+        >
+          View Actions
+        </button>
+      )
     }
   ];
 
   const completedColumns = [
-    { key: 'call_no', label: 'Call No.' },
-    { key: 'po_no', label: 'PO No.' },
-    { key: 'item_name', label: 'Item Name' },
-    { key: 'stage', label: 'Stage' },
+    { key: 'call_no', label: 'Call No.', width: '110px' },
+    { key: 'po_no', label: 'PO No.', width: '150px' },
     {
       key: 'completion_date',
       label: 'Completion Date',
+      width: '140px',
       render: (value) => formatDate(value)
     },
-    { key: 'quantity_offered', label: 'Qty Offered' },
-    { key: 'quantity_accepted', label: 'Qty Accepted' },
+    { key: 'quantity_offered', label: 'Qty Offered', width: '120px' },
+    { key: 'quantity_accepted', label: 'Qty Accepted', width: '120px' },
     {
       key: 'status',
       label: 'Status',
+      width: '160px',
       render: (value) => <StatusBadge status={value} />
     },
-    { key: 'ic_number', label: 'IC No.' }
+    {
+      key: 'actions',
+      label: 'Action',
+      width: '130px',
+      render: (_, row) => (
+        <button
+          className="master-action-btn master-action-view"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedCallForActions(row);
+            setIsActionsModalOpen(true);
+          }}
+          title="View Actions"
+          style={{
+            width: 'auto',
+            minWidth: '105px',
+            padding: '6px 12px',
+            fontSize: '13px',
+            whiteSpace: 'nowrap',
+            backgroundColor: '#3b82f6',
+            borderColor: '#2563eb',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontWeight: '500',
+            borderRadius: '6px'
+          }}
+        >
+          View Actions
+        </button>
+      )
+    }
   ];
 
   // Sort and filter PO Assigned list
@@ -3087,7 +3947,12 @@ const VendorDashboardPage = ({ onBack }) => {
                           <th
                             key={col.key}
                             onClick={col.key !== 'actions' ? () => handleRequestedCallsSort(col.key) : undefined}
-                            style={{ cursor: col.key !== 'actions' ? 'pointer' : 'default', userSelect: 'none' }}
+                            style={{
+                              cursor: col.key !== 'actions' ? 'pointer' : 'default',
+                              userSelect: 'none',
+                              width: col.width || undefined,
+                              minWidth: col.width || undefined
+                            }}
                           >
                             {col.label} {col.key !== 'actions' && requestedCallsSortColumn === col.key && (requestedCallsSortDirection === 'asc' ? '↑' : '↓')}
                           </th>
@@ -3107,7 +3972,14 @@ const VendorDashboardPage = ({ onBack }) => {
                         paginatedRequestedCalls.map((call) => (
                           <tr key={call.id} className="call-row">
                             {requestedColumns.map(col => (
-                              <td key={col.key} data-label={col.label}>
+                              <td
+                                key={col.key}
+                                data-label={col.label}
+                                style={{
+                                  width: col.width || undefined,
+                                  minWidth: col.width || undefined
+                                }}
+                              >
                                 {col.render ? col.render(call[col.key], call) : call[col.key]}
                               </td>
                             ))}
@@ -3212,10 +4084,15 @@ const VendorDashboardPage = ({ onBack }) => {
                         {completedColumns.map(col => (
                           <th
                             key={col.key}
-                            onClick={() => handleCompletedCallsSort(col.key)}
-                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={col.key !== 'actions' ? () => handleCompletedCallsSort(col.key) : undefined}
+                            style={{
+                              cursor: col.key !== 'actions' ? 'pointer' : 'default',
+                              userSelect: 'none',
+                              width: col.width || undefined,
+                              minWidth: col.width || undefined
+                            }}
                           >
-                            {col.label} {completedCallsSortColumn === col.key && (completedCallsSortDirection === 'asc' ? '↑' : '↓')}
+                            {col.label} {col.key !== 'actions' && completedCallsSortColumn === col.key && (completedCallsSortDirection === 'asc' ? '↑' : '↓')}
                           </th>
                         ))}
                       </tr>
@@ -3237,7 +4114,14 @@ const VendorDashboardPage = ({ onBack }) => {
                               style={{ cursor: 'pointer' }}
                             >
                               {completedColumns.map(col => (
-                                <td key={col.key} data-label={col.label}>
+                                <td
+                                  key={col.key}
+                                  data-label={col.label}
+                                  style={{
+                                    width: col.width || undefined,
+                                    minWidth: col.width || undefined
+                                  }}
+                                >
                                   {col.render ? col.render(call[col.key], call) : call[col.key]}
                                 </td>
                               ))}
@@ -3255,6 +4139,15 @@ const VendorDashboardPage = ({ onBack }) => {
                                       }}
                                     >
                                       View Full Inspection Summary
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadCallLetter(call);
+                                      }}
+                                    >
+                                      Download Call Letter
                                     </button>
                                     <button
                                       className="btn btn-sm btn-outline"
@@ -3838,16 +4731,62 @@ const VendorDashboardPage = ({ onBack }) => {
         isLoading={isLoading}
       />
 
-      {/* ============ RAISE INSPECTION REQUEST MODAL ============ */}
+      {/* ============ RAISE / MODIFY INSPECTION REQUEST MODAL ============ */}
       {isInspectionModalOpen && (
         <div className="modal-overlay" onClick={handleCloseInspectionModal}>
           <div className="modal raise-inspection-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Raise Inspection Request</h3>
+            <div className="modal-header" style={isModifyMode ? { background: 'linear-gradient(135deg, #f59e0b, #d97706)' } : (isViewOnlyMode ? { background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' } : {})}>
+              <h3 className="modal-title">
+                {isViewOnlyMode ? `🔍 View Inspection Call Details — ${modifyingCall?.call_no}` : (isModifyMode ? `✏️ Modify Inspection Call — ${modifyingCall?.call_no}` : 'Raise Inspection Request')}
+              </h3>
               <button className="modal-close-btn" onClick={handleCloseInspectionModal}>×</button>
             </div>
             <div className="modal-body">
-              {selectedPOItem && (
+              {isModifyMode && modifyingCall && (
+                <div className="inspection-modal-info" style={{ background: '#fef3c7', borderLeft: '4px solid #f59e0b', marginBottom: 16 }}>
+                  <div className="inspection-info-row">
+                    <span className="info-label">⚠️ Modify Mode:</span>
+                    <span className="info-value" style={{ color: '#92400e', fontWeight: 600 }}>
+                      You are editing Call No: {modifyingCall.call_no}. Only changed fields will be updated.
+                    </span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">Stage:</span>
+                    <span className="info-value">{modifyingCall.stage}</span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">PO Number:</span>
+                    <span className="info-value">{modifyingCall.po_no}</span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">Current Status:</span>
+                    <span className="info-value">{modifyingCall.status}</span>
+                  </div>
+                </div>
+              )}
+              {isViewOnlyMode && modifyingCall && (
+                <div className="inspection-modal-info" style={{ background: '#dbeafe', borderLeft: '4px solid #3b82f6', marginBottom: 16 }}>
+                  <div className="inspection-info-row">
+                    <span className="info-label">🔍 View Mode:</span>
+                    <span className="info-value" style={{ color: '#1e3a8a', fontWeight: 600 }}>
+                      You are viewing details of Call No: {modifyingCall.call_no}. Form is read-only.
+                    </span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">Stage:</span>
+                    <span className="info-value">{modifyingCall.stage}</span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">PO Number:</span>
+                    <span className="info-value">{modifyingCall.po_no}</span>
+                  </div>
+                  <div className="inspection-info-row">
+                    <span className="info-label">Current Status:</span>
+                    <span className="info-value">{modifyingCall.status}</span>
+                  </div>
+                </div>
+              )}
+              {!isModifyMode && selectedPOItem && (
                 <div className="inspection-modal-info">
                   <div className="inspection-info-row">
                     <span className="info-label">PO Number:</span>
@@ -3876,13 +4815,16 @@ const VendorDashboardPage = ({ onBack }) => {
                 inventoryEntries={inventoryEntries}
                 availableHeatNumbers={availableHeatNumbers}
                 vendorId={currentUser.id}
-                onSubmit={handleSubmitInspectionRequest}
+                onSubmit={isViewOnlyMode ? handleCloseInspectionModal : (isModifyMode ? handleSubmitModifyRequest : handleSubmitInspectionRequest)}
                 isLoading={isLoading}
+                isModifyMode={isModifyMode}
+                isViewMode={isViewOnlyMode}
               />
             </div>
           </div>
         </div>
       )}
+
 
       {/* ============ ADD SUB PO MODAL ============ */}
       {isAddSubPOModalOpen && (
@@ -4387,6 +5329,436 @@ const VendorDashboardPage = ({ onBack }) => {
           </div>
         </div>
       )}
+
+      {/* ============ INSPECTION CALL ACTIONS POPUP MODAL ============ */}
+      {isActionsModalOpen && selectedCallForActions && (() => {
+        const row = selectedCallForActions;
+        const workflowRequiredStatuses = [
+          'Call assigned to IE',
+          'Call Scheduled by IE',
+          'Under Inspection',
+          'Call Withheld',
+          'Inspection Completed & Pending for IC Issuance'
+        ];
+        const needsWorkflow = workflowRequiredStatuses.includes(row.status);
+        const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
+
+        return (
+          <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {
+            setIsActionsModalOpen(false);
+            setSelectedCallForActions(null);
+          }}>
+            <div className="modal actions-popup-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', borderRadius: '20px', border: '1px solid rgba(226, 232, 240, 0.8)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
+              <div className="modal-header" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', borderLeft: '4px solid #3b82f6' }}>
+                <div>
+                  <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '700', color: '#1e3a5f', margin: 0 }}>
+                    Inspection Call Control Panel
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                    Quick actions and documentation utility for this inspection request.
+                  </p>
+                </div>
+                <button className="modal-close-btn" style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => {
+                  setIsActionsModalOpen(false);
+                  setSelectedCallForActions(null);
+                }}>
+                  <svg style={{ width: '12px', height: '12px', color: '#64748b' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              <div className="modal-body" style={{ padding: '24px' }}>
+                {/* Details section */}
+                <div className="actions-modal-details-card" style={{
+                  background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '24px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '16px 20px'
+                  }}>
+                    {/* Call No */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+                        Call No
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', wordBreak: 'break-all' }}>{row.call_no}</span>
+                    </div>
+
+                    {/* Desired Date */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        Desired Date
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatDate(row.desiredInspectionDate || row.call_date)}</span>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        Status
+                      </span>
+                      <div style={{ marginTop: '2px' }}>
+                        <StatusBadge status={row.status} />
+                      </div>
+                    </div>
+
+                    {/* Qty Offered */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><polygon points="12 22.08 12 12 3 6.92 3 17 12 22.08"></polygon><polygon points="12 22.08 12 12 21 6.92 21 17 12 22.08"></polygon><polygon points="12 12 3 6.92 12 1.84 21 6.92 12 12"></polygon><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Qty Offered
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                        {row.quantity_offered} {row.uom || row.unit || ''}
+                      </span>
+                    </div>
+
+                    {/* IE Assigned */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        IE Assigned
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{row.ieName || 'Not Assigned'}</span>
+                    </div>
+
+                    {/* Stage */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        Stage
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{row.stage || 'N/A'}</span>
+                    </div>
+
+                    {/* Divider line spanning all columns */}
+                    <div style={{ gridColumn: 'span 3', borderTop: '1px solid #e2e8f0', margin: '4px 0' }} />
+
+                    {/* PO / SR. NO. */}
+                    <div style={{ gridColumn: 'span 1' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        PO / Sr. No.
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                        {row.rlyShortName || ''} / {row.po_no || ''} / {cleanSerialNo(row.poSerialNo)}
+                      </span>
+                    </div>
+
+                    {/* IC No. (if present) */}
+                    {row.ic_number ? (
+                      <>
+                        <div style={{ gridColumn: 'span 1' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                            <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                            IC No.
+                          </span>
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{row.ic_number}</span>
+                        </div>
+                        <div style={{ gridColumn: 'span 1' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                            <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                            Detail of Call
+                          </span>
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                            {(() => {
+                              let details = `${row.ercType || row.item_name || ''}`;
+                              if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
+                              if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
+                              if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
+                              return details;
+                            })()}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                          <svg style={{ width: '12px', height: '12px', marginRight: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                          Detail of Inspection Call
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                          {(() => {
+                            let details = `${row.ercType || row.item_name || ''}`;
+                            if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
+                            if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
+                            if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
+                            return details;
+                          })()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions grid */}
+                <h4 style={{ margin: '0 0 14px 0', fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center' }}>
+                  <svg style={{ width: '14px', height: '14px', marginRight: '6px', color: '#64748b' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                  Available Operations
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '16px'
+                }}>
+                  {/* Action 1: View details */}
+                  <button
+                    onClick={() => {
+                      setIsActionsModalOpen(false);
+                      setSelectedCallForActions(null);
+                      handleViewCallDetails(row);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      padding: '16px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      borderLeft: '4px solid #3b82f6',
+                      borderRadius: '12px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#3b82f6';
+                      e.currentTarget.style.backgroundColor = '#f8fafc';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(59, 130, 246, 0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      background: '#eff6ff',
+                      color: '#2563eb',
+                      flexShrink: 0
+                    }}>
+                      <VisibilityIcon style={{ fontSize: '20px' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '650', color: '#1e293b' }}>View Details</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Review submitted form details</div>
+                    </div>
+                  </button>
+
+                  {/* Action 2: Download Call Letter */}
+                  <button
+                    onClick={() => {
+                      setIsActionsModalOpen(false);
+                      setSelectedCallForActions(null);
+                      handleDownloadCallLetter(row);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      padding: '16px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      borderLeft: '4px solid #10b981',
+                      borderRadius: '12px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#10b981';
+                      e.currentTarget.style.backgroundColor = '#f8fafc';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(16, 185, 129, 0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      flexShrink: 0
+                    }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '650', color: '#1e293b' }}>Call Letter</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Download official letter PDF</div>
+                    </div>
+                  </button>
+
+                  {/* Action 3: Modify Call */}
+                  <button
+                    disabled={!isAllowed}
+                    onClick={() => {
+                      setIsActionsModalOpen(false);
+                      setSelectedCallForActions(null);
+                      if (needsWorkflow) {
+                        showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');
+                      }
+                      handleModifyCall(row);
+                    }}
+                    title={!isAllowed ? `Action Restricted: Modify is not allowed for status "${row.status}"` : (needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call")}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      padding: '16px',
+                      background: isAllowed ? '#ffffff' : '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      borderLeft: isAllowed ? '4px solid #f59e0b' : '4px solid #cbd5e1',
+                      borderRadius: '12px',
+                      textAlign: 'left',
+                      cursor: isAllowed ? 'pointer' : 'not-allowed',
+                      opacity: isAllowed ? 1 : 0.65,
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isAllowed) {
+                        e.currentTarget.style.borderColor = '#f59e0b';
+                        e.currentTarget.style.backgroundColor = '#f8fafc';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(245, 158, 11, 0.08)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isAllowed) {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.backgroundColor = '#ffffff';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                      }
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      background: isAllowed ? '#fffbeb' : '#f1f5f9',
+                      color: isAllowed ? '#d97706' : '#94a3b8',
+                      flexShrink: 0
+                    }}>
+                      <EditIcon style={{ fontSize: '18px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: '650', color: isAllowed ? '#1e293b' : '#94a3b8' }}>
+                        Modify Call
+                        {!isAllowed && (
+                          <svg style={{ width: '12px', height: '12px', marginLeft: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        {!isAllowed ? "Restricted for current status" : "Update inspection call parameters"}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Action 4: Withdraw Call */}
+                  <button
+                    disabled={!isAllowed}
+                    onClick={() => {
+                      setIsActionsModalOpen(false);
+                      setSelectedCallForActions(null);
+                      if (needsWorkflow) {
+                        showNotification(`Workflow Required: Withdrawing call ${row.call_no} requires approval.`, 'info');
+                      }
+                      handleWithdrawCall(row);
+                    }}
+                    title={!isAllowed ? `Action Restricted: Withdraw is not allowed for status "${row.status}"` : (needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call")}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      padding: '16px',
+                      background: isAllowed ? '#ffffff' : '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      borderLeft: isAllowed ? '4px solid #ef4444' : '4px solid #cbd5e1',
+                      borderRadius: '12px',
+                      textAlign: 'left',
+                      cursor: isAllowed ? 'pointer' : 'not-allowed',
+                      opacity: isAllowed ? 1 : 0.65,
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isAllowed) {
+                        e.currentTarget.style.borderColor = '#ef4444';
+                        e.currentTarget.style.backgroundColor = '#fef2f2';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(239, 68, 68, 0.08)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isAllowed) {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.backgroundColor = '#ffffff';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                      }
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      background: isAllowed ? '#fef2f2' : '#f1f5f9',
+                      color: isAllowed ? '#dc2626' : '#94a3b8',
+                      flexShrink: 0
+                    }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: '650', color: isAllowed ? '#dc2626' : '#94a3b8' }}>
+                        Withdraw Call
+                        {!isAllowed && (
+                          <svg style={{ width: '12px', height: '12px', marginLeft: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        {!isAllowed ? "Restricted for current status" : "Cancel inspection request"}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ============ WITHDRAW INSPECTION CALL MODAL ============ */}
       {isWithdrawModalOpen && selectedCallForWithdraw && (
