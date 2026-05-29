@@ -5,9 +5,10 @@
 
 
 export const getBaseUrl = () => {
-  return "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
-  //return "https://api.ritesqasarthi.com/sarthi-backend/api";
-  //return "http://localhost:8080/sarthi-backend/api";
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  return isLocal
+    ? "http://localhost:8080/sarthi-backend/api"
+    : "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
 };
 
 
