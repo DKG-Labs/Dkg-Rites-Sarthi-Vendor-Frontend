@@ -3055,14 +3055,16 @@ export const RaiseInspectionCallForm = ({
                     </FormField>
 
                     {/* Total Value of Sub PO - Auto-fetched */}
-                    <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.subPoTotalValue}
-                        disabled
-                      />
-                    </FormField>
+                    {!isViewMode && (
+                      <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.subPoTotalValue}
+                          disabled
+                        />
+                      </FormField>
+                    )}
 
                     {/* TC Qty - Auto-fetched */}
                     <FormField label="TC Qty" name={`heat_${index}_tcQty`} hint="Auto-fetched">
@@ -3075,14 +3077,16 @@ export const RaiseInspectionCallForm = ({
                     </FormField>
 
                     {/* TC Qty Remaining with Vendor - Auto-fetched */}
-                    <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.tcQtyRemaining}
-                        disabled
-                      />
-                    </FormField>
+                    {!isViewMode && (
+                      <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.tcQtyRemaining}
+                          disabled
+                        />
+                      </FormField>
+                    )}
 
                     {/* Offered Quantity for this Heat - Manual Input */}
                     <FormField
