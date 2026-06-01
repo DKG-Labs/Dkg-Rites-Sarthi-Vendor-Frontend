@@ -324,47 +324,44 @@ export const CALIBRATION_REQUIREMENTS = {
   // Product type: ERC MK-III requirements
   'ERC MK-III': {
     instruments: [
-      { category: 'Vernier Caliper', minRequired: 2, mandatory: true },
-      { category: 'Micrometer', minRequired: 1, mandatory: true },
-      { category: 'Hardness Tester', minRequired: 1, mandatory: true },
-      { category: 'Height Gauge', minRequired: 1, mandatory: false }
+      { category: 'vernier', minRequired: 2, mandatory: true },
+      { category: 'digitalVernier', minRequired: 1, mandatory: true },
+      { category: 'rockwellHardnessTester', minRequired: 1, mandatory: true },
+      { category: 'vernierHeightGauge', minRequired: 1, mandatory: false }
     ],
     approvals: [
-      { category: 'RDSO Vendor Approval', minRequired: 1, mandatory: true },
-      { category: 'ISO 9001 Certificate', minRequired: 1, mandatory: true },
-      { category: 'BIS Certificate', minRequired: 1, mandatory: false }
+      { category: 'rdsoApproval', minRequired: 1, mandatory: true },
+      { category: 'qap', minRequired: 1, mandatory: true }
     ],
     gauges: [
-      { category: 'Go / No-Go Gauge – ERC', minRequired: 1, mandatory: true },
-      { category: 'Profile Gauge', minRequired: 1, mandatory: true }
+      { category: 'dimensionGauge', minRequired: 1, mandatory: true },
+      { category: 'templateForDieRepairing', minRequired: 1, mandatory: true }
     ]
   },
   // Product type: ERC MK-V requirements
   'ERC MK-V': {
     instruments: [
-      { category: 'Vernier Caliper', minRequired: 2, mandatory: true },
-      { category: 'Micrometer', minRequired: 2, mandatory: true },
-      { category: 'Hardness Tester', minRequired: 1, mandatory: true },
-      { category: 'Dial Gauge', minRequired: 1, mandatory: true }
+      { category: 'vernier', minRequired: 2, mandatory: true },
+      { category: 'digitalVernier', minRequired: 2, mandatory: true },
+      { category: 'rockwellHardnessTester', minRequired: 1, mandatory: true },
+      { category: 'spectroMeter', minRequired: 1, mandatory: true }
     ],
     approvals: [
-      { category: 'RDSO Vendor Approval', minRequired: 1, mandatory: true },
-      { category: 'ISO 9001 Certificate', minRequired: 1, mandatory: true }
+      { category: 'rdsoApproval', minRequired: 1, mandatory: true },
+      { category: 'qap', minRequired: 1, mandatory: true }
     ],
     gauges: [
-      { category: 'Go / No-Go Gauge – ERC', minRequired: 1, mandatory: true },
-      { category: 'Profile Gauge', minRequired: 1, mandatory: true },
-      { category: 'Ring Gauge', minRequired: 1, mandatory: false }
+      { category: 'dimensionGauge', minRequired: 1, mandatory: true },
+      { category: 'templateForDieRepairing', minRequired: 1, mandatory: true }
     ]
   },
   // Default requirements for other products
   'default': {
     instruments: [
-      { category: 'Vernier Caliper', minRequired: 1, mandatory: true },
-      { category: 'Micrometer', minRequired: 1, mandatory: true }
+      { category: 'vernier', minRequired: 1, mandatory: true }
     ],
     approvals: [
-      { category: 'RDSO Vendor Approval', minRequired: 1, mandatory: true }
+      { category: 'rdsoApproval', minRequired: 1, mandatory: true }
     ],
     gauges: []
   }

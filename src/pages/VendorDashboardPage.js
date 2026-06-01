@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
-import { InstrumentForm, ApprovalForm, GaugeForm } from '../components/CalibrationForms';
+import { InstrumentForm } from '../components/CalibrationForms';
 import { PaymentForm } from '../components/PaymentForm';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
 import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
@@ -38,6 +38,8 @@ import useVendorWorkflow from '../hooks/useVendorWorkflow';
 import inspectionCallService from '../services/inspectionCallService';
 import poAssignedService from '../services/poAssignedService';
 import inventoryService from '../services/inventoryService';
+import httpClient from '../services/httpClient';
+import vendorCalibrationService from '../services/vendorCalibrationService';
 import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -63,8 +65,6 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Modal states for Calibration forms
   const [isInstrumentModalOpen, setIsInstrumentModalOpen] = useState(false);
-  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
-  const [isGaugeModalOpen, setIsGaugeModalOpen] = useState(false);
 
   // Modal state for Payment form
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -133,6 +133,11 @@ const VendorDashboardPage = ({ onBack }) => {
   // const [inventoryEntries, setInventoryEntries] = useState(VENDOR_INVENTORY_ENTRIES);
   const [inventoryEntries, setInventoryEntries] = useState([]);
   const [availableHeatNumbers] = useState([]); // Used in RaiseInspectionCallForm props
+  const [vendorPlants, setVendorPlants] = useState([]);
+
+  const allCalibrationItems = useMemo(() => {
+    return [...instrumentItems, ...approvalItems, ...gaugeItems];
+  }, [instrumentItems, approvalItems, gaugeItems]);
 
   // Master Entries state
   const [masterItems, setMasterItems] = useState(VENDOR_MASTER_ITEMS);
@@ -349,6 +354,89 @@ const VendorDashboardPage = ({ onBack }) => {
   useEffect(() => {
     fetchInventoryEntries();
   }, [fetchInventoryEntries]);
+
+  // ============ FETCH CALIBRATION RECORDS AND PLANTS ============
+  const fetchCalibrationRecords = useCallback(async () => {
+    try {
+      const response = await vendorCalibrationService.getCalibrationsByVendor(user.userName);
+      if (response.success && response.data) {
+        const allHeaders = response.data;
+        const instruments = [];
+        const approvals = [];
+        const gauges = [];
+
+        allHeaders.forEach(header => {
+          const parentInfo = {
+            headerId: header.id,
+            category: header.category,
+            certificateFilePath: header.certificateFilePath,
+            parentHeader: header
+          };
+
+          (header.details || []).forEach(detail => {
+            const mapped = {
+              ...detail,
+              ...parentInfo,
+              // Compatibility mappings:
+              instrument_name: detail.instrumentName,
+              capacity_range: detail.capacity,
+              serial_number: detail.serialNumber,
+              calibration_certificate_no: detail.calibrationCertificateNo,
+              calibration_date: detail.calibrationDate,
+              calibration_due_date: detail.calibrationDueDate,
+              certifying_lab_name: detail.certifyingLabName,
+              accreditation_agency: detail.accreditationAgency,
+              notification_days: detail.notificationDays,
+              calibration_status: detail.calibrationStatus,
+
+              // For Document approvals:
+              approval_document_name: detail.instrumentName,
+              document_number: detail.serialNumber,
+              approving_authority: detail.certifyingLabName,
+              date_of_issue: detail.calibrationDate,
+              valid_till: detail.calibrationDueDate,
+              status: detail.calibrationStatus,
+
+              // For Gauges:
+              gauge_description: detail.instrumentName,
+              product_name: detail.capacity,
+              gauge_sr_no: detail.serialNumber
+            };
+
+            if (header.category === 'Instrument') {
+              instruments.push(mapped);
+            } else if (header.category === 'Document') {
+              approvals.push(mapped);
+            } else if (header.category === 'Gauge') {
+              gauges.push(mapped);
+            }
+          });
+        });
+
+        setInstrumentItems(instruments);
+        setApprovalItems(approvals);
+        setGaugeItems(gauges);
+      }
+    } catch (error) {
+      console.error('Error fetching calibration records:', error);
+    }
+  }, [user.userName]);
+
+  const fetchVendorPlants = useCallback(async () => {
+    try {
+      const response = await httpClient.get(`/vendor-plant/vendor/${user.userName}/plants`);
+      if (response.success && response.data) {
+        setVendorPlants(response.data.plants || []);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor plants:', error);
+    }
+  }, [user.userName]);
+
+  useEffect(() => {
+    fetchCalibrationRecords();
+    fetchVendorPlants();
+  }, [fetchCalibrationRecords, fetchVendorPlants]);
 
   // ============ FETCH REQUESTED CALLS DATA ============
   const fetchRequestedCalls = useCallback(async () => {
@@ -681,8 +769,6 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Edit state (null means add new, object means edit existing)
   const [editingInstrument, setEditingInstrument] = useState(null);
-  const [editingApproval, setEditingApproval] = useState(null);
-  const [editingGauge, setEditingGauge] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
 
   // Loading state for future API calls
@@ -690,7 +776,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // ============ INSTRUMENT HANDLERS ============
   const handleOpenInstrumentModal = (instrument = null) => {
-    setEditingInstrument(instrument);
+    setEditingInstrument(instrument ? instrument.parentHeader : null);
     setIsInstrumentModalOpen(true);
   };
 
@@ -699,90 +785,56 @@ const VendorDashboardPage = ({ onBack }) => {
     setEditingInstrument(null);
   };
 
-  const handleSubmitInstrument = async (data) => {
+
+
+  // Unified submit handler for parent-child calibration
+  const handleSubmitCalibration = async (data) => {
     setIsLoading(true);
     try {
-      // TODO: Replace with API call
-      // await api.createInstrument(data) or await api.updateInstrument(data.id, data)
+      const payload = {
+        id: data.id || null,
+        vendorCode: user.userName,
+        category: data.category,
+        certificateFileBase64: data.certificateFileBase64 || '',
+        certificateFilePath: data.certificateFilePath || '',
+        details: data.details
+      };
 
-      if (editingInstrument) {
-        // Update existing
-        setInstrumentItems(prev =>
-          prev.map(item => item.id === editingInstrument.id ? { ...data, id: item.id } : item)
-        );
+      const response = await vendorCalibrationService.createOrUpdateCalibration(payload);
+      if (response.success) {
+        showNotification('Calibration records saved successfully', 'success');
+        await fetchCalibrationRecords();
+        handleCloseInstrumentModal();
       } else {
-        // Add new
-        const newId = Math.max(...instrumentItems.map(i => i.id), 0) + 1;
-        setInstrumentItems(prev => [...prev, { ...data, id: newId }]);
+        showNotification(response.error || 'Failed to save calibration records', 'error');
       }
-      handleCloseInstrumentModal();
     } catch (error) {
-      console.error('Error saving instrument:', error);
-      // TODO: Show error notification
+      console.error('Error saving calibration records:', error);
+      showNotification(error.message || 'Error saving calibration records', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ============ APPROVAL HANDLERS ============
-  const handleOpenApprovalModal = (approval = null) => {
-    setEditingApproval(approval);
-    setIsApprovalModalOpen(true);
-  };
+  const handleSubmitInstrument = handleSubmitCalibration;
 
-  const handleCloseApprovalModal = () => {
-    setIsApprovalModalOpen(false);
-    setEditingApproval(null);
-  };
-
-  const handleSubmitApproval = async (data) => {
-    setIsLoading(true);
-    try {
-      // TODO: Replace with API call
-      if (editingApproval) {
-        setApprovalItems(prev =>
-          prev.map(item => item.id === editingApproval.id ? { ...data, id: item.id } : item)
-        );
-      } else {
-        const newId = Math.max(...approvalItems.map(i => i.id), 0) + 1;
-        setApprovalItems(prev => [...prev, { ...data, id: newId }]);
+  const handleDeleteCalibrationGroup = async (headerId) => {
+    if (window.confirm("Are you sure you want to delete this calibration/approval registry group? All detail items under it will also be deleted.")) {
+      setIsLoading(true);
+      try {
+        const response = await vendorCalibrationService.deleteCalibrationGroup(headerId);
+        if (response.success) {
+          showNotification('Calibration record deleted successfully', 'success');
+          await fetchCalibrationRecords();
+        } else {
+          showNotification(response.error || 'Failed to delete calibration record', 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting calibration record:', error);
+        showNotification(error.message || 'Error deleting calibration record', 'error');
+      } finally {
+        setIsLoading(false);
       }
-      handleCloseApprovalModal();
-    } catch (error) {
-      console.error('Error saving approval:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ============ GAUGE HANDLERS ============
-  const handleOpenGaugeModal = (gauge = null) => {
-    setEditingGauge(gauge);
-    setIsGaugeModalOpen(true);
-  };
-
-  const handleCloseGaugeModal = () => {
-    setIsGaugeModalOpen(false);
-    setEditingGauge(null);
-  };
-
-  const handleSubmitGauge = async (data) => {
-    setIsLoading(true);
-    try {
-      // TODO: Replace with API call
-      if (editingGauge) {
-        setGaugeItems(prev =>
-          prev.map(item => item.id === editingGauge.id ? { ...data, id: item.id } : item)
-        );
-      } else {
-        const newId = Math.max(...gaugeItems.map(i => i.id), 0) + 1;
-        setGaugeItems(prev => [...prev, { ...data, id: newId }]);
-      }
-      handleCloseGaugeModal();
-    } catch (error) {
-      console.error('Error saving gauge:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -2988,20 +3040,21 @@ const VendorDashboardPage = ({ onBack }) => {
     return sortedItems;
   };
 
-  // Updated column definitions with expiry highlighting
-  const calibrationInstrumentColumns = [
-    { key: 'instrument_name', label: 'Instrument / Machine Name' },
-    { key: 'capacity_range', label: 'Capacity / Range' },
-    { key: 'serial_number', label: 'Serial No.' },
+  // Unified column definitions for single merged card
+  const unifiedCalibrationColumns = [
+    { key: 'category', label: 'Category' },
+    { key: 'instrument_name', label: 'Name of Document / Instrument / Gauge' },
+    { key: 'capacity_range', label: 'Capacity / Product' },
+    { key: 'serial_number', label: 'Serial / Doc No.' },
     { key: 'calibration_certificate_no', label: 'Certificate No.' },
     {
       key: 'calibration_date',
-      label: 'Calibration Date',
+      label: 'Calibration / Issue Date',
       render: (value) => formatDate(value)
     },
     {
       key: 'calibration_due_date',
-      label: 'Due Date',
+      label: 'Due / Expiry Date',
       render: (value, row) => {
         const daysLeft = getDaysUntilExpiry(value);
         const status = getCalibrationStatus(value, row.notification_days || 30);
@@ -3014,7 +3067,7 @@ const VendorDashboardPage = ({ onBack }) => {
         );
       }
     },
-    { key: 'certifying_lab_name', label: 'Certifying Lab' },
+    { key: 'certifying_lab_name', label: 'Certifying Lab / Authority' },
     { key: 'accreditation_agency', label: 'Agency' },
     {
       key: 'calibration_status',
@@ -3023,80 +3076,39 @@ const VendorDashboardPage = ({ onBack }) => {
         const computedStatus = getCalibrationStatus(row.calibration_due_date, row.notification_days || 30);
         return <StatusBadge status={computedStatus} />;
       }
+    },
+    {
+      key: 'actions',
+      label: 'Action',
+      width: '180px',
+      render: (_, row) => (
+        <div className="master-actions-container" style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'nowrap' }}>
+          <button
+            className="master-action-btn master-action-edit"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenInstrumentModal(row);
+            }}
+            title="Edit calibration entry"
+          >
+            Edit
+          </button>
+          <button
+            className="master-action-btn master-action-delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteCalibrationGroup(row.headerId);
+            }}
+            title="Delete calibration entry"
+          >
+            Delete
+          </button>
+        </div>
+      )
     }
   ];
 
-  const approvalsColumns = [
-    { key: 'approval_document_name', label: 'Document Name' },
-    { key: 'document_number', label: 'Document No.' },
-    { key: 'approving_authority', label: 'Approving Authority' },
-    {
-      key: 'date_of_issue',
-      label: 'Issue Date',
-      render: (value) => formatDate(value)
-    },
-    {
-      key: 'valid_till',
-      label: 'Valid Till',
-      render: (value, row) => {
-        const daysLeft = getDaysUntilExpiry(value);
-        const status = getCalibrationStatus(value, row.notification_days || 30);
-        return (
-          <span className={`due-date-cell ${status.toLowerCase().replace(' ', '-')}`}>
-            {formatDate(value)}
-            {status === 'Expired' && <span className="expiry-badge expired">Expired</span>}
-            {status === 'Expiring Soon' && <span className="expiry-badge expiring">{daysLeft}d left</span>}
-          </span>
-        );
-      }
-    },
-    { key: 'notification_days', label: 'Notification Days' },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (_, row) => {
-        const computedStatus = getCalibrationStatus(row.valid_till, row.notification_days || 30);
-        return <StatusBadge status={computedStatus} />;
-      }
-    }
-  ];
 
-  const gaugesColumns = [
-    { key: 'gauge_description', label: 'Gauge Description' },
-    { key: 'product_name', label: 'Product' },
-    { key: 'gauge_sr_no', label: 'Gauge Sr. No.' },
-    { key: 'calibration_certificate_no', label: 'Certificate No.' },
-    {
-      key: 'calibration_date',
-      label: 'Calibration Date',
-      render: (value) => formatDate(value)
-    },
-    {
-      key: 'calibration_due_date',
-      label: 'Due Date',
-      render: (value, row) => {
-        const daysLeft = getDaysUntilExpiry(value);
-        const status = getCalibrationStatus(value, row.notification_days || 30);
-        return (
-          <span className={`due-date-cell ${status.toLowerCase().replace(' ', '-')}`}>
-            {formatDate(value)}
-            {status === 'Expired' && <span className="expiry-badge expired">Expired</span>}
-            {status === 'Expiring Soon' && <span className="expiry-badge expiring">{daysLeft}d left</span>}
-          </span>
-        );
-      }
-    },
-    { key: 'certifying_lab_name', label: 'Certifying Lab' },
-    { key: 'accreditation_agency', label: 'Agency' },
-    {
-      key: 'calibration_status',
-      label: 'Status',
-      render: (_, row) => {
-        const computedStatus = getCalibrationStatus(row.calibration_due_date, row.notification_days || 30);
-        return <StatusBadge status={computedStatus} />;
-      }
-    }
-  ];
 
   // Payment columns as per requirement
   const paymentColumns = [
@@ -4302,121 +4314,31 @@ const VendorDashboardPage = ({ onBack }) => {
                   <p>All instruments, approvals, and gauges with calibration and validity details</p>
                 </div>
 
-                {/* ========== INSTRUMENTS SECTION ========== */}
+                {/* ========== UNIFIED CALIBRATION & APPROVALS SECTION ========== */}
                 <div className="calibration-full-section">
                   <div className="calibration-section-header">
                     <div className="calibration-section-header-left">
-                      <h4 className="calibration-section-heading">📏 Calibration – Instruments</h4>
-                      <p className="calibration-section-subtitle">Instrument / Machine calibration details with validity tracking</p>
+                      <h4 className="calibration-section-heading">📏 Calibration &amp; Approvals Registry</h4>
+                      <p className="calibration-section-subtitle">Unified registry of all instruments, approvals, and gauges with validity tracking</p>
                     </div>
                     <div className="calibration-section-header-right">
-                      <span className="section-record-count">{instrumentItems.length} Total Records</span>
+                      <span className="section-record-count">{allCalibrationItems.length} Total Records</span>
                       <button className="btn btn-sm btn-primary" onClick={() => handleOpenInstrumentModal()}>
-                        + Add Instrument
+                        + Register Calibration / Doc
                       </button>
                     </div>
                   </div>
 
-                  {/* Requirements Summary */}
-                  <div className="requirements-summary-row">
-                    {complianceStatus.instruments.map((cat, idx) => (
-                      <div key={idx} className={`requirement-chip ${cat.status.toLowerCase().replace(' ', '-')}`}>
-                        <span className="requirement-chip-name">
-                          {cat.category}{cat.mandatory && <span className="mandatory-badge">*</span>}
-                        </span>
-                        <span className="requirement-chip-count">{cat.validCount}/{cat.minRequired}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Full Items Table */}
+                  {/* Unified Items Table */}
                   <DataTable
-                    columns={calibrationInstrumentColumns}
-                    data={instrumentItems}
+                    columns={unifiedCalibrationColumns}
+                    data={allCalibrationItems}
                     onRowClick={(row) => handleOpenInstrumentModal(row)}
                     selectable={false}
                     selectedRows={[]}
                     onSelectionChange={() => { }}
                   />
                 </div>
-
-                {/* ========== APPROVALS SECTION ========== */}
-                <div className="calibration-full-section">
-                  <div className="calibration-section-header">
-                    <div className="calibration-section-header-left">
-                      <h4 className="calibration-section-heading">📄 Calibration – Approvals</h4>
-                      <p className="calibration-section-subtitle">RDSO Approval, ISO Certificate & other mandatory documents</p>
-                    </div>
-                    <div className="calibration-section-header-right">
-                      <span className="section-record-count">{approvalItems.length} Total Records</span>
-                      <button className="btn btn-sm btn-primary" onClick={() => handleOpenApprovalModal()}>
-                        + Add Approval
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Requirements Summary */}
-                  <div className="requirements-summary-row">
-                    {complianceStatus.approvals.map((cat, idx) => (
-                      <div key={idx} className={`requirement-chip ${cat.status.toLowerCase().replace(' ', '-')}`}>
-                        <span className="requirement-chip-name">
-                          {cat.category}{cat.mandatory && <span className="mandatory-badge">*</span>}
-                        </span>
-                        <span className="requirement-chip-count">{cat.validCount}/{cat.minRequired}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Full Items Table */}
-                  <DataTable
-                    columns={approvalsColumns}
-                    data={approvalItems}
-                    onRowClick={(row) => handleOpenApprovalModal(row)}
-                    selectable={false}
-                    selectedRows={[]}
-                    onSelectionChange={() => { }}
-                  />
-                </div>
-
-                {/* ========== GAUGES SECTION ========== */}
-                {complianceStatus.gauges.length > 0 && (
-                  <div className="calibration-full-section">
-                    <div className="calibration-section-header">
-                      <div className="calibration-section-header-left">
-                        <h4 className="calibration-section-heading">🔧 Calibration – Gauges</h4>
-                        <p className="calibration-section-subtitle">Go/No-Go Gauges, Profile Gauges & calibration status</p>
-                      </div>
-                      <div className="calibration-section-header-right">
-                        <span className="section-record-count">{gaugeItems.length} Total Records</span>
-                        <button className="btn btn-sm btn-primary" onClick={() => handleOpenGaugeModal()}>
-                          + Add Gauge
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Requirements Summary */}
-                    <div className="requirements-summary-row">
-                      {complianceStatus.gauges.map((cat, idx) => (
-                        <div key={idx} className={`requirement-chip ${cat.status.toLowerCase().replace(' ', '-')}`}>
-                          <span className="requirement-chip-name">
-                            {cat.category}{cat.mandatory && <span className="mandatory-badge">*</span>}
-                          </span>
-                          <span className="requirement-chip-count">{cat.validCount}/{cat.minRequired}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Full Items Table */}
-                    <DataTable
-                      columns={gaugesColumns}
-                      data={gaugeItems}
-                      onRowClick={(row) => handleOpenGaugeModal(row)}
-                      selectable={false}
-                      selectedRows={[]}
-                      onSelectionChange={() => { }}
-                    />
-                  </div>
-                )}
 
                 <p className="mandatory-note">
                   <span className="mandatory-badge">*</span> Mandatory categories must be complete with valid certificates to raise inspection calls.
@@ -4699,28 +4621,11 @@ const VendorDashboardPage = ({ onBack }) => {
         onSubmit={handleSubmitInstrument}
         masterData={CALIBRATION_MASTER_DATA}
         editData={editingInstrument}
+        plants={vendorPlants}
         isLoading={isLoading}
       />
 
-      {/* Approval Form Modal */}
-      <ApprovalForm
-        isOpen={isApprovalModalOpen}
-        onClose={handleCloseApprovalModal}
-        onSubmit={handleSubmitApproval}
-        masterData={CALIBRATION_MASTER_DATA}
-        editData={editingApproval}
-        isLoading={isLoading}
-      />
 
-      {/* Gauge Form Modal */}
-      <GaugeForm
-        isOpen={isGaugeModalOpen}
-        onClose={handleCloseGaugeModal}
-        onSubmit={handleSubmitGauge}
-        masterData={CALIBRATION_MASTER_DATA}
-        editData={editingGauge}
-        isLoading={isLoading}
-      />
 
       {/* ============ PAYMENT FORM MODAL ============ */}
       <PaymentForm
