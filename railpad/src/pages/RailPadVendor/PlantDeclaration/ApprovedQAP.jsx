@@ -4,16 +4,6 @@ import { approvedQAPService } from '../../../services/approvedQAPService';
 const PAD_TYPES = ["6.00mm GRSP", "10.00mm GRSP", "6.20mm CGRSP", "10.00mm CGRSP", "6.00mm NCRGRSP", "10.00mm NCRGRSP"];
 const APPROVING_AUTHORITIES = ["RDSO", "Zonal Railway", "Ministry of Railways", "Other"];
 
-const emptyProductParams = (padType) => ({
-    padType: padType,
-    minMixingTime: '', maxMixingTime: '',
-    minMixingTemp: '', maxMixingTemp: '',
-    mixingWeight: '',
-    minCuringTime: '', maxCuringTime: '',
-    minCuringTemp: '', maxCuringTemp: '',
-    minCuringPressure: '', maxCuringPressure: ''
-});
-
 const emptyForm = () => ({
     qapNo: '',
     approvalDate: '',
@@ -21,7 +11,12 @@ const emptyForm = () => ({
     approvingAuthority: '',
     validityDate: '',
     selectedPadTypes: [],
-    productDetails: []
+    minMixingTime: '', maxMixingTime: '',
+    minMixingTemp: '', maxMixingTemp: '',
+    mixingWeight: '',
+    minCuringTime: '', maxCuringTime: '',
+    minCuringTemp: '', maxCuringTemp: '',
+    minCuringPressure: '', maxCuringPressure: ''
 });
 
 const getBadgeClass = (status) => {
@@ -161,14 +156,14 @@ const MultiSelect = ({ options, selected, onChange }) => {
 };
 
 /* ── Product Params Block ────────────────────────────────── */
-const ProductParamsBlock = ({ padType, params, onChange }) => {
+const ProductParamsBlock = ({ form, onChange }) => {
     const field = (key) => (
         <input
             type="number"
             step="0.01"
             className="form-input"
-            value={params[key] || ''}
-            onChange={e => onChange(padType, key, e.target.value)}
+            value={form[key] || ''}
+            onChange={e => onChange(key, e.target.value)}
             placeholder="—"
         />
     );
@@ -182,7 +177,7 @@ const ProductParamsBlock = ({ padType, params, onChange }) => {
             background: '#fff',
             boxShadow: '0 1px 4px rgba(33,128,141,0.06)'
         }}>
-            {/* Pad type header */}
+            {/* Header */}
             <div style={{
                 background: 'linear-gradient(135deg, rgba(33,128,141,0.08) 0%, rgba(33,128,141,0.03) 100%)',
                 padding: '10px 18px',
@@ -194,7 +189,7 @@ const ProductParamsBlock = ({ padType, params, onChange }) => {
                     background: 'var(--primary-color)', flexShrink: 0
                 }} />
                 <span style={{ fontWeight: '800', fontSize: '13px', color: 'var(--primary-color)' }}>
-                    {padType}
+                    Process Limits for Selected Pad Types
                 </span>
             </div>
 
@@ -286,7 +281,6 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [statusTab, setStatusTab] = useState('PENDING');
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [activeProductTab, setActiveProductTab] = useState(null);
     const [form, setForm] = useState(emptyForm());
 
     const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
@@ -303,34 +297,21 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
     const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
     const handlePadTypeChange = (selected) => {
-        const oldDetails = form.productDetails;
-        const newDetails = selected.map(pt => {
-            const existing = oldDetails.find(d => d.padType === pt);
-            return existing || emptyProductParams(pt);
-        });
-        setForm(f => ({ ...f, selectedPadTypes: selected, productDetails: newDetails }));
-        if (selected.length > 0 && !selected.includes(activeProductTab)) {
-            setActiveProductTab(selected[0]);
-        }
+        setForm(f => ({ ...f, selectedPadTypes: selected }));
     };
 
-    const handleParamChange = (padType, key, val) => {
-        setForm(f => ({
-            ...f,
-            productDetails: f.productDetails.map(d => 
-                d.padType === padType ? { ...d, [key]: val ? parseFloat(val) : '' } : d
-            )
-        }));
+    const handleParamChange = (key, val) => {
+        setForm(f => ({ ...f, [key]: val }));
     };
 
     const openAdd = () => {
         setForm(emptyForm());
         setEditingId(null);
-        setActiveProductTab(null);
         setView('form');
     };
 
     const openView = (entry) => {
+        const firstProduct = entry.productDetails?.[0] || {};
         setForm({
             qapNo: entry.qapNo,
             approvalDate: entry.approvalDate,
@@ -338,10 +319,19 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
             approvingAuthority: entry.approvingAuthority,
             validityDate: entry.validityDate,
             selectedPadTypes: entry.productDetails.map(d => d.padType),
-            productDetails: entry.productDetails
+            minMixingTime: firstProduct.minMixingTime !== null && firstProduct.minMixingTime !== undefined ? firstProduct.minMixingTime : '',
+            maxMixingTime: firstProduct.maxMixingTime !== null && firstProduct.maxMixingTime !== undefined ? firstProduct.maxMixingTime : '',
+            minMixingTemp: firstProduct.minMixingTemp !== null && firstProduct.minMixingTemp !== undefined ? firstProduct.minMixingTemp : '',
+            maxMixingTemp: firstProduct.maxMixingTemp !== null && firstProduct.maxMixingTemp !== undefined ? firstProduct.maxMixingTemp : '',
+            mixingWeight: firstProduct.mixingWeight !== null && firstProduct.mixingWeight !== undefined ? firstProduct.mixingWeight : '',
+            minCuringTime: firstProduct.minCuringTime !== null && firstProduct.minCuringTime !== undefined ? firstProduct.minCuringTime : '',
+            maxCuringTime: firstProduct.maxCuringTime !== null && firstProduct.maxCuringTime !== undefined ? firstProduct.maxCuringTime : '',
+            minCuringTemp: firstProduct.minCuringTemp !== null && firstProduct.minCuringTemp !== undefined ? firstProduct.minCuringTemp : '',
+            maxCuringTemp: firstProduct.maxCuringTemp !== null && firstProduct.maxCuringTemp !== undefined ? firstProduct.maxCuringTemp : '',
+            minCuringPressure: firstProduct.minCuringPressure !== null && firstProduct.minCuringPressure !== undefined ? firstProduct.minCuringPressure : '',
+            maxCuringPressure: firstProduct.maxCuringPressure !== null && firstProduct.maxCuringPressure !== undefined ? firstProduct.maxCuringPressure : ''
         });
         setEditingId(entry.id);
-        setActiveProductTab(entry.productDetails?.[0]?.padType || null);
         setView('view');
     };
 
@@ -371,6 +361,21 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
         setIsSaving(true);
         try {
             const plantId = localStorage.getItem('railpad_selectedPlantId');
+            const productDetails = form.selectedPadTypes.map(pt => ({
+                padType: pt,
+                minMixingTime: form.minMixingTime !== '' ? parseFloat(form.minMixingTime) : null,
+                maxMixingTime: form.maxMixingTime !== '' ? parseFloat(form.maxMixingTime) : null,
+                minMixingTemp: form.minMixingTemp !== '' ? parseFloat(form.minMixingTemp) : null,
+                maxMixingTemp: form.maxMixingTemp !== '' ? parseFloat(form.maxMixingTemp) : null,
+                mixingWeight: form.mixingWeight !== '' ? parseFloat(form.mixingWeight) : null,
+                minCuringTime: form.minCuringTime !== '' ? parseFloat(form.minCuringTime) : null,
+                maxCuringTime: form.maxCuringTime !== '' ? parseFloat(form.maxCuringTime) : null,
+                minCuringTemp: form.minCuringTemp !== '' ? parseFloat(form.minCuringTemp) : null,
+                maxCuringTemp: form.maxCuringTemp !== '' ? parseFloat(form.maxCuringTemp) : null,
+                minCuringPressure: form.minCuringPressure !== '' ? parseFloat(form.minCuringPressure) : null,
+                maxCuringPressure: form.maxCuringPressure !== '' ? parseFloat(form.maxCuringPressure) : null
+            }));
+
             const payload = {
                 vendorName: user?.vendorName || "",
                 vendorCode: user?.vendorCode || "",
@@ -384,7 +389,7 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
                 status: "PENDING",
                 createdBy: user?.userId || 1,
                 updatedBy: user?.userId || 1,
-                productDetails: form.productDetails
+                productDetails: productDetails
             };
 
             if (editingId) {
@@ -453,77 +458,70 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
                         Process Parameters
                     </div>
 
-                    <div className="tab-bar" style={{ marginBottom: '24px', background: 'rgba(66, 129, 140, 0.04)', padding: '6px', borderRadius: '12px', display: 'inline-flex', gap: '4px' }}>
-                        {entry?.productDetails?.map(d => (
-                            <button 
-                                key={d.padType} 
-                                onClick={() => setActiveProductTab(d.padType)} 
-                                style={{
-                                    padding: '8px 16px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '8px' }}>Applied Rail Pad Types:</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {entry?.productDetails?.map(d => (
+                                <span key={d.padType} style={{
+                                    background: 'rgba(33,128,141,0.08)',
+                                    color: 'var(--primary-color)',
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
                                     fontSize: '12px',
-                                    fontWeight: '700',
-                                    transition: 'all 0.2s',
-                                    background: activeProductTab === d.padType ? '#fff' : 'transparent',
-                                    color: activeProductTab === d.padType ? 'var(--primary-color)' : 'var(--text-muted)',
-                                    boxShadow: activeProductTab === d.padType ? 'var(--shadow-sm)' : 'none'
-                                }}
-                            >
-                                {d.padType}
-                            </button>
-                        ))}
+                                    fontWeight: '700'
+                                }}>
+                                    {d.padType}
+                                </span>
+                            ))}
+                        </div>
                     </div>
 
-                    {activeProductTab && (
-                        <div className="params-grid fade-in">
-                            {(() => {
-                                const params = entry.productDetails.find(d => d.padType === activeProductTab);
-                                return (
-                                    <>
-                                        <div className="param-box">
-                                            <div className="param-box-header">
-                                                <span>🔄</span>
-                                                <h4>Mixing Parameters</h4>
-                                            </div>
-                                            {[
-                                                ['Min Time', `${params.minMixingTime} min`],
-                                                ['Max Time', `${params.maxMixingTime} min`],
-                                                ['Min Temp', `${params.minMixingTemp} °C`],
-                                                ['Max Temp', `${params.maxMixingTemp} °C`],
-                                                ['Batch Weight', `${params.mixingWeight} Kg`],
-                                            ].map(([l, v]) => (
-                                                <div key={l} className="param-row">
-                                                    <span className="param-label">{l}</span>
-                                                    <span className="param-value">{v}</span>
-                                                </div>
-                                            ))}
+                    <div className="params-grid fade-in">
+                        {(() => {
+                            const params = entry?.productDetails?.[0] || {};
+                            return (
+                                <>
+                                    <div className="param-box">
+                                        <div className="param-box-header">
+                                            <span>🔄</span>
+                                            <h4>Mixing Parameters</h4>
                                         </div>
-                                        <div className="param-box">
-                                            <div className="param-box-header">
-                                                <span>🏭</span>
-                                                <h4>Moulding Parameters</h4>
+                                        {[
+                                            ['Min Time', params.minMixingTime !== null && params.minMixingTime !== undefined ? `${params.minMixingTime} min` : '—'],
+                                            ['Max Time', params.maxMixingTime !== null && params.maxMixingTime !== undefined ? `${params.maxMixingTime} min` : '—'],
+                                            ['Min Temp', params.minMixingTemp !== null && params.minMixingTemp !== undefined ? `${params.minMixingTemp} °C` : '—'],
+                                            ['Max Temp', params.maxMixingTemp !== null && params.maxMixingTemp !== undefined ? `${params.maxMixingTemp} °C` : '—'],
+                                            ['Batch Weight', params.mixingWeight !== null && params.mixingWeight !== undefined ? `${params.mixingWeight} Kg` : '—'],
+                                        ].map(([l, v]) => (
+                                            <div key={l} className="param-row">
+                                                <span className="param-label">{l}</span>
+                                                <span className="param-value">{v}</span>
                                             </div>
-                                            {[
-                                                ['Min Cure Time', `${params.minCuringTime} min`],
-                                                ['Max Cure Time', `${params.maxCuringTime} min`],
-                                                ['Min Temp', `${params.minCuringTemp} °C`],
-                                                ['Max Temp', `${params.maxCuringTemp} °C`],
-                                                ['Min Pressure', `${params.minCuringPressure} Kg/cm²`],
-                                                ['Max Pressure', `${params.maxCuringPressure} Kg/cm²`],
-                                            ].map(([l, v]) => (
-                                                <div key={l} className="param-row">
-                                                    <span className="param-label">{l}</span>
-                                                    <span className="param-value">{v}</span>
-                                                </div>
-                                            ))}
+                                        ))}
+                                    </div>
+                                    <div className="param-box">
+                                        <div className="param-box-header">
+                                            <span>🏭</span>
+                                            <h4>Moulding Parameters</h4>
                                         </div>
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    )}
+                                        {[
+                                            ['Min Cure Time', params.minCuringTime !== null && params.minCuringTime !== undefined ? `${params.minCuringTime} min` : '—'],
+                                            ['Max Cure Time', params.maxCuringTime !== null && params.maxCuringTime !== undefined ? `${params.maxCuringTime} min` : '—'],
+                                            ['Min Temp', params.minCuringTemp !== null && params.minCuringTemp !== undefined ? `${params.minCuringTemp} °C` : '—'],
+                                            ['Max Temp', params.maxCuringTemp !== null && params.maxCuringTemp !== undefined ? `${params.maxCuringTemp} °C` : '—'],
+                                            ['Min Pressure', params.minCuringPressure !== null && params.minCuringPressure !== undefined ? `${params.minCuringPressure} Kg/cm²` : '—'],
+                                            ['Max Pressure', params.maxCuringPressure !== null && params.maxCuringPressure !== undefined ? `${params.maxCuringPressure} Kg/cm²` : '—'],
+                                        ].map(([l, v]) => (
+                                            <div key={l} className="param-row">
+                                                <span className="param-label">{l}</span>
+                                                <span className="param-value">{v}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
                 </div>
             </div>
         );
@@ -571,17 +569,20 @@ const ApprovedQAP = ({ entries, setEntries, onRefresh, isLoading }) => {
                             <MultiSelect options={PAD_TYPES} selected={form.selectedPadTypes} onChange={handlePadTypeChange} />
                         </div>
 
-                        {form.selectedPadTypes.length > 0 && (
-                            <>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-                                    {form.selectedPadTypes.map(pt => (
-                                        <button key={pt} type="button" onClick={() => setActiveProductTab(pt)} style={{ padding: '6px 14px', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', background: activeProductTab === pt ? 'var(--primary-color)' : 'rgba(33,128,141,0.08)', color: activeProductTab === pt ? '#fff' : 'var(--primary-color)', transition: 'all 0.2s' }}>
-                                            {pt}
-                                        </button>
-                                    ))}
-                                </div>
-                                {activeProductTab && <ProductParamsBlock padType={activeProductTab} params={form.productDetails.find(d => d.padType === activeProductTab)} onChange={handleParamChange} />}
-                            </>
+                        {form.selectedPadTypes.length > 0 ? (
+                            <ProductParamsBlock form={form} onChange={handleParamChange} />
+                        ) : (
+                            <div style={{
+                                padding: '24px',
+                                border: '1px dashed #cbd5e1',
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                color: '#64748b',
+                                background: '#f8fafc',
+                                fontSize: '13px'
+                            }}>
+                                ℹ️ Please select at least one Rail Pad Type to configure parameters.
+                            </div>
                         )}
                     </div>
 
