@@ -44,7 +44,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 // import VendorFeedback from '../components/Feedback/VendorFeedback';
 
-const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk'];
+const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk', 'PENDING', 'Pending'];
 
 const cleanSerialNo = (serial) => {
   if (!serial) return '';
@@ -5618,14 +5618,14 @@ const VendorDashboardPage = ({ onBack }) => {
                   {/* Action 3: Modify Call */}
                   <button
                     disabled={!isAllowed}
-                    /* onClick={() => {
+                    onClick={() => {
                       setIsActionsModalOpen(false);
                       setSelectedCallForActions(null);
                       if (needsWorkflow) {
                         showNotification(`Workflow Required: Modifying call ${row.call_no} requires approval.`, 'info');
                       }
                       handleModifyCall(row);
-                    }} */
+                    }}
                     title={!isAllowed ? `Action Restricted: Modify is not allowed for status "${row.status}"` : (needsWorkflow ? "Modify Call (Requires Workflow Approval)" : "Modify Call")}
                     style={{
                       display: 'flex',
