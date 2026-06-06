@@ -1,6 +1,6 @@
 //export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-//export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
-export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
+export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
+//export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -1043,7 +1043,7 @@ export const apiService = {
             const sarthiToken = sessionStorage.getItem('token');
             const response = await fetch(`${BASE_URL}/Vendorsync/authenticate`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${sarthiToken}`
                 }
@@ -1061,7 +1061,7 @@ export const apiService = {
 
             const data = await response.json();
             const token = data.token || data.jwt || data.accessToken || data.Jwt;
-            
+
             if (token) {
                 sessionStorage.setItem('imms_token', token);
                 return token;
@@ -1085,17 +1085,21 @@ export const apiService = {
                 },
                 body: JSON.stringify(payload)
             });
- 
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch PO details via Proxy');
+            }
             return await response.json();
         } catch (error) {
             console.error('IMMS Get PO Data Error:', error);
             throw error;
         }
     },
- 
+
     savePOData: async (payload) => {
         try {
-            const response = await fetch(`${BASE_URL}/api/Vendorsync/save`, {
+            const response = await fetch(`${BASE_URL}/Vendorsync/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

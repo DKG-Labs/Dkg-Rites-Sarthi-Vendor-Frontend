@@ -128,6 +128,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
                     const uniqueGood = Array.from(new Set(goodList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
                     const uniqueBad = Array.from(new Set(badList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
+
+                    // Sort in ascending order (natural alphanumeric sort)
+                    uniqueGood.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+                    uniqueBad.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
                     
                     return {
                         batchNo: b.batchNumber || b.batchId.toString(),
@@ -237,7 +241,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     };
     const modalStyle = {
         background: '#fff', borderRadius: 16,
-        width: '100%', maxWidth: 1080,
+        width: '80vw', maxWidth: '80vw',
         maxHeight: '92vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 25px 50px rgba(0,0,0,0.25)', overflow: 'hidden',
         animation: 'modalFadeIn 0.25s ease-out'
@@ -490,7 +494,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                 </div>
                                                 <div style={{
                                                     maxHeight: 180, overflowY: 'auto',
-                                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
                                                     gap: 5
                                                 }}>
                                                     {batch.goodSleeperIds.map((sid, idx) => {
@@ -530,7 +534,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                     </div>
                                                     <div style={{
                                                         maxHeight: 120, overflowY: 'auto',
-                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
                                                         gap: 5
                                                     }}>
                                                         {batch.badSleeperIds.map((sid, idx) => (

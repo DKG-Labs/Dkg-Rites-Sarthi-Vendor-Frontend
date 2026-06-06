@@ -23,10 +23,12 @@ import Notification from './Notification';
 import '../styles/raiseInspectionCall.css';
 
 // Multi-Select Dropdown Component
-const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder }) => {
+const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const toggleDropdown = () => setIsOpen(!isOpen);
+  const toggleDropdown = () => {
+    if (!disabled) setIsOpen(!isOpen);
+  };
 
   const handleOptionClick = (value) => {
     const newValues = selectedValues.includes(value)
@@ -54,8 +56,15 @@ const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder })
   }, [isOpen]);
 
   return (
-    <div className="ric-multiselect-dropdown">
-      <div className="ric-multiselect-trigger" onClick={toggleDropdown}>
+    <div 
+      className="ric-multiselect-dropdown"
+      style={disabled ? { pointerEvents: 'none', opacity: 0.7 } : {}}
+    >
+      <div 
+        className="ric-multiselect-trigger" 
+        onClick={toggleDropdown}
+        style={disabled ? { cursor: 'not-allowed', backgroundColor: '#f3f4f6' } : {}}
+      >
         <span>{getDisplayText()}</span>
         <span className="ric-multiselect-arrow">{isOpen ? '▲' : '▼'}</span>
       </div>
@@ -194,7 +203,8 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
   // Find the first PO serial for the selected PO
   const poSerial = selectedPO ? PO_SERIAL_DETAILS.find(p => p.poNo === selectedPO.po_no) : null;
 
-  return {
+  // Base defaults
+  const defaults = {
     // === COMMON SECTION (Auto Fetched from IREPS) ===
     po_no: selectedPO?.po_no || '',
     zone_name: selectedPO?.zone_name || selectedPO?.rlyShortName || 'N/A',
@@ -304,6 +314,14 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
     // === ADDITIONAL ===
     remarks: ''
   };
+
+  // If selectedItem carries prefilled data (e.g. in modify mode), spread it over the defaults.
+  // This lets VendorDashboardPage pass all IC fields through selectedItem.
+  if (selectedItem && selectedItem.type_of_call) {
+    return { ...defaults, ...selectedItem };
+  }
+
+  return defaults;
 };
 
 export const RaiseInspectionCallForm = ({
@@ -314,7 +332,9 @@ export const RaiseInspectionCallForm = ({
   selectedSubPO = null,
   vendorId = null,
   onSubmit,
-  isLoading = false
+  isLoading = false,
+  isModifyMode = false,
+  isViewMode = false
 }) => {
   const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
@@ -344,7 +364,7 @@ export const RaiseInspectionCallForm = ({
   // POI (Place of Inspection) states
   const [companies, setCompanies] = useState([]);
   const [units, setUnits] = useState([]);
-  const [poiCode, setPoiCode] = useState('');
+  const [poiCode, setPoiCode] = useState(selectedItem?.placeOfInspection || selectedItem?.place_of_inspection || '');
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [loadingUnitDetails, setLoadingUnitDetails] = useState(false);
@@ -397,9 +417,140 @@ export const RaiseInspectionCallForm = ({
     // Auto-fill PO Serial Number if item is provided
     if (selectedItem?.po_serial_no) {
       setSelectedPoSerial(selectedItem.po_serial_no);
-      handlePoSerialChange(selectedItem.po_serial_no, selectedItem);
+      if (!isModifyMode) {
+        handlePoSerialChange(selectedItem.po_serial_no, selectedItem);
+      }
     }
-  }, [selectedPO, selectedItem, handlePoSerialChange]);
+  }, [selectedPO, selectedItem, handlePoSerialChange, isModifyMode]);
+
+  // Pre-fill inventory and chemical details in modify mode when inventoryEntries are loaded
+  useEffect(() => {
+    if (!isModifyMode || !formData.rm_heat_tc_mapping || formData.rm_heat_tc_mapping.length === 0) {
+      return;
+    }
+
+    let isUpdated = false;
+
+    // 1. Resolve inventory details (Sub PO Total Value, TC Qty, TC Qty Remaining with Vendor)
+    const resolvedMapping = formData.rm_heat_tc_mapping.map(heat => {
+      // Check if we need to resolve inventory details
+      if (heat.heatNumber && heat.tcNumber && (!heat.subPoTotalValue || heat.tcQtyRemaining === 'null' || heat.tcQtyRemaining === '')) {
+        const entry = inventoryEntries.find(
+          e => e.heatNumber === heat.heatNumber && e.tcNumber === heat.tcNumber
+        );
+        if (entry) {
+          const totalValue = (
+            entry.subPoQty *
+            entry.rateOfMaterial *
+            (1 + entry.rateOfGst / 100)
+          ).toFixed(2);
+
+          isUpdated = true;
+          return {
+            ...heat,
+            tcDate: entry.tcDate || heat.tcDate || '',
+            manufacturer: entry.supplierName || heat.manufacturer || '',
+            invoiceNo: entry.invoiceNumber || heat.invoiceNo || '',
+            invoiceDate: entry.invoiceDate || heat.invoiceDate || '',
+            subPoNumber: entry.subPoNumber || heat.subPoNumber || '',
+            subPoDate: entry.subPoDate || heat.subPoDate || '',
+            subPoQty: `${entry.subPoQty} ${entry.unitOfMeasurement}`,
+            subPoTotalValue: `₹${totalValue}`,
+            tcQty: `${entry.tcQuantity} ${entry.unitOfMeasurement}`,
+            tcQtyRemaining: `${entry.qtyLeftForInspection} ${entry.unitOfMeasurement}`,
+            maxQty: entry.qtyLeftForInspection,
+            unit: entry.unitOfMeasurement
+          };
+        }
+      }
+      return heat;
+    });
+
+    if (isUpdated) {
+      setFormData(prev => ({
+        ...prev,
+        rm_heat_tc_mapping: resolvedMapping
+      }));
+    }
+  }, [isModifyMode, inventoryEntries, formData.rm_heat_tc_mapping]);
+
+  // Auto-fetch chemical analysis in modify mode if chemical fields are empty
+  useEffect(() => {
+    if (!isModifyMode || !formData.rm_heat_tc_mapping || formData.rm_heat_tc_mapping.length === 0) {
+      return;
+    }
+
+    formData.rm_heat_tc_mapping.forEach(async (heat) => {
+      if (heat.heatNumber && !heat.chemical_carbon && !heat.isLoadingChemical && !heat.chemicalFetchedInModify) {
+        // Mark as loading and set a flag to prevent duplicate fetches
+        setFormData(prev => ({
+          ...prev,
+          rm_heat_tc_mapping: prev.rm_heat_tc_mapping.map(h =>
+            h.id === heat.id ? { ...h, isLoadingChemical: true, chemicalFetchedInModify: true } : h
+          )
+        }));
+
+        try {
+          console.log(`🔬 Auto-fetching chemical analysis in modify mode for heat number: ${heat.heatNumber}`);
+          const response = await inspectionCallService.getChemicalAnalysisByHeatNumber(heat.heatNumber);
+          if (response && response.data) {
+            const analysis = response.data;
+            console.log('✅ Chemical analysis fetched in modify mode:', analysis);
+            setFormData(prev => ({
+              ...prev,
+              rm_heat_tc_mapping: prev.rm_heat_tc_mapping.map(h =>
+                h.id === heat.id
+                  ? {
+                      ...h,
+                      chemical_carbon: analysis.carbon || '',
+                      chemical_manganese: analysis.manganese || '',
+                      chemical_silicon: analysis.silicon || '',
+                      chemical_sulphur: analysis.sulphur || '',
+                      chemical_phosphorus: analysis.phosphorus || '',
+                      isLoadingChemical: false,
+                      chemicalAutoFetched: true,
+                      chemicalReadOnly: false
+                    }
+                  : h
+              )
+            }));
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              rm_heat_tc_mapping: prev.rm_heat_tc_mapping.map(h =>
+                h.id === heat.id ? { ...h, isLoadingChemical: false } : h
+              )
+            }));
+          }
+        } catch (error) {
+          console.error('❌ Error fetching chemical analysis in modify mode:', error);
+          setFormData(prev => ({
+            ...prev,
+            rm_heat_tc_mapping: prev.rm_heat_tc_mapping.map(h =>
+              h.id === heat.id ? { ...h, isLoadingChemical: false } : h
+            )
+          }));
+        }
+      }
+    });
+  }, [isModifyMode, formData.rm_heat_tc_mapping]);
+
+  // Auto-fetch heat summary in modify mode when process_rm_ic_numbers is pre-populated
+  const [heatSummaryFetchedInModify, setHeatSummaryFetchedInModify] = useState(false);
+  useEffect(() => {
+    if (
+      isModifyMode &&
+      formData.type_of_call === 'Process' &&
+      formData.process_rm_ic_numbers &&
+      formData.process_rm_ic_numbers.length > 0 &&
+      !heatSummaryFetchedInModify
+    ) {
+      console.log('📊 [Modify Mode] Auto-fetching heat summary for pre-filled RM ICs:', formData.process_rm_ic_numbers);
+      setHeatSummaryFetchedInModify(true);
+      fetchHeatSummaryData(formData.process_rm_ic_numbers);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModifyMode, formData.type_of_call, formData.process_rm_ic_numbers, heatSummaryFetchedInModify]);
 
   // Get available PO serial numbers for dropdown
   const poSerialOptions = useMemo(() => {
@@ -443,10 +594,39 @@ export const RaiseInspectionCallForm = ({
                 label: certNo            // Dropdown label (show certificate number)
               };
             });
+
+            // In modify mode: ensure any pre-selected RM IC numbers that are NOT in the
+            // fetched list are still available as options so they show as checked.
+            if (isModifyMode && formData.process_rm_ic_numbers && formData.process_rm_ic_numbers.length > 0) {
+              const existingValues = new Set(formattedData.map(d => d.certificate_no));
+              formData.process_rm_ic_numbers.forEach(preSelected => {
+                if (!existingValues.has(preSelected)) {
+                  // Derive call number from this value (same pattern as above)
+                  const callNoMatch = preSelected.match(/[^/]+\/([^/]+)\//);
+                  const callNo = callNoMatch ? callNoMatch[1] : preSelected;
+                  formattedData.push({
+                    certificate_no: preSelected,
+                    ic_number: callNo,
+                    label: preSelected
+                  });
+                }
+              });
+            }
+
             setApprovedRMICsForProcess(formattedData);
           } else {
             console.log('⚠️ Response not successful, setting empty array');
-            setApprovedRMICsForProcess([]);
+            // Still inject pre-selected values so they show in modify mode
+            if (isModifyMode && formData.process_rm_ic_numbers && formData.process_rm_ic_numbers.length > 0) {
+              const fallback = formData.process_rm_ic_numbers.map(preSelected => {
+                const callNoMatch = preSelected.match(/[^/]+\/([^/]+)\//);
+                const callNo = callNoMatch ? callNoMatch[1] : preSelected;
+                return { certificate_no: preSelected, ic_number: callNo, label: preSelected };
+              });
+              setApprovedRMICsForProcess(fallback);
+            } else {
+              setApprovedRMICsForProcess([]);
+            }
           }
         } catch (error) {
           console.error('❌ Error fetching completed certificate numbers:', error);
@@ -461,6 +641,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchCompletedRMICs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.po_serial_no]);
 
   // Fetch companies for POI dropdown on component mount
@@ -650,6 +831,39 @@ export const RaiseInspectionCallForm = ({
 
     fetchHeatNumbers();
   }, [formData.type_of_call, formData.process_rm_ic_numbers]);
+
+  // In modify mode: pre-seed processHeatNumbers from the pre-filled lot-heat mapping
+  // so the saved heat number always appears as a dropdown option immediately.
+  const [heatNumbersPreSeeded, setHeatNumbersPreSeeded] = useState(false);
+  useEffect(() => {
+    if (
+      isModifyMode &&
+      !heatNumbersPreSeeded &&
+      formData.type_of_call === 'Process' &&
+      formData.process_lot_heat_mapping &&
+      formData.process_lot_heat_mapping.length > 0
+    ) {
+      setHeatNumbersPreSeeded(true);
+      setProcessHeatNumbers(prev => {
+        const existingKeys = new Set(prev.map(h => h.heatNumber));
+        const toAdd = [];
+        formData.process_lot_heat_mapping.forEach(lot => {
+          if (lot.heatNumber && !existingKeys.has(lot.heatNumber)) {
+            existingKeys.add(lot.heatNumber);
+            toAdd.push({
+              heatNumber: lot.heatNumber,
+              manufacturer: lot.manufacturer || '',
+              qtyAccepted: lot.totalAcceptedQtyRm || 0,
+              weightAcceptedMt: 0,
+              sourceCertificateNo: 'pre-filled'
+            });
+          }
+        });
+        return [...prev, ...toAdd];
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModifyMode, formData.type_of_call, formData.process_lot_heat_mapping, heatNumbersPreSeeded]);
 
   // Fetch company and unit details from the first selected RM IC for Process inspection
   useEffect(() => {
@@ -973,8 +1187,8 @@ export const RaiseInspectionCallForm = ({
       // Formula: (mtQty * 1000) / 1.133
       maxErc = (qty * 1000) / 1.133;
     } else if (ercType === 'J-Type') {
-      // Formula: (mtQty * 1000) / 1.100
-      maxErc = (qty * 1000) / 1.100;
+      // Formula: (mtQty * 1000) / 0.928
+      maxErc = (qty * 1000) / 0.928;
     }
 
     return Math.floor(maxErc);
@@ -996,7 +1210,7 @@ export const RaiseInspectionCallForm = ({
       maxErc = (qty * 1000) / 1.133;
     } else if (ercType === 'J-Type') {
       // Use default conversion factor for J-Type
-      maxErc = (qty * 1000) / 1.100;
+      maxErc = (qty * 1000) / 0.928;
     }
 
     return Math.floor(maxErc);
@@ -1161,6 +1375,22 @@ export const RaiseInspectionCallForm = ({
     const seenCompositeKeys = new Set();
     const deduplicatedHeats = [];
 
+    // Ensure the current prefilled heat number in modify mode is always in the list
+    const currentMapping = formData.rm_heat_tc_mapping.find(h => h.id === currentHeatMappingId);
+    if (currentMapping && currentMapping.heatNumber) {
+      const currentHeat = {
+        heatNumber: currentMapping.heatNumber,
+        supplierName: currentMapping.supplierName || currentMapping.manufacturer || '',
+        rawMaterial: currentMapping.unit || '',
+        gradeSpecification: '',
+        qtyLeft: parseFloat(currentMapping.tcQtyRemaining) || parseFloat(currentMapping.maxQty) || 0,
+        unit: currentMapping.unit || ''
+      };
+      const compositeKey = `${currentHeat.heatNumber}|${currentHeat.supplierName}`;
+      seenCompositeKeys.add(compositeKey);
+      deduplicatedHeats.push(currentHeat);
+    }
+
     heatNumbersForDropdown.forEach(heat => {
       const compositeKey = `${heat.heatNumber}|${heat.supplierName}`;
       // Only add if we haven't seen this composite key before
@@ -1176,7 +1406,7 @@ export const RaiseInspectionCallForm = ({
     });
 
     return deduplicatedHeats;
-  }, [heatNumbersForDropdown]);
+  }, [heatNumbersForDropdown, formData.rm_heat_tc_mapping]);
 
   // Get available TC numbers for a specific heat number and supplier/manufacturer
   // Filters out TC numbers that are already selected in other heat sections
@@ -1184,6 +1414,18 @@ export const RaiseInspectionCallForm = ({
     if (!heatNumber) return [];
 
     const tcList = [];
+
+    // Ensure the current prefilled TC number in modify mode is always in the list
+    const currentMapping = formData.rm_heat_tc_mapping.find(h => h.id === currentHeatMappingId);
+    if (currentMapping && currentMapping.tcNumber && currentMapping.heatNumber === heatNumber) {
+      tcList.push({
+        tcNumber: currentMapping.tcNumber,
+        heatNumber: currentMapping.heatNumber,
+        manufacturer: currentMapping.manufacturer || currentMapping.supplierName || '',
+        tcDate: currentMapping.tcDate
+      });
+    }
+
     // Find all inventory entries matching this heat number and supplier (if provided)
     // Filter out entries where TC Qty Remaining (qtyLeftForInspection) is 0 or less
     const matchingEntries = inventoryEntries.filter(entry => {
@@ -2032,7 +2274,7 @@ export const RaiseInspectionCallForm = ({
 
     if (!formData.desired_inspection_date) {
       newErrors.desired_inspection_date = 'Desired Inspection Date is required';
-    } else if (formData.desired_inspection_date > getMaxDate()) {
+    } else if (!isModifyMode && formData.desired_inspection_date > getMaxDate()) {
       newErrors.desired_inspection_date = 'Desired Date of Inspection should not be more than 6 days from today';
     }
 
@@ -2394,7 +2636,7 @@ export const RaiseInspectionCallForm = ({
   return (
     <div className="ric-form">
       {/* ============ VALIDATION ERROR SUMMARY ============ */}
-      {Object.keys(errors).length > 0 && (
+      {Object.keys(errors).length > 0 && !isViewMode && (
         <div className="ric-validation-summary">
           <div className="ric-validation-summary__header">
             <span className="ric-validation-summary__icon">⚠️</span>
@@ -2432,7 +2674,8 @@ export const RaiseInspectionCallForm = ({
         </div>
       )}
 
-      {/* ============ COMMON SECTION ============ */}
+      <fieldset disabled={isViewMode} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
+        {/* ============ COMMON SECTION ============ */}
       <SectionHeader
         title="PO Data (Auto Fetched from IREPS)"
         subtitle="Select PO Serial Number to auto-populate PO details"
@@ -2511,7 +2754,7 @@ export const RaiseInspectionCallForm = ({
             value={formData.desired_inspection_date}
             onChange={handleChange}
             // min={getTodayDate()}
-            max={getMaxDate()}
+            max={isModifyMode ? undefined : getMaxDate()}
           />
         </FormField>
 
@@ -2670,7 +2913,7 @@ export const RaiseInspectionCallForm = ({
                 <div key={heatMapping.id} className="ric-heat-section">
                   <div className="ric-heat-section-header">
                     <h4 className="ric-heat-section-title">Heat Number {index + 1}</h4>
-                    {formData.rm_heat_tc_mapping.length > 1 && (
+                    {formData.rm_heat_tc_mapping.length > 1 && !isViewMode && (
                       <button
                         type="button"
                         className="ric-btn-remove-heat"
@@ -2812,14 +3055,16 @@ export const RaiseInspectionCallForm = ({
                     </FormField>
 
                     {/* Total Value of Sub PO - Auto-fetched */}
-                    <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.subPoTotalValue}
-                        disabled
-                      />
-                    </FormField>
+                    {!isViewMode && (
+                      <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.subPoTotalValue}
+                          disabled
+                        />
+                      </FormField>
+                    )}
 
                     {/* TC Qty - Auto-fetched */}
                     <FormField label="TC Qty" name={`heat_${index}_tcQty`} hint="Auto-fetched">
@@ -2832,14 +3077,16 @@ export const RaiseInspectionCallForm = ({
                     </FormField>
 
                     {/* TC Qty Remaining with Vendor - Auto-fetched */}
-                    <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.tcQtyRemaining}
-                        disabled
-                      />
-                    </FormField>
+                    {!isViewMode && (
+                      <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.tcQtyRemaining}
+                          disabled
+                        />
+                      </FormField>
+                    )}
 
                     {/* Offered Quantity for this Heat - Manual Input */}
                     <FormField
@@ -2866,7 +3113,7 @@ export const RaiseInspectionCallForm = ({
                     <FormField
                       label="Max ERC can be manufactured from this Manufacturer - Heat No. combination for this PO Sr. No."
                       name={`heat_${index}_maxErc`}
-                      hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 1.100'}` : 'Select ERC type to calculate'}
+                      hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 0.928'}` : 'Select ERC type to calculate'}
                       fullWidth
                     >
                       <input
@@ -2997,15 +3244,17 @@ export const RaiseInspectionCallForm = ({
               ))}
 
               {/* Add Heat Number Button */}
-              <div style={{ marginBottom: '24px' }}>
-                <button
-                  type="button"
-                  className="ric-btn-add-heat"
-                  onClick={handleAddHeatNumber}
-                >
-                  + Add Another Heat Number
-                </button>
-              </div>
+              {!isViewMode && (
+                <div style={{ marginBottom: '24px' }}>
+                  <button
+                    type="button"
+                    className="ric-btn-add-heat"
+                    onClick={handleAddHeatNumber}
+                  >
+                    + Add Another Heat Number
+                  </button>
+                </div>
+              )}
 
               {/* Total Offered Quantity - Auto-calculated from all heats */}
               <SectionHeader
@@ -3021,7 +3270,7 @@ export const RaiseInspectionCallForm = ({
                   <input
                     type="text"
                     className="ric-form-input ric-form-input--calculated"
-                    value={formData.rm_total_offered_qty_mt.toFixed(3)}
+                    value={(Number(formData.rm_total_offered_qty_mt) || 0).toFixed(3)}
                     disabled
                   />
                 </FormField>
@@ -3033,12 +3282,12 @@ export const RaiseInspectionCallForm = ({
                   hint={`Formula: (Total Offered Qty MT × 1000) / Division Factor
                         MK-III: Division Factor = 0.928426
                         MK-V: Division Factor = 1.133
-                        J-Type: Division Factor = 1.100${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
+                        J-Type: Division Factor = 0.928${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
                 >
                   <input
                     type="text"
                     className="ric-form-input ric-form-input--calculated"
-                    value={formData.rm_offered_qty_erc.toLocaleString('en-IN')}
+                    value={(Number(formData.rm_offered_qty_erc) || 0).toLocaleString('en-IN')}
                     disabled
                   />
                 </FormField>
@@ -3074,6 +3323,7 @@ export const RaiseInspectionCallForm = ({
                     selectedValues={formData.process_rm_ic_numbers}
                     onChange={(selectedValues) => handleRmIcSelection(selectedValues)}
                     placeholder={loadingRMICs ? "Loading..." : "Select Certificate Numbers"}
+                    disabled={isViewMode}
                   />
                   {formData.process_rm_ic_numbers.length > 0 && (
                     <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
@@ -3127,23 +3377,25 @@ export const RaiseInspectionCallForm = ({
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
                     Lot Numbers & Heat Numbers
                   </h4>
-                  <button
-                    type="button"
-                    onClick={handleAddProcessLotHeat}
-                    className="ric-btn-secondary"
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '14px',
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontWeight: '500'
-                    }}
-                  >
-                    + Add Lot & Heat
-                  </button>
+                  {!isViewMode && (
+                    <button
+                      type="button"
+                      onClick={handleAddProcessLotHeat}
+                      className="ric-btn-secondary"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: '500'
+                      }}
+                    >
+                      + Add Lot & Heat
+                    </button>
+                  )}
                 </div>
 
                 {/* Lot-Heat Entries */}
@@ -3162,7 +3414,7 @@ export const RaiseInspectionCallForm = ({
                       <h5 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#374151' }}>
                         Entry #{index + 1}
                       </h5>
-                      {formData.process_lot_heat_mapping.length > 1 && (
+                      {formData.process_lot_heat_mapping.length > 1 && !isViewMode && (
                         <button
                           type="button"
                           onClick={() => handleRemoveProcessLotHeat(lotHeat.id)}
@@ -3253,7 +3505,7 @@ export const RaiseInspectionCallForm = ({
                         const offeredQty = parseInt(lotHeat.offeredQty) || 0;
 
                         // Format accepted weight for display in label
-                        const acceptedWeightDisplay = heatSummary ? `${parseFloat(heatSummary.acceptedMt).toFixed(3)} MT` : '';
+                        const acceptedWeightDisplay = (heatSummary && heatSummary.acceptedMt != null) ? `${(parseFloat(heatSummary.acceptedMt) || 0).toFixed(3)} MT` : '';
 
                         // Calculate available balance for THIS lot
                         // Available = Max ERC - Offered Earlier - (Total offered by OTHER lots using same heat)
@@ -3353,6 +3605,7 @@ export const RaiseInspectionCallForm = ({
                         }));
                       }}
                       placeholder="Select RM IC Certificate Number"
+                      disabled={isViewMode}
                     />
                   )}
                   {formData.final_rm_ic_numbers.length > 0 && (
@@ -3388,7 +3641,7 @@ export const RaiseInspectionCallForm = ({
                         }));
                       }}
                       placeholder={formData.final_rm_ic_numbers.length === 0 ? "Select RM IC first" : "Select Process IC Certificate Number"}
-                      disabled={formData.final_rm_ic_numbers.length === 0}
+                      disabled={isViewMode || formData.final_rm_ic_numbers.length === 0}
                     />
                   )}
                   {formData.final_process_ic_numbers.length > 0 && (
@@ -3427,7 +3680,7 @@ export const RaiseInspectionCallForm = ({
                             ? "Select Process IC first"
                             : "Select Lot Numbers"
                       }
-                      disabled={formData.final_rm_ic_numbers.length === 0 || formData.final_process_ic_numbers.length === 0}
+                      disabled={isViewMode || formData.final_rm_ic_numbers.length === 0 || formData.final_process_ic_numbers.length === 0}
                     />
                   )}
                   {formData.final_lot_numbers.length > 0 && (
@@ -3463,7 +3716,7 @@ export const RaiseInspectionCallForm = ({
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Future Balance</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Offered for Inspection</th>
                           <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>No. of Bags</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>Action</th>
+                          {!isViewMode && <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>Action</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -3509,26 +3762,28 @@ export const RaiseInspectionCallForm = ({
                                   </div>
                                 )}
                               </td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newLots = formData.final_lot_numbers.filter(l => l !== lot.lotNumber);
-                                    setFormData(prev => ({ ...prev, final_lot_numbers: newLots }));
-                                  }}
-                                  style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: '#fee2e2',
-                                    color: '#ef4444',
-                                    border: '1px solid #fecaca',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '12px'
-                                  }}
-                                >
-                                  Remove
-                                </button>
-                              </td>
+                              {!isViewMode && (
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newLots = formData.final_lot_numbers.filter(l => l !== lot.lotNumber);
+                                      setFormData(prev => ({ ...prev, final_lot_numbers: newLots }));
+                                    }}
+                                    style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#fee2e2',
+                                      color: '#ef4444',
+                                      border: '1px solid #fecaca',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -3612,6 +3867,11 @@ export const RaiseInspectionCallForm = ({
                 <option value="">
                   {loadingCompanies ? 'Loading companies...' : '-- Select Company --'}
                 </option>
+                {formData.company_name && !companies.includes(formData.company_name) && (
+                  <option key="prefilled-company" value={formData.company_name}>
+                    {formData.company_name}
+                  </option>
+                )}
                 {companies.map((companyName, index) => (
                   <option key={index} value={companyName}>
                     {companyName}
@@ -3646,6 +3906,11 @@ export const RaiseInspectionCallForm = ({
                     !formData.company_name ? 'Select company first' :
                       'Select Unit'}
                 </option>
+                {formData.unit_name && !units.includes(formData.unit_name) && (
+                  <option key="prefilled-unit" value={formData.unit_name}>
+                    {formData.unit_name}
+                  </option>
+                )}
                 {units.map((unitName, index) => (
                   <option key={index} value={unitName}>
                     {unitName}
@@ -3679,8 +3944,14 @@ export const RaiseInspectionCallForm = ({
               />
             </FormField>
           </div>
+        </>
+      )}
+    </fieldset>
 
-          <div className="ric-form-actions">
+    {formData.type_of_call && (
+      <div className="ric-form-actions" style={isViewMode ? { justifyContent: 'center' } : {}}>
+        {!isViewMode ? (
+          <>
             <button
               type="button"
               className="btn btn-outline"
@@ -3695,11 +3966,21 @@ export const RaiseInspectionCallForm = ({
               onClick={handleSubmit}
               disabled={isLoading || !formData.type_of_call}
             >
-              {isLoading ? 'Submitting...' : 'Submit Inspection Call'}
+              {isLoading ? (isModifyMode ? 'Updating...' : 'Submitting...') : (isModifyMode ? 'Update Inspection Call' : 'Submit Inspection Call')}
             </button>
-          </div>
-        </>
-      )}
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={onSubmit}
+            style={{ minWidth: '120px' }}
+          >
+            Close
+          </button>
+        )}
+      </div>
+    )}
 
       {/* Global Notification */}
       <Notification

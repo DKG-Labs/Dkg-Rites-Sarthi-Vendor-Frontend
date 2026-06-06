@@ -6,8 +6,8 @@
 
 export const getBaseUrl = () => {
 //return "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
-return "https://api.ritesqasarthi.com/sarthi-backend/api";
-  // return "http://localhost:8080/sarthi-backend/api";
+//return "https://api.ritesqasarthi.com/sarthi-backend/api";
+return "http://localhost:8080/sarthi-backend/api";
 };
 
 

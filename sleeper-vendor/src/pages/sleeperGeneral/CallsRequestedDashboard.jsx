@@ -52,7 +52,7 @@ const STATUS_CONFIG = {
     'Locked': {
         bg: '#f0fdf4', color: '#166534', border: '#86efac',
         dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
-        icon: '✅', description: 'Moved to Verified & Locked Calls'
+        icon: '✅', description: 'Moved to Completed Calls'
     },
 };
 
@@ -100,7 +100,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     const isReturned = call.status === 'Returned by Call Desk';
     const locked = call.status === 'Under Inspection' || call.status === 'Cancelled' || call.status === 'Locked';
     const statusLabel = (call.status === 'Scheduled by IE' && call.scheduledDate)
-        ? `Scheduled (${call.scheduledDate})` : (call.status === 'Locked' ? 'Verified & Locked' : call.status);
+        ? `Scheduled (${call.scheduledDate})` : (call.status === 'Locked' ? 'Completed Calls' : call.status);
 
     return (
         <div

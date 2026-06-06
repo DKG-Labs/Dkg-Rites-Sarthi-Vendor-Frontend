@@ -2,33 +2,26 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import PlantSelectionModal from '../Modals/PlantSelectionModal.jsx';
 
-const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
+const MainLayout = ({ children, activeItem, onItemClick, onLogout, selectedPlant, onPlantSelect, vendorCode: propVendorCode, vendorName: propVendorName }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
-    const [vendorCode] = useState(() => localStorage.getItem('railpad_vendorCode'));
-    const [vendorName] = useState(() => localStorage.getItem('railpad_vendorName') || 'RailPad Vendor');
-    const [selectedPlant, setSelectedPlant] = useState(() => {
-        const id = localStorage.getItem('railpad_selectedPlantId');
-        const name = localStorage.getItem('railpad_selectedPlantName');
-        return id ? { plantId: id, plantName: name } : null;
-    });
+    const vendorCode = propVendorCode || localStorage.getItem('railpad_vendorCode');
+    const vendorName = propVendorName || localStorage.getItem('railpad_vendorName') || 'RailPad Vendor';
 
     const handlePlantSelect = (plant) => {
-        localStorage.setItem('railpad_selectedPlantId', plant.plantId);
-        localStorage.setItem('railpad_selectedPlantName', plant.plantName);
-        setSelectedPlant(plant);
+        onPlantSelect(plant);
     };
 
     return (
         <div className="main-layout-root">
             {/* Plant Selection Modal */}
             {vendorCode && !selectedPlant && (
-                <PlantSelectionModal 
+                <PlantSelectionModal
                     vendorCode={vendorCode}
                     initialVendorName={vendorName}
-                    onSelect={handlePlantSelect} 
+                    onSelect={handlePlantSelect}
                 />
             )}
 
@@ -55,28 +48,30 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
             <div className="main-content-wrapper">
                 <header className="main-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button
-                            className="mobile-menu-btn"
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            aria-label="Open menu"
-                            style={{ background: '#f5f5f5', border: 'none', borderRadius: '4px', padding: '8px', display: 'flex' }}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                        </button>
+                        <div className="brand-block" style={{ display: 'flex', alignItems: 'center', gap: '24px', marginLeft: '8px' }}>
+                            <img
+                                src="/railpad/sarthi-logo.png"
+                                alt="SARTHI Logo"
+                                className="brand-logo"
+                                style={{ height: '64px', width: 'auto' }}
+                            />
+                            <div className="brand-text" style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div className="brand-title" style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', letterSpacing: '0.5px', lineHeight: '1.2' }}>SARTHI</div>
+                                <div className="brand-subtitle" style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+                                    System for Automated Review, Tracking & Holistic Inspection
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         {selectedPlant && (
-                            <div style={{ 
-                                background: '#f0fdf4', 
-                                color: '#166534', 
-                                padding: '6px 14px', 
-                                borderRadius: '8px', 
-                                fontSize: '13px', 
+                            <div style={{
+                                background: '#f0fdf4',
+                                color: '#166534',
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
                                 fontWeight: '700',
                                 border: '1px solid #bbf7d0',
                                 display: 'flex',

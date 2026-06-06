@@ -1169,6 +1169,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 >
                                     <option value="Day">Day</option>
                                     <option value="Night">Night</option>
+                                    <option value="ShiftA">ShiftA</option>
+                                    <option value="ShiftB">ShiftB</option>
+                                    <option value="ShiftC">ShiftC</option>
                                 </select>
                             </div>
                             <div>

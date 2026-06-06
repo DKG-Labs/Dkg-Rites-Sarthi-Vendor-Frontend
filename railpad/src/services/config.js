@@ -16,7 +16,11 @@ export const API_CONFIG = {
     PLANT_MAPPING: `${API_BASE_URL}/railpad-vendor-plant`,
     APPROVED_ASH_SG: `${API_BASE_URL}/rail-approved-ash-sg`,
     APPROVED_QAP: `${API_BASE_URL}/rail-approved-qap`,
-    AUTH: `${API_BASE_URL.replace('/api', '')}/auth`,
-    PO_ASSIGNED: `${API_BASE_URL.replace('/api', '')}/vendor/po-assigned`,
-    RAILPAD_WORKFLOW: `${API_BASE_URL}/railpad-workflow`
+    AUTH: `${API_BASE_URL}/auth`,
+    PO_ASSIGNED: `${API_BASE_URL}/vendor/po-assigned`,
+    PO_DATA: `${API_BASE_URL}/vendor/poData`,
+    RAILPAD_WORKFLOW: `${API_BASE_URL}/railpad-workflow`,
+    IE_PRODUCTION_VERIFICATION: `${API_BASE_URL}/ie-production-verification`,
+    RAIL_INSPECTION_CALL: `${API_BASE_URL}/rail-inspection-call`,
+    SYNC: `${API_BASE_URL}/sync`
 };

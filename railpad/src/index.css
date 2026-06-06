@@ -224,8 +224,13 @@ h4 {
 
 .sidebar-brand,
 .sidebar-header {
-    padding: 2rem 1.5rem;
+    height: 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 1.5rem;
     border-bottom: 2px solid var(--accent-bg);
+    flex-shrink: 0;
 }
 
 .sidebar-brand h1,

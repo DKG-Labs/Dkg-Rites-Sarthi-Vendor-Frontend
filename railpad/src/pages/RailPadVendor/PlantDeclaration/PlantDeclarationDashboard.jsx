@@ -10,7 +10,7 @@ import ProductRecipe from './ProductRecipe';
 import ApprovedAshSG from './ApprovedAshSG';
 import ApprovedQAP from './ApprovedQAP';
 
-const PlantDeclarationDashboard = () => {
+const PlantDeclarationDashboard = ({ plantId }) => {
     const [selectedTab, setSelectedTab] = useState(() => {
         return localStorage.getItem('railpad_plant_selectedTab') || 'plant-setup';
     });
@@ -30,15 +30,15 @@ const PlantDeclarationDashboard = () => {
     const fetchAllData = async () => {
         try {
             setIsLoading(true);
-            const plantId = localStorage.getItem('railpad_selectedPlantId');
-            if (!plantId) return;
+            const actualPlantId = plantId || localStorage.getItem('railpad_selectedPlantId');
+            if (!actualPlantId || actualPlantId === "1") return;
             
             const [plantRes, rmRes, recipeRes, ashRes, qapRes] = await Promise.all([
-                plantSetupService.getByPlantId(plantId),
-                rawMaterialService.getByPlantId(plantId),
-                productRecipeService.getByPlantId(plantId),
-                approvedAshSGService.getByPlantId(plantId),
-                approvedQAPService.getByPlantId(plantId)
+                plantSetupService.getByPlantId(actualPlantId),
+                rawMaterialService.getByPlantId(actualPlantId),
+                productRecipeService.getByPlantId(actualPlantId),
+                approvedAshSGService.getByPlantId(actualPlantId),
+                approvedQAPService.getByPlantId(actualPlantId)
             ]);
             
             // Note: The backend returns List<ResponseDto>, so we use them directly
@@ -56,14 +56,14 @@ const PlantDeclarationDashboard = () => {
 
     useEffect(() => {
         fetchAllData();
-    }, []);
+    }, [plantId]);
 
     const tabs = [
         { id: 'plant-setup', title: 'Plant Set Up', subtitle: 'General information' },
-        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details' },
-        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition' },
-        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters' },
-        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits' }
+        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details', underDevelopment: true },
+        { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition', underDevelopment: true },
+        { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters', underDevelopment: true },
+        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits', underDevelopment: true }
     ];
 
     const renderContent = () => {
@@ -85,22 +85,58 @@ const PlantDeclarationDashboard = () => {
 
     return (
         <div className="fade-in">
-            <div className="ie-tab-row" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '16px',
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
                 marginBottom: '24px'
             }}>
+                <div className="ie-tab-row" style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gap: '16px'
+                }}>
                 {tabs.map(tab => (
                     <div
                         key={tab.id}
                         className={`ie-tab-card ${selectedTab === tab.id ? 'active' : ''}`}
                         onClick={() => setSelectedTab(tab.id)}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                        }}
                     >
                         <h3>{tab.title}</h3>
                         <p>{tab.subtitle}</p>
+                        {tab.underDevelopment && (
+                            <span style={{
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                borderRadius: '4px',
+                                fontSize: '8.5px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                lineHeight: '1',
+                                marginTop: '2px'
+                            }}>
+                                <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                Under Construction
+                            </span>
+                        )}
                     </div>
                 ))}
+                </div>
             </div>
 
             <div className="ie-content-area fade-in">

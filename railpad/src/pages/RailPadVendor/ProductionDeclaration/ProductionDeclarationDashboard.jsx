@@ -1,5 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { productionDeclarationService } from '../../../services/productionDeclarationService';
+import poAssignedService from '../../../services/poAssignedService';
 import { API_CONFIG } from '../../../services/config';
 
 const PRODUCT_TYPES = [
@@ -13,7 +15,225 @@ const PRODUCT_TYPES = [
 
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
 
-const ProductionDeclarationDashboard = () => {
+const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef(null);
+    const searchInputRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            searchInputRef.current.focus();
+        } else {
+            setSearchTerm('');
+        }
+    }, [isOpen]);
+
+    const filteredOptions = useMemo(() => {
+        return options.filter(opt => {
+            const label = opt.label || '';
+            const val = opt.value || '';
+            return label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                   val.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+    }, [options, searchTerm]);
+
+    const selectedOption = options.find(opt => opt.value === value);
+
+    const handleSelect = (val) => {
+        onChange(val);
+        setIsOpen(false);
+    };
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <input 
+                type="text" 
+                value={value || ''} 
+                onChange={() => {}} 
+                required 
+                style={{ 
+                    opacity: 0, 
+                    position: 'absolute', 
+                    width: 0, 
+                    height: 0, 
+                    pointerEvents: 'none' 
+                }} 
+            />
+            <div
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 12px',
+                    height: '40px',
+                    border: isOpen ? '1px solid var(--primary-color)' : '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    fontSize: 'var(--fs-md)',
+                    background: disabled ? '#f1f5f9' : '#fff',
+                    color: selectedOption ? 'var(--text-main)' : '#94a3b8',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    boxShadow: isOpen ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+                    transition: 'all 0.2s',
+                    boxSizing: 'border-box'
+                }}
+            >
+                <span 
+                    title={selectedOption ? selectedOption.label : placeholder}
+                    style={{ 
+                        whiteSpace: 'nowrap', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        fontWeight: selectedOption ? '600' : 'normal'
+                    }}
+                >
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <svg 
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5"
+                    style={{ 
+                        transform: isOpen ? 'rotate(180deg)' : 'none', 
+                        transition: 'transform 0.2s',
+                        color: '#64748b',
+                        flexShrink: 0
+                    }}
+                >
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    right: 0,
+                    minWidth: '100%',
+                    width: 'max-content',
+                    maxWidth: '400px',
+                    zIndex: 1050,
+                    background: '#fff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: '260px',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e2e8f0', 
+                        background: '#f8fafc',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}>
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                        </svg>
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder={searchPlaceholder}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                width: '100%',
+                                outline: 'none',
+                                fontSize: '13px',
+                                padding: '4px 0',
+                                color: 'var(--text-main)'
+                            }}
+                        />
+                        {searchTerm && (
+                            <button 
+                                type="button" 
+                                onClick={() => setSearchTerm('')} 
+                                style={{ 
+                                    background: 'transparent', 
+                                    border: 'none', 
+                                    color: '#64748b', 
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    padding: '0 4px'
+                                }}
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ overflowY: 'auto', flex: 1, padding: '4px' }}>
+                        {loading ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                                Loading POs...
+                            </div>
+                        ) : filteredOptions.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                                No POs found
+                            </div>
+                        ) : (
+                             filteredOptions.map(opt => (
+                                <div
+                                    key={opt.value}
+                                    onClick={() => handleSelect(opt.value)}
+                                    title={opt.label}
+                                    style={{
+                                        padding: '10px 12px',
+                                        fontSize: '13px',
+                                        color: opt.value === value ? '#fff' : 'var(--text-main)',
+                                        background: opt.value === value ? 'var(--primary-color)' : 'transparent',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                        fontWeight: opt.value === value ? '600' : 'normal',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (opt.value !== value) {
+                                            e.target.style.background = '#f1f5f9';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (opt.value !== value) {
+                                            e.target.style.background = 'transparent';
+                                        }
+                                    }}
+                                >
+                                    {opt.label}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode }) => {
     const [activeTab, setActiveTab] = useState('pending');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
@@ -23,6 +243,10 @@ const ProductionDeclarationDashboard = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState(null);
     const [pendingTransitions, setPendingTransitions] = useState([]);
+    const [pos, setPos] = useState([]);
+    const [posLoading, setPosLoading] = useState(false);
+    const [productionLines, setProductionLines] = useState([]);
+    const [linesLoading, setLinesLoading] = useState(false);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type, fading: false });
@@ -86,11 +310,12 @@ const ProductionDeclarationDashboard = () => {
         productionDate: new Date().toISOString().split('T')[0],
         shift: '',
         productionLine: '',
+        poNo: '',
         productBlocks: [
             {
                 id: Date.now(),
                 productType: '',
-                mode: 'Pieces',
+                mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }
         ]
@@ -98,13 +323,36 @@ const ProductionDeclarationDashboard = () => {
 
     const [formData, setFormData] = useState(initialFormState);
 
+    const fetchPOs = async () => {
+        try {
+            setPosLoading(true);
+            const { user } = getLatestUserAndPlant();
+            const vcode = propVendorCode || user.vendorCode;
+            if (vcode) {
+                const data = await poAssignedService.getPoAssigned(vcode);
+                const list = Array.isArray(data) ? data : (data.responseData || []);
+                setPos(list);
+            }
+        } catch (error) {
+            console.error('Error fetching POs:', error);
+        } finally {
+            setPosLoading(false);
+        }
+    };
+
     const fetchAllData = async () => {
         setIsLoading(true);
         try {
-            const { plant, user } = getLatestUserAndPlant();
+            const { plant: localPlant, user } = getLatestUserAndPlant();
+            const actualPlantId = plantId || localPlant.plantId;
             
+            if (!actualPlantId || actualPlantId === "1") {
+                console.warn("[Dashboard] Skipping fetch: Invalid plantId", actualPlantId);
+                return;
+            }
+
             // 1. Fetch declarations
-            const res = await productionDeclarationService.getByPlantId(plant.plantId);
+            const res = await productionDeclarationService.getByPlantId(actualPlantId);
             const actualData = res?.responseData || (Array.isArray(res) ? res : []);
             setDeclarations(actualData);
 
@@ -126,9 +374,78 @@ const ProductionDeclarationDashboard = () => {
         }
     };
 
+    const fetchProductionLines = async () => {
+        try {
+            setLinesLoading(true);
+            const { plant: localPlant, user } = getLatestUserAndPlant();
+            const actualPlantId = plantId || localPlant.plantId;
+            
+            if (!actualPlantId || actualPlantId === "1") {
+                return;
+            }
+
+            const token = localStorage.getItem('authToken') || user.token;
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            const res = await fetch(`${API_CONFIG.PLANT_SETUP}/plant?plantId=${actualPlantId}`, { headers });
+            if (res.ok) {
+                const data = await res.json();
+                
+                const cleanUnitName = (name) => {
+                    if (!name) return "";
+                    let cleaned = name;
+                    if (cleaned.startsWith(':')) {
+                        cleaned = cleaned.substring(1);
+                    }
+                    if (cleaned.includes('/')) {
+                        const parts = cleaned.split('/');
+                        return parts[1];
+                    }
+                    return cleaned;
+                };
+
+                // Get units only from verified setups
+                const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
+                const setups = (Array.isArray(data) ? data : []).filter(setup => 
+                    setup.status && verifiedStatuses.includes(setup.status.toUpperCase())
+                );
+                const generatedLines = [];
+                
+                setups.forEach(setup => {
+                    if (setup.units && Array.isArray(setup.units)) {
+                        setup.units.forEach(unit => {
+                            const name = cleanUnitName(unit.unitName || 'Line');
+                            const num = parseInt(unit.numLines) || 0;
+                            for (let i = 1; i <= num; i++) {
+                                const val = `${name}- Line ${i}`;
+                                if (!generatedLines.some(x => x.value === val)) {
+                                    generatedLines.push({
+                                        value: val,
+                                        label: val
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                setProductionLines(generatedLines);
+            } else {
+                setProductionLines([]);
+            }
+        } catch (error) {
+            console.error('Error fetching production lines:', error);
+            setProductionLines([]);
+        } finally {
+            setLinesLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchAllData();
-    }, []);
+        fetchPOs();
+        fetchProductionLines();
+    }, [plantId, propVendorCode]);
 
     const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
 
@@ -138,7 +455,7 @@ const ProductionDeclarationDashboard = () => {
             productBlocks: [...prev.productBlocks, {
                 id: Date.now(),
                 productType: '',
-                mode: 'Pieces',
+                mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }]
         }));
@@ -205,6 +522,30 @@ const ProductionDeclarationDashboard = () => {
         return Object.entries(result);
     }, [formData.productBlocks]);
 
+    const poOptions = useMemo(() => {
+        const list = pos.map(p => {
+            const formattedDate = p.poDate ? p.poDate.split('-').reverse().join('-') : '';
+            const label = formattedDate ? `${p.poNo} (${formattedDate})` : p.poNo;
+            return { value: p.poNo, label };
+        });
+        
+        // Add defensive fallback
+        if (formData.poNo && !list.some(opt => opt.value === formData.poNo)) {
+            list.push({ value: formData.poNo, label: formData.poNo });
+        }
+        
+        return list;
+    }, [pos, formData.poNo]);
+
+    const lineOptions = useMemo(() => {
+        const list = Array.isArray(productionLines) ? [...productionLines] : [];
+        // Add defensive fallback
+        if (formData.productionLine && !list.some(opt => opt.value === formData.productionLine)) {
+            list.push({ value: formData.productionLine, label: formData.productionLine });
+        }
+        return list;
+    }, [productionLines, formData.productionLine]);
+
     const handleDelete = async (id) => {
         if(window.confirm('Are you sure you want to delete this declaration?')) {
             try {
@@ -225,10 +566,11 @@ const ProductionDeclarationDashboard = () => {
             productionDate: decl.productionDate,
             shift: decl.shift,
             productionLine: decl.productionLine,
+            poNo: decl.poNo || '',
             productBlocks: (decl.products || []).map(p => ({
                 id: p.id,
                 productType: p.productType,
-                mode: p.measurementMode,
+                mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
                 batches: (p.batches || []).map(b => ({
                     id: b.id,
                     batchNo: b.batchNo || '',
@@ -261,12 +603,62 @@ const ProductionDeclarationDashboard = () => {
         console.log('[Submit] Starting submission for ID:', editingId);
 
         try {
+            // Validation: Check for duplicate batch numbers
+            const existingBatchesForDate = new Set();
+            
+            declarations.forEach(decl => {
+                if (decl.productionDate === formData.productionDate && decl.id !== editingId) {
+                    if (decl.products && Array.isArray(decl.products)) {
+                        decl.products.forEach(p => {
+                            if (p.batches && Array.isArray(p.batches)) {
+                                p.batches.forEach(b => {
+                                    if (b.batchNo) {
+                                        existingBatchesForDate.add(b.batchNo.toLowerCase());
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+
+            const formBatches = new Set();
+            let duplicateBatchFound = null;
+
+            for (const block of formData.productBlocks) {
+                for (const batch of block.batches) {
+                    if (batch.batchNo) {
+                        const batchLower = batch.batchNo.toLowerCase();
+                        
+                        if (existingBatchesForDate.has(batchLower)) {
+                            duplicateBatchFound = batch.batchNo;
+                            break;
+                        }
+                        
+                        if (formBatches.has(batchLower)) {
+                            showNotification(`Batch number "${batch.batchNo}" is entered multiple times in the form.`, 'error');
+                            setIsSaving(false);
+                            return;
+                        }
+                        formBatches.add(batchLower);
+                    }
+                }
+                if (duplicateBatchFound) break;
+            }
+
+            if (duplicateBatchFound) {
+                showNotification(`Batch number "${duplicateBatchFound}" is already declared for the selected date.`, 'error');
+                setIsSaving(false);
+                return;
+            }
+
             const { user, plant } = getLatestUserAndPlant();
 
             const payload = {
                 productionDate: formData.productionDate,
                 shift: formData.shift,
                 productionLine: formData.productionLine,
+                poNo: formData.poNo,
                 vendorName: user.vendorName,
                 vendorCode: user.vendorCode,
                 plantId: plant.plantId,
@@ -392,6 +784,32 @@ const ProductionDeclarationDashboard = () => {
         return status === 'VERIFIED' || status === 'APPROVED' || status === 'COMPLETED';
     }).length;
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 100, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 60, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 140, height: 12, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 180, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12, margin: '0 auto' }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 50, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in railpad-container" style={{ padding: 0 }}>
             {/* Dashboard Header */}
@@ -411,28 +829,129 @@ const ProductionDeclarationDashboard = () => {
             </div>
 
             {/* Notification Toast */}
-            {notification && (
-                <div className="pv-notification-container">
-                    <div className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}>
-                        <div className="pv-notification-icon">{notification.type === 'success' ? '✅' : '❌'}</div>
-                        <div className="pv-notification-content">
-                            <span className="pv-notification-title">{notification.type === 'success' ? 'Success' : 'Attention'}</span>
-                            <span className="pv-notification-message">{notification.message}</span>
+            {notification && createPortal(
+                <div className="pv-notification-container" style={{
+                    position: 'fixed',
+                    top: '24px',
+                    right: '24px',
+                    zIndex: 99999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    pointerEvents: 'none'
+                }}>
+                    <div 
+                        className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}
+                        style={{
+                            pointerEvents: 'auto',
+                            minWidth: '340px',
+                            maxWidth: '450px',
+                            padding: '16px 20px',
+                            borderRadius: '16px',
+                            background: '#ffffff',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            borderLeft: `5px solid ${notification.type === 'success' ? '#21808d' : '#ef4444'}`,
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        <div style={{ fontSize: '24px', flexShrink: 0 }}>
+                            {notification.type === 'success' ? '✅' : '❌'}
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ 
+                                display: 'block', 
+                                fontWeight: '800', 
+                                fontSize: '14px', 
+                                color: '#1e293b',
+                                lineHeight: '1.2',
+                                margin: 0
+                            }}>
+                                {notification.type === 'success' ? 'Success' : 'Attention'}
+                            </span>
+                            <span style={{ 
+                                display: 'block', 
+                                fontSize: '13px', 
+                                color: '#64748b',
+                                lineHeight: '1.4',
+                                fontWeight: '500',
+                                margin: 0
+                            }}>
+                                {notification.message}
+                            </span>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Dashboard Tabs */}
-            <div className="grid-container" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', background: 'transparent', border: 'none', padding: 0, marginBottom: '24px' }}>
-                <div className={`ie-tab-card ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>
-                    <h3 className="ie-tab-title">Pending Production Verification</h3>
-                    <p className="ie-tab-subtitle">{getPendingCount()} Declarations Awaiting Audit</p>
-                </div>
-                <div className={`ie-tab-card ${activeTab === 'verified' ? 'active' : ''}`} onClick={() => setActiveTab('verified')}>
-                    <h3 className="ie-tab-title">Verified Production</h3>
-                    <p className="ie-tab-subtitle">{getVerifiedCount()} Locked Records</p>
-                </div>
+            <div style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                background: 'rgba(241, 245, 249, 0.5)',
+                padding: '8px',
+                borderRadius: '12px',
+                width: 'fit-content',
+                marginBottom: '24px'
+            }}>
+                <button 
+                    onClick={() => setActiveTab('pending')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeTab === 'pending' ? 'white' : 'transparent',
+                        color: activeTab === 'pending' ? 'var(--primary-color)' : 'var(--text-muted)',
+                        boxShadow: activeTab === 'pending' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span>
+                    Pending Production Verification
+                    <span style={{ 
+                        background: 'rgba(66, 129, 140, 0.08)', 
+                        padding: '2px 8px', 
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                    }}>{getPendingCount()}</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('verified')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeTab === 'verified' ? 'white' : 'transparent',
+                        color: activeTab === 'verified' ? 'var(--primary-color)' : 'var(--text-muted)',
+                        boxShadow: activeTab === 'verified' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                    Verified Production
+                    <span style={{ 
+                        background: 'rgba(66, 129, 140, 0.08)', 
+                        padding: '2px 8px', 
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                    }}>{getVerifiedCount()}</span>
+                </button>
             </div>
 
             {/* Content Table */}
@@ -441,20 +960,29 @@ const ProductionDeclarationDashboard = () => {
                     <thead>
                         <tr>
                             <th style={{ width: '20%', fontSize: '13px' }}>Date & Shift</th>
-                            <th style={{ width: '15%', fontSize: '13px' }}>Line ID</th>
+                            <th style={{ width: '12%', fontSize: '13px' }}>Line ID</th>
+                            <th style={{ width: '15%', fontSize: '13px' }}>PO Number</th>
                             <th style={{ width: '30%', fontSize: '13px' }}>Product Details</th>
                             <th style={{ width: '15%', textAlign: 'center', fontSize: '13px' }}>Status</th>
                             <th style={{ width: '20%', textAlign: 'center', fontSize: '13px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredDeclarations.map(decl => (
+                        {isLoading ? (
+                            <>
+                                <SkeletonRow />
+                                <SkeletonRow />
+                                <SkeletonRow />
+                                <SkeletonRow />
+                            </>
+                        ) : filteredDeclarations.map(decl => (
                             <tr key={decl.id}>
                                 <td>
                                     <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '14px' }}>{decl.productionDate}</div>
                                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', marginTop: '4px' }}>{decl.shift}</div>
                                 </td>
                                 <td><span style={{ fontWeight: '700', color: 'var(--primary-color)', fontSize: '14px' }}>{decl.productionLine}</span></td>
+                                <td><span style={{ fontWeight: '600', color: '#64748b', fontSize: '13px' }}>{decl.poNo || '—'}</span></td>
                                 <td>
                                     {decl.products?.map((p, i) => (
                                         <div key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>
@@ -502,7 +1030,7 @@ const ProductionDeclarationDashboard = () => {
                                     <div style={{ background: 'var(--primary-color)', color: 'white', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800' }}>1</div>
                                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>Shift Information</h3>
                                 </div>
-                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Date of Production</label>
                                         <input type="date" className="form-input" value={formData.productionDate} onChange={(e) => setFormData({...formData, productionDate: e.target.value})} required disabled={isReadOnly} />
@@ -515,13 +1043,29 @@ const ProductionDeclarationDashboard = () => {
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Production Line ID</label>
-                                        <select className="form-select" value={formData.productionLine} onChange={(e) => setFormData({...formData, productionLine: e.target.value})} required disabled={isReadOnly}>
-                                            <option value="">Select Line</option>
-                                            <option value="PL-01">PL-01 (Main Line)</option>
-                                            <option value="PL-02">PL-02 (Secondary)</option>
-                                        </select>
-                                    </div>
+                                         <label className="form-label">Production Line ID</label>
+                                         <SearchableSelect
+                                             value={formData.productionLine}
+                                             onChange={(val) => setFormData({...formData, productionLine: val})}
+                                             options={lineOptions}
+                                             placeholder={linesLoading ? 'Loading Lines...' : 'Select Line'}
+                                             searchPlaceholder="Search Line..."
+                                             loading={linesLoading}
+                                             disabled={isReadOnly}
+                                         />
+                                     </div>
+                                     <div className="form-group">
+                                          <label className="form-label">PO Number</label>
+                                          <SearchableSelect
+                                              value={formData.poNo}
+                                              onChange={(val) => setFormData({...formData, poNo: val})}
+                                              options={poOptions}
+                                              placeholder={posLoading ? 'Loading POs...' : 'Select PO'}
+                                              searchPlaceholder="Search PO..."
+                                              loading={posLoading}
+                                              disabled={isReadOnly}
+                                          />
+                                     </div>
                                 </div>
                             </div>
 
@@ -556,13 +1100,65 @@ const ProductionDeclarationDashboard = () => {
                                                 </div>
                                                 <div className="form-group">
                                                     <label className="form-label">Measurement Mode</label>
-                                                    <div className="toggle-container" style={{ height: '40px' }}>
-                                                        <span className="toggle-label" style={{ color: block.mode === 'Pieces' ? 'var(--primary-color)' : '#94a3b8' }}>Pieces</span>
-                                                        <label className="switch">
-                                                            <input type="checkbox" checked={block.mode === 'Sets'} onChange={(e) => handleBlockChange(block.id, 'mode', e.target.checked ? 'Sets' : 'Pieces')} disabled={isReadOnly} />
-                                                            <span className="slider"></span>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '24px', 
+                                                        height: '40px',
+                                                        boxSizing: 'border-box'
+                                                    }}>
+                                                        <label style={{ 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            gap: '8px', 
+                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                            fontSize: 'var(--fs-md)',
+                                                            color: 'var(--text-main)',
+                                                            fontWeight: block.mode !== 'Sets' ? '600' : 'normal',
+                                                            margin: 0
+                                                        }}>
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`measurementMode-${block.id}`} 
+                                                                value="Nos" 
+                                                                checked={block.mode !== 'Sets'} 
+                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Nos')} 
+                                                                disabled={isReadOnly}
+                                                                style={{ 
+                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: 'var(--primary-color)'
+                                                                }}
+                                                            />
+                                                            Nos
                                                         </label>
-                                                        <span className="toggle-label" style={{ color: block.mode === 'Sets' ? 'var(--primary-color)' : '#94a3b8' }}>Sets</span>
+                                                        <label style={{ 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            gap: '8px', 
+                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                            fontSize: 'var(--fs-md)',
+                                                            color: 'var(--text-main)',
+                                                            fontWeight: block.mode === 'Sets' ? '600' : 'normal',
+                                                            margin: 0
+                                                        }}>
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`measurementMode-${block.id}`} 
+                                                                value="Sets" 
+                                                                checked={block.mode === 'Sets'} 
+                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Sets')} 
+                                                                disabled={isReadOnly}
+                                                                style={{ 
+                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: 'var(--primary-color)'
+                                                                }}
+                                                            />
+                                                            Sets
+                                                        </label>
                                                     </div>
                                                 </div>
                                             </div>

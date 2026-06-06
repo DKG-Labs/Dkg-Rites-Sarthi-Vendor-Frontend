@@ -4,42 +4,71 @@ import PlantDeclarationDashboard from './PlantDeclaration/PlantDeclarationDashbo
 import InventoryManagementDashboard from './InventoryManagement/InventoryManagementDashboard';
 import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDeclarationDashboard';
 import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
+import RequestedCallsDashboard from './RequestedCalls/RequestedCallsDashboard';
+import inspectionCallService from '../../services/inspectionCallService';
 
-const RailPadVendorDashboard = () => {
+const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
     const [selectedModule, setSelectedModule] = useState(() => {
         return localStorage.getItem('railpad_selectedModule') || 'po-assigned';
     });
+    const [requestedCallsCount, setRequestedCallsCount] = useState(0);
 
     const vendorName = localStorage.getItem('railpad_vendorName') || 'RailPad Vendor';
-    const plantName = localStorage.getItem('railpad_selectedPlantName');
-    const plantId = localStorage.getItem('railpad_selectedPlantId');
+    const plantName = selectedPlant?.plantName || localStorage.getItem('railpad_selectedPlantName');
+    let plantId = propPlantId || selectedPlant?.plantId || localStorage.getItem('railpad_selectedPlantId');
+    if (plantId === "1") plantId = null;
 
     useEffect(() => {
         localStorage.setItem('railpad_selectedModule', selectedModule);
     }, [selectedModule]);
 
+    useEffect(() => {
+        fetchCounts();
+    }, []);
+
+    const fetchCounts = async () => {
+        try {
+            const vendorCode = localStorage.getItem('railpad_vendorCode');
+            if (vendorCode) {
+                const calls = await inspectionCallService.getByVendor(vendorCode);
+                setRequestedCallsCount(Array.isArray(calls) ? calls.length : 0);
+            }
+        } catch (err) {
+            console.error("Error fetching module counts:", err);
+        }
+    };
+
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
-        { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: 0 },
-        { id: 'verified-locked', title: 'Verified & Locked Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
-        { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦' },
+        { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: requestedCallsCount },
+        { id: 'verified-locked', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
+        { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
-        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️' },
-        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰' },
+        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
+        /* { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true }, */
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' }
     ];
 
 
     const renderContent = () => {
+        const contextProps = {
+            plantId,
+            vendorCode: localStorage.getItem('railpad_vendorCode'),
+            vendorName,
+            selectedModule
+        };
+
         switch (selectedModule) {
             case 'plant-declaration':
-                return <PlantDeclarationDashboard />;
+                return <PlantDeclarationDashboard {...contextProps} />;
             case 'inventory-management':
-                return <InventoryManagementDashboard />;
+                return <InventoryManagementDashboard {...contextProps} />;
             case 'production-declaration':
-                return <ProductionDeclarationDashboard />;
+                return <ProductionDeclarationDashboard {...contextProps} />;
             case 'po-assigned':
-                return <PoAssignedDashboard />;
+                return <PoAssignedDashboard {...contextProps} />;
+            case 'requested-calls':
+                return <RequestedCallsDashboard {...contextProps} />;
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
@@ -53,52 +82,7 @@ const RailPadVendorDashboard = () => {
 
     return (
         <div className="railpad-container" style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
-            <header style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                            <span style={{ 
-                                background: '#e0f2fe', 
-                                color: '#0369a1', 
-                                padding: '4px 12px', 
-                                borderRadius: '20px', 
-                                fontSize: '12px', 
-                                fontWeight: '700',
-                                border: '1px solid #bae6fd'
-                            }}>
-                                🏢 {vendorName}
-                            </span>
-                            {plantName && (
-                                <span style={{ 
-                                    background: '#f0fdf4', 
-                                    color: '#166534', 
-                                    padding: '4px 12px', 
-                                    borderRadius: '20px', 
-                                    fontSize: '12px', 
-                                    fontWeight: '700',
-                                    border: '1px solid #bbf7d0'
-                                }}>
-                                    📍 {plantName} {plantId ? `(${plantId})` : ''}
-                                </span>
-                            )}
-                        </div>
-                        <h1 style={{
-                            fontSize: '32px',
-                            fontWeight: '800',
-                            color: '#0f172a',
-                            letterSpacing: '-0.025em',
-                            margin: 0
-                        }}>
-                            Rail-Pad Vendor Dashboard
-                        </h1>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '14px', fontWeight: '500' }}>
-                            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        </p>
-                    </div>
-                </div>
-            </header>
+
 
             <div style={{
                 background: 'white',
@@ -128,7 +112,8 @@ const RailPadVendorDashboard = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                height: '85px',
+                                minHeight: '85px',
+                                height: 'auto',
                                 width: '100%',
                                 boxSizing: 'border-box',
                                 boxShadow: selectedModule === mod.id ? '0 0 0 1px #3b82f6' : 'none'
@@ -163,6 +148,28 @@ const RailPadVendorDashboard = () => {
                                 }}>
                                     {mod.subtitle}
                                 </span>
+                                {mod.underDevelopment && (
+                                    <span style={{
+                                        alignSelf: 'flex-start',
+                                        background: selectedModule === mod.id ? '#fffbeb' : '#fffbeb',
+                                        color: '#b45309',
+                                        border: '1px solid #fde68a',
+                                        borderRadius: '4px',
+                                        fontSize: '8.5px',
+                                        fontWeight: '800',
+                                        padding: '2px 6px',
+                                        marginTop: '4px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.03em',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        lineHeight: '1'
+                                    }}>
+                                        <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                        Under Development
+                                    </span>
+                                )}
                             </div>
                             <div style={{
                                 display: 'flex',

@@ -103,7 +103,16 @@ const DataTable = ({ columns, data, onRowClick, actions, selectable, selectedRow
                 </th>
               )}
               {columns.map(col => (
-                <th key={col.key} onClick={() => handleSort(col.key)}>
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  style={{
+                    width: col.width || undefined,
+                    minWidth: col.width || undefined,
+                    verticalAlign: 'middle',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
                   {col.label} {sortColumn === col.key && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
               ))}
@@ -123,11 +132,30 @@ const DataTable = ({ columns, data, onRowClick, actions, selectable, selectedRow
                   </td>
                 )}
                 {columns.map(col => (
-                  <td key={col.key} data-label={col.label}>
+                  <td
+                    key={col.key}
+                    data-label={col.label}
+                    style={{
+                      width: col.width || undefined,
+                      minWidth: col.width || undefined,
+                      verticalAlign: 'middle',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
                   </td>
                 ))}
-                {actions && <td data-label="Actions">{actions(row)}</td>}
+                {actions && (
+                  <td
+                    data-label="Actions"
+                    style={{
+                      verticalAlign: 'middle',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {actions(row)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

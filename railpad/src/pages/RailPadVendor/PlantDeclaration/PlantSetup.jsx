@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { plantSetupService } from '../../../services/plantSetupService';
 
 const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
+    const cleanUnitName = (name) => {
+        if (!name) return "";
+        let cleaned = name;
+        if (cleaned.startsWith(':')) {
+            cleaned = cleaned.substring(1);
+        }
+        if (cleaned.includes('/')) {
+            const parts = cleaned.split('/');
+            return parts[1];
+        }
+        return cleaned;
+    };
+
     const user = (() => {
         const vName = localStorage.getItem('railpad_vendorName');
         const vCode = localStorage.getItem('railpad_vendorCode');
@@ -21,8 +35,17 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [unitSections, setUnitSections] = useState([]);
     const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
+    const [notification, setNotification] = useState(null);
 
-    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type, fading: false });
+        setTimeout(() => {
+            setNotification(prev => prev ? { ...prev, fading: true } : null);
+            setTimeout(() => setNotification(null), 400);
+        }, 3000);
+    };
+
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
 
     const filteredEntries = (entries || []).filter(entry => {
@@ -87,7 +110,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
         setNumUnits(entry.numberOfUnits);
         setUnitSections((entry.units || []).map(unit => ({
             id: unit.id,
-            unitName: unit.unitName,
+            unitName: unit.unitName || localStorage.getItem('railpad_selectedPlantId') || '',
             address: unit.address,
             numLines: unit.numLines,
             selectedProducts: (unit.products || []).map(p => ({
@@ -105,8 +128,9 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
             try {
                 await plantSetupService.delete(id);
                 onRefresh();
+                showNotification('Plant setup deleted successfully');
             } catch (error) {
-                alert('Error deleting plant setup: ' + error.message);
+                showNotification('Error deleting plant setup: ' + error.message, 'error');
             }
         }
     };
@@ -141,8 +165,10 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
 
             if (editingEntry) {
                 await plantSetupService.update(editingEntry.id, payload);
+                showNotification('Plant setup updated successfully');
             } else {
                 await plantSetupService.create(payload);
+                showNotification('Plant setup created successfully');
             }
 
             onRefresh();
@@ -151,7 +177,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
             setUnitSections([]);
             setEditingEntry(null);
         } catch (error) {
-            alert('Error saving plant setup: ' + error.message);
+            showNotification('Error saving plant setup: ' + error.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -162,32 +188,85 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
         setView('details');
     };
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 12px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 80, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }}></div>
+                <div style={{ width: 50, height: 10, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in">
-            <div className="section-header" style={{ marginBottom: '24px' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Plant Set Up</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+            }}>
+                <div className="section-header" style={{ marginBottom: view === 'list' ? '24px' : '0' }}>
+                    <div>
+                        <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Plant Set Up</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Manage plant units and RDSO approval details</p>
+                    </div>
+                    {view === 'list' && (
+                        <button 
+                            className="btn-primary" 
+                            title={(entries || []).length > 0 ? "Plant Setup already exists (only one setup allowed)" : "Add New Entry"}
+                            style={{
+                                opacity: (entries || []).length > 0 ? 0.65 : 1,
+                                cursor: (entries || []).length > 0 ? 'not-allowed' : 'pointer',
+                                background: (entries || []).length > 0 ? '#94a3b8' : undefined,
+                                borderColor: (entries || []).length > 0 ? '#94a3b8' : undefined,
+                                transform: (entries || []).length > 0 ? 'none' : undefined,
+                                boxShadow: (entries || []).length > 0 ? 'none' : undefined
+                            }}
+                            onClick={() => {
+                                if ((entries || []).length > 0) {
+                                    showNotification("Plant setup already exists. Only one setup is allowed per plant.", "error");
+                                    return;
+                                }
+                                setView('form');
+                                setEditingEntry(null);
+                                setNumUnits(1);
+                                setUnitSections([{
+                                    id: Date.now(),
+                                    unitName: localStorage.getItem('railpad_selectedPlantId') || '',
+                                    address: '',
+                                    numLines: '',
+                                    selectedProducts: []
+                                }]);
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                            Add New Entry
+                        </button>
+                    )}
                 </div>
-                {view === 'list' && (
-                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setNumUnits(0); setUnitSections([]); }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                        Add New Entry
-                    </button>
-                )}
-            </div>
 
-            {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div className="spinner"></div>
-                    <p>Loading plant entries...</p>
-                </div>
-            ) : view === 'list' ? (
-                <div className="fade-in">
+                {view === 'list' && (
                     <div style={{ 
                         display: 'flex', 
                         gap: '12px', 
-                        marginBottom: '20px',
                         background: 'rgba(241, 245, 249, 0.5)',
                         padding: '8px',
                         borderRadius: '12px',
@@ -212,7 +291,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}
                         >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span>
-                            Pending Declaration
+                            Pending
                             <span style={{ 
                                 background: 'rgba(66, 129, 140, 0.08)', 
                                 padding: '2px 8px', 
@@ -239,7 +318,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}
                         >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                            Verified Production
+                            Verified
                             <span style={{ 
                                 background: 'rgba(66, 129, 140, 0.08)', 
                                 padding: '2px 8px', 
@@ -248,6 +327,11 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                             }}>{verifiedCount}</span>
                         </button>
                     </div>
+                )}
+            </div>
+
+            {view === 'list' ? (
+                <div className="fade-in">
 
                     <div className="table-container fade-in">
                         <table>
@@ -261,7 +345,15 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEntries.length > 0 ? (
+                                {isLoading ? (
+                                    <>
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                    </>
+                                ) : filteredEntries.length > 0 ? (
                                     filteredEntries.map(entry => (
                                         <tr key={entry.id}>
                                             <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>
@@ -322,7 +414,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: '32px' }}>
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: '32px' }}>
                             <div className="form-group">
                                 <label className="form-label">Vendor Name</label>
                                 <input className="form-input" value={user?.vendorName} disabled style={{ background: '#f1f5f9' }} />
@@ -331,6 +423,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 <label className="form-label">Vendor Code</label>
                                 <input className="form-input" value={user?.vendorCode} disabled style={{ background: '#f1f5f9' }} />
                             </div>
+                            {/* 
                             <div className="form-group">
                                 <label className="form-label">NO. of Units</label>
                                 <input
@@ -344,6 +437,7 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                     disabled={editingEntry !== null}
                                 />
                             </div>
+                            */}
                         </div>
 
                         {unitSections.map((unit, unitIdx) => (
@@ -354,9 +448,10 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                         <label className="form-label">Unit Name</label>
                                         <input
                                             className="form-input"
-                                            value={unit.unitName}
-                                            onChange={(e) => handleUnitChange(unitIdx, 'unitName', e.target.value)}
+                                            value={cleanUnitName(unit.unitName)}
                                             required
+                                            readOnly
+                                            style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
                                         />
                                     </div>
                                     <div className="form-group">
@@ -381,8 +476,9 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                     ></textarea>
                                 </div>
 
+                                {/* 
                                 <div className="form-group" style={{ marginBottom: '20px' }}>
-                                    <label className="form-label">Production Items Selection</label>
+                                    <label className="form-label">Production Items Selection <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: '11px' }}>(Optional)</span></label>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginTop: '4px' }}>
                                         {productOptions.map(prod => (
                                             <div
@@ -411,41 +507,39 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 {unit.selectedProducts.map((prod, pIdx) => (
                                     <div key={pIdx} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginTop: '12px', border: '1px solid rgba(66, 129, 140, 0.15)' }}>
                                         <div style={{ fontWeight: '800', marginBottom: '12px', fontSize: '11px', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            RDSO Approval for {prod.name}
+                                            RDSO Approval for {prod.name} <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'none' }}>(Optional)</span>
                                         </div>
                                         <div className="form-grid">
                                             <div className="form-group">
-                                                <label className="form-label">RDSO Appr. No.</label>
+                                                <label className="form-label">RDSO Appr. No. <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     className="form-input"
                                                     value={prod.approvalNo}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalNo', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">date</label>
+                                                <label className="form-label">date <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     type="date"
                                                     className="form-input"
                                                     value={prod.approvalDate}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'approvalDate', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">Approved Capacity</label>
+                                                <label className="form-label">Approved Capacity <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Optional)</span></label>
                                                 <input
                                                     type="number"
                                                     className="form-input"
                                                     value={prod.capacity}
                                                     onChange={(e) => handleProductDetailChange(unitIdx, pIdx, 'capacity', e.target.value)}
-                                                    required
                                                 />
                                             </div>
                                         </div>
                                     </div>
                                 ))}
+                                */}
                             </div>
                         ))}
 
@@ -484,15 +578,73 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                     </div>
 
                     <div className="unit-details-section">
-                        <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '800' }}>Unit & RDSO Approval Details</h4>
+                        <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '800' }}>Unit Details</h4>
                         {selectedEntry?.units?.map((unit, uIdx) => (
-                            <div key={uIdx} style={{ marginBottom: '24px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                    <div style={{ fontWeight: '800', color: 'var(--primary-color)' }}>{unit.unitName}</div>
-                                    <div style={{ fontSize: '12px', fontWeight: '600' }}>Lines: {unit.numLines}</div>
+                            <div key={uIdx} style={{
+                                marginBottom: '20px',
+                                padding: '20px',
+                                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                                borderRadius: '16px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                display: 'flex',
+                                gap: '20px',
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
+                            }}>
+                                {/* Sleek Icon Badge */}
+                                <div style={{
+                                    background: 'rgba(66, 129, 140, 0.1)',
+                                    color: 'var(--primary-color)',
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                                        <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
+                                    </svg>
                                 </div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>{unit.address}</div>
+
+                                {/* Details Horizontal Grid */}
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                                    gap: '24px', 
+                                    flexGrow: 1,
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '800', marginBottom: '4px', letterSpacing: '0.05em' }}>Unit Name</span>
+                                        <span style={{ fontSize: '13.5px', fontWeight: '750', color: 'var(--text-main)' }}>{cleanUnitName(unit.unitName)}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '800', marginBottom: '4px', letterSpacing: '0.05em' }}>No. of Lines</span>
+                                        <span style={{ 
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            background: 'rgba(66, 129, 140, 0.08)',
+                                            color: 'var(--primary-color)',
+                                            padding: '4px 12px',
+                                            borderRadius: '8px',
+                                            fontSize: '13px',
+                                            fontWeight: '700',
+                                            border: '1px solid rgba(66, 129, 140, 0.15)'
+                                        }}>
+                                            {unit.numLines} Lines
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '800', marginBottom: '4px', letterSpacing: '0.05em' }}>Address of Unit</span>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>{unit.address}</span>
+                                    </div>
+                                </div>
                                 
+                                {/* 
                                 <div className="table-container small-table" style={{ margin: 0, borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                                     <table>
                                         <thead>
@@ -515,10 +667,71 @@ const PlantSetup = ({ entries, setEntries, onRefresh, isLoading }) => {
                                         </tbody>
                                     </table>
                                 </div>
+                                */}
                             </div>
                         ))}
                     </div>
                 </div>
+            )}
+
+            {/* Notification Toast */}
+            {notification && createPortal(
+                <div className="pv-notification-container" style={{
+                    position: 'fixed',
+                    top: '24px',
+                    right: '24px',
+                    zIndex: 99999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    pointerEvents: 'none'
+                }}>
+                    <div 
+                        className={`pv-notification ${notification.type} ${notification.fading ? 'fade-out' : ''}`}
+                        style={{
+                            pointerEvents: 'auto',
+                            minWidth: '340px',
+                            maxWidth: '450px',
+                            padding: '16px 20px',
+                            borderRadius: '16px',
+                            background: '#ffffff',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            borderLeft: `5px solid ${notification.type === 'success' ? '#21808d' : '#ef4444'}`,
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        <div style={{ fontSize: '24px', flexShrink: 0 }}>
+                            {notification.type === 'success' ? '✅' : '❌'}
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ 
+                                display: 'block', 
+                                fontWeight: '800', 
+                                fontSize: '14px', 
+                                color: '#1e293b',
+                                lineHeight: '1.2',
+                                margin: 0
+                            }}>
+                                {notification.type === 'success' ? 'Success' : 'Attention'}
+                            </span>
+                            <span style={{ 
+                                display: 'block', 
+                                fontSize: '13px', 
+                                color: '#64748b',
+                                lineHeight: '1.4',
+                                fontWeight: '500',
+                                margin: 0
+                            }}>
+                                {notification.message}
+                            </span>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

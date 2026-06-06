@@ -28,7 +28,7 @@ const ProductRecipe = ({ entries, setEntries, onRefresh, isLoading }) => {
     const [editingEntry, setEditingEntry] = useState(null);
     const [selectedEntry, setSelectedEntry] = useState(null);
 
-    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS'];
+    const pendingStatuses = ['CREATED', 'PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'CREATE', 'RETURNED', 'RESUBMITTED'];
     const verifiedStatuses = ['COMPLETED', 'VERIFIED', 'APPROVED'];
 
     const filteredEntries = (entries || []).filter(entry => {
@@ -144,35 +144,63 @@ const ProductRecipe = ({ entries, setEntries, onRefresh, isLoading }) => {
         }
     };
 
+    const SkeletonRow = () => (
+        <tr style={{ animation: 'pulse 1.5s infinite ease-in-out' }}>
+            <td style={{ padding: '20px 12px' }}>
+                <div style={{ width: 100, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ width: 70, height: 24, background: '#f1f5f9', borderRadius: 12 }}></div>
+            </td>
+            <td style={{ padding: '20px 8px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                    <div style={{ width: 60, height: 28, background: '#f1f5f9', borderRadius: 8 }}></div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <div className="fade-in">
-            <div className="section-header" style={{ marginBottom: '24px' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Product Recipe</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Chemical composition as per IRS T-55-2023</p>
+            <div style={{
+                background: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+            }}>
+                <div className="section-header" style={{ marginBottom: view === 'list' ? '24px' : '0' }}>
+                    <div>
+                        <h2 style={{ fontSize: 'var(--fs-xl)', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Product Recipe</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Chemical composition as per IRS T-55-2023</p>
+                    </div>
+                    {view === 'list' && (
+                        <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setRecipeId(''); setPadType(''); setIngredients([{ rawMaterial: '', percentage: 0 }]); }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                            Add Recipe
+                        </button>
+                    )}
                 </div>
-                {view === 'list' && (
-                    <button className="btn-primary" onClick={() => { setView('form'); setEditingEntry(null); setRecipeId(''); setPadType(''); setIngredients([{ rawMaterial: '', percentage: 0 }]); }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                        Add Recipe
-                    </button>
-                )}
-            </div>
 
-            {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div className="spinner"></div>
-                    <p>Loading recipe entries...</p>
-                </div>
-            ) : view === 'list' ? (
-                <div className="fade-in">
-                    <div className="status-tabs-row">
+                {view === 'list' && (
+                    <div className="status-tabs-row" style={{ marginBottom: 0 }}>
                         <button 
                             onClick={() => setStatusTab('PENDING')}
                             className={`status-tab ${statusTab === 'PENDING' ? 'active' : ''}`}
                         >
                             <span className="dot pending"></span>
-                            Pending Verification
+                            Pending
                             <span className="count-badge">{pendingCount}</span>
                         </button>
                         <button 
@@ -180,10 +208,15 @@ const ProductRecipe = ({ entries, setEntries, onRefresh, isLoading }) => {
                             className={`status-tab ${statusTab === 'COMPLETED' ? 'active' : ''}`}
                         >
                             <span className="dot success"></span>
-                            Verified Recipes
+                            Verified
                             <span className="count-badge">{verifiedCount}</span>
                         </button>
                     </div>
+                )}
+            </div>
+
+            {view === 'list' ? (
+                <div className="fade-in">
 
                     <div className="table-container fade-in">
                         <table>
@@ -198,7 +231,15 @@ const ProductRecipe = ({ entries, setEntries, onRefresh, isLoading }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEntries.length > 0 ? (
+                                {isLoading ? (
+                                    <>
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                    </>
+                                ) : filteredEntries.length > 0 ? (
                                     filteredEntries.map(entry => (
                                         <tr key={entry.id}>
                                             <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{entry.recipeIdentification}</td>
@@ -253,56 +294,162 @@ const ProductRecipe = ({ entries, setEntries, onRefresh, isLoading }) => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                            <div className="form-group">
-                                <label className="form-label">Recipe Identification</label>
-                                <input className="form-input" placeholder="e.g. Batch-A-01" value={recipeId} onChange={(e) => setRecipeId(e.target.value)} required />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>Recipe Identification *</label>
+                                <input 
+                                    className="form-input" 
+                                    placeholder="e.g. Batch-A-01" 
+                                    value={recipeId} 
+                                    onChange={(e) => setRecipeId(e.target.value)} 
+                                    required 
+                                    style={{ border: '1px solid #cbd5e1', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)' }}
+                                />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Type of Rail Pad</label>
-                                <select className="form-select" value={padType} onChange={(e) => setPadType(e.target.value)} required >
-                                    <option value="">Select Type</option>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>Type of Rail Pad *</label>
+                                <select 
+                                    className="form-select" 
+                                    value={padType} 
+                                    onChange={(e) => setPadType(e.target.value)} 
+                                    required 
+                                    style={{ border: '1px solid #cbd5e1', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)' }}
+                                >
+                                    <option value="">Select Pad Type</option>
                                     {padTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                         </div>
 
-                        <div style={{ marginTop: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                <label className="form-label">Composition Builder</label>
-                                <button type="button" onClick={handleAddIngredient} className="btn-primary-sm">+ Ingredient</button>
-                            </div>
-
-                            {ingredients.map((ing, idx) => (
-                                <div key={idx} className="composition-row fade-in">
-                                    <div className="form-group" style={{ flex: 2 }}>
-                                        <label className="form-label">Raw Material</label>
-                                        <select className="form-select" value={ing.rawMaterial} onChange={(e) => handleIngredientChange(idx, 'rawMaterial', e.target.value)} required >
-                                            <option value="">Select</option>
-                                            {materials.map(m => <option key={m} value={m}>{m}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label className="form-label">Percentage (%)</label>
-                                        <input type="number" step="0.01" className="form-input" value={ing.percentage} onChange={(e) => handleIngredientChange(idx, 'percentage', e.target.value)} required />
-                                    </div>
-                                    <button type="button" onClick={() => handleRemoveIngredient(idx)} className="btn-remove-ing">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /></svg>
-                                    </button>
+                        <div style={{ marginTop: '32px', background: 'rgba(248, 250, 252, 0.6)', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Composition Builder</h4>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b' }}>Define the ingredients and their percentage in the mix.</p>
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="composition-summary-card">
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Total Composition: <span className={totalPercentage > 100 ? 'text-error' : 'text-primary'}>{totalPercentage.toFixed(2)}%</span></span>
-                                <span>Virgin Total: <span className={virginTotal < 50 ? 'text-error' : 'text-success'}>{virginTotal.toFixed(2)}%</span></span>
+                                <button 
+                                    type="button" 
+                                    onClick={handleAddIngredient} 
+                                    style={{
+                                        background: 'var(--primary-color)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px',
+                                        fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                        boxShadow: '0 2px 4px rgba(33,128,141,0.2)', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14M5 12h14"/></svg>
+                                    Add Ingredient
+                                </button>
                             </div>
-                            {error && <div className="error-msg-sm">{error}</div>}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {ingredients.map((ing, idx) => (
+                                    <div key={idx} style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: '16px', background: '#fff', 
+                                        padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)', transition: 'border-color 0.2s'
+                                    }}>
+                                        <div style={{
+                                            width: '28px', height: '28px', borderRadius: '50%', background: '#f1f5f9', 
+                                            color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '12px', fontWeight: '700', flexShrink: 0, marginTop: '28px'
+                                        }}>
+                                            {idx + 1}
+                                        </div>
+                                        <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+                                            <label className="form-label" style={{ fontSize: '12px', color: '#475569' }}>Raw Material</label>
+                                            <select 
+                                                className="form-select" 
+                                                value={ing.rawMaterial} 
+                                                onChange={(e) => handleIngredientChange(idx, 'rawMaterial', e.target.value)} 
+                                                required 
+                                                style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', background: '#f8fafc' }}
+                                            >
+                                                <option value="">Select Material...</option>
+                                                {materials
+                                                    .filter(m => !ingredients.some((otherIng, otherIdx) => otherIdx !== idx && otherIng.rawMaterial === m))
+                                                    .map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                                            <label className="form-label" style={{ fontSize: '12px', color: '#475569' }}>Percentage (%)</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    className="form-input" 
+                                                    value={ing.percentage} 
+                                                    onChange={(e) => handleIngredientChange(idx, 'percentage', e.target.value)} 
+                                                    required 
+                                                    style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', background: '#f8fafc', paddingRight: '32px' }}
+                                                />
+                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '13px', fontWeight: '600' }}>%</span>
+                                            </div>
+                                        </div>
+                                        {ingredients.length > 1 && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleRemoveIngredient(idx)} 
+                                                style={{
+                                                    background: 'transparent', border: 'none', color: '#ef4444', 
+                                                    padding: '8px', cursor: 'pointer', alignSelf: 'center', marginTop: '20px',
+                                                    borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                title="Remove Ingredient"
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="form-actions">
-                            <button type="submit" className="btn-primary" disabled={!!error || isSaving}>
+                        <div style={{ 
+                            marginTop: '24px', 
+                            background: totalPercentage > 100 || (totalPercentage > 0 && virginTotal < 50) ? '#fef2f2' : 'linear-gradient(to right, #f0fdf4, #dcfce7)',
+                            border: `1px solid ${totalPercentage > 100 || (totalPercentage > 0 && virginTotal < 50) ? '#fca5a5' : '#86efac'}`,
+                            borderRadius: '12px', padding: '16px 24px', 
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Composition</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: totalPercentage > 100 ? '#dc2626' : '#166534' }}>
+                                    {totalPercentage.toFixed(2)}%
+                                </div>
+                            </div>
+                            
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Virgin Material</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: (totalPercentage > 0 && virginTotal < 50) ? '#dc2626' : '#166534' }}>
+                                    {virginTotal.toFixed(2)}%
+                                </div>
+                            </div>
+                        </div>
+                        {error && (
+                            <div style={{ marginTop: '12px', padding: '12px 16px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                                {error}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '32px', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
+                            <button type="button" className="btn-secondary" onClick={() => setView('list')} style={{ padding: '10px 24px', fontSize: '14px', borderRadius: '8px' }}>Cancel</button>
+                            <button 
+                                type="submit" 
+                                disabled={!!error || isSaving}
+                                style={{
+                                    background: (!!error || isSaving) ? '#94a3b8' : 'var(--primary-color)',
+                                    color: '#fff', border: 'none', padding: '10px 32px', borderRadius: '8px',
+                                    fontSize: '14px', fontWeight: '700', cursor: (!!error || isSaving) ? 'not-allowed' : 'pointer',
+                                    boxShadow: '0 4px 6px rgba(33,128,141,0.2)', transition: 'all 0.2s'
+                                }}
+                            >
                                 {isSaving ? 'Saving...' : (editingEntry ? 'Update Recipe' : 'Submit Recipe')}
                             </button>
                         </div>

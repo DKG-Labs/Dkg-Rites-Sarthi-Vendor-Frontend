@@ -867,6 +867,112 @@ const inspectionCallService = {
   },
 
   /**
+   * Modify a Raw Material Inspection Call (PATCH)
+   * Endpoint: PATCH /api/raw-material/modifyInspectionCall?icNumber=...
+   * Only non-null fields in the DTO will be updated (backend uses null-check to skip unchanged fields).
+   *
+   * @param {string} icNumber - IC Number to modify
+   * @param {Object} icFields - Partial InspectionCallRequestDto fields to update
+   * @param {Object} rmFields - Partial RmInspectionDetailsRequestDto fields to update
+   * @returns {Promise<Object>} - API response with updated InspectionCall
+   */
+  modifyRMInspectionCall: async (icNumber, icFields = {}, rmFields = {}) => {
+    try {
+      console.log('📝 Modifying RM Inspection Call:', icNumber, { icFields, rmFields });
+      const payload = {
+        inspectionCall: Object.keys(icFields).length > 0 ? icFields : null,
+        rmInspectionDetails: Object.keys(rmFields).length > 0 ? rmFields : null
+      };
+      const response = await httpClient.patch(
+        `/raw-material/modifyInspectionCall?icNumber=${encodeURIComponent(icNumber)}`,
+        payload
+      );
+      console.log('✅ Modify RM IC response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error modifying RM inspection call:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Modify a Process Inspection Call (PATCH)
+   * Endpoint: PATCH /api/process-material/modifyInspectionCall?icNumber=...
+   *
+   * @param {string} icNumber - IC Number to modify
+   * @param {Object} icFields - Partial InspectionCallRequestDto fields to update
+   * @param {Array} processDetails - Partial ProcessInspectionDetailsRequestDto fields to update
+   * @returns {Promise<Object>} - API response
+   */
+  modifyProcessInspectionCall: async (icNumber, icFields = {}, processDetails = []) => {
+    try {
+      console.log('📝 Modifying Process Inspection Call:', icNumber, { icFields, processDetails });
+      const payload = {
+        inspectionCall: Object.keys(icFields).length > 0 ? icFields : null,
+        processInspectionDetails: processDetails.length > 0 ? processDetails : null
+      };
+      const response = await httpClient.patch(
+        `/process-material/modifyInspectionCall?icNumber=${encodeURIComponent(icNumber)}`,
+        payload
+      );
+      console.log('✅ Modify Process IC response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error modifying Process inspection call:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Modify a Final Inspection Call (PATCH)
+   * Endpoint: PATCH /api/final-material/modifyInspectionCall?icNumber=...
+   *
+   * @param {string} icNumber - IC Number to modify
+   * @param {Object} icFields - Partial InspectionCallRequestDto fields to update
+   * @param {Object} finalDetails - Partial FinalInspectionDetailsRequestDto fields to update
+   * @param {Array} lotDetails - Partial FinalInspectionLotDetailsRequestDto fields to update
+   * @returns {Promise<Object>} - API response
+   */
+  modifyFinalInspectionCall: async (icNumber, icFields = {}, finalDetails = {}, lotDetails = []) => {
+    try {
+      console.log('📝 Modifying Final Inspection Call:', icNumber, { icFields, finalDetails, lotDetails });
+      const payload = {
+        inspectionCall: Object.keys(icFields).length > 0 ? icFields : null,
+        finalInspectionDetails: Object.keys(finalDetails).length > 0 ? finalDetails : null,
+        finalLotDetails: lotDetails.length > 0 ? lotDetails : null
+      };
+      const response = await httpClient.patch(
+        `/final-material/modifyInspectionCall?icNumber=${encodeURIComponent(icNumber)}`,
+        payload
+      );
+      console.log('✅ Modify Final IC response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error modifying Final inspection call:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get RM Inspection Call full details by IC Number (for modify pre-fill)
+   * Uses GET /api/raw-material/calls/ic-number/{icNumber}
+   * @param {string} icNumber - IC Number
+   * @returns {Promise<Object>} - API response
+   */
+  getICDetailsByNumber: async (icNumber) => {
+    try {
+      console.log(`📋 Fetching IC details for pre-fill: ${icNumber}`);
+      const response = await httpClient.get(
+        `/raw-material/calls/ic-number/${encodeURIComponent(icNumber)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching IC details by number:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Withdraw an inspection call
    * @param {Object} withdrawalData - Data for withdrawal (workflowTransitionId, requestId, remarks, actionBy)
    * @returns {Promise<Object>} - API response
@@ -882,6 +988,62 @@ const inspectionCallService = {
       return response;
     } catch (error) {
       console.error('❌ Error withdrawing call:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get workflow transition history for a specific request ID
+   * @param {string} requestId - Request ID (e.g. call number or production declaration ID)
+   * @returns {Promise<Object>} - API response with workflow history
+   */
+  getWorkflowHistory: async (requestId) => {
+    try {
+      console.log(`📋 Fetching workflow transition history for Request ID: ${requestId}`);
+      const response = await httpClient.get(
+        `/railpad-workflow/WorkflowTransitionHistory?requestId=${encodeURIComponent(requestId)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching workflow transition history:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Process Inspection Call full details by IC Number (for modify pre-fill)
+   * GET /api/process-material/inspection-call-details/{callNo}
+   * @param {string} icNumber - IC Number
+   * @returns {Promise<Object>} - API response
+   */
+  getProcessICDetailsByNumber: async (icNumber) => {
+    try {
+      console.log(`📋 Fetching Process IC details for pre-fill: ${icNumber}`);
+      const response = await httpClient.get(
+        `/process-material/inspection-call-details/${encodeURIComponent(icNumber)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching Process IC details by number:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Final Inspection Call full details by IC Number (for modify pre-fill)
+   * GET /api/final-material/inspection/{callNo}
+   * @param {string} icNumber - IC Number
+   * @returns {Promise<Object>} - API response
+   */
+  getFinalICDetailsByNumber: async (icNumber) => {
+    try {
+      console.log(`📋 Fetching Final IC details for pre-fill: ${icNumber}`);
+      const response = await httpClient.get(
+        `/final-material/inspection/${encodeURIComponent(icNumber)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching Final IC details by number:', error);
       throw error;
     }
   },

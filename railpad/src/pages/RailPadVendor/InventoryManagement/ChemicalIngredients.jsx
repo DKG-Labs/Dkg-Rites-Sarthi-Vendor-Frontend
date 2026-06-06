@@ -19,13 +19,25 @@ const EMPTY = {
     quantity: '', document: null,
 };
 
-const ChemicalIngredients = ({ entries, setEntries, approvedSuppliers, allInvoices }) => {
+const ChemicalIngredients = ({ entries, setEntries, approvedSuppliers, sourceObjects, allInvoices }) => {
     const [view, setView] = useState('list');
     const [form, setForm] = useState(EMPTY);
     const [errors, setErrors] = useState({});
     const [editId, setEditId] = useState(null);
 
     const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+    const availableSuppliers = React.useMemo(() => {
+        if (sourceObjects && sourceObjects.length > 0) {
+            const filtered = sourceObjects.filter(src => 
+                src.materialName?.trim().toLowerCase() === form.ingredientType?.trim().toLowerCase() && 
+                src.materialType?.trim().toLowerCase() === form.ingredientSubType?.trim().toLowerCase()
+            );
+            const names = [...new Set(filtered.map(src => src.supplierName).filter(Boolean))];
+            return names;
+        }
+        return [];
+    }, [sourceObjects, form.ingredientType, form.ingredientSubType]);
 
     const validate = () => {
         const errs = {};
@@ -136,7 +148,7 @@ const ChemicalIngredients = ({ entries, setEntries, approvedSuppliers, allInvoic
                                 {errors.ingredientSubType && <span className="error-msg">{errors.ingredientSubType}</span>}
                             </div>
 
-                            <FormSelect label="Source of Supply" value={form.sourceOfSupply} options={approvedSuppliers} onChange={v => set('sourceOfSupply', v)} error={errors.sourceOfSupply} placeholder="Select approved supplier" />
+                            <FormSelect label="Source of Supply" value={form.sourceOfSupply} options={availableSuppliers} onChange={v => set('sourceOfSupply', v)} error={errors.sourceOfSupply} placeholder="Select approved supplier" />
                             <FormInput label="Invoice Number" value={form.invoiceNumber} onChange={v => set('invoiceNumber', v)} error={errors.invoiceNumber} placeholder="Invoice reference" />
                             <FormInput label="E-way Bill Number" value={form.ewayBillNumber} onChange={v => set('ewayBillNumber', v)} error={errors.ewayBillNumber} placeholder="Numeric" />
                             <FormDate label="Invoice Date" value={form.invoiceDate} onChange={v => set('invoiceDate', v)} error={errors.invoiceDate} />
