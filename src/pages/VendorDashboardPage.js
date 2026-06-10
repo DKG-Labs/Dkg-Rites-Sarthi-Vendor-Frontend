@@ -4717,7 +4717,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
       {/* ============ RAISE / MODIFY INSPECTION REQUEST MODAL ============ */}
       {isInspectionModalOpen && (
-        <div className="modal-overlay" onClick={handleCloseInspectionModal}>
+        <div className="modal-overlay">
           <div className="modal raise-inspection-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={isModifyMode ? { background: 'linear-gradient(135deg, #f59e0b, #d97706)' } : (isViewOnlyMode ? { background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' } : {})}>
               <h3 className="modal-title">
