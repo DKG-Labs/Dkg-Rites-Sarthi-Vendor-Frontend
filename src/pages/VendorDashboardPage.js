@@ -323,9 +323,15 @@ const VendorDashboardPage = ({ onBack }) => {
           rateOfGst: entry.rateOfGst,
           tcQuantity: entry.tcQuantity,
           offeredQuantity: entry.offeredQuantity || 0,
-          // FIX: Use nullish coalescing (??) instead of || to handle 0 correctly
-          // When qtyLeftForInspection is 0 (exhausted), it should display 0, not fall back to tcQuantity
-          qtyLeftForInspection: entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity,
+          // FIX: Handle case where backend incorrectly sends 0 for fresh entries
+          qtyLeftForInspection: (() => {
+            let qty = entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity;
+            const offered = entry.offeredQuantity || 0;
+            if (qty === 0 && offered === 0 && entry.tcQuantity > 0) {
+              return entry.tcQuantity;
+            }
+            return qty;
+          })(),
           unitOfMeasurement: entry.unitOfMeasurement,
           baseValuePO: entry.baseValuePo,
           totalPO: entry.totalPo,
