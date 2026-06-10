@@ -1,0 +1,340 @@
+/* FinalInspectionAnnexure.css - Final Inspection Report Layout */
+
+.final-inspection-annexure {
+  font-size: 12px;
+  padding: 15px;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Header section */
+.final-inspection-annexure .annexure-header {
+  margin-bottom: 12px;
+  border: 2px solid #000;
+}
+
+.final-inspection-annexure .annexure-header-logo,
+.final-inspection-annexure .annexure-header-title,
+.final-inspection-annexure .annexure-header-info {
+  padding: 10px;
+  border-right: 2px solid #000;
+}
+
+.final-inspection-annexure .annexure-logo-placeholder {
+  font-size: 18px;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.final-inspection-annexure .annexure-company-name {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.final-inspection-annexure .annexure-division {
+  font-size: 11px;
+}
+
+.final-inspection-annexure .annexure-main-title {
+  font-size: 13px;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.final-inspection-annexure .annexure-product-name {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.final-inspection-annexure .annexure-info-row {
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+/* Title section */
+.final-inspection-annexure .annexure-title-section {
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.final-inspection-annexure .annexure-stage-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Subtitle section - Dimensions and Lot No */
+.final-inspection-subtitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.final-inspection-dimensions {
+  font-weight: bold;
+  color: #000;
+}
+
+.final-inspection-lot {
+  font-weight: normal;
+  color: #000;
+}
+
+/* Note section */
+.final-inspection-note {
+  font-size: 10px;
+  color: #000;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+/* Table wrapper */
+.final-inspection-annexure .annexure-table-wrapper {
+  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Table base styles */
+.final-inspection-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  font-size: 11px;
+  table-layout: auto;
+}
+
+.final-inspection-table .annexure-th {
+  font-size: 10px;
+  padding: 5px 4px;
+  line-height: 1.3;
+  font-weight: bold;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  background-color: #fff;
+}
+
+.final-inspection-table .annexure-td {
+  font-size: 11px;
+  padding: 5px 4px;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  min-height: 35px;
+}
+
+/* Sub-header styling */
+.final-inspection-table .sub-header {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: bold;
+  padding: 4px 3px;
+}
+
+/* Data cells - black text */
+.final-inspection-table .data-cell {
+  color: #000000;
+}
+
+/* Column widths */
+/* S. No. */
+.final-inspection-table th:nth-child(1),
+.final-inspection-table td:nth-child(1) {
+  width: 50px;
+  min-width: 50px;
+}
+
+/* Parameter */
+.final-inspection-table th:nth-child(2),
+.final-inspection-table td:nth-child(2) {
+  width: 120px;
+  min-width: 120px;
+  text-align: left;
+  padding-left: 8px;
+}
+
+/* MK-III Specified */
+.final-inspection-table thead tr:first-child th:nth-child(3) {
+  width: auto;
+}
+
+.final-inspection-table thead tr:nth-child(2) th:nth-child(1),
+.final-inspection-table tbody td:nth-child(3) {
+  width: 140px;
+  min-width: 140px;
+}
+
+/* MK-V Specified */
+.final-inspection-table thead tr:nth-child(2) th:nth-child(2),
+.final-inspection-table tbody td:nth-child(4) {
+  width: 140px;
+  min-width: 140px;
+}
+
+/* Observation columns */
+.final-inspection-table thead tr:first-child th:nth-child(4) {
+  width: auto;
+}
+
+.final-inspection-table thead tr:nth-child(2) th:nth-child(3),
+.final-inspection-table tbody td:nth-child(5) {
+  width: 100px;
+  min-width: 100px;
+}
+
+.final-inspection-table thead tr:nth-child(2) th:nth-child(4),
+.final-inspection-table tbody td:nth-child(6) {
+  width: 100px;
+  min-width: 100px;
+}
+
+/* Print styles */
+@media print {
+  /* Hide everything except the annexure content */
+  body * {
+    visibility: hidden;
+  }
+
+  .final-inspection-annexure,
+  .final-inspection-annexure * {
+    visibility: visible;
+  }
+
+  .final-inspection-annexure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+    transform: scale(0.85);
+    transform-origin: top left;
+  }
+
+  /* Fit to single page */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  /* Compact header */
+  .final-inspection-annexure .annexure-header {
+    margin-bottom: 4px;
+    page-break-inside: avoid;
+  }
+
+  .final-inspection-annexure .annexure-header-logo,
+  .final-inspection-annexure .annexure-header-title,
+  .final-inspection-annexure .annexure-header-info {
+    padding: 4px 6px;
+  }
+
+  .final-inspection-annexure .annexure-logo-placeholder {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .final-inspection-annexure .annexure-company-name {
+    font-size: 10px;
+  }
+
+  .final-inspection-annexure .annexure-division {
+    font-size: 8px;
+  }
+
+  .final-inspection-annexure .annexure-main-title {
+    font-size: 10px;
+  }
+
+  .final-inspection-annexure .annexure-product-name {
+    font-size: 9px;
+  }
+
+  .final-inspection-annexure .annexure-info-row {
+    font-size: 7px;
+    margin-bottom: 1px;
+  }
+
+  /* Compact title section */
+  .final-inspection-annexure .annexure-title-section {
+    margin-bottom: 3px;
+  }
+
+  .final-inspection-annexure .annexure-stage-title {
+    font-size: 11px;
+  }
+
+  /* Compact subtitle section */
+  .final-inspection-annexure .annexure-subtitle-section {
+    margin-bottom: 3px;
+    margin-top: 1px;
+  }
+
+  .final-inspection-annexure .annexure-subtitle {
+    font-size: 9px;
+  }
+
+  .final-inspection-annexure .annexure-lot-no {
+    font-size: 9px;
+  }
+
+  /* Compact table */
+  .final-inspection-table {
+    font-size: 7px;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .final-inspection-table .annexure-th {
+    font-size: 7px;
+    padding: 1px;
+    line-height: 1.1;
+  }
+
+  .final-inspection-table .annexure-td {
+    font-size: 8px;
+    padding: 2px 1px;
+    line-height: 1.1;
+  }
+
+  .final-inspection-table .sub-header {
+    font-size: 6px;
+  }
+
+  .final-inspection-note {
+    font-size: 7px;
+    margin-top: 5px;
+    page-break-inside: avoid;
+  }
+
+  /* Compact footer */
+  .final-inspection-annexure .annexure-footer {
+    page-break-inside: avoid;
+    margin-top: 5px;
+  }
+
+  .final-inspection-annexure .annexure-signature-label {
+    font-size: 9px;
+  }
+
+  /* Hide any navigation or buttons */
+  .annexure-page__header,
+  .annexure-page__back-button,
+  .annexure-header-bar,
+  .annexure-header-actions,
+  button,
+  nav {
+    display: none !important;
+  }
+}
+
+

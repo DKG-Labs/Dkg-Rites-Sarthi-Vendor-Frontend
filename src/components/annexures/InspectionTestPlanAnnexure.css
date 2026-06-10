@@ -1,0 +1,510 @@
+/* InspectionTestPlanAnnexure.css - Styles for 8-page Inspection & Test Plan */
+
+.inspection-test-plan-annexure {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #000;
+  background: white;
+  width: 100%;
+}
+
+/* Page Structure - Full width with minimal margins */
+.itp-page {
+  width: 180mm;
+  min-height: 250mm;
+  padding: 8mm 6mm;
+  margin: 0 auto 5mm;
+  background: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  page-break-after: always;
+  box-sizing: border-box;
+}
+
+.itp-page:last-child {
+  page-break-after: auto;
+}
+
+.itp-content {
+  margin-top: 4px;
+  padding: 10px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+
+}
+
+/* Info Row (Case/Book/Set Numbers) */
+.itp-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  column-gap: 100px;
+  margin-bottom: 4px;
+  /* border: 1px solid #000; */
+  padding: 5px 80px;
+}
+
+.itp-info-item {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+}
+
+.itp-label {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.itp-value {
+  color: #d00;
+  font-weight: normal;
+  font-size: 12px;
+}
+
+/* Numbered Items */
+.itp-numbered-item {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 3px;
+  line-height: 1.3;
+  font-size: 10px;
+}
+
+.itp-number {
+  font-weight: bold;
+  min-width: 15px;
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.itp-colon {
+  margin: 0 2px;
+}
+
+.itp-text {
+  flex: 1;
+  font-size: 12px;
+}
+
+/* Section Styles */
+.itp-section {
+  /* display: flex; */
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 0 80px
+}
+
+.itp-section-heading {
+  font-weight: bold;
+  font-size: 12px;
+  margin: 4px 0 3px;
+  text-decoration: underline;
+}
+
+.itp-section-title {
+  font-weight: bold;
+  font-size: 10px;
+  text-align: center;
+  margin: 4px 0 2px;
+  line-height: 1.2;
+}
+
+.itp-section-subtitle {
+  text-align: right;
+  font-size: 8px;
+  margin-bottom: 2px;
+}
+
+.itp-subsection-title {
+  font-weight: bold;
+  margin: 4px 0 2px;
+  font-size: 9px;
+}
+
+/* Note Sections */
+.itp-note-section {
+  margin: 4px 0;
+  font-size: 12px;
+  padding: 0 80px
+}
+
+.itp-note-text {
+  margin: 2px 0;
+  line-height: 1.3;
+
+}
+
+.itp-note-italic {
+  font-style: italic;
+}
+
+/* Table Title */
+.itp-table-title {
+  font-weight: bold;
+  text-align: center;
+  font-size: 10px;
+  margin: 3px 0 1px;
+  line-height: 1.2;
+}
+
+.itp-table-subtitle {
+  text-align: right;
+  font-size: 10px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+/* Tables - Compact and full width */
+.itp-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 4px;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.itp-table th,
+.itp-table td {
+  border: 1px solid #000;
+  padding: 5px 6px;
+  text-align: left;
+  vertical-align: middle;
+  line-height: 1.3;
+  font-size: 12px;
+}
+
+.itp-table th {
+  /* background-color: #f0f0f0; */
+  font-weight: bold;
+  text-align: center;
+  padding: 6px;
+}
+
+.itp-table td {
+  line-height: 1.3;
+}
+
+/* Increase width of "Value Specified" column - ONLY for raw-material and finished-product tables (Pages 3-8) */
+.raw-material-table th:nth-child(3),
+.raw-material-table td:nth-child(3),
+.finished-product-table th:nth-child(3),
+.finished-product-table td:nth-child(3) {
+  width: 30%;
+}
+
+/* Adjust other columns to compensate - ONLY for raw-material and finished-product tables (Pages 3-8) */
+.raw-material-table th:nth-child(1),
+.raw-material-table td:nth-child(1),
+.finished-product-table th:nth-child(1),
+.finished-product-table td:nth-child(1) {
+  width: 8%;
+}
+
+.raw-material-table th:nth-child(2),
+.raw-material-table td:nth-child(2),
+.finished-product-table th:nth-child(2),
+.finished-product-table td:nth-child(2) {
+  width: 25%;
+}
+
+.raw-material-table th:nth-child(4),
+.raw-material-table td:nth-child(4),
+.finished-product-table th:nth-child(4),
+.finished-product-table td:nth-child(4) {
+  width: 20%;
+}
+
+.raw-material-table th:nth-child(5),
+.raw-material-table td:nth-child(5),
+.finished-product-table th:nth-child(5),
+.finished-product-table td:nth-child(5) {
+  width: 17%;
+}
+
+/* Specific Table Styles */
+.sampling-table {
+  font-size: 11px;
+}
+
+.sampling-table th,
+.sampling-table td {
+  padding: 4px 5px;
+  line-height: 1.3;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.test-params-table th,
+.test-params-table td {
+  font-size: 11px;
+  padding: 4px 5px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+.other-tests-table {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.other-tests-table th,
+.other-tests-table td {
+  padding: 4px 6px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+.raw-material-table td,
+.finished-product-table td {
+  font-size: 11px;
+  padding: 5px 6px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+/* Nested Tables */
+.itp-nested-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.itp-nested-table th,
+.itp-nested-table td {
+  border: 1px solid #000;
+  padding: 3px 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.itp-nested-table th {
+  background-color: #e8e8e8;
+}
+
+/* Notes Section (After Sampling Table) */
+.itp-notes-section {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.itp-notes-title {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.itp-note-item {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+.itp-note-number {
+  font-weight: bold;
+  min-width: 15px;
+  flex-shrink: 0;
+}
+
+.itp-note-content {
+  flex: 1;
+}
+
+/* Checklist */
+.itp-checklist {
+  margin: 4px 0;
+}
+
+.itp-checklist-item {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.itp-checklist-letter {
+  font-weight: bold;
+  min-width: 15px;
+  flex-shrink: 0;
+}
+
+.itp-checklist-text {
+  flex: 1;
+  font-size: 12px;
+}
+
+/* Signature Line */
+.itp-signature-line {
+  margin-top: 10px;
+  text-align: right;
+  font-weight: bold;
+  padding-right: 10px;
+  font-size: 12px;
+}
+
+/* Undertaking Section */
+.itp-undertaking-section {
+  margin: 6px 0;
+  /* border: 1px solid #000; */
+  padding: 4px 6px;
+}
+
+.itp-undertaking-title {
+  font-weight: bold;
+  font-size: 15px;
+  margin-bottom: 4px;
+  text-decoration: underline;
+}
+
+.itp-undertaking-item {
+  margin-bottom: 3px;
+  line-height: 1.3;
+  font-size: 13px;
+}
+
+/* Footer Notes */
+.itp-footer-notes {
+
+  margin-top: 6px;
+  font-size: 10px;
+  padding: 0 40px;
+}
+
+.itp-footer-note {
+  /* font-weight: bold; */
+  margin: 4px 0 2px;
+}
+
+.itp-footer-note-item {
+  margin-left: 10px;
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+/* Print Styles */
+@media print {
+  .inspection-test-plan-annexure {
+    width: 100%;
+  }
+
+  .itp-page {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 8mm 6mm;
+    box-shadow: none;
+    page-break-after: always;
+  }
+
+  .itp-page:last-child {
+    page-break-after: auto;
+  }
+
+  /* Ensure tables don't break across pages */
+  .itp-table {
+    page-break-inside: auto;
+  }
+
+  /* Prevent page breaks inside important sections */
+  .itp-notes-section,
+  .itp-undertaking-section {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure content fills the page */
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .itp-page {
+    width: 100%;
+    min-height: auto;
+    padding: 4mm;
+    margin-bottom: 3mm;
+  }
+
+  .itp-content {
+    font-size: 8px;
+  }
+
+  .itp-table {
+    font-size: 8px;
+  }
+
+  .itp-table th,
+  .itp-table td {
+    padding: 1px;
+  }
+
+  .itp-info-row {
+    flex-direction: column;
+  }
+
+  .itp-info-item {
+    margin-bottom: 3px;
+  }
+
+  /* Make tables scrollable on mobile */
+  .itp-table-wrapper {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .itp-page {
+    padding: 2mm;
+  }
+
+  .itp-content {
+    font-size: 7px;
+  }
+
+  .itp-table {
+    font-size: 8px;
+  }
+
+  .itp-numbered-item,
+  .itp-note-item,
+  .itp-checklist-item {
+    gap: 2px;
+  }
+
+  .itp-number,
+  .itp-note-number,
+  .itp-checklist-letter {
+    min-width: 12px;
+  }
+}
+
+/* Additional compact styles for better page coverage */
+.itp-page .annexure-header {
+  margin-bottom: 3px;
+}
+
+/* Ensure full width utilization */
+.itp-page * {
+  box-sizing: border-box;
+}
+
+/* Compact row spacing in tables */
+.itp-table tr {
+  height: auto;
+}
+
+/* Remove extra spacing from paragraphs */
+.itp-note-text,
+.itp-undertaking-item,
+.itp-footer-note-item {
+  margin-top: 0;
+  margin-bottom: 2px;
+}

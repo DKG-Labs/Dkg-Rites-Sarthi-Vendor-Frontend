@@ -1589,6 +1589,9 @@ select.form-control {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   gap: var(--space-4);
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 .status-badge.pending {

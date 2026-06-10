@@ -1,0 +1,80 @@
+/* AnnexureFooter.css - Footer styles for all annexures */
+
+.annexure-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+}
+
+.annexure-stamp-section {
+  flex: 0 0 200px;
+}
+
+.annexure-stamp-placeholder {
+  border: 2px solid #000;
+  padding: 40px 20px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: #000;
+}
+
+.annexure-signature-section {
+  flex: 1;
+  text-align: right;
+  padding-right: 20px;
+}
+
+.annexure-signature-label {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 40px;
+  color: #000;
+}
+
+.annexure-signature-name {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 2px;
+  color: #000;
+}
+
+.annexure-signature-designation {
+  font-size: 11px;
+  margin-bottom: 2px;
+  color: #000;
+}
+
+.annexure-signature-location {
+  font-size: 11px;
+  color: #000;
+}
+
+/* Print styles */
+@media print {
+  /* .annexure-footer {
+    page-break-inside: avoid;
+    margin-top: 5px;
+  } */
+
+  .annexure-signature-label {
+    font-size: 9px;
+  }
+
+  .annexure-signature-name {
+    font-size: 10px;
+  }
+
+  .annexure-signature-designation,
+  .annexure-signature-location {
+    font-size: 9px;
+  }
+
+  .annexure-stamp-placeholder {
+    padding: 30px 15px;
+    font-size: 12px;
+  }
+}

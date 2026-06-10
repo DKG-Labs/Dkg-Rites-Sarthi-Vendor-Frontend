@@ -76,7 +76,9 @@ export const API_ENDPOINTS = {
     GET_ALL: '/vendor/po-assigned',
     GET_BY_VENDOR: '/vendor/po-assigned',
     GET_COUNT: '/vendor/po-assigned/count'
-  }
+  },
+  
+  ANNEXURES: '/annexures'
 };
 
 // HTTP request timeout in milliseconds

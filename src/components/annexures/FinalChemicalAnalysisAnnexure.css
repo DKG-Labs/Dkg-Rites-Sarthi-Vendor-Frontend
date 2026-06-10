@@ -1,0 +1,446 @@
+/* FinalChemicalAnalysisAnnexure.css - Final Chemical Analysis Layout */
+
+.final-chemical-analysis-annexure {
+  font-size: 12px;
+  padding: 15px;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Header section */
+.final-chemical-analysis-annexure .annexure-header {
+  margin-bottom: 12px;
+  border: 2px solid #000;
+}
+
+.final-chemical-analysis-annexure .annexure-header-logo,
+.final-chemical-analysis-annexure .annexure-header-title,
+.final-chemical-analysis-annexure .annexure-header-info {
+  padding: 10px;
+  border-right: 2px solid #000;
+}
+
+.final-chemical-analysis-annexure .annexure-logo-placeholder {
+  font-size: 18px;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.final-chemical-analysis-annexure .annexure-company-name {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.final-chemical-analysis-annexure .annexure-division {
+  font-size: 11px;
+}
+
+.final-chemical-analysis-annexure .annexure-main-title {
+  font-size: 13px;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.final-chemical-analysis-annexure .annexure-product-name {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.final-chemical-analysis-annexure .annexure-info-row {
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+/* Title section */
+.final-chemical-analysis-annexure .annexure-title-section {
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.final-chemical-analysis-annexure .annexure-stage-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Subtitle section */
+.final-chemical-analysis-annexure .annexure-subtitle-section {
+  margin-bottom: 10px;
+  margin-top: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.final-chemical-analysis-annexure .annexure-subtitle {
+  font-size: 12px;
+  text-align: left;
+}
+
+.final-chemical-analysis-annexure .annexure-number-section {
+  text-align: right;
+}
+
+.final-chemical-analysis-annexure .annexure-number {
+  font-size: 11px;
+}
+
+.final-chemical-analysis-annexure .annexure-code {
+  font-size: 11px;
+}
+
+/* Table wrapper */
+.final-chemical-analysis-annexure .annexure-table-wrapper {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Table base styles */
+.final-chemical-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  font-size: 10px;
+  table-layout: auto;
+}
+
+.final-chemical-table .annexure-th {
+  font-size: 9px;
+  padding: 6px 4px;
+  line-height: 1.2;
+  font-weight: bold;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  background-color: #fff;
+}
+
+.final-chemical-table .annexure-td {
+  font-size: 10px;
+  padding: 5px 3px;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  min-height: 80px;
+  height: 80px;
+}
+
+/* Sub-header - chemical parameters */
+.final-chemical-table .sub-header {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 6px 2px;
+}
+
+/* Specification Labels Column */
+.final-chemical-table .spec-label-cell {
+  text-align: left;
+  padding-left: 8px;
+  width: 150px;
+  min-width: 150px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* Specification Values Header Cells */
+.final-chemical-table .spec-value {
+  font-size: 10px;
+  font-weight: normal;
+  color: #000;
+  padding: 4px;
+}
+
+/* Empty spacer cell in data rows */
+.final-chemical-table .empty-cell {
+  background-color: #f9f9f9;
+  width: 150px;
+  min-width: 150px;
+}
+
+/* Data cells - black text */
+.final-chemical-table .data-cell {
+  color: #000000;
+}
+
+/* Rotated headers */
+.final-chemical-table .rotated-header {
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding: 3px 2px;
+  height: 150px;
+  vertical-align: middle;
+}
+
+/* Rotated text */
+.final-chemical-table .rotated-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9px;
+  white-space: nowrap;
+  padding: 3px 0;
+  line-height: 1.2;
+  font-weight: bold;
+}
+
+/* Specific column widths */
+/* S. No. - rotated */
+.final-chemical-table th:nth-child(1),
+.final-chemical-table td:nth-child(1) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Cast/Heat No. - rotated */
+.final-chemical-table th:nth-child(2),
+.final-chemical-table td:nth-child(2) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Colour Code - rotated */
+.final-chemical-table th:nth-child(3),
+.final-chemical-table td:nth-child(3) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Lot No. - rotated */
+.final-chemical-table th:nth-child(4),
+.final-chemical-table td:nth-child(4) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Quantity - rotated */
+.final-chemical-table th:nth-child(5),
+.final-chemical-table td:nth-child(5) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Sample size - rotated */
+.final-chemical-table th:nth-child(6),
+.final-chemical-table td:nth-child(6) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Chemical parameter columns - %C, %Mn, %Si, %S, %P */
+.final-chemical-table thead tr:first-child th:nth-child(8),
+.final-chemical-table tbody td:nth-child(8) {
+  width: 65px;
+  min-width: 65px;
+}
+
+.final-chemical-table thead tr:first-child th:nth-child(9),
+.final-chemical-table tbody td:nth-child(9) {
+  width: 65px;
+  min-width: 65px;
+}
+
+.final-chemical-table thead tr:first-child th:nth-child(10),
+.final-chemical-table tbody td:nth-child(10) {
+  width: 65px;
+  min-width: 65px;
+}
+
+.final-chemical-table thead tr:first-child th:nth-child(11),
+.final-chemical-table tbody td:nth-child(11) {
+  width: 65px;
+  min-width: 65px;
+}
+
+.final-chemical-table thead tr:first-child th:nth-child(12),
+.final-chemical-table tbody td:nth-child(12) {
+  width: 65px;
+  min-width: 65px;
+}
+
+/* Remark - rotated */
+.final-chemical-table th:nth-child(13),
+.final-chemical-table td:nth-child(13) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Accepted or Rejected - rotated */
+.final-chemical-table th:nth-child(14),
+.final-chemical-table td:nth-child(14) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Sign of Lab. Supervisor - rotated */
+.final-chemical-table th:nth-child(15),
+.final-chemical-table td:nth-child(15) {
+  width: 32px;
+  min-width: 32px;
+}
+
+/* Footer section */
+.final-chemical-analysis-annexure .annexure-footer {
+  margin-top: 30px;
+}
+
+.final-chemical-analysis-annexure .annexure-signature-section {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.final-chemical-analysis-annexure .annexure-signature-right {
+  text-align: right;
+}
+
+.final-chemical-analysis-annexure .annexure-signature-label {
+  font-size: 12px;
+  color: #000;
+  font-weight: normal;
+}
+
+/* Print styles */
+@media print {
+  /* Hide everything except the annexure content */
+  body * {
+    visibility: hidden;
+  }
+
+  .final-chemical-analysis-annexure,
+  .final-chemical-analysis-annexure * {
+    visibility: visible;
+  }
+
+  .final-chemical-analysis-annexure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+    transform: scale(0.85);
+    transform-origin: top left;
+  }
+
+  /* Fit to single page */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  /* Compact header */
+  .final-chemical-analysis-annexure .annexure-header {
+    margin-bottom: 4px;
+    page-break-inside: avoid;
+  }
+
+  .final-chemical-analysis-annexure .annexure-header-logo,
+  .final-chemical-analysis-annexure .annexure-header-title,
+  .final-chemical-analysis-annexure .annexure-header-info {
+    padding: 4px 6px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-logo-placeholder {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-company-name {
+    font-size: 10px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-division {
+    font-size: 8px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-main-title {
+    font-size: 10px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-product-name {
+    font-size: 9px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-info-row {
+    font-size: 7px;
+    margin-bottom: 1px;
+  }
+
+  /* Compact title section */
+  .final-chemical-analysis-annexure .annexure-title-section {
+    margin-bottom: 3px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-stage-title {
+    font-size: 11px;
+  }
+
+  /* Compact subtitle section */
+  .final-chemical-analysis-annexure .annexure-subtitle-section {
+    margin-bottom: 3px;
+    margin-top: 1px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-subtitle {
+    font-size: 9px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-number,
+  .final-chemical-analysis-annexure .annexure-code {
+    font-size: 8px;
+  }
+
+  /* Compact table */
+  .final-chemical-table {
+    font-size: 7px;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .final-chemical-table .annexure-th {
+    font-size: 6px;
+    padding: 1px;
+    line-height: 1.1;
+  }
+
+  .final-chemical-table .annexure-td {
+    font-size: 7px;
+    padding: 2px 1px;
+    line-height: 1.1;
+    height: 60px;
+  }
+
+  .final-chemical-table .rotated-text {
+    font-size: 6px;
+  }
+
+  .final-chemical-table .sub-header {
+    font-size: 6px;
+  }
+
+  /* Compact footer */
+  .final-chemical-analysis-annexure .annexure-footer {
+    page-break-inside: avoid;
+    margin-top: 5px;
+  }
+
+  .final-chemical-analysis-annexure .annexure-signature-label {
+    font-size: 9px;
+  }
+
+  /* Hide any navigation or buttons */
+  .annexure-page__header,
+  .annexure-page__back-button,
+  .annexure-header-bar,
+  .annexure-header-actions,
+  button,
+  nav {
+    display: none !important;
+  }
+}
+
