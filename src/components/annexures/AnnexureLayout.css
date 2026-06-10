@@ -1,0 +1,96 @@
+/* AnnexureLayout.css - Base layout styles for all annexures */
+
+.annexure-layout {
+  font-size: 12px;
+  padding: 15px;
+  max-width: 100%;
+  width: 1100px;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: white;
+  margin: 0 auto;
+}
+
+.annexure-layout.portrait {
+  width: 800px;
+}
+
+/* Center text utility */
+.center-text {
+  text-align: center;
+  font-size: 15px;
+  margin: 8px 0;
+  font-weight: bold;
+}
+
+/* Annexure info section (subtitle and code) */
+.annexure-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.annexure-info .right-text {
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* Print styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .annexure-layout,
+  .annexure-layout * {
+    visibility: visible;
+  }
+
+  .annexure-layout {
+    position: relative;
+    /* Changed from absolute to allow multi-page flow */
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    page-break-inside: avoid;
+    page-break-after: always !important;
+    /* Force each annexure onto a new page */
+    transform: scale(0.95);
+    /* Slightly larger scale for better fit */
+    transform-origin: top center;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  /* Hide navigation and buttons */
+  .annexure-page__header,
+  .annexure-page__back-button,
+  .annexure-header-bar,
+  .annexure-header-actions,
+  button,
+  nav {
+    display: none !important;
+  }
+
+  /* Ensure natural width and allowing page breaks */
+  .annexure-layout {
+    width: 1080px !important;
+    max-width: 1080px !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+  }
+
+  .annexure-layout table {
+    page-break-inside: auto !important;
+    /* Allow tables to break if they are long */
+  }
+
+  .annexure-layout tr {
+    page-break-inside: avoid !important;
+  }
+}

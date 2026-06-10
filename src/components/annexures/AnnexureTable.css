@@ -1,0 +1,94 @@
+/* AnnexureTable.css - Table styles for all annexures */
+
+.annexure-table-wrapper {
+  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 10px;
+}
+
+.annexure-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  font-size: 10px;
+  table-layout: auto;
+}
+
+.annexure-table .annexure-th {
+  font-size: 9px;
+  padding: 8px 4px; /* Increased padding */
+  line-height: 1.4; /* Better line height */
+  font-weight: bold;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  background-color: #fff;
+  color: #000;
+}
+
+.annexure-table td {
+  font-size: 10px;
+  padding: 8px 4px; /* Increased padding for data cells */
+  line-height: 1.4;
+  border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  min-height: 35px;
+  color: #000;
+}
+
+/* Data cells - BLACK color for all data */
+.annexure-table td.data-cell {
+  color: #000000;
+  font-weight: normal;
+}
+
+/* Print styles */
+@media print {
+  .annexure-table-wrapper {
+    overflow: visible;
+    overflow-x: visible;
+    overflow-y: visible;
+  }
+
+  .annexure-table {
+    font-size: 7px;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .annexure-table .annexure-th {
+    font-size: 6px;
+    padding: 1px;
+    line-height: 1.1;
+  }
+
+  .annexure-table td {
+    font-size: 7px;
+    padding: 2px 1px;
+    line-height: 1.1;
+  }
+}
+
+.annexure-header-table{
+  width: 150mm;
+  margin: 7 auto;           
+  border: 1px solid #000;
+  border-collapse: collapse;
+  table-layout: fixed;
+  display: table;  
+}
+
+.annexure-header-table td {
+  border: 1px solid #000;
+  padding: 4px 2px;
+  text-align: center;
+  vertical-align: middle;
+  min-height: 30px;
+  color: #000;
+  font-size: 10px;
+}
+

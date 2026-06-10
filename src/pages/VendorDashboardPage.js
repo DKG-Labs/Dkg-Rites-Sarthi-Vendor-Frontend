@@ -43,6 +43,41 @@ import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 // import VendorFeedback from '../components/Feedback/VendorFeedback';
+import AnnexurePage from './AnnexurePage';
+
+const viewSignedCertificate = async (icNumber) => {
+  try {
+    console.log('🔍 Fetching signed certificate from Azure for IC:', icNumber);
+    const encodedIcNumber = encodeURIComponent(icNumber);
+    // Uses the API_ENDPOINTS.CERTIFICATES logic but with getBaseUrl()
+    const baseUrl = getBaseUrl();
+    const token = localStorage.getItem('token');
+    
+    // Fallback to dynamic URL structure
+    const url = `${baseUrl}/certificate-storage/view?icNumber=${encodedIcNumber}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+         throw new Error('No signed certificate found for this IC.');
+      }
+      const errorText = await response.text();
+      throw new Error(errorText || `Failed to fetch certificate: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching signed certificate:', error);
+    throw error;
+  }
+};
 
 const ALLOWED_ACTION_STATUSES = ['VERIFY_PO_DETAILS', 'Created', 'CALL_REGISTERED', 'IE_SCHEDULED', 'Call Withheld', 'RETURNED', 'Returned by Call Desk', 'PENDING', 'Pending'];
 
@@ -117,6 +152,7 @@ const VendorDashboardPage = ({ onBack }) => {
   // Actions popup modal states
   const [isActionsModalOpen, setIsActionsModalOpen] = useState(false);
   const [selectedCallForActions, setSelectedCallForActions] = useState(null);
+  const [selectedCallForAnnexure, setSelectedCallForAnnexure] = useState(null);
 
   // Payment filter state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
@@ -420,16 +456,19 @@ const VendorDashboardPage = ({ onBack }) => {
           documents: []
         }));
 
-        // Dynamically categorize calls based on workflowStatus
-        // workflowStatus === 'WITHDRAW' or 'INSPECTION_COMPLETE_CONFIRM' -> Completed
+        // workflowStatus === 'WITHDRAW', 'INSPECTION_COMPLETE_CONFIRM', 'DSC_SIGN_IC', or 'GENERATE_IC' -> Completed
         const active = transformedCalls.filter(call =>
           call.workflowStatus !== 'WITHDRAW' &&
-          call.workflowStatus !== 'INSPECTION_COMPLETE_CONFIRM'
+          call.workflowStatus !== 'INSPECTION_COMPLETE_CONFIRM' &&
+          call.workflowStatus !== 'DSC_SIGN_IC' &&
+          call.workflowStatus !== 'GENERATE_IC'
         );
 
         const completed = transformedCalls.filter(call =>
           call.workflowStatus === 'WITHDRAW' ||
-          call.workflowStatus === 'INSPECTION_COMPLETE_CONFIRM'
+          call.workflowStatus === 'INSPECTION_COMPLETE_CONFIRM' ||
+          call.workflowStatus === 'DSC_SIGN_IC' ||
+          call.workflowStatus === 'GENERATE_IC'
         );
 
         setRequestedCalls(active);
@@ -1689,9 +1728,42 @@ const VendorDashboardPage = ({ onBack }) => {
   };
 
   // Download IC handler
-  const handleDownloadIC = (call) => {
-    console.log('Downloading IC for:', call.ic_number);
-    showNotification(`Downloading Inspection Certificate: ${call.ic_number}\nFor Call: ${call.call_no}`, 'info');
+  const handleDownloadIC = async (call) => {
+    const icNum = call.ic_number || call.call_no;
+    if (!icNum) {
+      showNotification('IC Number not found.', 'error');
+      return;
+    }
+    showNotification(`Downloading Inspection Certificate for ${icNum}...`, 'info');
+    try {
+      const response = await viewSignedCertificate(icNum);
+      if (response && response.signedData) {
+        // Base64 to blob and download
+        const byteCharacters = atob(response.signedData);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.fileName || `Inspection_Certificate_${icNum}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('Inspection Certificate downloaded successfully!', 'success');
+      } else {
+        showNotification('No signed certificate data found.', 'warning');
+      }
+    } catch (error) {
+      console.error('Failed to download IC:', error);
+      showNotification(`Failed to download IC: ${error.message}`, 'error');
+    }
   };
 
   // Download Call Letter handler
@@ -2771,37 +2843,6 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Status',
       width: '160px',
       render: (value) => <StatusBadge status={value} />
-    },
-    {
-      key: 'actions',
-      label: 'Action',
-      width: '130px',
-      render: (_, row) => (
-        <button
-          className="master-action-btn master-action-view"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedCallForActions(row);
-            setIsActionsModalOpen(true);
-          }}
-          title="View Actions"
-          style={{
-            width: 'auto',
-            minWidth: '105px',
-            padding: '6px 12px',
-            fontSize: '13px',
-            whiteSpace: 'nowrap',
-            backgroundColor: '#3b82f6',
-            borderColor: '#2563eb',
-            color: '#ffffff',
-            cursor: 'pointer',
-            fontWeight: '500',
-            borderRadius: '6px'
-          }}
-        >
-          View Actions
-        </button>
-      )
     }
   ];
 
@@ -2855,7 +2896,7 @@ const VendorDashboardPage = ({ onBack }) => {
           (call.stage && call.stage.toLowerCase().includes(searchLower)) ||
           (call.quantity_offered && String(call.quantity_offered).toLowerCase().includes(searchLower)) ||
           (call.location && call.location.toLowerCase().includes(searchLower)) ||
-          (call.status && call.status.toLowerCase().includes(searchLower))
+          (call.status && call.status.toLowerCase().replace(/_/g, ' ').includes(searchLower.replace(/_/g, ' ')))
         );
       });
     }
@@ -2895,7 +2936,7 @@ const VendorDashboardPage = ({ onBack }) => {
           (call.item_name && call.item_name.toLowerCase().includes(searchLower)) ||
           (call.stage && call.stage.toLowerCase().includes(searchLower)) ||
           (call.quantity_offered && String(call.quantity_offered).toLowerCase().includes(searchLower)) ||
-          (call.status && call.status.toLowerCase().includes(searchLower)) ||
+          (call.status && call.status.toLowerCase().replace(/_/g, ' ').includes(searchLower.replace(/_/g, ' '))) ||
           (call.ic_number && call.ic_number.toLowerCase().includes(searchLower)) ||
           (call.completion_date && call.completion_date.toLowerCase().includes(searchLower))
         );
@@ -3315,6 +3356,10 @@ const VendorDashboardPage = ({ onBack }) => {
   const handleRowClick = (row) => {
     console.log('Row clicked:', row);
   };
+
+  if (selectedCallForAnnexure) {
+    return <AnnexurePage selectedCall={selectedCallForAnnexure} onBack={() => setSelectedCallForAnnexure(null)} />;
+  }
 
   return (
     <div className="page-container vendor-page">
@@ -4142,6 +4187,16 @@ const VendorDashboardPage = ({ onBack }) => {
                                       className="btn btn-sm btn-outline"
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        setSelectedCallForActions(call);
+                                        setIsActionsModalOpen(true);
+                                      }}
+                                    >
+                                      View Call Details
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         handleOpenInspectionSummaryModal(call);
                                       }}
                                     >
@@ -4156,33 +4211,50 @@ const VendorDashboardPage = ({ onBack }) => {
                                     >
                                       Download Call Letter
                                     </button>
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownloadIC(call);
-                                      }}
-                                    >
-                                      Download Inspection Certificate (IC)
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownloadInspectionDocuments(call);
-                                      }}
-                                    >
-                                      Download Inspection Documents
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenICCorrectionModal(call);
-                                      }}
-                                    >
-                                      Request IC Correction
-                                    </button>
+                                    {!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'WITHDRAW'].includes(call.workflowStatus) && (
+                                      <>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownloadIC(call);
+                                          }}
+                                        >
+                                          Download Inspection Certificate (IC)
+                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenICCorrectionModal(call);
+                                          }}
+                                        >
+                                          Request IC Correction
+                                        </button>
+                                      </>
+                                    )}
+                                    {!['WITHDRAW'].includes(call.workflowStatus) && (
+                                      <>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownloadInspectionDocuments(call);
+                                          }}
+                                        >
+                                          Download Inspection Documents
+                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedCallForAnnexure(call);
+                                          }}
+                                        >
+                                          View Annexures
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
