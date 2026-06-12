@@ -21,7 +21,7 @@ export const annexureService = {
      */
     getChemicalAnalysis: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/chemical-analysis/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/chemical-analysis/${callNo}`, {
                 method: 'GET',
                 headers: getAuthHeaders()
             });
@@ -33,13 +33,11 @@ export const annexureService = {
     },
 
     /**
-     * Fetches Dimensional Check data for a specific Inspection Call
-     * @param {string} callNo - The inspection call number
-     * @returns {Promise<Object>} The dimensional check report data
+     * Shows dimensional check report data
      */
     getDimensionalCheck: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/dimensional-check/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/dimensional-check/${callNo}`, {
                 method: 'GET',
                 headers: getAuthHeaders()
             });
@@ -52,12 +50,10 @@ export const annexureService = {
 
     /**
      * Fetches Final chemical Analysis data (Annexure-VI)
-     * @param {string} callNo - The inspection call number
-     * @returns {Promise<Object>} The final chemical analysis data
      */
     getFinalChemicalAnalysis: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-chemical-analysis/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-chemical-analysis/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -69,12 +65,10 @@ export const annexureService = {
 
     /**
      * Fetches Final Hardness Test data (Annexure-VIII)
-     * @param {string} callNo - The inspection call number
-     * @returns {Promise<Object>} The final hardness test data
      */
     getFinalHardnessTest: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-hardness-test/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-hardness-test/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -86,12 +80,10 @@ export const annexureService = {
 
     /**
      * Fetches Final Toe Load Test data (Annexure-XI)
-     * @param {string} callNo - The inspection call number
-     * @returns {Promise<Object>} The final toe load test data
      */
     getFinalToeLoadTest: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-toe-load-test/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-toe-load-test/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -103,7 +95,7 @@ export const annexureService = {
 
     getFinalWeightTest: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-weight-test/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-weight-test/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -115,7 +107,7 @@ export const annexureService = {
 
     getFinalInclusion: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-inclusion/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-inclusion/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -127,7 +119,7 @@ export const annexureService = {
 
     getFinalApplicationDeflection: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-application-deflection/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-application-deflection/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -139,7 +131,7 @@ export const annexureService = {
 
     getFinalDimensionalInspection: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/annexures/final-dimensional-inspection/${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/annexures/final-dimensional-inspection/${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -151,14 +143,10 @@ export const annexureService = {
 
     /**
      * Fetches Process Inspection Register data (Annexure)
-     * @param {string} callNo - The inspection call number
-     * @param {string} date - Date of inspection
-     * @param {string} shift - Shift code
-     * @returns {Promise<Array>} List of register data objects
      */
     getProcessInspectionRegister: async (callNo, date, shift) => {
         try {
-            let url = `${API_BASE_URL}/api/process-annexure/register?callNo=${callNo}`;
+            let url = `${API_BASE_URL}/process-annexure/register?callNo=${callNo}`;
             if (date) url += `&date=${date}`;
             if (shift) url += `&shift=${shift}`;
             
@@ -174,12 +162,10 @@ export const annexureService = {
 
     /**
      * Fetches available Date/Shift/Lot entries for Process Inspection Register
-     * @param {string} callNo - The inspection call number
-     * @returns {Promise<Array>} List of available entry objects
      */
     getProcessAvailableEntries: async (callNo) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/process-annexure/available-entries?callNo=${callNo}`, {
+            const response = await fetch(`${API_BASE_URL}/process-annexure/available-entries?callNo=${callNo}`, {
                 headers: getAuthHeaders()
             });
             return await handleResponse(response);
@@ -197,7 +183,7 @@ export const annexureService = {
             const userId = localStorage.getItem('userId') || localStorage.getItem('userName') || 'testUser';
             const { callNo, shift, lineNo, lotNo, remarks } = params;
             
-            const url = `${API_BASE_URL}/api/process-annexure/update-remarks?callNo=${callNo}&shift=${shift}&lineNo=${lineNo}&lotNo=${lotNo}&remarks=${encodeURIComponent(remarks)}&createdBy=${userId}`;
+            const url = `${API_BASE_URL}/process-annexure/update-remarks?callNo=${callNo}&shift=${shift}&lineNo=${lineNo}&lotNo=${lotNo}&remarks=${encodeURIComponent(remarks)}&createdBy=${userId}`;
             
             const response = await fetch(url, {
                 method: 'POST',

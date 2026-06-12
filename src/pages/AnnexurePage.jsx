@@ -22,7 +22,14 @@ const annexureList = ANNEXURE_LIST.map(a => {
   return a;
 });
 
-const AnnexurePage = ({ onBack, selectedCall }) => {
+const AnnexurePage = ({
+  onBack,
+  selectedCall,
+  hiddenMode = false,
+  triggerAutoDownloadAll = false,
+  onAllGenerated = null,
+  onGenerationError = null
+}) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const typeParam = searchParams.get('type');
 
@@ -37,6 +44,48 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
 
   const [isGeneratingAllPdf, setIsGeneratingAllPdf] = useState(false);
   const allAnnexuresRef = useRef(null);
+
+  // Filtering Logic based on Call Prefix
+  const getFilteredAnnexures = () => {
+    if (!selectedCall || !selectedCall.call_no) return annexureList;
+
+    const prefix = selectedCall.call_no.substring(0, 2).toUpperCase();
+
+    if (prefix === 'ER') {
+      // ER Prefix (Raw Material): ITP, Annexure-I, Annexure-II
+      return annexureList.filter(a =>
+        a.id === 'inspection-test-plan' ||
+        a.code === 'Annexure-I' ||
+        a.code === 'Annexure-II'
+      );
+    }
+
+    if (prefix === 'EF') {
+      // EF Prefix (Final): ITP, III, VI, VII, VIII, IX, X, XI, XV
+      const finalCodes = ['Annexure-III', 'Annexure-VI', 'Annexure-VII', 'Annexure-VIII', 'Annexure-IX', 'Annexure-X', 'Annexure-XI', 'Annexure-XV'];
+      return annexureList.filter(a =>
+        a.id === 'inspection-test-plan' ||
+        finalCodes.includes(a.code)
+      );
+    }
+
+    if (prefix === 'EP') {
+      // EP Prefix (Process Inspection): Process Inspection Register (F/ERC-01)
+      return annexureList.filter(a => a.id === 'process-inspection');
+    }
+
+    // Fallback: show all
+    return annexureList;
+  };
+
+  const filteredAnnexures = getFilteredAnnexures();
+
+  useEffect(() => {
+    if (triggerAutoDownloadAll) {
+      handleDownloadAllAnnexures();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerAutoDownloadAll]);
 
   const fetchDataForAnnexure = async (annexureId) => {
     if (annexureId === 'chemical-analysis' && selectedCall?.call_no) {
@@ -141,6 +190,10 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
   };
 
   const showNotification = (message, type = 'success') => {
+    if (hiddenMode) {
+      console.log(`[Annexure Auto-Generate] [${type}] ${message}`);
+      return;
+    }
     setNotification({ message, type });
     setTimeout(() => {
       setNotification(null);
@@ -170,7 +223,13 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      
+      // Open automatically in new tab
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       showNotification('PDF exported successfully!');
     } catch (error) {
@@ -195,9 +254,14 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
       
       for (const annexure of annexuresToFetch) {
         if (!newData[annexure.id]) {
-          console.log(`[Annexure] Prefetching data for ${annexure.id}`);
-          const data = await fetchDataForAnnexure(annexure.id);
-          newData[annexure.id] = data;
+          try {
+            console.log(`[Annexure] Prefetching data for ${annexure.id}`);
+            const data = await fetchDataForAnnexure(annexure.id);
+            newData[annexure.id] = data;
+          } catch (err) {
+            console.warn(`[Annexure] Failed to prefetch data for ${annexure.id}:`, err);
+            newData[annexure.id] = []; // fallback to empty array
+          }
           updated = true;
         }
       }
@@ -212,6 +276,9 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
       console.error('Error prefetching annexures:', error);
       showNotification('Failed to fetch data for all annexures.', 'error');
       setPdfGenerating(false);
+      if (onGenerationError) {
+        onGenerationError(error);
+      }
     }
   };
 
@@ -237,16 +304,29 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
           orientation: 'landscape'
         });
 
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.click();
-
-        showNotification('All annexures downloaded in a single PDF!');
+        if (onAllGenerated) {
+          onAllGenerated(pdfBlob);
+        } else {
+          const url = URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Open automatically in new tab
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showNotification('All annexures downloaded in a single PDF!');
+        }
       } catch (error) {
         console.error('Error generating combined PDF:', error);
-        showNotification('Failed to generate combined PDF.', 'error');
+        if (onGenerationError) {
+          onGenerationError(error);
+        } else {
+          showNotification('Failed to generate combined PDF.', 'error');
+        }
       } finally {
         setIsGeneratingAllPdf(false);
         setPdfGenerating(false);
@@ -254,8 +334,33 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
     };
 
     captureAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGeneratingAllPdf, selectedCall]);
 
+
+  // If hiddenMode is active, only render the hidden capture container
+  if (hiddenMode) {
+    return (
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1600px' }}>
+        {isGeneratingAllPdf && (
+          <div ref={allAnnexuresRef}>
+            {filteredAnnexures.map((annexure) => {
+              const AnnexureComponent = annexure.component;
+              if (!AnnexureComponent) return null;
+              return (
+                <div key={annexure.id} className="annexure-pdf-wrapper">
+                  <AnnexureComponent
+                    data={annexureData[annexure.id] || []}
+                    selectedCall={selectedCall}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // If an annexure is selected, show it
   if (selectedAnnexure) {
@@ -349,40 +454,7 @@ const AnnexurePage = ({ onBack, selectedCall }) => {
     );
   }
 
-  // Filtering Logic based on Call Prefix
-  const getFilteredAnnexures = () => {
-    if (!selectedCall || !selectedCall.call_no) return annexureList;
 
-    const prefix = selectedCall.call_no.substring(0, 2).toUpperCase();
-
-    if (prefix === 'ER') {
-      // ER Prefix (Raw Material): ITP, Annexure-I, Annexure-II
-      return annexureList.filter(a =>
-        a.id === 'inspection-test-plan' ||
-        a.code === 'Annexure-I' ||
-        a.code === 'Annexure-II'
-      );
-    }
-
-    if (prefix === 'EF') {
-      // EF Prefix (Final): ITP, III, VI, VII, VIII, IX, X, XI, XV
-      const finalCodes = ['Annexure-III', 'Annexure-VI', 'Annexure-VII', 'Annexure-VIII', 'Annexure-IX', 'Annexure-X', 'Annexure-XI', 'Annexure-XV'];
-      return annexureList.filter(a =>
-        a.id === 'inspection-test-plan' ||
-        finalCodes.includes(a.code)
-      );
-    }
-
-    if (prefix === 'EP') {
-      // EP Prefix (Process Inspection): Process Inspection Register (F/ERC-01)
-      return annexureList.filter(a => a.id === 'process-inspection');
-    }
-
-    // Fallback: show all
-    return annexureList;
-  };
-
-  const filteredAnnexures = getFilteredAnnexures();
 
   // Show list of annexures
   return (

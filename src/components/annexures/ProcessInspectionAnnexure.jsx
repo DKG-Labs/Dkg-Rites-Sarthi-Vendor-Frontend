@@ -208,7 +208,7 @@ const ProcessInspectionAnnexure = ({ data = [], selectedCall }) => {
 
                     {/* Special Row 6: Checking of Die sub-description */}
                     {row.srNo === 6 && (
-                      <tr className="pi-data-row detail-row">
+                      <tr className="pi-data-row pi-detail-row">
                         <td></td>
                         <td colSpan={1 + entry.hourLabels.length + 1} className="pi-horizontal-detail">
                           At the start of shift. (if Production per shift is more than 4000 ERCs, additional <strong>check in the middle of the shift</strong>)
@@ -218,7 +218,7 @@ const ProcessInspectionAnnexure = ({ data = [], selectedCall }) => {
 
                     {/* Special Row 7: Quenching sub-description */}
                     {row.srNo === 7 && (
-                      <tr className="pi-data-row detail-row">
+                      <tr className="pi-data-row pi-detail-row">
                         <td></td>
                         <td colSpan={1 + entry.hourLabels.length + 1} className="pi-horizontal-detail">
                           (Temp. to be checked every hour. Duration to be checked at <strong>the start of the shift</strong>)
@@ -228,7 +228,7 @@ const ProcessInspectionAnnexure = ({ data = [], selectedCall }) => {
 
                     {/* Special Row 9: Tempering sub-description */}
                     {row.srNo === 9 && (
-                      <tr className="pi-data-row detail-row">
+                      <tr className="pi-data-row pi-detail-row">
                         <td></td>
                         <td colSpan={1 + entry.hourLabels.length + 1} className="pi-horizontal-detail">
                           (Temp. to be checked every hour. Duration to be checked at <strong>the start of the shift</strong>)
@@ -238,7 +238,7 @@ const ProcessInspectionAnnexure = ({ data = [], selectedCall }) => {
 
                     {/* Special Row 14: Documentation */}
                     {row.srNo === 14 && (
-                       <tr className="pi-data-row detail-row">
+                       <tr className="pi-data-row pi-detail-row">
                         <td style={{ borderTop: '1px solid #000' }}></td>
                         <td colSpan={1 + entry.hourLabels.length + 1} className="pi-horizontal-detail" style={{ borderTop: '1px solid #000' }}>
                            Specific details/results of all the checks should be recorded

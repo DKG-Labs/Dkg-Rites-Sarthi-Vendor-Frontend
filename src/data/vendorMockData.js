@@ -13,6 +13,7 @@ export const VENDOR_PO_LIST = [
     unit: 'Nos',
     location: 'New delhi plant',
     status: 'Fresh PO',
+    pdfPath: 'https://ireps.gov.in/ireps/etender/pdfdocs/MMIS/PO/2019/08/AA195118100297.pdf',
     items: [
       { id: 101, item_name: 'ERC MK-III Clips - Type A', item_qty: 5000, item_unit: 'Nos', item_status: 'Pending', po_serial_no: 'PO-2025-1001/01', consignee: 'RITES, Northern Region', delivery_period: '2025-12-31' },
       { id: 102, item_name: 'ERC MK-III Clips - Type B', item_qty: 3000, item_unit: 'Nos', item_status: 'Pending', po_serial_no: 'PO-2025-1001/02', consignee: 'RITES, Western Region', delivery_period: '2025-12-31' },
@@ -28,6 +29,7 @@ export const VENDOR_PO_LIST = [
     unit: 'Nos',
     location: 'Mumbai plant',
     status: 'Inspection under Process',
+    pdfPath: 'https://ireps.gov.in/ireps/etender/pdfdocs/MMIS/PO/2025/14/06250111103208.pdf',
     items: [
       { id: 201, item_name: 'ERC MK-V Standard', item_qty: 5000, item_unit: 'Nos', item_status: 'Under Inspection', po_serial_no: 'PO-2025-1002/01', consignee: 'RITES, Central Region', delivery_period: '2026-01-15' },
       { id: 202, item_name: 'ERC MK-V Heavy Duty', item_qty: 3000, item_unit: 'Nos', item_status: 'Pending', po_serial_no: 'PO-2025-1002/02', consignee: 'RITES, Eastern Region', delivery_period: '2026-01-15' }
@@ -42,6 +44,7 @@ export const VENDOR_PO_LIST = [
     quantity: 5000,
     unit: 'Nos',
     status: 'Order Executed',
+    pdfPath: 'https://ireps.gov.in/ireps/etender/pdfdocs/MMIS/PO/2025/07/60256836107122.pdf',
     items: [
       { id: 301, item_name: 'ERC MK-III Clips - Standard', item_qty: 5000, item_unit: 'Nos', item_status: 'Completed', po_serial_no: 'PO-2025-1003/01', consignee: 'RITES, Northern Region', delivery_period: '2025-12-20' }
     ]
@@ -158,7 +161,8 @@ export const VENDOR_COMPLETED_CALLS = [
     quantity_offered: 3000,
     quantity_accepted: 2950,
     quantity_rejected: 50,
-    status: 'Accepted',
+    status: 'INSPECTION_COMPLETE_CONFIRM',
+    workflowStatus: 'INSPECTION_COMPLETE_CONFIRM',
     ic_number: 'IC-2025-0001',
     inspection_summary: {
       inspector_name: 'Rajesh Kumar',
@@ -180,7 +184,8 @@ export const VENDOR_COMPLETED_CALLS = [
     quantity_offered: 2000,
     quantity_accepted: 1980,
     quantity_rejected: 20,
-    status: 'Accepted',
+    status: 'GENERATE_IC',
+    workflowStatus: 'GENERATE_IC',
     ic_number: 'IC-2025-0002',
     inspection_summary: {
       inspector_name: 'Suresh Sharma',
@@ -202,7 +207,8 @@ export const VENDOR_COMPLETED_CALLS = [
     quantity_offered: 1500,
     quantity_accepted: 1400,
     quantity_rejected: 100,
-    status: 'Rejected',
+    status: 'WITHDRAW',
+    workflowStatus: 'WITHDRAW',
     ic_number: 'IC-2025-0003',
     inspection_summary: {
       inspector_name: 'Amit Verma',
@@ -224,7 +230,8 @@ export const VENDOR_COMPLETED_CALLS = [
     quantity_offered: 2000,
     quantity_accepted: 1850,
     quantity_rejected: 150,
-    status: 'Partially Accepted',
+    status: 'DSC_SIGN_IC',
+    workflowStatus: 'DSC_SIGN_IC',
     ic_number: 'IC-2025-0004',
     inspection_summary: {
       inspector_name: 'Vikram Singh',

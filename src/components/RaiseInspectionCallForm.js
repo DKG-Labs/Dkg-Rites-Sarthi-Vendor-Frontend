@@ -56,12 +56,12 @@ const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder, d
   }, [isOpen]);
 
   return (
-    <div 
+    <div
       className="ric-multiselect-dropdown"
       style={disabled ? { pointerEvents: 'none', opacity: 0.7 } : {}}
     >
-      <div 
-        className="ric-multiselect-trigger" 
+      <div
+        className="ric-multiselect-trigger"
         onClick={toggleDropdown}
         style={disabled ? { cursor: 'not-allowed', backgroundColor: '#f3f4f6' } : {}}
       >
@@ -339,6 +339,8 @@ export const RaiseInspectionCallForm = ({
   const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
   const [selectedPoSerial, setSelectedPoSerial] = useState(selectedItem?.po_serial_no || '');
+  const [showErcWarning, setShowErcWarning] = useState(false);
+  const [pendingErcType, setPendingErcType] = useState('');
 
   // State for approved RM ICs and heat numbers (for Process IC)
   // eslint-disable-next-line no-unused-vars
@@ -501,16 +503,16 @@ export const RaiseInspectionCallForm = ({
               rm_heat_tc_mapping: prev.rm_heat_tc_mapping.map(h =>
                 h.id === heat.id
                   ? {
-                      ...h,
-                      chemical_carbon: analysis.carbon || '',
-                      chemical_manganese: analysis.manganese || '',
-                      chemical_silicon: analysis.silicon || '',
-                      chemical_sulphur: analysis.sulphur || '',
-                      chemical_phosphorus: analysis.phosphorus || '',
-                      isLoadingChemical: false,
-                      chemicalAutoFetched: true,
-                      chemicalReadOnly: false
-                    }
+                    ...h,
+                    chemical_carbon: analysis.carbon || '',
+                    chemical_manganese: analysis.manganese || '',
+                    chemical_silicon: analysis.silicon || '',
+                    chemical_sulphur: analysis.sulphur || '',
+                    chemical_phosphorus: analysis.phosphorus || '',
+                    isLoadingChemical: false,
+                    chemicalAutoFetched: true,
+                    chemicalReadOnly: false
+                  }
                   : h
               )
             }));
@@ -549,7 +551,7 @@ export const RaiseInspectionCallForm = ({
       setHeatSummaryFetchedInModify(true);
       fetchHeatSummaryData(formData.process_rm_ic_numbers);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModifyMode, formData.type_of_call, formData.process_rm_ic_numbers, heatSummaryFetchedInModify]);
 
   // Get available PO serial numbers for dropdown
@@ -582,16 +584,21 @@ export const RaiseInspectionCallForm = ({
             // Convert to the format expected by the dropdown
             // Extract call number from certificate number for API calls
             // Certificate format: "N/ER-01080001/RAJK" → Call number: "ER-01080001"
-            const formattedData = certificateNumbers.map(certNo => {
+            const formattedData = certificateNumbers.map(item => {
+              const certNo = (item && typeof item === 'object') ? item.certificateNo : (item || '');
+              const createdAt = (item && typeof item === 'object') ? item.createdAt : null;
+
               // Extract call number from certificate number
               // Pattern: N/{CALL_NO}/{SUFFIX} → extract {CALL_NO}
-              const callNoMatch = certNo.match(/N\/([^/]+)\//);
+              const callNoMatch = certNo ? certNo.match(/N\/([^/]+)\//) : null;
               const callNo = callNoMatch ? callNoMatch[1] : certNo;
+              const displayLabel = createdAt ? `${certNo} (${formatDate(createdAt)})` : certNo;
 
               return {
                 certificate_no: certNo,  // Display value (e.g., "N/ER-01080001/RAJK")
                 ic_number: callNo,       // API value (e.g., "ER-01080001")
-                label: certNo            // Dropdown label (show certificate number)
+                createdAt: createdAt,
+                label: displayLabel      // Dropdown label (show certificate number with date)
               };
             });
 
@@ -641,7 +648,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchCompletedRMICs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.po_serial_no]);
 
   // Fetch companies for POI dropdown on component mount
@@ -862,7 +869,7 @@ export const RaiseInspectionCallForm = ({
         return [...prev, ...toAdd];
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModifyMode, formData.type_of_call, formData.process_lot_heat_mapping, heatNumbersPreSeeded]);
 
   // Fetch company and unit details from the first selected RM IC for Process inspection
@@ -2226,6 +2233,12 @@ export const RaiseInspectionCallForm = ({
     //   return;
     // }
 
+    if (name === 'type_of_erc' && (value === 'MK-III' || value === 'J-Type')) {
+      setPendingErcType(value);
+      setShowErcWarning(true);
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
 
     // For chemistry fields, immediately show error if out of range
@@ -2676,196 +2689,196 @@ export const RaiseInspectionCallForm = ({
 
       <fieldset disabled={isViewMode} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
         {/* ============ COMMON SECTION ============ */}
-      <SectionHeader
-        title="PO Data (Auto Fetched from IREPS)"
-        subtitle="Select PO Serial Number to auto-populate PO details"
-      />
+        <SectionHeader
+          title="PO Data (Auto Fetched from IREPS)"
+          subtitle="Select PO Serial Number to auto-populate PO details"
+        />
 
-      <div className="ric-form-grid">
-        <FormField label="PO Serial Number" name="po_serial_no" required hint={selectedItem ? "Auto Fetched" : "Select to auto-fetch PO data"} errors={errors}>
-          {selectedItem ? (
-            <input
-              type="text"
-              className="ric-form-input ric-form-input--disabled"
-              value={selectedPoSerial}
-              disabled
-            />
-          ) : (
+        <div className="ric-form-grid">
+          <FormField label="PO Serial Number" name="po_serial_no" required hint={selectedItem ? "Auto Fetched" : "Select to auto-fetch PO data"} errors={errors}>
+            {selectedItem ? (
+              <input
+                type="text"
+                className="ric-form-input ric-form-input--disabled"
+                value={selectedPoSerial}
+                disabled
+              />
+            ) : (
+              <select
+                className="ric-form-select"
+                value={selectedPoSerial}
+                onChange={(e) => handlePoSerialChange(e.target.value)}
+              >
+                <option value="">Select PO Serial Number</option>
+                {poSerialOptions.map(po => (
+                  <option key={po.serialNo} value={po.serialNo}>
+                    {po.serialNo} - {po.itemName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+
+          <FormField label="Zone Name" name="zone_name" hint="Auto Fetched" errors={errors}>
+            <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.zone_name} disabled />
+          </FormField>
+
+          <FormField label="PO Number" name="po_no" hint="Auto Fetched" errors={errors}>
+            <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_no} disabled />
+          </FormField>
+
+          <FormField label="PO Date" name="po_date" hint="Auto Fetched" errors={errors}>
+            <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_date ? formatDate(formData.po_date) : ''} disabled />
+          </FormField>
+
+          <FormField label="PO Sr No Qty" name="po_qty" hint="Auto Fetched" errors={errors}>
+            <input type="text" className="ric-form-input ric-form-input--disabled" value={`${formData.po_qty} ${formData.po_unit}`} disabled />
+          </FormField>
+
+          {formData.amendment_no && (
+            <>
+              <FormField label="Amendment No." name="amendment_no" hint="Auto Fetched" errors={errors}>
+                <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.amendment_no} disabled />
+              </FormField>
+              <FormField label="Amendment Date" name="amendment_date" hint="Auto Fetched" errors={errors}>
+                <input type="text" className="ric-form-input ric-form-input--disabled" value={formatDate(formData.amendment_date)} disabled />
+              </FormField>
+            </>
+          )}
+
+          <FormField label="Type of ERC" name="type_of_erc" required hint="Select ERC type" errors={errors}>
             <select
+              name="type_of_erc"
               className="ric-form-select"
-              value={selectedPoSerial}
-              onChange={(e) => handlePoSerialChange(e.target.value)}
+              value={formData.type_of_erc}
+              onChange={handleChange}
             >
-              <option value="">Select PO Serial Number</option>
-              {poSerialOptions.map(po => (
-                <option key={po.serialNo} value={po.serialNo}>
-                  {po.serialNo} - {po.itemName}
-                </option>
+              {ERC_TYPES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-          )}
-        </FormField>
+          </FormField>
 
-        <FormField label="Zone Name" name="zone_name" hint="Auto Fetched" errors={errors}>
-          <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.zone_name} disabled />
-        </FormField>
-
-        <FormField label="PO Number" name="po_no" hint="Auto Fetched" errors={errors}>
-          <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_no} disabled />
-        </FormField>
-
-        <FormField label="PO Date" name="po_date" hint="Auto Fetched" errors={errors}>
-          <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.po_date ? formatDate(formData.po_date) : ''} disabled />
-        </FormField>
-
-        <FormField label="PO Sr No Qty" name="po_qty" hint="Auto Fetched" errors={errors}>
-          <input type="text" className="ric-form-input ric-form-input--disabled" value={`${formData.po_qty} ${formData.po_unit}`} disabled />
-        </FormField>
-
-        {formData.amendment_no && (
-          <>
-            <FormField label="Amendment No." name="amendment_no" hint="Auto Fetched" errors={errors}>
-              <input type="text" className="ric-form-input ric-form-input--disabled" value={formData.amendment_no} disabled />
-            </FormField>
-            <FormField label="Amendment Date" name="amendment_date" hint="Auto Fetched" errors={errors}>
-              <input type="text" className="ric-form-input ric-form-input--disabled" value={formatDate(formData.amendment_date)} disabled />
-            </FormField>
-          </>
-        )}
-
-        <FormField label="Type of ERC" name="type_of_erc" required hint="Select ERC type" errors={errors}>
-          <select
-            name="type_of_erc"
-            className="ric-form-select"
-            value={formData.type_of_erc}
-            onChange={handleChange}
-          >
-            {ERC_TYPES.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="Maximum 6 days from today" errors={errors}>
-          <input
-            type="date"
-            name="desired_inspection_date"
-            className="ric-form-input"
-            value={formData.desired_inspection_date}
-            onChange={handleChange}
-            // min={getTodayDate()}
-            max={isModifyMode ? undefined : getMaxDate()}
-          />
-        </FormField>
+          <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="Maximum 6 days from today" errors={errors}>
+            <input
+              type="date"
+              name="desired_inspection_date"
+              className="ric-form-input"
+              value={formData.desired_inspection_date}
+              onChange={handleChange}
+              // min={getTodayDate()}
+              max={isModifyMode ? undefined : getMaxDate()}
+            />
+          </FormField>
 
 
-      </div>
+        </div>
 
-      {/* Quantity Already Inspected Summary */}
-      {formData.po_serial_no && (
-        <div className="ric-qty-summary">
-          <div className="ric-qty-summary__title">Quantity Accepted</div>
-          <div className="ric-qty-summary__grid">
-            <div className="ric-qty-card">
-              <span className="ric-qty-card__label">Raw Material</span>
-              <span className="ric-qty-card__value">{formData.qty_already_inspected_rm}</span>
-            </div>
-            <div className="ric-qty-card">
-              <span className="ric-qty-card__label">Process</span>
-              <span className="ric-qty-card__value">{formData.qty_already_inspected_process}</span>
-            </div>
-            <div className="ric-qty-card">
-              <span className="ric-qty-card__label">Final</span>
-              <span className="ric-qty-card__value">{formData.qty_already_inspected_final}</span>
-            </div>
-            {/* <div className="ric-qty-card ric-qty-card--remaining">
+        {/* Quantity Already Inspected Summary */}
+        {formData.po_serial_no && (
+          <div className="ric-qty-summary">
+            <div className="ric-qty-summary__title">Quantity Accepted</div>
+            <div className="ric-qty-summary__grid">
+              <div className="ric-qty-card">
+                <span className="ric-qty-card__label">Raw Material</span>
+                <span className="ric-qty-card__value">{formData.qty_already_inspected_rm}</span>
+              </div>
+              <div className="ric-qty-card">
+                <span className="ric-qty-card__label">Process</span>
+                <span className="ric-qty-card__value">{formData.qty_already_inspected_process}</span>
+              </div>
+              <div className="ric-qty-card">
+                <span className="ric-qty-card__label">Final</span>
+                <span className="ric-qty-card__value">{formData.qty_already_inspected_final}</span>
+              </div>
+              {/* <div className="ric-qty-card ric-qty-card--remaining">
               <span className="ric-qty-card__label">Remaining (PO)</span>
               <span className="ric-qty-card__value">{formData.po_qty - formData.qty_already_inspected_final}</span>
             </div> */}
+            </div>
           </div>
+        )}
+
+        {/* ============ SUB PO INFORMATION (if selected) ============ */}
+        {selectedSubPO && (formData.type_of_call === 'Raw Material' || formData.type_of_call === 'Process') && (
+          <>
+            <SectionHeader title="Sub PO Information" subtitle="Details of selected Sub PO" />
+            <div className="ric-form-grid">
+              <FormField label="Sub-PO Number">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.sub_po_number}
+                  disabled
+                />
+              </FormField>
+              <FormField label="Raw Material Name">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.raw_material_name}
+                  disabled
+                />
+              </FormField>
+              <FormField label="Contractor">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.contractor}
+                  disabled
+                />
+              </FormField>
+              <FormField label="Manufacturer">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.manufacturer}
+                  disabled
+                />
+              </FormField>
+              <FormField label="Sub-PO Quantity">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.sub_po_quantity}
+                  disabled
+                />
+              </FormField>
+              <FormField label="Rate (₹)">
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={selectedSubPO.rate}
+                  disabled
+                />
+              </FormField>
+            </div>
+          </>
+        )}
+
+        {/* ============ CALL TYPE SELECTION ============ */}
+        <SectionHeader title="Call Details" subtitle="Select type of inspection call" />
+
+        <div className="ric-form-grid">
+          <FormField label="Type of Call" name="type_of_call" required hint="Select inspection stage" errors={errors}>
+            <select
+              name="type_of_call"
+              className="ric-form-select"
+              value={formData.type_of_call}
+              onChange={handleChange}
+            >
+              {INSPECTION_STAGES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </FormField>
         </div>
-      )}
 
-      {/* ============ SUB PO INFORMATION (if selected) ============ */}
-      {selectedSubPO && (formData.type_of_call === 'Raw Material' || formData.type_of_call === 'Process') && (
-        <>
-          <SectionHeader title="Sub PO Information" subtitle="Details of selected Sub PO" />
-          <div className="ric-form-grid">
-            <FormField label="Sub-PO Number">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.sub_po_number}
-                disabled
-              />
-            </FormField>
-            <FormField label="Raw Material Name">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.raw_material_name}
-                disabled
-              />
-            </FormField>
-            <FormField label="Contractor">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.contractor}
-                disabled
-              />
-            </FormField>
-            <FormField label="Manufacturer">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.manufacturer}
-                disabled
-              />
-            </FormField>
-            <FormField label="Sub-PO Quantity">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.sub_po_quantity}
-                disabled
-              />
-            </FormField>
-            <FormField label="Rate (₹)">
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={selectedSubPO.rate}
-                disabled
-              />
-            </FormField>
-          </div>
-        </>
-      )}
-
-      {/* ============ CALL TYPE SELECTION ============ */}
-      <SectionHeader title="Call Details" subtitle="Select type of inspection call" />
-
-      <div className="ric-form-grid">
-        <FormField label="Type of Call" name="type_of_call" required hint="Select inspection stage" errors={errors}>
-          <select
-            name="type_of_call"
-            className="ric-form-select"
-            value={formData.type_of_call}
-            onChange={handleChange}
-          >
-            {INSPECTION_STAGES.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </FormField>
-      </div>
-
-      {/* ============ SHOW REST OF FORM ONLY AFTER TYPE SELECTION ============ */}
-      {formData.type_of_call && (
-        <>
-          <div className="ric-form-grid">
-            {/* <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="" errors={errors}>
+        {/* ============ SHOW REST OF FORM ONLY AFTER TYPE SELECTION ============ */}
+        {formData.type_of_call && (
+          <>
+            <div className="ric-form-grid">
+              {/* <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="" errors={errors}>
               <input
                 type="date"
                 name="desired_inspection_date"
@@ -2877,7 +2890,7 @@ export const RaiseInspectionCallForm = ({
               />
             </FormField> */}
 
-            {/* <FormField label="Vendor Contact Name" name="vendor_contact_name">
+              {/* <FormField label="Vendor Contact Name" name="vendor_contact_name">
               <input
                 type="text"
                 name="vendor_contact_name"
@@ -2888,7 +2901,7 @@ export const RaiseInspectionCallForm = ({
               />
             </FormField> */}
 
-            {/* <FormField label="Vendor Contact Phone" name="vendor_contact_phone">
+              {/* <FormField label="Vendor Contact Phone" name="vendor_contact_phone">
               <input
                 type="tel"
                 name="vendor_contact_phone"
@@ -2898,1089 +2911,1262 @@ export const RaiseInspectionCallForm = ({
                 placeholder="Enter phone number"
               />
             </FormField> */}
-          </div>
+            </div>
 
-          {/* ============ RAW MATERIAL STAGE FIELDS ============ */}
-          {formData.type_of_call === 'Raw Material' && (
-            <>
-              <SectionHeader
-                title="ERC Raw Material Details - Heat Numbers & TC Information"
-                subtitle="Add multiple heat numbers and select TC for each. Details will be auto-fetched from inventory."
-              />
+            {/* ============ RAW MATERIAL STAGE FIELDS ============ */}
+            {formData.type_of_call === 'Raw Material' && (
+              <>
+                <SectionHeader
+                  title="ERC Raw Material Details - Heat Numbers & TC Information"
+                  subtitle="Add multiple heat numbers and select TC for each. Details will be auto-fetched from inventory."
+                />
 
-              {/* Dynamic Heat-TC Mapping Sections */}
-              {formData.rm_heat_tc_mapping.map((heatMapping, index) => (
-                <div key={heatMapping.id} className="ric-heat-section">
-                  <div className="ric-heat-section-header">
-                    <h4 className="ric-heat-section-title">Heat Number {index + 1}</h4>
-                    {formData.rm_heat_tc_mapping.length > 1 && !isViewMode && (
-                      <button
-                        type="button"
-                        className="ric-btn-remove-heat"
-                        onClick={() => handleRemoveHeatNumber(heatMapping.id)}
-                        title="Remove this heat number"
-                      >
-                        ✕ Remove
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="ric-form-grid">
-                    {/* Heat Number - Dropdown from Inventory {heat.rawMaterial} - Qty Left: {heat.qtyLeft} {heat.unit}*/}
-                    <FormField
-                      label="Heat Number"
-                      name={`heat_${index}_heatNumber`}
-                      required
-                      errors={errors}
-                    >
-                      <select
-                        className="ric-form-select"
-                        value={heatMapping.compositeKey || ''}
-                        onChange={(e) => {
-                          const compositeKey = e.target.value;
-                          if (compositeKey) {
-                            // Parse composite key: "heatNumber|supplierName"
-                            const [heatNum, supplier] = compositeKey.split('|');
-                            const selectedHeat = getAvailableHeatNumbersForDropdown(heatMapping.id).find(
-                              h => h.heatNumber === heatNum && h.supplierName === supplier
-                            );
-                            if (selectedHeat) {
-                              handleHeatNumberChange(heatMapping.id, selectedHeat.heatNumber, selectedHeat.supplierName, compositeKey);
-                            }
-                          } else {
-                            handleHeatNumberChange(heatMapping.id, '', '', '');
-                          }
-                        }}
-                      >
-                        <option value="">-- Select Heat Number --</option>
-                        {getAvailableHeatNumbersForDropdown(heatMapping.id).map(heat => {
-                          const compositeKey = `${heat.heatNumber}|${heat.supplierName}`;
-                          return (
-                            <option key={compositeKey} value={compositeKey}>
-                              {heat.heatNumber} -  ({heat.supplierName})
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </FormField>
-
-                    {/* TC Number - Dropdown based on selected Heat Number */}
-                    <FormField
-                      label="TC (Test Certificate) Number"
-                      name={`heat_${index}_tcNumber`}
-                      required
-                      hint="Auto-fetched from inventory"
-                      errors={errors}
-                    >
-                      <select
-                        className="ric-form-select"
-                        value={heatMapping.tcNumber}
-                        onChange={(e) => handleTcNumberChange(heatMapping.id, e.target.value)}
-                        disabled={!heatMapping.heatNumber}
-                      >
-                        <option value="">Select TC Number</option>
-                        {getAvailableTcNumbers(heatMapping.heatNumber, heatMapping.supplierName, heatMapping.id).map(tc => (
-                          <option key={tc.tcNumber} value={tc.tcNumber}>
-                            {tc.tcNumber} - {tc.manufacturer}
-                          </option>
-                        ))}
-                      </select>
-                      {heatMapping.isLoading && (
-                        <div style={{ marginTop: '4px', fontSize: '12px', color: '#2196f3' }}>
-                          Loading details...
-                        </div>
-                      )}
-                    </FormField>
-
-                    {/* TC Date - Auto-fetched */}
-                    <FormField label="TC Date" name={`heat_${index}_tcDate`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.tcDate ? formatDate(heatMapping.tcDate) : ''}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Manufacturer - Auto-fetched */}
-                    <FormField label="Manufacturer Name" name={`heat_${index}_manufacturer`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.manufacturer}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Invoice Number - Auto-fetched */}
-                    <FormField label="Invoice Number" name={`heat_${index}_invoiceNo`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.invoiceNo}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Invoice Date - Auto-fetched */}
-                    <FormField label="Invoice Date" name={`heat_${index}_invoiceDate`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.invoiceDate ? formatDate(heatMapping.invoiceDate) : ''}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Sub PO Number & Date - Auto-fetched */}
-                    <FormField label="Sub PO Number & Date" name={`heat_${index}_subPoNumber`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.subPoNumber && heatMapping.subPoDate
-                          ? `${heatMapping.subPoNumber} (${formatDate(heatMapping.subPoDate)})`
-                          : ''}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Sub PO Qty - Auto-fetched */}
-                    <FormField label="Sub PO Qty" name={`heat_${index}_subPoQty`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.subPoQty}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* Total Value of Sub PO - Auto-fetched */}
-                    {!isViewMode && (
-                      <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
-                        <input
-                          type="text"
-                          className="ric-form-input ric-form-input--disabled"
-                          value={heatMapping.subPoTotalValue}
-                          disabled
-                        />
-                      </FormField>
-                    )}
-
-                    {/* TC Qty - Auto-fetched */}
-                    <FormField label="TC Qty" name={`heat_${index}_tcQty`} hint="Auto-fetched">
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--disabled"
-                        value={heatMapping.tcQty}
-                        disabled
-                      />
-                    </FormField>
-
-                    {/* TC Qty Remaining with Vendor - Auto-fetched */}
-                    {!isViewMode && (
-                      <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
-                        <input
-                          type="text"
-                          className="ric-form-input ric-form-input--disabled"
-                          value={heatMapping.tcQtyRemaining}
-                          disabled
-                        />
-                      </FormField>
-                    )}
-
-                    {/* Offered Quantity for this Heat - Manual Input */}
-                    <FormField
-                      label="Offered Qty (MT)"
-                      name={`heat_${index}_offeredQty`}
-                      required
-                      hint={heatMapping.tcQtyRemaining ? `Max: ${heatMapping.tcQtyRemaining} MT (TC Qty Remaining)` : heatMapping.maxQty ? `Max: ${heatMapping.maxQty} ${heatMapping.unit}` : ''}
-                      errors={errors}
-                    >
-                      <input
-                        type="number"
-                        className="ric-form-input"
-                        value={heatMapping.offeredQty}
-                        onChange={(e) => handleHeatOfferedQtyChange(heatMapping.id, e.target.value)}
-                        step="0.001"
-                        min="0"
-                        max={heatMapping.tcQtyRemaining || heatMapping.maxQty || undefined}
-                        placeholder="Enter quantity in MT"
-                        disabled={!heatMapping.tcNumber}
-                      />
-                    </FormField>
-
-                    {/* Max ERC Calculation - Auto-calculated based on Offered Qty and ERC Type */}
-                    <FormField
-                      label="Max ERC can be manufactured from this Manufacturer - Heat No. combination for this PO Sr. No."
-                      name={`heat_${index}_maxErc`}
-                      hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 0.928'}` : 'Select ERC type to calculate'}
-                      fullWidth
-                    >
-                      <input
-                        type="text"
-                        className="ric-form-input ric-form-input--calculated"
-                        value={
-                          heatMapping.offeredQty && formData.type_of_erc
-                            ? `${formatNumber(calculateMaxErcForHeat(heatMapping.offeredQty, formData.type_of_erc))} ERCs`
-                            : '0 ERCs'
-                        }
-                        disabled
-                        readOnly
-                      />
-                    </FormField>
-                  </div>
-
-                  {/* Chemical Analysis for this Heat Number */}
-                  <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e0e0e0' }}>
-                    <SectionHeader
-                      title={`Chemical Analysis of TC - Heat #${index + 1}`}
-                      subtitle={`Enter chemical composition percentages for ${heatMapping.heatNumber || 'this heat'}`}
-                    />
-
-                    {/* Loading indicator for chemical analysis */}
-                    {heatMapping.isLoadingChemical && (
-                      <div style={{
-                        marginBottom: '16px',
-                        padding: '12px',
-                        backgroundColor: '#e3f2fd',
-                        borderLeft: '4px solid #2196f3',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        color: '#1976d2'
-                      }}>
-                        🔬 Fetching chemical analysis from previous inspection calls...
-                      </div>
-                    )}
-
-                    {/* Auto-fetched indicator */}
-                    {heatMapping.chemicalAutoFetched && !heatMapping.isLoadingChemical && (
-                      <div style={{
-                        marginBottom: '16px',
-                        padding: '12px',
-                        backgroundColor: '#e8f5e9',
-                        borderLeft: '4px solid #4caf50',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        color: '#2e7d32',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                        <span>✅</span>
-                        <span>
-                          <strong>Auto-populated:</strong> Chemical analysis data has been automatically filled based on previous entries or database records for this heat number. You can edit these values if needed.
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="ric-form-grid">
-                      <FormField label="Carbon (C) %" name={`heat_${index}_chemical_carbon`} required hint="Range: 0.5 - 0.6" errors={errors}>
-                        <input
-                          type="number"
-                          className="ric-form-input"
-                          value={heatMapping.chemical_carbon}
-                          onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_carbon', e.target.value)}
-                          step="0.001"
-                          min="0"
-                          max="100"
-                          placeholder="e.g., 0.55"
-                        />
-                      </FormField>
-
-                      <FormField label="Manganese (Mn) %" name={`heat_${index}_chemical_manganese`} required hint="Range: 0.8 - 1.0" errors={errors}>
-                        <input
-                          type="number"
-                          className="ric-form-input"
-                          value={heatMapping.chemical_manganese}
-                          onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_manganese', e.target.value)}
-                          step="0.001"
-                          min="0"
-                          max="100"
-                          placeholder="e.g., 0.9"
-                        />
-                      </FormField>
-
-                      <FormField label="Silicon (Si) %" name={`heat_${index}_chemical_silicon`} required hint="Range: 1.5 - 2.0" errors={errors}>
-                        <input
-                          type="number"
-                          className="ric-form-input"
-                          value={heatMapping.chemical_silicon}
-                          onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_silicon', e.target.value)}
-                          step="0.001"
-                          min="0"
-                          max="100"
-                          placeholder="e.g., 1.75"
-                        />
-                      </FormField>
-
-                      <FormField label="Sulphur (S) %" name={`heat_${index}_chemical_sulphur`} required hint="Max: 0.03" errors={errors}>
-                        <input
-                          type="number"
-                          className="ric-form-input"
-                          value={heatMapping.chemical_sulphur}
-                          onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_sulphur', e.target.value)}
-                          step="0.001"
-                          min="0"
-                          max="100"
-                          placeholder="e.g., 0.02"
-                        />
-                      </FormField>
-
-                      <FormField label="Phosphorus (P) %" name={`heat_${index}_chemical_phosphorus`} required hint="Max: 0.03" errors={errors}>
-                        <input
-                          type="number"
-                          className="ric-form-input"
-                          value={heatMapping.chemical_phosphorus}
-                          onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_phosphorus', e.target.value)}
-                          step="0.001"
-                          min="0"
-                          max="100"
-                          placeholder="e.g., 0.02"
-                        />
-                      </FormField>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Add Heat Number Button */}
-              {!isViewMode && (
-                <div style={{ marginBottom: '24px' }}>
-                  <button
-                    type="button"
-                    className="ric-btn-add-heat"
-                    onClick={handleAddHeatNumber}
-                  >
-                    + Add Another Heat Number
-                  </button>
-                </div>
-              )}
-
-              {/* Total Offered Quantity - Auto-calculated from all heats */}
-              <SectionHeader
-                title="Total Offered Quantity Summary"
-                subtitle="Auto-calculated from all heat numbers"
-              />
-              <div className="ric-form-grid">
-                <FormField
-                  label="Total Offered Qty (MT)"
-                  name="rm_total_offered_qty_mt"
-                // hint={`Auto-calculated (Sum of all heats) | Max: ${remainingQty.rm} MT`}
-                >
-                  <input
-                    type="text"
-                    className="ric-form-input ric-form-input--calculated"
-                    value={(Number(formData.rm_total_offered_qty_mt) || 0).toFixed(3)}
-                    disabled
-                  />
-                </FormField>
-
-                <FormField
-                  label="Approx. No. of ERC to be Supplied"
-                  name="rm_offered_qty_erc"
-                  // hint="Auto-calculated from Total Qty (1.150 MT per 1000 ERCs)"
-                  hint={`Formula: (Total Offered Qty MT × 1000) / Division Factor
-                        MK-III: Division Factor = 0.928426
-                        MK-V: Division Factor = 1.133
-                        J-Type: Division Factor = 0.928${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
-                >
-                  <input
-                    type="text"
-                    className="ric-form-input ric-form-input--calculated"
-                    value={(Number(formData.rm_offered_qty_erc) || 0).toLocaleString('en-IN')}
-                    disabled
-                  />
-                </FormField>
-              </div>
-            </>
-          )}
-
-          {/* ============ PROCESS STAGE FIELDS ============ */}
-          {formData.type_of_call === 'Process' && (
-            <>
-              <SectionHeader
-                title="ERC Process Inspection Details"
-                subtitle="Select RM ICs and enter lot details"
-              />
-
-              <div className="ric-form-grid">
-                {/* RM IC Numbers - Dropdown with Multiple Selection - HARDCODED FOR TESTING { value: 'RM-IC-1767597604003', label: 'RM-IC-1767597604003 ' },
-                      { value: 'RM-IC-1767603751862', label: 'RM-IC-1767603751862' },
-                      { value: 'RM-IC-1767604183531', label: 'RM-IC-1767604183531' },  
-                      { value: 'RM-IC-1767604882477', label: 'RM-IC-1767604882477' }*/}
-                <FormField
-                  label="RM IC Numbers"
-                  name="process_rm_ic_numbers"
-                  required
-                  hint={loadingRMICs ? "Loading completed RM ICs..." : "Select certificate number for completed RM inspections"}
-                  fullWidth
-                >
-                  <MultiSelectDropdown
-                    options={approvedRMICsForProcess.map(ic => ({
-                      value: ic.certificate_no,  // Store certificate number
-                      label: ic.certificate_no   // Display certificate number
-                    }))}
-                    selectedValues={formData.process_rm_ic_numbers}
-                    onChange={(selectedValues) => handleRmIcSelection(selectedValues)}
-                    placeholder={loadingRMICs ? "Loading..." : "Select Certificate Numbers"}
-                    disabled={isViewMode}
-                  />
-                  {formData.process_rm_ic_numbers.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                      Selected: {formData.process_rm_ic_numbers.join(', ')}
-                    </div>
-                  )}
-                </FormField>
-
-                {/* Book No - Set No - Auto-fetched */}
-                <FormField
-                  label="Book No - Set No."
-                  name="process_book_set_nos"
-                  // hint="Auto-fetched for each RM IC Number added above"
-                  fullWidth
-                >
-                  <div className="ric-form-input ric-form-input--disabled" style={{ minHeight: '60px', padding: '12px' }}>
-                    {formData.process_book_set_nos.length > 0 ? (
-                      formData.process_book_set_nos.map((item, idx) => (
-                        <div key={idx} style={{ marginBottom: '4px' }}>
-                          <strong>{item.icNumber}:</strong> {item.bookSetNo}
-                        </div>
-                      ))
-                    ) : (
-                      <span style={{ color: '#999' }}>Select RM IC Numbers to auto-fetch Book/Set Numbers</span>
-                    )}
-                  </div>
-                </FormField>
-
-                {/* Info Message for Multiple Lots */}
-                {formData.process_lot_heat_mapping.length > 1 && (
-                  <div className="ric-info-message" style={{ gridColumn: '1 / -1', padding: '12px', backgroundColor: '#e3f2fd', borderLeft: '4px solid #2196f3', marginBottom: '16px' }}>
-                    <strong>Note:</strong> If more than 1 lot no. is added - "Process IC for all the Lots will be provided once all the lots are manufactured and inspected during process inspection"
-                  </div>
-                )}
-              </div>
-
-              {/* ========== HEAT SUMMARY SECTION ========== */}
-              {formData.process_rm_ic_numbers.length > 0 && (
-                <div style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
-                  <HeatSummaryTable
-                    data={heatSummaryData}
-                    loading={loadingHeatSummary}
-                    poSerialNo={formData.po_serial_no}
-                  />
-                </div>
-              )}
-
-              {/* ========== LOT-HEAT MAPPING SECTION ========== */}
-              <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
-                    Lot Numbers & Heat Numbers
-                  </h4>
-                  {!isViewMode && (
-                    <button
-                      type="button"
-                      onClick={handleAddProcessLotHeat}
-                      className="ric-btn-secondary"
-                      style={{
-                        padding: '8px 16px',
-                        fontSize: '14px',
-                        backgroundColor: '#10b981',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: '500'
-                      }}
-                    >
-                      + Add Lot & Heat
-                    </button>
-                  )}
-                </div>
-
-                {/* Lot-Heat Entries */}
-                {formData.process_lot_heat_mapping.map((lotHeat, index) => (
-                  <div
-                    key={lotHeat.id}
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      marginBottom: '16px',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h5 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                        Entry #{index + 1}
-                      </h5>
-                      {formData.process_lot_heat_mapping.length > 1 && !isViewMode && (
+                {/* Dynamic Heat-TC Mapping Sections */}
+                {formData.rm_heat_tc_mapping.map((heatMapping, index) => (
+                  <div key={heatMapping.id} className="ric-heat-section">
+                    <div className="ric-heat-section-header">
+                      <h4 className="ric-heat-section-title">Heat Number {index + 1}</h4>
+                      {formData.rm_heat_tc_mapping.length > 1 && !isViewMode && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveProcessLotHeat(lotHeat.id)}
-                          style={{
-                            padding: '4px 12px',
-                            fontSize: '12px',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
+                          className="ric-btn-remove-heat"
+                          onClick={() => handleRemoveHeatNumber(heatMapping.id)}
+                          title="Remove this heat number"
                         >
-                          Remove
+                          ✕ Remove
                         </button>
                       )}
                     </div>
 
                     <div className="ric-form-grid">
-                      {/* Lot Number */}
-                      <FormField
-                        label="Lot No."
-                        name={`process_lot_no_${lotHeat.id}`}
-                        required
-                        hint="Manual Entry - String"
-                      >
-                        <input
-                          type="text"
-                          className="ric-form-input"
-                          value={lotHeat.lotNumber}
-                          onChange={(e) => handleProcessLotNumberChange(lotHeat.id, e.target.value)}
-                          placeholder="Enter Lot Number (e.g., LOT-2025-001)"
-                        />
-                      </FormField>
-
-                      {/* Heat Number */}
+                      {/* Heat Number - Dropdown from Inventory {heat.rawMaterial} - Qty Left: {heat.qtyLeft} {heat.unit}*/}
                       <FormField
                         label="Heat Number"
-                        name={`process_heat_number_${lotHeat.id}`}
+                        name={`heat_${index}_heatNumber`}
                         required
-                        hint={loadingHeats ? "Loading heat numbers..." : "Select heat number from selected ER (linked to RM IC)"}
+                        errors={errors}
                       >
                         <select
                           className="ric-form-select"
-                          value={lotHeat.compositeKey || ''}
+                          value={heatMapping.compositeKey || ''}
                           onChange={(e) => {
                             const compositeKey = e.target.value;
                             if (compositeKey) {
-                              // Parse composite key: "heatNumber|manufacturer"
-                              const [heatNum, manufacturer] = compositeKey.split('|');
-                              const selectedHeat = processHeatNumbers.find(
-                                h => h.heatNumber === heatNum && h.manufacturer === manufacturer
+                              // Parse composite key: "heatNumber|supplierName"
+                              const [heatNum, supplier] = compositeKey.split('|');
+                              const selectedHeat = getAvailableHeatNumbersForDropdown(heatMapping.id).find(
+                                h => h.heatNumber === heatNum && h.supplierName === supplier
                               );
                               if (selectedHeat) {
-                                handleProcessManufacturerHeatChange(
-                                  lotHeat.id,
-                                  `${selectedHeat.manufacturer} - ${heatNum}`,
-                                  heatNum,
-                                  selectedHeat.manufacturer,
-                                  selectedHeat.qtyAccepted || 0,
-                                  selectedHeat.weightAcceptedMt || 0,
-                                  compositeKey
-                                );
+                                handleHeatNumberChange(heatMapping.id, selectedHeat.heatNumber, selectedHeat.supplierName, compositeKey);
                               }
                             } else {
-                              handleProcessManufacturerHeatChange(lotHeat.id, '', '', '', 0, 0, '');
+                              handleHeatNumberChange(heatMapping.id, '', '', '');
                             }
                           }}
-                          disabled={loadingHeats || processHeatNumbers.length === 0}
                         >
-                          <option value="">
-                            {loadingHeats ? "Loading..." : processHeatNumbers.length === 0 ? "Select RM IC first" : "Select Heat Number"}
-                          </option>
-                          {processHeatNumbers.map((heat) => {
-                            const compositeKey = `${heat.heatNumber}|${heat.manufacturer}`;
+                          <option value="">-- Select Heat Number --</option>
+                          {getAvailableHeatNumbersForDropdown(heatMapping.id).map(heat => {
+                            const compositeKey = `${heat.heatNumber}|${heat.supplierName}`;
                             return (
                               <option key={compositeKey} value={compositeKey}>
-                                {heat.heatNumber} - ({heat.manufacturer})
+                                {heat.heatNumber} -  ({heat.supplierName})
                               </option>
                             );
                           })}
                         </select>
                       </FormField>
 
-                      {/* Offered Quantity */}
-                      {(() => {
-                        const heatSummary = lotHeat.heatNumber ? heatSummaryData.find(h => h.heatNo === lotHeat.heatNumber) : null;
-                        const offeredQty = parseInt(lotHeat.offeredQty) || 0;
-
-                        // Format accepted weight for display in label
-                        const acceptedWeightDisplay = (heatSummary && heatSummary.acceptedMt != null) ? `${(parseFloat(heatSummary.acceptedMt) || 0).toFixed(3)} MT` : '';
-
-                        // Calculate available balance for THIS lot
-                        // Available = Max ERC - Offered Earlier - (Total offered by OTHER lots using same heat)
-                        let availableBalance = 0;
-                        if (heatSummary) {
-                          // Calculate total offered by OTHER lots using the same heat number
-                          const otherLotsOffered = formData.process_lot_heat_mapping
-                            .filter(lot => lot.heatNumber === lotHeat.heatNumber && lot.id !== lotHeat.id)
-                            .reduce((sum, lot) => sum + (parseInt(lot.offeredQty) || 0), 0);
-
-                          availableBalance = heatSummary.maxErc - (heatSummary.offeredEarlier || 0) - otherLotsOffered;
-                        }
-
-                        const exceedsBalance = heatSummary && offeredQty > availableBalance;
-
-                        return (
-                          <FormField
-                            label={`Declared Quantity of Lot in Nos. ${acceptedWeightDisplay ? `(Accepted: ${acceptedWeightDisplay})` : ''}`}
-                            name={`process_offered_qty_${lotHeat.id}`}
-                            required
-                            hint={heatSummary ? `Available Future Balance: ${availableBalance} ERCs` : "Select heat number first"}
-                            errors={exceedsBalance ? { [`process_offered_qty_${lotHeat.id}`]: `Exceeds available balance by ${offeredQty - availableBalance} ERCs` } : {}}
-                          >
-                            <input
-                              type="number"
-                              className={`ric-form-input ${exceedsBalance ? 'ric-form-input--error' : ''}`}
-                              value={lotHeat.offeredQty}
-                              onChange={(e) => handleProcessOfferedQtyChange(lotHeat.id, e.target.value)}
-                              min="0"
-                              max={heatSummary ? availableBalance : (lotHeat.maxQty || undefined)}
-                              placeholder="Enter quantity in Number"
-                              disabled={!lotHeat.heatNumber}
-                              style={exceedsBalance ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
-                            />
-                          </FormField>
-                        );
-                      })()}
-
-                      {/* Tentative Start Date */}
+                      {/* TC Number - Dropdown based on selected Heat Number */}
                       <FormField
-                        label="Tentative Date of Start of Production"
-                        name={`process_tentative_start_date_${lotHeat.id}`}
-                        // required // Commented out to allow infinite range
-                        hint="Expected date when production will start for this lot"
+                        label="TC (Test Certificate) Number"
+                        name={`heat_${index}_tcNumber`}
+                        required
+                        hint="Auto-fetched from inventory"
+                        errors={errors}
+                      >
+                        <select
+                          className="ric-form-select"
+                          value={heatMapping.tcNumber}
+                          onChange={(e) => handleTcNumberChange(heatMapping.id, e.target.value)}
+                          disabled={!heatMapping.heatNumber}
+                        >
+                          <option value="">Select TC Number</option>
+                          {getAvailableTcNumbers(heatMapping.heatNumber, heatMapping.supplierName, heatMapping.id).map(tc => (
+                            <option key={tc.tcNumber} value={tc.tcNumber}>
+                              {tc.tcNumber} - {tc.manufacturer}
+                            </option>
+                          ))}
+                        </select>
+                        {heatMapping.isLoading && (
+                          <div style={{ marginTop: '4px', fontSize: '12px', color: '#2196f3' }}>
+                            Loading details...
+                          </div>
+                        )}
+                      </FormField>
+
+                      {/* TC Date - Auto-fetched */}
+                      <FormField label="TC Date" name={`heat_${index}_tcDate`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.tcDate ? formatDate(heatMapping.tcDate) : ''}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Manufacturer - Auto-fetched */}
+                      <FormField label="Manufacturer Name" name={`heat_${index}_manufacturer`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.manufacturer}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Invoice Number - Auto-fetched */}
+                      <FormField label="Invoice Number" name={`heat_${index}_invoiceNo`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.invoiceNo}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Invoice Date - Auto-fetched */}
+                      <FormField label="Invoice Date" name={`heat_${index}_invoiceDate`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.invoiceDate ? formatDate(heatMapping.invoiceDate) : ''}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Sub PO Number & Date - Auto-fetched */}
+                      <FormField label="Sub PO Number & Date" name={`heat_${index}_subPoNumber`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.subPoNumber && heatMapping.subPoDate
+                            ? `${heatMapping.subPoNumber} (${formatDate(heatMapping.subPoDate)})`
+                            : ''}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Sub PO Qty - Auto-fetched */}
+                      <FormField label="Sub PO Qty" name={`heat_${index}_subPoQty`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.subPoQty}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* Total Value of Sub PO - Auto-fetched */}
+                      {!isViewMode && (
+                        <FormField label="Total Value of Sub PO" name={`heat_${index}_subPoTotalValue`} hint="Auto-fetched">
+                          <input
+                            type="text"
+                            className="ric-form-input ric-form-input--disabled"
+                            value={heatMapping.subPoTotalValue}
+                            disabled
+                          />
+                        </FormField>
+                      )}
+
+                      {/* TC Qty - Auto-fetched */}
+                      <FormField label="TC Qty" name={`heat_${index}_tcQty`} hint="Auto-fetched">
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--disabled"
+                          value={heatMapping.tcQty}
+                          disabled
+                        />
+                      </FormField>
+
+                      {/* TC Qty Remaining with Vendor - Auto-fetched */}
+                      {!isViewMode && (
+                        <FormField label="TC Qty Remaining with Vendor" name={`heat_${index}_tcQtyRemaining`} hint="Auto-fetched">
+                          <input
+                            type="text"
+                            className="ric-form-input ric-form-input--disabled"
+                            value={heatMapping.tcQtyRemaining}
+                            disabled
+                          />
+                        </FormField>
+                      )}
+
+                      {/* Offered Quantity for this Heat - Manual Input */}
+                      <FormField
+                        label="Offered Qty (MT)"
+                        name={`heat_${index}_offeredQty`}
+                        required
+                        hint={heatMapping.tcQtyRemaining ? `Max: ${heatMapping.tcQtyRemaining} MT (TC Qty Remaining)` : heatMapping.maxQty ? `Max: ${heatMapping.maxQty} ${heatMapping.unit}` : ''}
+                        errors={errors}
                       >
                         <input
-                          type="date"
+                          type="number"
                           className="ric-form-input"
-                          value={lotHeat.tentativeStartDate}
-                          onChange={(e) => handleProcessTentativeStartDateChange(lotHeat.id, e.target.value)}
-                        // min={new Date().toISOString().split('T')[0]} // Removed to allow infinite range
+                          value={heatMapping.offeredQty}
+                          onChange={(e) => handleHeatOfferedQtyChange(heatMapping.id, e.target.value)}
+                          step="0.001"
+                          min="0"
+                          max={heatMapping.tcQtyRemaining || heatMapping.maxQty || undefined}
+                          placeholder="Enter quantity in MT"
+                          disabled={!heatMapping.tcNumber}
+                        />
+                      </FormField>
+
+                      {/* Max ERC Calculation - Auto-calculated based on Offered Qty and ERC Type */}
+                      <FormField
+                        label="Max ERC can be manufactured from this Manufacturer - Heat No. combination for this PO Sr. No."
+                        name={`heat_${index}_maxErc`}
+                        hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 0.928'}` : 'Select ERC type to calculate'}
+                        fullWidth
+                      >
+                        <input
+                          type="text"
+                          className="ric-form-input ric-form-input--calculated"
+                          value={
+                            heatMapping.offeredQty && formData.type_of_erc
+                              ? `${formatNumber(calculateMaxErcForHeat(heatMapping.offeredQty, formData.type_of_erc))} ERCs`
+                              : '0 ERCs'
+                          }
+                          disabled
+                          readOnly
                         />
                       </FormField>
                     </div>
+
+                    {/* Chemical Analysis for this Heat Number */}
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e0e0e0' }}>
+                      <SectionHeader
+                        title={`Chemical Analysis of TC - Heat #${index + 1}`}
+                        subtitle={`Enter chemical composition percentages for ${heatMapping.heatNumber || 'this heat'}`}
+                      />
+
+                      {/* Loading indicator for chemical analysis */}
+                      {heatMapping.isLoadingChemical && (
+                        <div style={{
+                          marginBottom: '16px',
+                          padding: '12px',
+                          backgroundColor: '#e3f2fd',
+                          borderLeft: '4px solid #2196f3',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          color: '#1976d2'
+                        }}>
+                          🔬 Fetching chemical analysis from previous inspection calls...
+                        </div>
+                      )}
+
+                      {/* Auto-fetched indicator */}
+                      {heatMapping.chemicalAutoFetched && !heatMapping.isLoadingChemical && (
+                        <div style={{
+                          marginBottom: '16px',
+                          padding: '12px',
+                          backgroundColor: '#e8f5e9',
+                          borderLeft: '4px solid #4caf50',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          color: '#2e7d32',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <span>✅</span>
+                          <span>
+                            <strong>Auto-populated:</strong> Chemical analysis data has been automatically filled based on previous entries or database records for this heat number. You can edit these values if needed.
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="ric-form-grid">
+                        <FormField label="Carbon (C) %" name={`heat_${index}_chemical_carbon`} required hint="Range: 0.5 - 0.6" errors={errors}>
+                          <input
+                            type="number"
+                            className="ric-form-input"
+                            value={heatMapping.chemical_carbon}
+                            onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_carbon', e.target.value)}
+                            step="0.001"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 0.55"
+                          />
+                        </FormField>
+
+                        <FormField label="Manganese (Mn) %" name={`heat_${index}_chemical_manganese`} required hint="Range: 0.8 - 1.0" errors={errors}>
+                          <input
+                            type="number"
+                            className="ric-form-input"
+                            value={heatMapping.chemical_manganese}
+                            onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_manganese', e.target.value)}
+                            step="0.001"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 0.9"
+                          />
+                        </FormField>
+
+                        <FormField label="Silicon (Si) %" name={`heat_${index}_chemical_silicon`} required hint="Range: 1.5 - 2.0" errors={errors}>
+                          <input
+                            type="number"
+                            className="ric-form-input"
+                            value={heatMapping.chemical_silicon}
+                            onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_silicon', e.target.value)}
+                            step="0.001"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 1.75"
+                          />
+                        </FormField>
+
+                        <FormField label="Sulphur (S) %" name={`heat_${index}_chemical_sulphur`} required hint="Max: 0.03" errors={errors}>
+                          <input
+                            type="number"
+                            className="ric-form-input"
+                            value={heatMapping.chemical_sulphur}
+                            onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_sulphur', e.target.value)}
+                            step="0.001"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 0.02"
+                          />
+                        </FormField>
+
+                        <FormField label="Phosphorus (P) %" name={`heat_${index}_chemical_phosphorus`} required hint="Max: 0.03" errors={errors}>
+                          <input
+                            type="number"
+                            className="ric-form-input"
+                            value={heatMapping.chemical_phosphorus}
+                            onChange={(e) => handleHeatChemicalChange(heatMapping.id, 'chemical_phosphorus', e.target.value)}
+                            step="0.001"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 0.02"
+                          />
+                        </FormField>
+                      </div>
+                    </div>
                   </div>
                 ))}
-              </div>
 
-              <div className="ric-form-grid">
-              </div>
-            </>
-          )}
+                {/* Add Heat Number Button */}
+                {!isViewMode && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <button
+                      type="button"
+                      className="ric-btn-add-heat"
+                      onClick={handleAddHeatNumber}
+                    >
+                      + Add Another Heat Number
+                    </button>
+                  </div>
+                )}
 
-          {/* ============ FINAL STAGE FIELDS ============ */}
-          {formData.type_of_call === 'Final' && (
-            <>
-              <SectionHeader
-                title="ERC Final Inspection Details"
-                subtitle="Select lots and enter final quantity details"
-              />
+                {/* Total Offered Quantity - Auto-calculated from all heats */}
+                <SectionHeader
+                  title="Total Offered Quantity Summary"
+                  subtitle="Auto-calculated from all heat numbers"
+                />
+                <div className="ric-form-grid">
+                  <FormField
+                    label="Total Offered Qty (MT)"
+                    name="rm_total_offered_qty_mt"
+                  // hint={`Auto-calculated (Sum of all heats) | Max: ${remainingQty.rm} MT`}
+                  >
+                    <input
+                      type="text"
+                      className="ric-form-input ric-form-input--calculated"
+                      value={(Number(formData.rm_total_offered_qty_mt) || 0).toFixed(3)}
+                      disabled
+                    />
+                  </FormField>
 
-              <div className="ric-form-grid">
-                {/* STEP 1: RM IC Numbers - First Dropdown (Multi-Select) */}
-                <FormField
-                  label="RM IC Numbers"
-                  name="final_rm_ic_numbers"
-                  required
-                  hint="Certificate numbers from completed RM ICs (ER prefix)"
-                >
-                  {loadingRmIcsForFinal ? (
-                    <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
-                      Loading RM IC certificates...
-                    </div>
-                  ) : (
+                  <FormField
+                    label="Approx. No. of ERC to be Supplied"
+                    name="rm_offered_qty_erc"
+                    // hint="Auto-calculated from Total Qty (1.150 MT per 1000 ERCs)"
+                    hint={`Formula: (Total Offered Qty MT × 1000) / Division Factor
+                        MK-III: Division Factor = 0.928426
+                        MK-V: Division Factor = 1.133
+                        J-Type: Division Factor = 0.928${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
+                  >
+                    <input
+                      type="text"
+                      className="ric-form-input ric-form-input--calculated"
+                      value={(Number(formData.rm_offered_qty_erc) || 0).toLocaleString('en-IN')}
+                      disabled
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+
+            {/* ============ PROCESS STAGE FIELDS ============ */}
+            {formData.type_of_call === 'Process' && (
+              <>
+                <SectionHeader
+                  title="ERC Process Inspection Details"
+                  subtitle="Select RM ICs and enter lot details"
+                />
+
+                <div className="ric-form-grid">
+                  {/* RM IC Numbers - Dropdown with Multiple Selection - HARDCODED FOR TESTING { value: 'RM-IC-1767597604003', label: 'RM-IC-1767597604003 ' },
+                      { value: 'RM-IC-1767603751862', label: 'RM-IC-1767603751862' },
+                      { value: 'RM-IC-1767604183531', label: 'RM-IC-1767604183531' },  
+                      { value: 'RM-IC-1767604882477', label: 'RM-IC-1767604882477' }*/}
+                  <FormField
+                    label="RM IC Numbers"
+                    name="process_rm_ic_numbers"
+                    required
+                    hint={loadingRMICs ? "Loading completed RM ICs..." : "Select certificate number for completed RM inspections"}
+                    fullWidth
+                  >
                     <MultiSelectDropdown
-                      options={rmIcNumbersForFinal.map(cert => ({
-                        value: cert,
-                        label: cert
+                      options={approvedRMICsForProcess.map(ic => ({
+                        value: ic.certificate_no,  // Store certificate number
+                        label: ic.label || ic.certificate_no   // Display certificate number with date
                       }))}
-                      selectedValues={formData.final_rm_ic_numbers}
-                      onChange={(selectedValues) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          final_rm_ic_numbers: selectedValues,
-                          final_process_ic_numbers: [], // Reset downstream selections
-                          final_lot_numbers: []
-                        }));
-                      }}
-                      placeholder="Select RM IC Certificate Number"
+                      selectedValues={formData.process_rm_ic_numbers}
+                      onChange={(selectedValues) => handleRmIcSelection(selectedValues)}
+                      placeholder={loadingRMICs ? "Loading..." : "Select Certificate Numbers"}
                       disabled={isViewMode}
                     />
-                  )}
-                  {formData.final_rm_ic_numbers.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                      Selected: {formData.final_rm_ic_numbers.join(', ')}
-                    </div>
-                  )}
-                </FormField>
+                    {formData.process_rm_ic_numbers.length > 0 && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        Selected: {formData.process_rm_ic_numbers.join(', ')}
+                      </div>
+                    )}
+                  </FormField>
 
-                {/* STEP 2: Process IC Numbers - Second Dropdown (Multi-Select) */}
-                <FormField
-                  label="Process IC Numbers"
-                  name="final_process_ic_numbers"
-                  required
-                  hint="Certificate numbers from completed Process ICs (EP prefix)"
-                >
-                  {loadingProcessIcs ? (
-                    <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
-                      Loading Process IC certificates...
+                  {/* Book No - Set No - Auto-fetched */}
+                  <FormField
+                    label="Book No - Set No."
+                    name="process_book_set_nos"
+                    // hint="Auto-fetched for each RM IC Number added above"
+                    fullWidth
+                  >
+                    <div className="ric-form-input ric-form-input--disabled" style={{ minHeight: '60px', padding: '12px' }}>
+                      {formData.process_book_set_nos.length > 0 ? (
+                        formData.process_book_set_nos.map((item, idx) => (
+                          <div key={idx} style={{ marginBottom: '4px' }}>
+                            <strong>{item.icNumber}:</strong> {item.bookSetNo}
+                          </div>
+                        ))
+                      ) : (
+                        <span style={{ color: '#999' }}>Select RM IC Numbers to auto-fetch Book/Set Numbers</span>
+                      )}
                     </div>
-                  ) : (
-                    <MultiSelectDropdown
-                      options={processIcCertificates.map(cert => ({
-                        value: cert,
-                        label: cert
-                      }))}
-                      selectedValues={formData.final_process_ic_numbers}
-                      onChange={(selectedValues) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          final_process_ic_numbers: selectedValues,
-                          final_lot_numbers: [] // Reset downstream selections
-                        }));
-                      }}
-                      placeholder={formData.final_rm_ic_numbers.length === 0 ? "Select RM IC first" : "Select Process IC Certificate Number"}
-                      disabled={isViewMode || formData.final_rm_ic_numbers.length === 0}
+                  </FormField>
+
+                  {/* Info Message for Multiple Lots */}
+                  {formData.process_lot_heat_mapping.length > 1 && (
+                    <div className="ric-info-message" style={{ gridColumn: '1 / -1', padding: '12px', backgroundColor: '#e3f2fd', borderLeft: '4px solid #2196f3', marginBottom: '16px' }}>
+                      <strong>Note:</strong> If more than 1 lot no. is added - "Process IC for all the Lots will be provided once all the lots are manufactured and inspected during process inspection"
+                    </div>
+                  )}
+                </div>
+
+                {/* ========== HEAT SUMMARY SECTION ========== */}
+                {formData.process_rm_ic_numbers.length > 0 && (
+                  <div style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
+                    <HeatSummaryTable
+                      data={heatSummaryData}
+                      loading={loadingHeatSummary}
+                      poSerialNo={formData.po_serial_no}
                     />
-                  )}
-                  {formData.final_process_ic_numbers.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                      Selected: {formData.final_process_ic_numbers.join(', ')}
-                    </div>
-                  )}
-                </FormField>
+                  </div>
+                )}
 
-                {/* STEP 3: Lot Numbers - Third Dropdown (Multi-Select) */}
-                <FormField
-                  label="Lot No."
-                  name="final_lot_numbers"
-                  required
-                  hint="Lot numbers from selected RM IC and Process IC"
-                  fullWidth
-                >
-                  {loadingLotsForFinal ? (
-                    <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
-                      Loading lot numbers...
-                    </div>
-                  ) : (
-                    <MultiSelectDropdown
-                      options={lotNumbersForFinal.map(lot => ({
-                        value: lot,
-                        label: lot
-                      }))}
-                      selectedValues={formData.final_lot_numbers}
-                      onChange={(selectedValues) => {
-                        setFormData(prev => ({ ...prev, final_lot_numbers: selectedValues }));
-                      }}
-                      placeholder={
-                        formData.final_rm_ic_numbers.length === 0
-                          ? "Select RM IC first"
-                          : formData.final_process_ic_numbers.length === 0
-                            ? "Select Process IC first"
-                            : "Select Lot Numbers"
-                      }
-                      disabled={isViewMode || formData.final_rm_ic_numbers.length === 0 || formData.final_process_ic_numbers.length === 0}
-                    />
-                  )}
-                  {formData.final_lot_numbers.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                      Selected: {formData.final_lot_numbers.join(', ')}
-                    </div>
-                  )}
-                </FormField>
-              </div>
-
-              {/* STEP 4: Lot Details Table */}
-              {formData.final_lots_data.length > 0 && (
-                <div style={{ marginTop: '24px' }}>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    marginBottom: '16px',
-                    color: '#1f2937',
-                    borderBottom: '2px solid #e5e7eb',
-                    paddingBottom: '8px'
-                  }}>
-                    Lot Details ({formData.final_lots_data.length} lot{formData.final_lots_data.length > 1 ? 's' : ''} selected)
+                {/* ========== LOT-HEAT MAPPING SECTION ========== */}
+                <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                      Lot Numbers & Heat Numbers
+                    </h4>
+                    {!isViewMode && (
+                      <button
+                        type="button"
+                        onClick={handleAddProcessLotHeat}
+                        className="ric-btn-secondary"
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '14px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontWeight: '500'
+                        }}
+                      >
+                        + Add Lot & Heat
+                      </button>
+                    )}
                   </div>
 
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="ric-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f3f4f6' }}>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Lot No.</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Heat No.</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Accepted in Process (Auto)</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Called Offered Earlier</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Future Balance</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Offered for Inspection</th>
-                          <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>No. of Bags</th>
-                          {!isViewMode && <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>Action</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formData.final_lots_data.map((lot) => {
-                          const isQtyInvalid = lot.offeredQty > (lot.futureBalance || 0);
-                          const minBagsRequired = Math.ceil((lot.offeredQty || 0) / 50);
-                          const isBagsInvalid = lot.noOfBags > 0 && lot.noOfBags < minBagsRequired;
+                  {/* Lot-Heat Entries */}
+                  {formData.process_lot_heat_mapping.map((lotHeat, index) => (
+                    <div
+                      key={lotHeat.id}
+                      style={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        marginBottom: '16px',
+                        backgroundColor: '#f9fafb'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h5 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                          Entry #{index + 1}
+                        </h5>
+                        {formData.process_lot_heat_mapping.length > 1 && !isViewMode && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProcessLotHeat(lotHeat.id)}
+                            style={{
+                              padding: '4px 12px',
+                              fontSize: '12px',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="ric-form-grid">
+                        {/* Lot Number */}
+                        <FormField
+                          label="Lot No."
+                          name={`process_lot_no_${lotHeat.id}`}
+                          required
+                          hint="Manual Entry - String"
+                        >
+                          <input
+                            type="text"
+                            className="ric-form-input"
+                            value={lotHeat.lotNumber}
+                            onChange={(e) => handleProcessLotNumberChange(lotHeat.id, e.target.value)}
+                            placeholder="Enter Lot Number (e.g., LOT-2025-001)"
+                          />
+                        </FormField>
+
+                        {/* Heat Number */}
+                        <FormField
+                          label="Heat Number"
+                          name={`process_heat_number_${lotHeat.id}`}
+                          required
+                          hint={loadingHeats ? "Loading heat numbers..." : "Select heat number from selected ER (linked to RM IC)"}
+                        >
+                          <select
+                            className="ric-form-select"
+                            value={lotHeat.compositeKey || ''}
+                            onChange={(e) => {
+                              const compositeKey = e.target.value;
+                              if (compositeKey) {
+                                // Parse composite key: "heatNumber|manufacturer"
+                                const [heatNum, manufacturer] = compositeKey.split('|');
+                                const selectedHeat = processHeatNumbers.find(
+                                  h => h.heatNumber === heatNum && h.manufacturer === manufacturer
+                                );
+                                if (selectedHeat) {
+                                  handleProcessManufacturerHeatChange(
+                                    lotHeat.id,
+                                    `${selectedHeat.manufacturer} - ${heatNum}`,
+                                    heatNum,
+                                    selectedHeat.manufacturer,
+                                    selectedHeat.qtyAccepted || 0,
+                                    selectedHeat.weightAcceptedMt || 0,
+                                    compositeKey
+                                  );
+                                }
+                              } else {
+                                handleProcessManufacturerHeatChange(lotHeat.id, '', '', '', 0, 0, '');
+                              }
+                            }}
+                            disabled={loadingHeats || processHeatNumbers.length === 0}
+                          >
+                            <option value="">
+                              {loadingHeats ? "Loading..." : processHeatNumbers.length === 0 ? "Select RM IC first" : "Select Heat Number"}
+                            </option>
+                            {processHeatNumbers.map((heat) => {
+                              const compositeKey = `${heat.heatNumber}|${heat.manufacturer}`;
+                              return (
+                                <option key={compositeKey} value={compositeKey}>
+                                  {heat.heatNumber} - ({heat.manufacturer})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </FormField>
+
+                        {/* Offered Quantity */}
+                        {(() => {
+                          const heatSummary = lotHeat.heatNumber ? heatSummaryData.find(h => h.heatNo === lotHeat.heatNumber) : null;
+                          const offeredQty = parseInt(lotHeat.offeredQty) || 0;
+
+                          // Format accepted weight for display in label
+                          const acceptedWeightDisplay = (heatSummary && heatSummary.acceptedMt != null) ? `${(parseFloat(heatSummary.acceptedMt) || 0).toFixed(3)} MT` : '';
+
+                          // Calculate available balance for THIS lot
+                          // Available = Max ERC - Offered Earlier - (Total offered by OTHER lots using same heat)
+                          let availableBalance = 0;
+                          if (heatSummary) {
+                            // Calculate total offered by OTHER lots using the same heat number
+                            const otherLotsOffered = formData.process_lot_heat_mapping
+                              .filter(lot => lot.heatNumber === lotHeat.heatNumber && lot.id !== lotHeat.id)
+                              .reduce((sum, lot) => sum + (parseInt(lot.offeredQty) || 0), 0);
+
+                            availableBalance = heatSummary.maxErc - (heatSummary.offeredEarlier || 0) - otherLotsOffered;
+                          }
+
+                          const exceedsBalance = heatSummary && offeredQty > availableBalance;
 
                           return (
-                            <tr key={lot.lotNumber}>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.lotNumber}</td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.heatNo}</td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.acceptedQtyProcess}</td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.offeredEarlier || 0}</td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#059669' }}>{lot.futureBalance || 0}</td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
-                                <input
-                                  type="number"
-                                  className={`ric-form-input ${isQtyInvalid ? 'error' : ''}`}
-                                  value={lot.offeredQty}
-                                  onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', parseInt(e.target.value) || 0)}
-                                  placeholder="Quantity"
-                                  style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
-                                />
-                                {isQtyInvalid && (
-                                  <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
-                                    Cannot exceed future balance ({lot.futureBalance})
-                                  </div>
-                                )}
-                              </td>
-                              <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
-                                <input
-                                  type="number"
-                                  className={`ric-form-input ${isBagsInvalid ? 'error' : ''}`}
-                                  value={lot.noOfBags}
-                                  onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'noOfBags', parseInt(e.target.value) || 0)}
-                                  placeholder="Bags"
-                                  style={isBagsInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
-                                />
-                                {isBagsInvalid && (
-                                  <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
-                                    Min {minBagsRequired} bags required (Qty/50)
-                                  </div>
-                                )}
-                              </td>
-                              {!isViewMode && (
-                                <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newLots = formData.final_lot_numbers.filter(l => l !== lot.lotNumber);
-                                      setFormData(prev => ({ ...prev, final_lot_numbers: newLots }));
-                                    }}
-                                    style={{
-                                      padding: '4px 8px',
-                                      backgroundColor: '#fee2e2',
-                                      color: '#ef4444',
-                                      border: '1px solid #fecaca',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      fontSize: '12px'
-                                    }}
-                                  >
-                                    Remove
-                                  </button>
-                                </td>
-                              )}
-                            </tr>
+                            <FormField
+                              label={`Declared Quantity of Lot in Nos. ${acceptedWeightDisplay ? `(Accepted: ${acceptedWeightDisplay})` : ''}`}
+                              name={`process_offered_qty_${lotHeat.id}`}
+                              required
+                              hint={heatSummary ? `Available Future Balance: ${availableBalance} ERCs` : "Select heat number first"}
+                              errors={exceedsBalance ? { [`process_offered_qty_${lotHeat.id}`]: `Exceeds available balance by ${offeredQty - availableBalance} ERCs` } : {}}
+                            >
+                              <input
+                                type="number"
+                                className={`ric-form-input ${exceedsBalance ? 'ric-form-input--error' : ''}`}
+                                value={lotHeat.offeredQty}
+                                onChange={(e) => handleProcessOfferedQtyChange(lotHeat.id, e.target.value)}
+                                min="0"
+                                max={heatSummary ? availableBalance : (lotHeat.maxQty || undefined)}
+                                placeholder="Enter quantity in Number"
+                                disabled={!lotHeat.heatNumber}
+                                style={exceedsBalance ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                              />
+                            </FormField>
                           );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                        })()}
+
+                        {/* Tentative Start Date */}
+                        <FormField
+                          label="Tentative Date of Start of Production"
+                          name={`process_tentative_start_date_${lotHeat.id}`}
+                          // required // Commented out to allow infinite range
+                          hint="Expected date when production will start for this lot"
+                        >
+                          <input
+                            type="date"
+                            className="ric-form-input"
+                            value={lotHeat.tentativeStartDate}
+                            onChange={(e) => handleProcessTentativeStartDateChange(lotHeat.id, e.target.value)}
+                          // min={new Date().toISOString().split('T')[0]} // Removed to allow infinite range
+                          />
+                        </FormField>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
 
-              <div className="ric-form-grid">
-                <FormField
-                  label="Qunantity (No. of ERC)"
-                  name="final_erc_qty"
-                  hint="Sum of offered quantity from all lots"
-                >
-                  <input
-                    type="number"
+                <div className="ric-form-grid">
+                </div>
+              </>
+            )}
+
+            {/* ============ FINAL STAGE FIELDS ============ */}
+            {formData.type_of_call === 'Final' && (
+              <>
+                <SectionHeader
+                  title="ERC Final Inspection Details"
+                  subtitle="Select lots and enter final quantity details"
+                />
+
+                <div className="ric-form-grid">
+                  {/* STEP 1: RM IC Numbers - First Dropdown (Multi-Select) */}
+                  <FormField
+                    label="RM IC Numbers"
+                    name="final_rm_ic_numbers"
+                    required
+                    hint="Certificate numbers from completed RM ICs (ER prefix)"
+                  >
+                    {loadingRmIcsForFinal ? (
+                      <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+                        Loading RM IC certificates...
+                      </div>
+                    ) : (
+                      <MultiSelectDropdown
+                        options={rmIcNumbersForFinal.map(item => {
+                          const certNo = (item && typeof item === 'object') ? item.certificateNo : (item || '');
+                          const createdAt = (item && typeof item === 'object') ? item.createdAt : null;
+                          const displayLabel = createdAt ? `${certNo} (${formatDate(createdAt)})` : certNo;
+                          return {
+                            value: certNo,
+                            label: displayLabel
+                          };
+                        })}
+                        selectedValues={formData.final_rm_ic_numbers}
+                        onChange={(selectedValues) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            final_rm_ic_numbers: selectedValues,
+                            final_process_ic_numbers: [], // Reset downstream selections
+                            final_lot_numbers: []
+                          }));
+                        }}
+                        placeholder="Select RM IC Certificate Number"
+                        disabled={isViewMode}
+                      />
+                    )}
+                    {formData.final_rm_ic_numbers.length > 0 && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        Selected: {formData.final_rm_ic_numbers.join(', ')}
+                      </div>
+                    )}
+                  </FormField>
+
+                  {/* STEP 2: Process IC Numbers - Second Dropdown (Multi-Select) */}
+                  <FormField
+                    label="Process IC Numbers"
+                    name="final_process_ic_numbers"
+                    required
+                    hint="Certificate numbers from completed Process ICs (EP prefix)"
+                  >
+                    {loadingProcessIcs ? (
+                      <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+                        Loading Process IC certificates...
+                      </div>
+                    ) : (
+                      <MultiSelectDropdown
+                        options={processIcCertificates.map(item => {
+                          const certNo = (item && typeof item === 'object') ? item.certificateNo : (item || '');
+                          const createdAt = (item && typeof item === 'object') ? item.createdAt : null;
+                          const displayLabel = createdAt ? `${certNo} (${formatDate(createdAt)})` : certNo;
+                          return {
+                            value: certNo,
+                            label: displayLabel
+                          };
+                        })}
+                        selectedValues={formData.final_process_ic_numbers}
+                        onChange={(selectedValues) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            final_process_ic_numbers: selectedValues,
+                            final_lot_numbers: [] // Reset downstream selections
+                          }));
+                        }}
+                        placeholder={formData.final_rm_ic_numbers.length === 0 ? "Select RM IC first" : "Select Process IC Certificate Number"}
+                        disabled={isViewMode || formData.final_rm_ic_numbers.length === 0}
+                      />
+                    )}
+                    {formData.final_process_ic_numbers.length > 0 && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        Selected: {formData.final_process_ic_numbers.join(', ')}
+                      </div>
+                    )}
+                  </FormField>
+
+                  {/* STEP 3: Lot Numbers - Third Dropdown (Multi-Select) */}
+                  <FormField
+                    label="Lot No."
+                    name="final_lot_numbers"
+                    required
+                    hint="Lot numbers from selected RM IC and Process IC"
+                    fullWidth
+                  >
+                    {loadingLotsForFinal ? (
+                      <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+                        Loading lot numbers...
+                      </div>
+                    ) : (
+                      <MultiSelectDropdown
+                        options={lotNumbersForFinal.map(lot => ({
+                          value: lot,
+                          label: lot
+                        }))}
+                        selectedValues={formData.final_lot_numbers}
+                        onChange={(selectedValues) => {
+                          setFormData(prev => ({ ...prev, final_lot_numbers: selectedValues }));
+                        }}
+                        placeholder={
+                          formData.final_rm_ic_numbers.length === 0
+                            ? "Select RM IC first"
+                            : formData.final_process_ic_numbers.length === 0
+                              ? "Select Process IC first"
+                              : "Select Lot Numbers"
+                        }
+                        disabled={isViewMode || formData.final_rm_ic_numbers.length === 0 || formData.final_process_ic_numbers.length === 0}
+                      />
+                    )}
+                    {formData.final_lot_numbers.length > 0 && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        Selected: {formData.final_lot_numbers.join(', ')}
+                      </div>
+                    )}
+                  </FormField>
+                </div>
+
+                {/* STEP 4: Lot Details Table */}
+                {formData.final_lots_data.length > 0 && (
+                  <div style={{ marginTop: '24px' }}>
+                    <div style={{
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      marginBottom: '16px',
+                      color: '#1f2937',
+                      borderBottom: '2px solid #e5e7eb',
+                      paddingBottom: '8px'
+                    }}>
+                      Lot Details ({formData.final_lots_data.length} lot{formData.final_lots_data.length > 1 ? 's' : ''} selected)
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="ric-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f3f4f6' }}>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Lot No.</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Heat No.</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Accepted in Process (Auto)</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Called Offered Earlier</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Future Balance</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>Qty Offered for Inspection</th>
+                            <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left' }}>No. of Bags</th>
+                            {!isViewMode && <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>Action</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.final_lots_data.map((lot) => {
+                            const isQtyInvalid = lot.offeredQty > (lot.futureBalance || 0);
+                            const minBagsRequired = Math.ceil((lot.offeredQty || 0) / 50);
+                            const isBagsInvalid = lot.noOfBags > 0 && lot.noOfBags < minBagsRequired;
+
+                            return (
+                              <tr key={lot.lotNumber}>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.lotNumber}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.heatNo}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.acceptedQtyProcess}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.offeredEarlier || 0}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#059669' }}>{lot.futureBalance || 0}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
+                                  <input
+                                    type="number"
+                                    className={`ric-form-input ${isQtyInvalid ? 'error' : ''}`}
+                                    value={lot.offeredQty}
+                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', parseInt(e.target.value) || 0)}
+                                    placeholder="Quantity"
+                                    style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                                  />
+                                  {isQtyInvalid && (
+                                    <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
+                                      Cannot exceed future balance ({lot.futureBalance})
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
+                                  <input
+                                    type="number"
+                                    className={`ric-form-input ${isBagsInvalid ? 'error' : ''}`}
+                                    value={lot.noOfBags}
+                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'noOfBags', parseInt(e.target.value) || 0)}
+                                    placeholder="Bags"
+                                    style={isBagsInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                                  />
+                                  {isBagsInvalid && (
+                                    <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
+                                      Min {minBagsRequired} bags required (Qty/50)
+                                    </div>
+                                  )}
+                                </td>
+                                {!isViewMode && (
+                                  <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newLots = formData.final_lot_numbers.filter(l => l !== lot.lotNumber);
+                                        setFormData(prev => ({ ...prev, final_lot_numbers: newLots }));
+                                      }}
+                                      style={{
+                                        padding: '4px 8px',
+                                        backgroundColor: '#fee2e2',
+                                        color: '#ef4444',
+                                        border: '1px solid #fecaca',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontSize: '12px'
+                                      }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="ric-form-grid">
+                  <FormField
+                    label="Qunantity (No. of ERC)"
                     name="final_erc_qty"
-                    className="ric-form-input ric-form-input--disabled"
-                    value={formData.final_erc_qty}
-                    disabled
-                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                  />
-                </FormField>
+                    hint="Sum of offered quantity from all lots"
+                  >
+                    <input
+                      type="number"
+                      name="final_erc_qty"
+                      className="ric-form-input ric-form-input--disabled"
+                      value={formData.final_erc_qty}
+                      disabled
+                      style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                    />
+                  </FormField>
 
-                <FormField
-                  label="Total Qty"
-                  name="final_total_qty"
-                  hint="Auto-calculated from Lot Details"
-                >
-                  <input
-                    type="text"
-                    className="ric-form-input ric-form-input--disabled"
-                    value={formData.final_total_qty}
-                    disabled
-                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                    placeholder="Auto-calculated"
-                  />
-                </FormField>
+                  <FormField
+                    label="Total Qty"
+                    name="final_total_qty"
+                    hint="Auto-calculated from Lot Details"
+                  >
+                    <input
+                      type="text"
+                      className="ric-form-input ric-form-input--disabled"
+                      value={formData.final_total_qty}
+                      disabled
+                      style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                      placeholder="Auto-calculated"
+                    />
+                  </FormField>
 
-                <FormField
-                  label="No of HDPE Bags"
-                  name="final_hdpe_bags"
-                  hint="Sum of bags from all lots"
-                >
-                  <input
-                    type="number"
+                  <FormField
+                    label="No of HDPE Bags"
                     name="final_hdpe_bags"
-                    className="ric-form-input ric-form-input--disabled"
-                    value={formData.final_hdpe_bags}
-                    disabled
-                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                    placeholder="Auto-calculated"
-                  />
-                </FormField>
-              </div>
+                    hint="Sum of bags from all lots"
+                  >
+                    <input
+                      type="number"
+                      name="final_hdpe_bags"
+                      className="ric-form-input ric-form-input--disabled"
+                      value={formData.final_hdpe_bags}
+                      disabled
+                      style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                      placeholder="Auto-calculated"
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+
+            {/* ============ PLACE OF INSPECTION ============ */}
+            <SectionHeader title="Place of Inspection" subtitle="Select unit for inspection" />
+
+            <div className="ric-form-grid">
+              {/* Company Name - Dropdown */}
+              <FormField label="Place of Inspection - Company Name" name="company_name" required errors={errors}>
+                <select
+                  className="ric-form-select"
+                  value={formData.company_name}
+                  onChange={(e) => {
+                    const selectedCompanyName = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      company_name: selectedCompanyName,
+                      unit_name: '',
+                      unit_address: ''
+                    }));
+                    setPoiCode('');
+                  }}
+                  disabled={loadingCompanies}
+                >
+                  <option value="">
+                    {loadingCompanies ? 'Loading companies...' : '-- Select Company --'}
+                  </option>
+                  {formData.company_name && !companies.includes(formData.company_name) && (
+                    <option key="prefilled-company" value={formData.company_name}>
+                      {formData.company_name}
+                    </option>
+                  )}
+                  {companies.map((companyName, index) => (
+                    <option key={index} value={companyName}>
+                      {companyName}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              {/* Unit Name - Dropdown for all call types */}
+              <FormField
+                label="place of Inspection - Unit Name"
+                name="unit_name"
+                required
+                hint="DropDown (based upon the selection of Company name)"
+              >
+                <select
+                  className="ric-form-select"
+                  value={formData.unit_name}
+                  onChange={(e) => {
+                    const selectedUnitName = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      unit_name: selectedUnitName,
+                      unit_address: ''
+                    }));
+                    setPoiCode('');
+                  }}
+                  disabled={loadingUnits || !formData.company_name}
+                >
+                  <option value="">
+                    {loadingUnits ? 'Loading units...' :
+                      !formData.company_name ? 'Select company first' :
+                        'Select Unit'}
+                  </option>
+                  {formData.unit_name && !units.includes(formData.unit_name) && (
+                    <option key="prefilled-unit" value={formData.unit_name}>
+                      {formData.unit_name}
+                    </option>
+                  )}
+                  {units.map((unitName, index) => (
+                    <option key={index} value={unitName}>
+                      {unitName}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              {/* Unit Address - Auto Fetch for all call types */}
+              <FormField label="place of Inspection - Unit Address" name="unit_address" hint="Auto Fetch" fullWidth>
+                <input
+                  type="text"
+                  className="ric-form-input ric-form-input--disabled"
+                  value={loadingUnitDetails ? 'Loading address...' : formData.unit_address}
+                  disabled
+                />
+              </FormField>
+            </div>
+
+            <SectionHeader title="Additional Information" />
+
+            <div className="ric-form-grid">
+              <FormField label="Remarks" name="remarks" fullWidth>
+                <textarea
+                  name="remarks"
+                  className="ric-form-textarea"
+                  value={formData.remarks}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="Enter any additional remarks..."
+                />
+              </FormField>
+            </div>
+          </>
+        )}
+      </fieldset>
+
+      {formData.type_of_call && (
+        <div className="ric-form-actions" style={isViewMode ? { justifyContent: 'center' } : {}}>
+          {!isViewMode ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={handleReset}
+                disabled={isLoading}
+              >
+                Reset Form
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSubmit}
+                disabled={isLoading || !formData.type_of_call}
+              >
+                {isLoading ? (isModifyMode ? 'Updating...' : 'Submitting...') : (isModifyMode ? 'Update Inspection Call' : 'Submit Inspection Call')}
+              </button>
             </>
-          )}
-
-          {/* ============ PLACE OF INSPECTION ============ */}
-          <SectionHeader title="Place of Inspection" subtitle="Select unit for inspection" />
-
-          <div className="ric-form-grid">
-            {/* Company Name - Dropdown */}
-            <FormField label="Place of Inspection - Company Name" name="company_name" required errors={errors}>
-              <select
-                className="ric-form-select"
-                value={formData.company_name}
-                onChange={(e) => {
-                  const selectedCompanyName = e.target.value;
-                  setFormData(prev => ({
-                    ...prev,
-                    company_name: selectedCompanyName,
-                    unit_name: '',
-                    unit_address: ''
-                  }));
-                  setPoiCode('');
-                }}
-                disabled={loadingCompanies}
-              >
-                <option value="">
-                  {loadingCompanies ? 'Loading companies...' : '-- Select Company --'}
-                </option>
-                {formData.company_name && !companies.includes(formData.company_name) && (
-                  <option key="prefilled-company" value={formData.company_name}>
-                    {formData.company_name}
-                  </option>
-                )}
-                {companies.map((companyName, index) => (
-                  <option key={index} value={companyName}>
-                    {companyName}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            {/* Unit Name - Dropdown for all call types */}
-            <FormField
-              label="place of Inspection - Unit Name"
-              name="unit_name"
-              required
-              hint="DropDown (based upon the selection of Company name)"
-            >
-              <select
-                className="ric-form-select"
-                value={formData.unit_name}
-                onChange={(e) => {
-                  const selectedUnitName = e.target.value;
-                  setFormData(prev => ({
-                    ...prev,
-                    unit_name: selectedUnitName,
-                    unit_address: ''
-                  }));
-                  setPoiCode('');
-                }}
-                disabled={loadingUnits || !formData.company_name}
-              >
-                <option value="">
-                  {loadingUnits ? 'Loading units...' :
-                    !formData.company_name ? 'Select company first' :
-                      'Select Unit'}
-                </option>
-                {formData.unit_name && !units.includes(formData.unit_name) && (
-                  <option key="prefilled-unit" value={formData.unit_name}>
-                    {formData.unit_name}
-                  </option>
-                )}
-                {units.map((unitName, index) => (
-                  <option key={index} value={unitName}>
-                    {unitName}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            {/* Unit Address - Auto Fetch for all call types */}
-            <FormField label="place of Inspection - Unit Address" name="unit_address" hint="Auto Fetch" fullWidth>
-              <input
-                type="text"
-                className="ric-form-input ric-form-input--disabled"
-                value={loadingUnitDetails ? 'Loading address...' : formData.unit_address}
-                disabled
-              />
-            </FormField>
-          </div>
-
-          <SectionHeader title="Additional Information" />
-
-          <div className="ric-form-grid">
-            <FormField label="Remarks" name="remarks" fullWidth>
-              <textarea
-                name="remarks"
-                className="ric-form-textarea"
-                value={formData.remarks}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Enter any additional remarks..."
-              />
-            </FormField>
-          </div>
-        </>
-      )}
-    </fieldset>
-
-    {formData.type_of_call && (
-      <div className="ric-form-actions" style={isViewMode ? { justifyContent: 'center' } : {}}>
-        {!isViewMode ? (
-          <>
+          ) : (
             <button
               type="button"
               className="btn btn-outline"
-              onClick={handleReset}
-              disabled={isLoading}
+              onClick={onSubmit}
+              style={{ minWidth: '120px' }}
             >
-              Reset Form
+              Close
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={isLoading || !formData.type_of_call}
-            >
-              {isLoading ? (isModifyMode ? 'Updating...' : 'Submitting...') : (isModifyMode ? 'Update Inspection Call' : 'Submit Inspection Call')}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={onSubmit}
-            style={{ minWidth: '120px' }}
+          )}
+        </div>
+      )}
+
+      {/* Clip Type Warning Modal */}
+      {showErcWarning && (
+        <div
+          onClick={() => {
+            setShowErcWarning(false);
+            setPendingErcType('');
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.35)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '440px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
           >
-            Close
-          </button>
-        )}
-      </div>
-    )}
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
+                Warning
+              </h3>
+              <button
+                onClick={() => {
+                  setShowErcWarning(false);
+                  setPendingErcType('');
+                }}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  fontSize: '16px',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  e.currentTarget.style.color = '#475569';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#94a3b8';
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px 20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: 'rgba(254, 243, 199, 0.8)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px',
+                  boxShadow: '0 8px 16px rgba(251, 191, 36, 0.12)',
+                  border: '1px solid rgba(251, 191, 36, 0.3)'
+                }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                </div>
+                <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.6', margin: 0, fontWeight: '500' }}>
+                  you have selected <span style={{ color: '#be123c', fontWeight: '700', textDecoration: 'underline' }}>{pendingErcType}</span> clip , are you sure to contnue
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 20px',
+              borderTop: '1px solid #f1f5f9',
+              background: '#f8fafc',
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setShowErcWarning(false);
+                  setPendingErcType('');
+                }}
+                style={{
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontWeight: '600',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  backgroundColor: '#ffffff',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, type_of_erc: pendingErcType }));
+                  setShowErcWarning(false);
+                  setPendingErcType('');
+                }}
+                style={{
+                  borderRadius: '8px',
+                  padding: '8px 20px',
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  boxShadow: '0 4px 12px rgba(225, 29, 72, 0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global Notification */}
       <Notification

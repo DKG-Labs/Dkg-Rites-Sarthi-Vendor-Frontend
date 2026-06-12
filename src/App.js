@@ -20,8 +20,8 @@ const App = () => {
   const [selectedCall, setSelectedCall] = useState(null);
   const [selectedCalls, setSelectedCalls] = useState([]);
   // const [userEmail] = useState('inspector@sarthi.com');
+  // eslint-disable-next-line no-unused-vars
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [rmHeats, setRmHeats] = useState([{ heatNo: '', weight: '' }]);
   const [rmProductModel, setRmProductModel] = useState('MK-III');
@@ -136,81 +136,7 @@ const App = () => {
         </div>
       </header> */}
 
-        <div className={`app-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-
-          <aside className={`sidebar ${isSidebarOpen ? 'open' : ''} ${isSidebarCollapsed ? 'collapsed' : ''}`}>
-            <button
-              className="sidebar-toggle-btn"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isSidebarCollapsed ? '»' : '«'}
-            </button>
-
-            <nav>
-              <ul className="sidebar-nav">
-
-                {/* <li
-                className={`sidebar-item ${currentPage === 'landing' ? 'active' : ''}`}
-                onClick={() => { handleBackToLanding(); setIsSidebarOpen(false); }}
-                title="Landing Page"
-              >
-                <span className="sidebar-icon">🏠</span>
-                <span className="sidebar-text">Landing Page</span>
-              </li>
-
-              <li
-                className={`sidebar-item ${currentPage === 'raw-material' ? 'active' : ''}`}
-                onClick={() => { if (selectedCall) { setCurrentPage('raw-material'); setIsSidebarOpen(false); } }}
-                style={{ opacity: selectedCall ? 1 : 0.5, cursor: selectedCall ? 'pointer' : 'not-allowed' }}
-                title="Raw Material Inspection"
-              >
-                <span className="sidebar-icon">📦</span>
-                <span className="sidebar-text">Raw Material Inspection</span>
-              </li>
-
-              <li
-                className={`sidebar-item ${currentPage === 'process' ? 'active' : ''}`}
-                onClick={() => { if (selectedCall) { setCurrentPage('process'); setIsSidebarOpen(false); } }}
-                style={{ opacity: selectedCall ? 1 : 0.5, cursor: selectedCall ? 'pointer' : 'not-allowed' }}
-                title="Process Inspection"
-              >
-                <span className="sidebar-icon">⚙️</span>
-                <span className="sidebar-text">Process Inspection</span>
-              </li>
-
-              <li
-                className={`sidebar-item ${currentPage === 'final-product' ? 'active' : ''}`}
-                onClick={() => { if (selectedCall) { setCurrentPage('final-product'); setIsSidebarOpen(false); } }}
-                style={{ opacity: selectedCall ? 1 : 0.5, cursor: selectedCall ? 'pointer' : 'not-allowed' }}
-                title="Final Product Inspection"
-              >
-                <span className="sidebar-icon">✅</span>
-                <span className="sidebar-text">Final Product Inspection</span>
-              </li> */}
-
-                {/* ⭐ Vendor Dashboard Sidebar Button */}
-                <li
-                  className={`sidebar-item ${currentPage === 'vendor-dashboard' ? 'active' : ''}`}
-                  onClick={() => { setCurrentPage('vendor-dashboard'); setIsSidebarOpen(false); }}
-                  title="Vendor Dashboard"
-                >
-                  <span className="sidebar-icon">🏭</span>
-                  <span className="sidebar-text">Vendor Dashboard</span>
-                </li>
-
-              </ul>
-            </nav>
-          </aside>
-
-          {/* Mobile overlay */}
-          {isSidebarOpen && (
-            <div
-              className="sidebar-overlay"
-              onClick={() => setIsSidebarOpen(false)}
-              aria-hidden="true"
-            />
-          )}
+        <div className="app-container">
 
           <main className="main-content">
 
