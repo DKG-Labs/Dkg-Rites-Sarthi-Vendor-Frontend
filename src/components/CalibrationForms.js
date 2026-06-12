@@ -9,30 +9,47 @@ import vendorCalibrationService from '../services/vendorCalibrationService';
 const NAME_OPTIONS = {
   Instrument: [
     { value: '', label: 'Select Instrument/Machine' },
-    { value: 'spectrometer', label: 'spectrometer' },
-    { value: 'rockwellHardnessTester', label: 'rockwellHardnessTester' },
-    { value: 'toeLoadTester', label: 'toeLoadTester' },
-    { value: 'provingRing', label: 'provingRing' },
-    { value: 'microscope', label: 'microscope' },
-    { value: 'surfacePlate', label: 'surfacePlate' },
-    { value: 'vernierHeightGauge', label: 'vernierHeightGauge' },
-    { value: 'bevelProtector', label: 'bevelProtector' },
-    { value: 'vernier', label: 'vernier' },
-    { value: 'digitalVernier', label: 'digitalVernier' },
-    { value: 'digitalTemperatureControllerWithThermocoupleInHeatingFurnace', label: 'digitalTemperatureControllerWithThermocoupleInHeatingFurnace' },
-    { value: 'digitalTemperatureIndicatorWithThermocoupleInQuenchingTank', label: 'digitalTemperatureIndicatorWithThermocoupleInQuenchingTank' },
-    { value: 'digitalTemperatureIndicatorAtTemperingFurnace', label: 'digitalTemperatureIndicatorAtTemperingFurnace' },
-    { value: 'applicationAndDeflectionFixture', label: 'applicationAndDeflectionFixture' }
+    { value: 'Optical emission spectrometer', label: 'Optical emission spectrometer' },
+    { value: 'Rockwell hardness testing machines (No-1)', label: 'Rockwell hardness testing machines (No-1)' },
+    { value: 'Rockwell hardness testing machines (No-2)', label: 'Rockwell hardness testing machines (No-2)' },
+    { value: 'Proving ring (No-1)', label: 'Proving ring (No-1)' },
+    { value: 'Proving ring (No-2)', label: 'Proving ring (No-2)' },
+    { value: 'Toe load testing arrangement', label: 'Toe load testing arrangement' },
+    { value: 'Application & deflection test fixture (No-1)', label: 'Application & deflection test fixture (No-1)' },
+    { value: 'Application & deflection test fixture (No-2)', label: 'Application & deflection test fixture (No-2)' },
+    { value: 'Angle checking fixture', label: 'Angle checking fixture' },
+    { value: 'Microscope 100x, 500x, 1000x magnification', label: 'Microscope 100x, 500x, 1000x magnification' },
+    { value: 'Universal Testing Machine UTM', label: 'Universal Testing Machine UTM' },
+    { value: 'Bevel protector', label: 'Bevel protector' },
+    { value: 'Digital Vernier caliper (of 0.02mm accuracy)', label: 'Digital Vernier caliper (of 0.02mm accuracy)' },
+    { value: 'Tri-square', label: 'Tri-square' },
+    { value: 'Set of filler gauges', label: 'Set of filler gauges' },
+    { value: 'Length checking gauge (One Go-No Go gauge for checking of length of cut pieces)', label: 'Length checking gauge (One Go-No Go gauge for checking of length of cut pieces)' },
+    { value: 'Surface plate (18"x18" Min)', label: 'Surface plate (18"x18" Min)' },
+    { value: 'Surface plate (12"x12" Min)', label: 'Surface plate (12"x12" Min)' },
+    { value: 'Height gauge fitted with vernier', label: 'Height gauge fitted with vernier' },
+    { value: 'Vernier calipers (No-1)', label: 'Vernier calipers (No-1)' },
+    { value: 'Vernier calipers (No-2)', label: 'Vernier calipers (No-2)' },
+    { value: 'Magnetic particle crack detector', label: 'Magnetic particle crack detector' },
+    { value: 'Heating Furnace- Radiation Pyrometer-', label: 'Heating Furnace- Radiation Pyrometer-' },
+    { value: 'Oil quenching tank: Thermo- couples', label: 'Oil quenching tank: Thermo- couples' },
+    { value: 'Tempering furnace: thermo- couples-03 Nos', label: 'Tempering furnace: thermo- couples-03 Nos' }
   ],
   Document: [
     { value: '', label: 'Select Document Type' },
-    { value: 'rdsoApproval', label: 'rdsoApproval' },
-    { value: 'qap', label: 'qap' }
+    { value: 'RDSO Approval of the Firm for ERC Mfg', label: 'RDSO Approval of the Firm for ERC Mfg' },
+    { value: 'RDSO Approved Source of Manufacturer of Spring Steel Rounds for ERC Mfg', label: 'RDSO Approved Source of Manufacturer of Spring Steel Rounds for ERC Mfg' },
+    { value: 'RDSO Approval of Gauges RDSO / T-3746 alt-1 for MK-III', label: 'RDSO Approval of Gauges RDSO / T-3746 alt-1 for MK-III' },
+    { value: 'RDSO Approval of Gauges RDSO / T-5920 alt-1 for MK-V', label: 'RDSO Approval of Gauges RDSO / T-5920 alt-1 for MK-V' },
+    { value: 'RDSO Approved QAP of Firm for ERC mfg', label: 'RDSO Approved QAP of Firm for ERC mfg' }
   ],
   Gauge: [
     { value: '', label: 'Select Gauge Type' },
-    { value: 'dimensionGauge', label: 'dimensionGauge' },
-    { value: 'templateForDieRepairing', label: 'templateForDieRepairing' }
+    { value: 'Inspection gauges for dimension checking - set No-1', label: 'Inspection gauges for dimension checking - set No-1' },
+    { value: 'Inspection gauges for dimension checking- Set No-2', label: 'Inspection gauges for dimension checking- Set No-2' },
+    { value: 'working gauges for dimension checking Set No-1', label: 'working gauges for dimension checking Set No-1' },
+    { value: 'working gauges for dimension checking Set No-2', label: 'working gauges for dimension checking Set No-2' },
+    { value: 'Gauge for checking length of cut bars', label: 'Gauge for checking length of cut bars' }
   ]
 };
 
@@ -76,7 +93,12 @@ const CustomDropdown = ({ label, value, onChange, options, disabled, placeholder
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(opt => opt.value === value);
+  const normalizeValue = (val) => {
+    if (!val) return '';
+    return String(val).toLowerCase().replace(/[^a-z0-9]/g, '');
+  };
+
+  const selectedOption = options.find(opt => normalizeValue(opt.value) === normalizeValue(value)) || options.find(opt => opt.value === value);
 
   return (
     <div className="custom-dropdown-container" ref={containerRef} style={{ position: 'relative', width: '100%' }}>
@@ -129,38 +151,37 @@ const CustomDropdown = ({ label, value, onChange, options, disabled, placeholder
             padding: '4px'
           }}
         >
-          {options.map((opt) => (
-            <div
-              key={opt.value}
-              className={`custom-dropdown-option ${value === opt.value ? 'selected' : ''}`}
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                color: value === opt.value ? '#ffffff' : '#334155',
-                backgroundColor: value === opt.value ? '#2563eb' : 'transparent',
-                transition: 'background-color 0.15s ease',
-                fontWeight: value === opt.value ? '600' : 'normal'
-              }}
-              onMouseEnter={(e) => {
-                if (value !== opt.value) {
-                  e.currentTarget.style.backgroundColor = '#f1f5f9';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (value !== opt.value) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              {opt.label}
-            </div>
-          ))}
+          {options.map((opt) => {
+            const isSelected = normalizeValue(value) === normalizeValue(opt.value);
+            return (
+              <div
+                key={opt.value}
+                className={`custom-dropdown-option ${isSelected ? 'selected' : ''}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: isSelected ? '#ffffff' : '#334155',
+                  backgroundColor: isSelected ? '#2563eb' : 'transparent',
+                  transition: 'background-color 0.15s ease',
+                  fontWeight: isSelected ? '600' : 'normal'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = '#f1f5f9';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                {opt.label}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -185,38 +206,86 @@ export const CalibrationGroupForm = ({
   });
 
   const [detailsList, setDetailsList] = useState([]);
+  const [otherDetails, setOtherDetails] = useState([]);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
       if (editData) {
+        const isIndividual = !!editData.parentHeader;
+        const parentHeader = isIndividual ? editData.parentHeader : editData;
+
         setParentData({
-          id: editData.id || null,
-          category: editData.category || '',
-          certificateFilePath: editData.certificateFilePath || '',
+          id: parentHeader.id || null,
+          category: parentHeader.category || '',
+          certificateFilePath: parentHeader.certificateFilePath || '',
           certificateFileBase64: '',
-          certificateFileName: editData.certificateFilePath 
-            ? (editData.certificateFilePath.startsWith('data:') ? 'Uploaded Certificate' : editData.certificateFilePath.split('/').pop()) 
+          certificateFileName: parentHeader.certificateFilePath 
+            ? (parentHeader.certificateFilePath.startsWith('data:') ? 'Uploaded Certificate' : parentHeader.certificateFilePath.split('/').pop()) 
             : ''
         });
 
         // Map child details
-        const mappedDetails = (editData.details || []).map(d => ({
-          id: d.id || null,
-          instrumentName: d.instrumentName || d.instrument_name || '',
-          capacity: d.capacity || d.capacity_range || '',
-          description: d.description || '',
-          usedFor: Array.isArray(d.usedFor) ? d.usedFor : (d.usedFor || d.used_for ? (d.usedFor || d.used_for).split(', ') : []),
-          serialNumber: d.serialNumber || d.serial_number || '',
-          calibrationCertificateNo: d.calibrationCertificateNo || d.calibration_certificate_no || '',
-          calibrationDate: d.calibrationDate || d.calibration_date || '',
-          calibrationDueDate: d.calibrationDueDate || d.calibration_due_date || '',
-          certifyingLabName: d.certifyingLabName || d.certifying_lab_name || '',
-          accreditationAgency: d.accreditationAgency || d.accreditation_agency || '',
-          notificationDays: d.notificationDays || d.notification_days || 30
-        }));
+        const allDetails = parentHeader.details || [];
 
-        setDetailsList(mappedDetails.length > 0 ? mappedDetails : [getInitialDetailState()]);
+        if (isIndividual) {
+          // Find the active detail we are editing
+          const activeDetail = allDetails.find(d => d.id === editData.id);
+          const others = allDetails.filter(d => d.id !== editData.id);
+
+          const mappedActive = activeDetail ? {
+            id: activeDetail.id || null,
+            instrumentName: activeDetail.instrumentName || activeDetail.instrument_name || '',
+            capacity: activeDetail.capacity || activeDetail.capacity_range || '',
+            description: activeDetail.description || '',
+            usedFor: Array.isArray(activeDetail.usedFor) ? activeDetail.usedFor : (activeDetail.usedFor || activeDetail.used_for ? (activeDetail.usedFor || activeDetail.used_for).split(', ') : []),
+            serialNumber: activeDetail.serialNumber || activeDetail.serial_number || '',
+            calibrationCertificateNo: activeDetail.calibrationCertificateNo || activeDetail.calibration_certificate_no || '',
+            calibrationDate: activeDetail.calibrationDate || activeDetail.calibration_date || '',
+            calibrationDueDate: activeDetail.calibrationDueDate || activeDetail.calibration_due_date || '',
+            certifyingLabName: activeDetail.certifyingLabName || activeDetail.certifying_lab_name || '',
+            accreditationAgency: activeDetail.accreditationAgency || activeDetail.accreditation_agency || '',
+            notificationDays: activeDetail.notificationDays || activeDetail.notification_days || 30
+          } : getInitialDetailState();
+
+          setDetailsList([mappedActive]);
+
+          // Map other details to standard structure
+          const mappedOthers = others.map(d => ({
+            id: d.id || null,
+            instrumentName: d.instrumentName || d.instrument_name || '',
+            capacity: d.capacity || d.capacity_range || '',
+            description: d.description || '',
+            usedFor: Array.isArray(d.usedFor) ? d.usedFor : (d.usedFor || d.used_for ? (d.usedFor || d.used_for).split(', ') : []),
+            serialNumber: d.serialNumber || d.serial_number || '',
+            calibrationCertificateNo: d.calibrationCertificateNo || d.calibration_certificate_no || '',
+            calibrationDate: d.calibrationDate || d.calibration_date || '',
+            calibrationDueDate: d.calibrationDueDate || d.calibration_due_date || '',
+            certifyingLabName: d.certifyingLabName || d.certifying_lab_name || '',
+            accreditationAgency: d.accreditationAgency || d.accreditation_agency || '',
+            notificationDays: d.notificationDays || d.notification_days || 30
+          }));
+
+          setOtherDetails(mappedOthers);
+        } else {
+          const mappedDetails = allDetails.map(d => ({
+            id: d.id || null,
+            instrumentName: d.instrumentName || d.instrument_name || '',
+            capacity: d.capacity || d.capacity_range || '',
+            description: d.description || '',
+            usedFor: Array.isArray(d.usedFor) ? d.usedFor : (d.usedFor || d.used_for ? (d.usedFor || d.used_for).split(', ') : []),
+            serialNumber: d.serialNumber || d.serial_number || '',
+            calibrationCertificateNo: d.calibrationCertificateNo || d.calibration_certificate_no || '',
+            calibrationDate: d.calibrationDate || d.calibration_date || '',
+            calibrationDueDate: d.calibrationDueDate || d.calibration_due_date || '',
+            certifyingLabName: d.certifyingLabName || d.certifying_lab_name || '',
+            accreditationAgency: d.accreditationAgency || d.accreditation_agency || '',
+            notificationDays: d.notificationDays || d.notification_days || 30
+          }));
+
+          setDetailsList(mappedDetails.length > 0 ? mappedDetails : [getInitialDetailState()]);
+          setOtherDetails([]);
+        }
       } else {
         setParentData({
           category: '',
@@ -225,6 +294,7 @@ export const CalibrationGroupForm = ({
           certificateFileName: ''
         });
         setDetailsList([getInitialDetailState()]);
+        setOtherDetails([]);
       }
       setErrors({});
     }
@@ -402,7 +472,7 @@ export const CalibrationGroupForm = ({
     if (validateForm()) {
       const payload = {
         ...parentData,
-        details: detailsList
+        details: [...detailsList, ...otherDetails]
       };
       console.log('💾 Submitting payload from CalibrationGroupForm:', payload);
       onSubmit(payload);
@@ -416,7 +486,7 @@ export const CalibrationGroupForm = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editData ? `Edit Calibration Group (${parentData.category})` : 'Register Calibration Records'}
+      title={editData ? (editData.parentHeader ? `Edit Calibration Record` : `Edit Calibration Group (${parentData.category})`) : 'Register Calibration Records'}
       footer={
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button className="btn btn-outline" onClick={onClose} disabled={isLoading}>
@@ -485,14 +555,16 @@ export const CalibrationGroupForm = ({
           <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#1e3a5f', margin: 0 }}>
             List of Instruments / Certificates
           </h4>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline"
-            onClick={handleAddRow}
-            style={{ borderColor: '#3b82f6', color: '#2563eb' }}
-          >
-            + Add Row / Item
-          </button>
+          {!editData?.parentHeader && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={handleAddRow}
+              style={{ borderColor: '#3b82f6', color: '#2563eb' }}
+            >
+              + Add Row / Item
+            </button>
+          )}
         </div>
 
         {detailsList.map((detail, index) => (
@@ -508,7 +580,7 @@ export const CalibrationGroupForm = ({
               position: 'relative'
             }}
           >
-            {detailsList.length > 1 && (
+            {!editData?.parentHeader && detailsList.length > 1 && (
               <button
                 type="button"
                 onClick={() => handleRemoveRow(index)}

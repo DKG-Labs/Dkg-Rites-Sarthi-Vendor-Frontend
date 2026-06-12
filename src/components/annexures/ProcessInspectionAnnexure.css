@@ -191,7 +191,7 @@
 }
 
 /* Detail/Sub-description Row Styling */
-.detail-row {
+.pi-detail-row {
   height: auto !important;
   min-height: 18px !important;
 }

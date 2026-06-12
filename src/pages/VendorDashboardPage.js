@@ -4,6 +4,7 @@ import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm } from '../components/CalibrationForms';
+import InitialCalibrationRegistration from '../components/InitialCalibrationRegistration';
 import { PaymentForm } from '../components/PaymentForm';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
 import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
@@ -15,7 +16,7 @@ import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import Notification from '../components/Notification';
 import SyncPOModal from '../components/common/SyncPOModal';
 import {
-  // VENDOR_PO_LIST,
+  VENDOR_PO_LIST,
   VENDOR_REQUESTED_CALLS,
   VENDOR_COMPLETED_CALLS,
   VENDOR_CALIBRATION_ITEMS,
@@ -33,6 +34,8 @@ import {
 } from '../data/vendorMockData';
 import { formatDate } from '../utils/helpers';
 import { generateCallLetterPDF } from '../utils/generateCallLetterPDF';
+import jsPDF from 'jspdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import { getBaseUrl } from '../services/apiConfig';
 import useVendorWorkflow from '../hooks/useVendorWorkflow';
 import inspectionCallService from '../services/inspectionCallService';
@@ -46,6 +49,10 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import VendorFeedback from '../components/Feedback/VendorFeedback';
 import AnnexurePage from './AnnexurePage';
+import AnnexureLoader from '../components/annexures/AnnexureLoader';
+
+// Set worker source for pdfjs-dist locally
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const viewSignedCertificate = async (icNumber) => {
   try {
@@ -54,7 +61,7 @@ const viewSignedCertificate = async (icNumber) => {
     // Uses the API_ENDPOINTS.CERTIFICATES logic but with getBaseUrl()
     const baseUrl = getBaseUrl();
     const token = localStorage.getItem('token');
-    
+
     // Fallback to dynamic URL structure
     const url = `${baseUrl}/certificate-storage/view?icNumber=${encodedIcNumber}`;
     const response = await fetch(url, {
@@ -67,7 +74,7 @@ const viewSignedCertificate = async (icNumber) => {
 
     if (!response.ok) {
       if (response.status === 404) {
-         throw new Error('No signed certificate found for this IC.');
+        throw new Error('No signed certificate found for this IC.');
       }
       const errorText = await response.text();
       throw new Error(errorText || `Failed to fetch certificate: ${response.status}`);
@@ -91,11 +98,14 @@ const cleanSerialNo = (serial) => {
 };
 
 const VendorDashboardPage = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState('po-assigned');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('vendorActiveTab') || 'po-assigned';
+  });
   const [viewingPdfUrl, setViewingPdfUrl] = useState(null);
 
   useEffect(() => {
     setViewingPdfUrl(null);
+    localStorage.setItem('vendorActiveTab', activeTab);
   }, [activeTab]);
 
   // Modal states for Calibration forms
@@ -137,6 +147,7 @@ const VendorDashboardPage = ({ onBack }) => {
   const [selectedCall, setSelectedCall] = useState(null);
 
   // Expanded Completed Call rows state
+  // eslint-disable-next-line no-unused-vars
   const [expandedCompletedRows, setExpandedCompletedRows] = useState({});
 
   // Modals for Completed Calls - Inspection Summary and IC Correction
@@ -155,10 +166,15 @@ const VendorDashboardPage = ({ onBack }) => {
   const [selectedCallForActions, setSelectedCallForActions] = useState(null);
   const [selectedCallForAnnexure, setSelectedCallForAnnexure] = useState(null);
 
+  // Completed calls actions popup modal states
+  const [isCompletedActionsModalOpen, setIsCompletedActionsModalOpen] = useState(false);
+  const [selectedCompletedCallForActions, setSelectedCompletedCallForActions] = useState(null);
+
   // Payment filter state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [showOldApproved, setShowOldApproved] = useState(false);
   const [selectedPaymentCall, setSelectedPaymentCall] = useState(null);
+  const [isCalibrationLoading, setIsCalibrationLoading] = useState(true);
 
   // Data state (for future API integration - currently using mock data)
   const [instrumentItems, setInstrumentItems] = useState(VENDOR_CALIBRATION_ITEMS);
@@ -204,6 +220,26 @@ const VendorDashboardPage = ({ onBack }) => {
   const [poDataError, setPoDataError] = useState(null);
   const [isSyncPOModalOpen, setIsSyncPOModalOpen] = useState(false);
 
+  // Helper to find matching PO using a robust normalized comparison
+  const findMatchingPO = useCallback((poNo) => {
+    if (!poNo) return null;
+    const cleanTarget = String(poNo).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return poAssignedList.find(po => {
+      const pPo = po.po_no || po.poNo || '';
+      if (!pPo) return false;
+      const cleanP = String(pPo).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      return cleanTarget === cleanP || cleanTarget.includes(cleanP) || cleanP.includes(cleanTarget);
+    });
+  }, [poAssignedList]);
+
+  // Helper state to generate annexures in the background for bulk download
+  const [autoGenerateAnnexuresCall, setAutoGenerateAnnexuresCall] = useState(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfGeneratingText, setPdfGeneratingText] = useState({ 
+    title: 'Generating PDF', 
+    subtitle: 'Preparing high-quality certificate export...' 
+  });
+
   // Requested Calls data state - using real API
   const [requestedCalls, setRequestedCalls] = useState([]);
   const [loadingRequestedCalls, setLoadingRequestedCalls] = useState(false);
@@ -213,6 +249,20 @@ const VendorDashboardPage = ({ onBack }) => {
   const [completedCalls, setCompletedCalls] = useState([]);
   const [loadingCompletedCalls, setLoadingCompletedCalls] = useState(false);
   const [completedCallsError, setCompletedCallsError] = useState(null);
+
+  const renderTableSkeleton = (colCount) => {
+    return Array.from({ length: 5 }).map((_, rIdx) => (
+      <tr key={`skeleton-row-${rIdx}`} className="skeleton-row">
+        {Array.from({ length: colCount }).map((_, cIdx) => (
+          <td key={`skeleton-col-${cIdx}`} style={{ padding: '16px' }}>
+            <span className="skeleton-shimmer-line" style={{
+              width: cIdx % 3 === 0 ? '60%' : (cIdx % 3 === 1 ? '85%' : '70%')
+            }}></span>
+          </td>
+        ))}
+      </tr>
+    ));
+  };
 
   // Pagination and sorting state for PO Assigned table
   const [poAssignedCurrentPage, setPoAssignedCurrentPage] = useState(1);
@@ -317,13 +367,13 @@ const VendorDashboardPage = ({ onBack }) => {
       } else {
         setPoDataError('Failed to fetch PO data');
         // Fallback to mock data
-        setPoAssignedList([]);
+        setPoAssignedList(VENDOR_PO_LIST);
       }
     } catch (error) {
       console.error('Error fetching PO assigned data:', error);
       setPoDataError(error.message || 'Error fetching PO data');
       // Fallback to mock data
-      setPoAssignedList([]);
+      setPoAssignedList(VENDOR_PO_LIST);
     } finally {
       setLoadingPOData(false);
     }
@@ -399,6 +449,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // ============ FETCH CALIBRATION RECORDS AND PLANTS ============
   const fetchCalibrationRecords = useCallback(async () => {
+    setIsCalibrationLoading(true);
     try {
       const response = await vendorCalibrationService.getCalibrationsByVendor(user.userName);
       if (response.success && response.data) {
@@ -461,6 +512,8 @@ const VendorDashboardPage = ({ onBack }) => {
       }
     } catch (error) {
       console.error('Error fetching calibration records:', error);
+    } finally {
+      setIsCalibrationLoading(false);
     }
   }, [user.userName]);
 
@@ -657,9 +710,14 @@ const VendorDashboardPage = ({ onBack }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const normalizeName = (name) => {
+      if (!name) return '';
+      return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    };
+
     // Calculate instrument compliance per category
     const instrumentCompliance = productRequirements.instruments.map(req => {
-      const matchingItems = instrumentItems.filter(i => i.instrument_name === req.category);
+      const matchingItems = instrumentItems.filter(i => normalizeName(i.instrument_name) === normalizeName(req.category));
       const validItems = matchingItems.filter(i => {
         const dueDate = new Date(i.calibration_due_date);
         return dueDate >= today;
@@ -693,7 +751,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Calculate approval compliance per category
     const approvalCompliance = productRequirements.approvals.map(req => {
-      const matchingItems = approvalItems.filter(a => a.approval_document_name === req.category);
+      const matchingItems = approvalItems.filter(a => normalizeName(a.approval_document_name) === normalizeName(req.category));
       const validItems = matchingItems.filter(a => {
         const validTill = new Date(a.valid_till);
         return validTill >= today;
@@ -727,7 +785,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Calculate gauge compliance per category
     const gaugeCompliance = productRequirements.gauges.map(req => {
-      const matchingItems = gaugeItems.filter(g => g.gauge_description === req.category);
+      const matchingItems = gaugeItems.filter(g => normalizeName(g.gauge_description) === normalizeName(req.category));
       const validItems = matchingItems.filter(g => {
         const dueDate = new Date(g.calibration_due_date);
         return dueDate >= today;
@@ -816,12 +874,27 @@ const VendorDashboardPage = ({ onBack }) => {
   const [editingInstrument, setEditingInstrument] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
 
+  // States for Upcoming Expiry Reminders details popup
+  const [selectedExpiryItem, setSelectedExpiryItem] = useState(null);
+  const [isExpiryDetailModalOpen, setIsExpiryDetailModalOpen] = useState(false);
+
+  // Handlers for Upcoming Expiry Reminders details popup
+  const handleOpenExpiryDetailModal = (item) => {
+    setSelectedExpiryItem(item);
+    setIsExpiryDetailModalOpen(true);
+  };
+
+  const handleCloseExpiryDetailModal = () => {
+    setSelectedExpiryItem(null);
+    setIsExpiryDetailModalOpen(false);
+  };
+
   // Loading state for future API calls
   const [isLoading, setIsLoading] = useState(false);
 
   // ============ INSTRUMENT HANDLERS ============
   const handleOpenInstrumentModal = (instrument = null) => {
-    setEditingInstrument(instrument ? instrument.parentHeader : null);
+    setEditingInstrument(instrument);
     setIsInstrumentModalOpen(true);
   };
 
@@ -1752,6 +1825,7 @@ const VendorDashboardPage = ({ onBack }) => {
   };
 
   // ============ COMPLETED CALLS ROW HANDLERS ============
+  // eslint-disable-next-line no-unused-vars
   const toggleCompletedRow = (callId) => {
     setExpandedCompletedRows(prev => ({
       ...prev,
@@ -1770,6 +1844,7 @@ const VendorDashboardPage = ({ onBack }) => {
   };
 
   // View Full Inspection Summary modal handlers
+  // eslint-disable-next-line no-unused-vars
   const handleOpenInspectionSummaryModal = (call) => {
     setSelectedCompletedCall(call);
     setIsInspectionSummaryModalOpen(true);
@@ -1787,7 +1862,11 @@ const VendorDashboardPage = ({ onBack }) => {
       showNotification('IC Number not found.', 'error');
       return;
     }
-    showNotification(`Downloading Inspection Certificate for ${icNum}...`, 'info');
+    setPdfGeneratingText({
+      title: 'Downloading Certificate',
+      subtitle: `Fetching signed IC certificate for ${icNum}...`
+    });
+    setPdfGenerating(true);
     try {
       const response = await viewSignedCertificate(icNum);
       if (response && response.signedData) {
@@ -1799,7 +1878,7 @@ const VendorDashboardPage = ({ onBack }) => {
         }
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/pdf' });
-        
+
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1807,8 +1886,11 @@ const VendorDashboardPage = ({ onBack }) => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
+
+        // Open automatically in new tab
+        window.open(url, '_blank');
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+
         showNotification('Inspection Certificate downloaded successfully!', 'success');
       } else {
         showNotification('No signed certificate data found.', 'warning');
@@ -1816,6 +1898,8 @@ const VendorDashboardPage = ({ onBack }) => {
     } catch (error) {
       console.error('Failed to download IC:', error);
       showNotification(`Failed to download IC: ${error.message}`, 'error');
+    } finally {
+      setPdfGenerating(false);
     }
   };
 
@@ -1825,7 +1909,11 @@ const VendorDashboardPage = ({ onBack }) => {
       showNotification('Call ID not found. Cannot generate PDF.', 'error');
       return;
     }
-    showNotification('Fetching call letter details...', 'info');
+    setPdfGeneratingText({
+      title: 'Generating Call Letter',
+      subtitle: 'Fetching call details and generating PDF...'
+    });
+    setPdfGenerating(true);
     try {
       const url = `${getBaseUrl()}/call-letter/details?requestId=${encodeURIComponent(call.call_no)}`;
       const token = localStorage.getItem('authToken');
@@ -1841,28 +1929,313 @@ const VendorDashboardPage = ({ onBack }) => {
       const details = json.responseData ?? json.data ?? json;
 
       // Merge on top of existing call data
-      const enrichedCall = { 
-        ...call, 
+      const enrichedCall = {
+        ...call,
         ...details,
         callNumber: call.call_no,
         poNumber: call.po_no
       };
+
+      const doc = generateCallLetterPDF(enrichedCall, false); // generate without downloading internally
+      const filename = `Call_Letter_${String(enrichedCall.callNumber || enrichedCall.call_no).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
       
-      generateCallLetterPDF(enrichedCall);
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      // Download automatically
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Open automatically in new tab
+      window.open(pdfUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+
       showNotification('Call Letter PDF downloaded successfully!', 'success');
     } catch (err) {
       console.error('Failed to generate Call Letter PDF:', err);
       showNotification('Failed to fetch call letter details. Please try again.', 'error');
+    } finally {
+      setPdfGenerating(false);
     }
   };
 
   // Download Inspection Documents handler
+  // eslint-disable-next-line no-unused-vars
   const handleDownloadInspectionDocuments = (call) => {
     console.log('Downloading inspection documents for:', call.call_no);
     showNotification(`Downloading Inspection Documents for ${call.call_no}:\n- ${call.documents?.join('\n- ') || 'No documents available'}`, 'info');
   };
 
+  // PO PDF Document download helper
+  const downloadPoDoc = (pdfPath, poNo) => {
+    if (!pdfPath) {
+      showNotification('PO document path not found.', 'warning');
+      return;
+    }
+    if (pdfPath.startsWith('http') || pdfPath.includes('ireps.gov.in')) {
+      window.open(pdfPath, '_blank');
+    } else {
+      const url = vendorCalibrationService.getFileUrl(pdfPath);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `PO_${poNo}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // Merging and Downloading logic once all buffers (including optional Annexures) are ready
+  const proceedWithMergeAndDownload = async (call, annexuresBuf) => {
+    // Force set worker source dynamically locally to prevent hot-reload caching of old URLs
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    
+    setPdfGeneratingText({
+      title: 'Merging Documents',
+      subtitle: 'Compiling PO, Call Letter, and Reports into a single PDF...'
+    });
+    setPdfGenerating(true);
+    console.log('[DownloadAllDocs] Starting merge for call:', call);
+    
+    try {
+      const buffersToMerge = [];
+      let externalPoUrl = null;
+
+      // 1. Gather all documents in parallel
+      const fetchPO = (async () => {
+        const matchingPO = findMatchingPO(call.po_no || call.poNo);
+        if (!matchingPO || !matchingPO.pdfPath) return null;
+        
+        const pdfPath = matchingPO.pdfPath;
+        if (pdfPath.startsWith('http') || pdfPath.includes('ireps.gov.in')) {
+          try {
+            const proxyUrl = `${getBaseUrl()}/vendor/proxy-pdf?url=${encodeURIComponent(pdfPath)}`;
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            const headers = {
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+            };
+            const res = await fetch(proxyUrl, { headers });
+            if (res.ok) {
+              return await res.arrayBuffer();
+            } else {
+              externalPoUrl = pdfPath;
+              return null;
+            }
+          } catch (e) {
+            console.error('[DownloadAllDocs] Error fetching external PO via proxy:', e);
+            externalPoUrl = pdfPath;
+            return null;
+          }
+        } else {
+          try {
+            const url = vendorCalibrationService.getFileUrl(pdfPath);
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            const headers = {
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+            };
+            const res = await fetch(url, { headers });
+            if (res.ok) {
+              return await res.arrayBuffer();
+            }
+            return null;
+          } catch (e) {
+            console.error('[DownloadAllDocs] Error fetching PO document:', e);
+            return null;
+          }
+        }
+      })();
+
+      const fetchCallLetter = (async () => {
+        if (!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC'].includes(call.workflowStatus)) {
+          return null;
+        }
+        try {
+          const url = `${getBaseUrl()}/call-letter/details?requestId=${encodeURIComponent(call.call_no)}`;
+          const token = localStorage.getItem('authToken');
+          const headers = {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          };
+          const response = await fetch(url, { method: 'GET', headers });
+          if (response.ok) {
+            const json = await response.json();
+            const details = json.responseData ?? json.data ?? json;
+            const enrichedCall = {
+              ...call,
+              ...details,
+              callNumber: call.call_no,
+              poNumber: call.po_no
+            };
+            const callLetterDoc = generateCallLetterPDF(enrichedCall, false); // generate without downloading
+            return callLetterDoc.output('arraybuffer');
+          }
+          return null;
+        } catch (e) {
+          console.error('[DownloadAllDocs] Error creating Call Letter PDF:', e);
+          return null;
+        }
+      })();
+
+      const fetchIC = (async () => {
+        if (!['DSC_SIGN_IC'].includes(call.workflowStatus)) {
+          return null;
+        }
+        try {
+          const icNum = call.ic_number || call.call_no;
+          const response = await viewSignedCertificate(icNum);
+          if (response && response.signedData) {
+            const byteCharacters = atob(response.signedData);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            return byteArray.buffer;
+          }
+          return null;
+        } catch (e) {
+          console.error('[DownloadAllDocs] Error fetching IC document:', e);
+          return null;
+        }
+      })();
+
+      // Await all fetches in parallel
+      const [poBuf, callLetterBuf, icBuf] = await Promise.all([fetchPO, fetchCallLetter, fetchIC]);
+
+      if (poBuf) {
+        buffersToMerge.push(poBuf);
+        console.log('[DownloadAllDocs] PO PDF added to merge list. Size:', poBuf.byteLength);
+      }
+      if (annexuresBuf) {
+        buffersToMerge.push(annexuresBuf);
+        console.log('[DownloadAllDocs] Annexures PDF added to merge list. Size:', annexuresBuf.byteLength);
+      }
+      if (callLetterBuf) {
+        buffersToMerge.push(callLetterBuf);
+        console.log('[DownloadAllDocs] Call Letter PDF added to merge list. Size:', callLetterBuf.byteLength);
+      }
+      if (icBuf) {
+        buffersToMerge.push(icBuf);
+        console.log('[DownloadAllDocs] IC PDF added to merge list. Size:', icBuf.byteLength);
+      }
+
+      if (buffersToMerge.length === 0) {
+        if (externalPoUrl) {
+          showNotification('PO document is hosted on external IREPS portal. Opening PO document in a new tab.', 'info');
+          window.open(externalPoUrl, '_blank');
+        } else {
+          showNotification('No local documents found to merge.', 'warning');
+        }
+        return;
+      }
+
+      // Create a combined PDF using jsPDF
+      const combinedDoc = new jsPDF({ unit: 'pt' });
+      let hasPagesAdded = false;
+
+      // 2. Load and render pages in parallel for massive speedup!
+      const docPromises = buffersToMerge.map(buffer => pdfjsLib.getDocument({ data: buffer }).promise);
+      const pdfDocs = await Promise.all(docPromises);
+
+      const pageInfoList = [];
+      for (let docIdx = 0; docIdx < pdfDocs.length; docIdx++) {
+        const pdfDoc = pdfDocs[docIdx];
+        for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+          pageInfoList.push({ pdfDoc, pageNum });
+        }
+      }
+
+      // Render all pages concurrently
+      const renderPage = async ({ pdfDoc, pageNum }) => {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        const wPoints = viewport.width / 1.5;
+        const hPoints = viewport.height / 1.5;
+        
+        return { imgData, wPoints, hPoints };
+      };
+
+      const renderedPages = await Promise.all(pageInfoList.map(renderPage));
+
+      // Append pages in the correct order
+      renderedPages.forEach(({ imgData, wPoints, hPoints }) => {
+        combinedDoc.addPage([wPoints, hPoints], wPoints > hPoints ? 'l' : 'p');
+        combinedDoc.addImage(imgData, 'JPEG', 0, 0, wPoints, hPoints, undefined, 'FAST');
+        hasPagesAdded = true;
+      });
+
+      if (hasPagesAdded) {
+        combinedDoc.deletePage(1); // delete initial blank page
+        const outFilename = `Combined_Inspection_Docs_${call.call_no}.pdf`;
+        
+        const pdfBlob = combinedDoc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+
+        // Download automatically
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = outFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Open automatically
+        window.open(pdfUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+        
+        if (externalPoUrl) {
+          showNotification('Opened external PO document in a new tab, and downloaded other documents in a single combined PDF.', 'warning');
+          window.open(externalPoUrl, '_blank');
+        } else {
+          showNotification('All documents merged and downloaded in a single PDF successfully!', 'success');
+        }
+      } else {
+        showNotification('Failed to generate combined PDF.', 'error');
+      }
+
+    } catch (error) {
+      console.error('Failed to merge documents:', error);
+      showNotification(`Failed to merge and download documents: ${error.message}`, 'error');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  // Bulk download available completed inspection call documents in a single merged PDF
+  const handleDownloadAllDocs = async (call) => {
+    // If status has annexures, trigger auto generation first
+    const hasAnnexures = ['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC'].includes(call.workflowStatus);
+    
+    setPdfGeneratingText({
+      title: 'Generating PDF',
+      subtitle: 'Fetching details and preparing documents for download...'
+    });
+    setPdfGenerating(true);
+
+    if (hasAnnexures) {
+      showNotification('Fetching and generating Annexures PDF in background...', 'info');
+      setAutoGenerateAnnexuresCall(call);
+    } else {
+      // Just proceed without annexures
+      await proceedWithMergeAndDownload(call, null);
+    }
+  };
+
   // Request IC Correction modal handlers
+  // eslint-disable-next-line no-unused-vars
   const handleOpenICCorrectionModal = (call) => {
     setSelectedCompletedCall(call);
     setIsICCorrectionModalOpen(true);
@@ -2087,7 +2460,7 @@ const VendorDashboardPage = ({ onBack }) => {
     showNotification(`Fetching details for Call: ${call.call_no}...`, 'info');
     try {
       let prefilledData = null;
-      const matchingPO = poAssignedList.find(p => p.po_no === (call.po_no || call.poNo));
+      const matchingPO = findMatchingPO(call.po_no || call.poNo);
       const poDateVal = matchingPO ? matchingPO.po_date : '';
 
       if (call.stage === 'Raw Material') {
@@ -2236,7 +2609,7 @@ const VendorDashboardPage = ({ onBack }) => {
             unit_address: ic.unitAddress || '',
             remarks: ic.remarks || '',
             placeOfInspection: ic.placeOfInspection || '',
-            
+
             // Process fields – derive RM IC numbers from mappings; fall back to
             // detail rows when the mapping table is empty (older records)
             process_rm_ic_numbers: (() => {
@@ -2260,7 +2633,7 @@ const VendorDashboardPage = ({ onBack }) => {
               declaredLotSize: d.declaredLotSize || '',
               tentativeStartDate: d.tentativeStartDate || ''
             })),
-            
+
             // Raw Material and Final fields defaults
             rm_heat_tc_mapping: [{
               id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
@@ -2340,7 +2713,7 @@ const VendorDashboardPage = ({ onBack }) => {
               offeredQty: d.offeredQty || '',
               noOfBags: d.noOfBags || ''
             })),
-            
+
             // Raw Material and Process fields defaults
             rm_heat_tc_mapping: [{
               id: Date.now(), heatNumber: '', supplierName: '', compositeKey: '',
@@ -2406,7 +2779,7 @@ const VendorDashboardPage = ({ onBack }) => {
     showNotification(`Fetching details for Call: ${call.call_no}...`, 'info');
     try {
       let prefilledData = null;
-      const matchingPO = poAssignedList.find(p => p.po_no === (call.po_no || call.poNo));
+      const matchingPO = findMatchingPO(call.po_no || call.poNo);
       const poDateVal = matchingPO ? matchingPO.po_date : '';
 
       if (call.stage === 'Raw Material') {
@@ -2895,6 +3268,37 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Status',
       width: '160px',
       render: (value) => <StatusBadge status={value} />
+    },
+    {
+      key: 'actions',
+      label: 'Action',
+      width: '130px',
+      render: (_, row) => (
+        <button
+          className="master-action-btn master-action-view"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedCompletedCallForActions(row);
+            setIsCompletedActionsModalOpen(true);
+          }}
+          title="View Actions"
+          style={{
+            width: 'auto',
+            minWidth: '105px',
+            padding: '6px 12px',
+            fontSize: '13px',
+            whiteSpace: 'nowrap',
+            backgroundColor: '#3b82f6',
+            borderColor: '#2563eb',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontWeight: '500',
+            borderRadius: '6px'
+          }}
+        >
+          View Actions
+        </button>
+      )
     }
   ];
 
@@ -3375,25 +3779,58 @@ const VendorDashboardPage = ({ onBack }) => {
 
   return (
     <div className="page-container vendor-page">
-      {/* Breadcrumb */}
-      <div className="vendor-breadcrumb">
-        <span className="breadcrumb-item">Home</span>
-        <span className="breadcrumb-separator">/</span>
-        <span className="breadcrumb-item breadcrumb-active">Vendor Dashboard</span>
-      </div>
+      {pdfGenerating && (
+        <AnnexureLoader 
+          title={pdfGeneratingText.title} 
+          subtitle={pdfGeneratingText.subtitle} 
+        />
+      )}
 
-      {/* Header */}
-      <div className="vendor-page-header">
-        <div>
-          <div className="vendor-page-title">Vendor Dashboard</div>
-          <div className="vendor-page-subtitle">
-            All vendor-facing actions as per Vendor Module sheet (POs, Calls, Calibration, Payments, Masters).
+      {/* Background Annexures PDF Generator for merge-download */}
+      {autoGenerateAnnexuresCall && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1600px', zIndex: -100 }}>
+          <AnnexurePage
+            selectedCall={autoGenerateAnnexuresCall}
+            hiddenMode={true}
+            triggerAutoDownloadAll={true}
+            onAllGenerated={async (pdfBlob) => {
+              console.log('[DownloadAllDocs] Annexures auto-generated successfully!');
+              try {
+                const annexuresBuf = await pdfBlob.arrayBuffer();
+                await proceedWithMergeAndDownload(autoGenerateAnnexuresCall, annexuresBuf);
+              } catch (e) {
+                console.error('[DownloadAllDocs] Error matching/reading annexures buffer:', e);
+                showNotification('Error reading generated annexures PDF.', 'error');
+                setPdfGenerating(false);
+              } finally {
+                setAutoGenerateAnnexuresCall(null);
+              }
+            }}
+            onGenerationError={(err) => {
+              console.error('[DownloadAllDocs] Error auto-generating annexures:', err);
+              showNotification('Failed to generate Annexures PDF. Merging remaining documents...', 'warning');
+              proceedWithMergeAndDownload(autoGenerateAnnexuresCall, null);
+              setAutoGenerateAnnexuresCall(null);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Premium Header Card */}
+      <div className="vendor-header-card">
+        <div className="vendor-header-left">
+          <div className="vendor-title-section-new">
+            <h1 className="vendor-page-title-new">
+              Vendor Dashboard <span className="vendor-badge-new">Vendor Portal</span>
+            </h1>
           </div>
         </div>
         {onBack && (
-          <button className="rm-back-button" onClick={onBack}>
-            ← Back to Landing Page
-          </button>
+          <div className="vendor-header-right">
+            <button className="rm-back-button" onClick={onBack}>
+              <span className="back-arrow">←</span> Back to Landing Page
+            </button>
+          </div>
         )}
       </div>
 
@@ -3522,7 +3959,7 @@ const VendorDashboardPage = ({ onBack }) => {
                   </div>
                 ) : (
                   <iframe
-                    src={viewingPdfUrl}
+                    src={viewingPdfUrl ? (viewingPdfUrl.startsWith('http') || viewingPdfUrl.startsWith('data:') ? viewingPdfUrl : vendorCalibrationService.getFileUrl(viewingPdfUrl)) : ''}
                     title="PO PDF"
                     style={{
                       width: '100%',
@@ -3537,141 +3974,143 @@ const VendorDashboardPage = ({ onBack }) => {
             ) : (
               <>
                 <div className="vendor-section-header">
-                <div>
-                  <h3 className="vendor-section-header-title">PO Assigned to Vendor</h3>
-                  <p className="vendor-section-header-desc">
-                    List of all POs assigned along with status (Fresh PO, Inspection under Process,
-                    Partially Supplied, Order Executed). Click + to expand PO and view items.
-                  </p>
-                </div>
-                <div className="section-header-actions">
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => setIsSyncPOModalOpen(true)}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      backgroundImage: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                      border: 'none',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <span style={{ fontSize: '18px' }}>🔄</span>
-                    sync PO
-                  </button>
-                </div>
-              </div>
-
-              {/* Loading and Error States */}
-              {loadingPOData && (
-                <div className="text-center py-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading PO data...</span>
+                  <div>
+                    <h3 className="vendor-section-header-title">PO Assigned to Vendor</h3>
+                    <p className="vendor-section-header-desc">
+                      List of all POs assigned along with status (Fresh PO, Inspection under Process,
+                      Partially Supplied, Order Executed). Click + to expand PO and view items.
+                    </p>
                   </div>
-                  <p className="mt-2">Loading PO data...</p>
+                  <div className="section-header-actions">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => setIsSyncPOModalOpen(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundImage: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        border: 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <span style={{ fontSize: '18px' }}>🔄</span>
+                      sync PO
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {poDataError && (
-                <div className="alert alert-warning" role="alert">
-                  <strong>Warning:</strong> {poDataError}. Showing empty list.
-                </div>
-              )}
-
-              {/* Custom Expandable PO Table */}
-
-              {!loadingPOData && (
-                <>
-                  <div className="data-table-wrapper">
-                    {/* Search Bar and Page Size Selector */}
-                    <div className="table-controls">
-                      <input
-                        type="text"
-                        className="form-control search-box"
-                        placeholder="Search..."
-                        value={poAssignedSearchTerm}
-                        onChange={(e) => {
-                          setPoAssignedSearchTerm(e.target.value);
-                          setPoAssignedCurrentPage(1); // Reset to first page on search
-                        }}
-                      />
-                      <select
-                        className="form-control"
-                        style={{ width: '120px' }}
-                        value={poAssignedPageSize}
-                        onChange={(e) => {
-                          setPoAssignedPageSize(Number(e.target.value));
-                          setPoAssignedCurrentPage(1); // Reset to first page on page size change
-                        }}
-                      >
-                        <option value={10}>10 / page</option>
-                        <option value={25}>25 / page</option>
-                        <option value={50}>50 / page</option>
-                        <option value={100}>100 / page</option>
-                      </select>
+                {/* Loading and Error States */}
+                {loadingPOData && (
+                  <div className="text-center py-4">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading PO data...</span>
                     </div>
-                    <div className="data-table-container">
-                      <table className="data-table expandable-po-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}></th>
-                            {poColumns.map(col => (
-                              <th
-                                key={col.key}
-                                onClick={() => handlePOAssignedSort(col.key)}
-                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                              >
-                                {col.label} {poAssignedSortColumn === col.key && (poAssignedSortDirection === 'asc' ? '↑' : '↓')}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedPOAssigned.length === 0 ? (
+                    <p className="mt-2">Loading PO data...</p>
+                  </div>
+                )}
+
+                {poDataError && (
+                  <div className="alert alert-warning" role="alert">
+                    <strong>Warning:</strong> {poDataError}. Showing empty list.
+                  </div>
+                )}
+
+                {/* Custom Expandable PO Table */}
+
+                {!loadingPOData && (
+                  <>
+                    <div className="data-table-wrapper">
+                      {/* Search Bar and Page Size Selector */}
+                      <div className="table-controls">
+                        <input
+                          type="text"
+                          className="form-control search-box"
+                          placeholder="Search..."
+                          value={poAssignedSearchTerm}
+                          onChange={(e) => {
+                            setPoAssignedSearchTerm(e.target.value);
+                            setPoAssignedCurrentPage(1); // Reset to first page on search
+                          }}
+                        />
+                        <select
+                          className="form-control"
+                          style={{ width: '120px' }}
+                          value={poAssignedPageSize}
+                          onChange={(e) => {
+                            setPoAssignedPageSize(Number(e.target.value));
+                            setPoAssignedCurrentPage(1); // Reset to first page on page size change
+                          }}
+                        >
+                          <option value={10}>10 / page</option>
+                          <option value={25}>25 / page</option>
+                          <option value={50}>50 / page</option>
+                          <option value={100}>100 / page</option>
+                        </select>
+                      </div>
+                      <div className="data-table-container">
+                        <table className="data-table expandable-po-table">
+                          <thead>
                             <tr>
-                              <td colSpan={poColumns.length + 1} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
-                                No PO data available
-                              </td>
+                              <th style={{ width: '50px' }}></th>
+                              {poColumns.map(col => (
+                                <th
+                                  key={col.key}
+                                  onClick={() => handlePOAssignedSort(col.key)}
+                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                >
+                                  {col.label} {poAssignedSortColumn === col.key && (poAssignedSortDirection === 'asc' ? '↑' : '↓')}
+                                </th>
+                              ))}
                             </tr>
-                          ) : (
-                            paginatedPOAssigned.map((po) => (
-                              <React.Fragment key={po.id}>
-                                {/* PO Row */}
-                                <tr className={`po-row ${expandedPORows[po.id] ? 'expanded' : ''}`}>
-                                  <td>
-                                    <button
-                                      className="po-expand-btn"
-                                      onClick={() => togglePORow(po.id)}
-                                      aria-label={expandedPORows[po.id] ? 'Collapse' : 'Expand'}
-                                    >
-                                      {expandedPORows[po.id] ? '−' : '+'}
-                                    </button>
-                                  </td>
-                                  {poColumns.map(col => (
-                                    <td key={col.key} data-label={col.label}>
-                                      {col.render ? col.render(po[col.key], po) : po[col.key]}
+                          </thead>
+                          <tbody>
+                            {loadingPOData ? (
+                              renderTableSkeleton(poColumns.length + 1)
+                            ) : sortedPOAssigned.length === 0 ? (
+                              <tr>
+                                <td colSpan={poColumns.length + 1} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
+                                  No PO data available
+                                </td>
+                              </tr>
+                            ) : (
+                              paginatedPOAssigned.map((po) => (
+                                <React.Fragment key={po.id}>
+                                  {/* PO Row */}
+                                  <tr className={`po-row ${expandedPORows[po.id] ? 'expanded' : ''}`}>
+                                    <td>
+                                      <button
+                                        className="po-expand-btn"
+                                        onClick={() => togglePORow(po.id)}
+                                        aria-label={expandedPORows[po.id] ? 'Collapse' : 'Expand'}
+                                      >
+                                        {expandedPORows[po.id] ? '−' : '+'}
+                                      </button>
                                     </td>
-                                  ))}
-                                </tr>
-                                {/* Expanded Items Row */}
-                                {expandedPORows[po.id] && (
-                                  <tr className="po-items-row">
-                                    <td colSpan={poColumns.length + 1}>
-                                      <div className="po-items-container">
-                                        <div className="po-items-header">
-                                          <span className="po-items-title">Items in {po.po_no}</span>
-                                          {/* <button
+                                    {poColumns.map(col => (
+                                      <td key={col.key} data-label={col.label}>
+                                        {col.render ? col.render(po[col.key], po) : po[col.key]}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                  {/* Expanded Items Row */}
+                                  {expandedPORows[po.id] && (
+                                    <tr className="po-items-row">
+                                      <td colSpan={poColumns.length + 1}>
+                                        <div className="po-items-container">
+                                          <div className="po-items-header">
+                                            <span className="po-items-title">Items in {po.po_no}</span>
+                                            {/* <button
                                       className="btn btn-sm btn-secondary"
                                       onClick={() => handleOpenAddSubPOModal(po, null)}
                                       style={{ whiteSpace: 'nowrap' }}
                                     >
                                       + Add Sub PO
                                     </button> */}
-                                        </div>
+                                          </div>
 
-                                        {/* Sub PO List Table */}
-                                        {/* {(() => {
+                                          {/* Sub PO List Table */}
+                                          {/* {(() => {
                                     const poSubPOs = subPOList.filter(subPO =>
                                       po.items?.some(item => item.id === subPO.po_item_id)
                                     );
@@ -3728,76 +4167,76 @@ const VendorDashboardPage = ({ onBack }) => {
                                     return null;
                                   })()} */}
 
-                                        {/* PO Items Table */}
-                                        <h4 className="po-items-section-title">PO Items</h4>
-                                        <table className="po-items-table">
-                                          <thead>
-                                            <tr>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'item_name')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                Item Description {poItemsSortColumn[po.id] === 'item_name' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'po_serial_no')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                PO Serial No. {poItemsSortColumn[po.id] === 'po_serial_no' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'consignee')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                Consignee {poItemsSortColumn[po.id] === 'consignee' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'item_qty')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                Ordered Quantity {poItemsSortColumn[po.id] === 'item_qty' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'delivery_period')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                Delivery Period {poItemsSortColumn[po.id] === 'delivery_period' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th
-                                                onClick={() => handlePOItemsSort(po.id, 'item_status')}
-                                                style={{ cursor: 'pointer', userSelect: 'none' }}
-                                              >
-                                                Status {poItemsSortColumn[po.id] === 'item_status' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                              </th>
-                                              <th>Action</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {po.items && po.items.length > 0 ? (
-                                              (() => {
-                                                // Get all approved Sub POs for this PO (shared across all items,  selectedSubPOsByItem[item.id] || )
-                                                const approvedSubPOs = getApprovedSubPOsForPO(po);
+                                          {/* PO Items Table */}
+                                          <h4 className="po-items-section-title">PO Items</h4>
+                                          <table className="po-items-table">
+                                            <thead>
+                                              <tr>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'item_name')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  Item Description {poItemsSortColumn[po.id] === 'item_name' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'po_serial_no')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  PO Serial No. {poItemsSortColumn[po.id] === 'po_serial_no' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'consignee')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  Consignee {poItemsSortColumn[po.id] === 'consignee' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'item_qty')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  Ordered Quantity {poItemsSortColumn[po.id] === 'item_qty' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'delivery_period')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  Delivery Period {poItemsSortColumn[po.id] === 'delivery_period' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                  onClick={() => handlePOItemsSort(po.id, 'item_status')}
+                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                >
+                                                  Status {poItemsSortColumn[po.id] === 'item_status' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th>Action</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {po.items && po.items.length > 0 ? (
+                                                (() => {
+                                                  // Get all approved Sub POs for this PO (shared across all items,  selectedSubPOsByItem[item.id] || )
+                                                  const approvedSubPOs = getApprovedSubPOsForPO(po);
 
-                                                // Sort the items based on current sort state
-                                                const sortedItems = getSortedPOItems(po.id, po.items);
+                                                  // Sort the items based on current sort state
+                                                  const sortedItems = getSortedPOItems(po.id, po.items);
 
-                                                return sortedItems.map((item) => {
-                                                  const selectedSubPO = '';
+                                                  return sortedItems.map((item) => {
+                                                    const selectedSubPO = '';
 
-                                                  return (
-                                                    <tr key={item.id}>
-                                                      <td>{item.item_name}</td>
-                                                      <td>{item.po_serial_no}</td>
-                                                      <td>{item.consignee}</td>
-                                                      <td>{item.item_qty} {item.item_unit}</td>
-                                                      <td>{formatDate(item.delivery_period)}</td>
-                                                      <td>
-                                                        <StatusBadge status={item.item_status} />
-                                                      </td>
-                                                      <td>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                          {/* Sub PO Dropdown - Always show for all items */}
-                                                          {/* <select
+                                                    return (
+                                                      <tr key={item.id}>
+                                                        <td>{item.item_name}</td>
+                                                        <td>{item.po_serial_no}</td>
+                                                        <td>{item.consignee}</td>
+                                                        <td>{item.item_qty} {item.item_unit}</td>
+                                                        <td>{formatDate(item.delivery_period)}</td>
+                                                        <td>
+                                                          <StatusBadge status={item.item_status} />
+                                                        </td>
+                                                        <td>
+                                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                            {/* Sub PO Dropdown - Always show for all items */}
+                                                            {/* <select
                                                       className="ric-form-select"
                                                       value={selectedSubPO}
                                                       onChange={(e) => {
@@ -3816,37 +4255,37 @@ const VendorDashboardPage = ({ onBack }) => {
                                                       ))}
                                                     </select> */}
 
-                                                          {/* Raise Inspection Request Button */}
-                                                          <button
-                                                            className="btn btn-sm btn-primary"
-                                                            onClick={() => {
-                                                              const subPOData = selectedSubPO
-                                                                ? approvedSubPOs.find(sp => sp.id === parseInt(selectedSubPO))
-                                                                : null;
-                                                              handleOpenInspectionModal(po, item, subPOData);
-                                                            }}
-                                                            style={{ whiteSpace: 'nowrap' }}
-                                                          >
-                                                            Raise Inspection Request
-                                                          </button>
-                                                        </div>
-                                                      </td>
-                                                    </tr>
-                                                  );
-                                                });
-                                              })()
-                                            ) : (
-                                              <tr>
-                                                <td colSpan={7} style={{ textAlign: 'center', color: '#6b7280' }}>
-                                                  No items found for this PO
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </tbody>
-                                        </table>
+                                                            {/* Raise Inspection Request Button */}
+                                                            <button
+                                                              className="btn btn-sm btn-primary"
+                                                              onClick={() => {
+                                                                const subPOData = selectedSubPO
+                                                                  ? approvedSubPOs.find(sp => sp.id === parseInt(selectedSubPO))
+                                                                  : null;
+                                                                handleOpenInspectionModal(po, item, subPOData);
+                                                              }}
+                                                              style={{ whiteSpace: 'nowrap' }}
+                                                            >
+                                                              Raise Inspection Request
+                                                            </button>
+                                                          </div>
+                                                        </td>
+                                                      </tr>
+                                                    );
+                                                  });
+                                                })()
+                                              ) : (
+                                                <tr>
+                                                  <td colSpan={7} style={{ textAlign: 'center', color: '#6b7280' }}>
+                                                    No items found for this PO
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </tbody>
+                                          </table>
 
-                                        {/* Approved RM Inspection Calls Section */}
-                                        {/* <div className="approved-rm-ics-section" style={{ marginTop: '24px' }}>
+                                          {/* Approved RM Inspection Calls Section */}
+                                          {/* <div className="approved-rm-ics-section" style={{ marginTop: '24px' }}>
                                     <h4 className="po-items-section-title">Approved Raw Material Inspection Calls</h4>
                                     <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
                                       List of approved RM inspection calls for this PO. These can be used for Process Inspection.
@@ -3905,49 +4344,49 @@ const VendorDashboardPage = ({ onBack }) => {
                                       </tbody>
                                     </table>
                                   </div> */}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Pagination Controls */}
-                  {sortedPOAssigned.length > 0 && (
-                    <div className="pagination-controls" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                        Showing {((poAssignedCurrentPage - 1) * poAssignedPageSize) + 1} to {Math.min(poAssignedCurrentPage * poAssignedPageSize, sortedPOAssigned.length)} of {sortedPOAssigned.length} POs
+                    {/* Pagination Controls */}
+                    {sortedPOAssigned.length > 0 && (
+                      <div className="pagination-controls" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                          Showing {((poAssignedCurrentPage - 1) * poAssignedPageSize) + 1} to {Math.min(poAssignedCurrentPage * poAssignedPageSize, sortedPOAssigned.length)} of {sortedPOAssigned.length} POs
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => setPoAssignedCurrentPage(Math.max(1, poAssignedCurrentPage - 1))}
+                            disabled={poAssignedCurrentPage === 1}
+                          >
+                            ← Previous
+                          </button>
+                          <span style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', color: '#6b7280' }}>
+                            Page {poAssignedCurrentPage} of {Math.ceil(sortedPOAssigned.length / poAssignedPageSize)}
+                          </span>
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => setPoAssignedCurrentPage(Math.min(Math.ceil(sortedPOAssigned.length / poAssignedPageSize), poAssignedCurrentPage + 1))}
+                            disabled={poAssignedCurrentPage === Math.ceil(sortedPOAssigned.length / poAssignedPageSize)}
+                          >
+                            Next →
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={() => setPoAssignedCurrentPage(Math.max(1, poAssignedCurrentPage - 1))}
-                          disabled={poAssignedCurrentPage === 1}
-                        >
-                          ← Previous
-                        </button>
-                        <span style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', color: '#6b7280' }}>
-                          Page {poAssignedCurrentPage} of {Math.ceil(sortedPOAssigned.length / poAssignedPageSize)}
-                        </span>
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={() => setPoAssignedCurrentPage(Math.min(Math.ceil(sortedPOAssigned.length / poAssignedPageSize), poAssignedCurrentPage + 1))}
-                          disabled={poAssignedCurrentPage === Math.ceil(sortedPOAssigned.length / poAssignedPageSize)}
-                        >
-                          Next →
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          ))}
+                    )}
+                  </>
+                )}
+              </>
+            ))}
 
           {/* 2. Requested Inspection Call Status */}
           {activeTab === 'requested-calls' && (
@@ -4024,7 +4463,9 @@ const VendorDashboardPage = ({ onBack }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredAndSortedRequestedCalls.length === 0 ? (
+                      {loadingRequestedCalls ? (
+                        renderTableSkeleton(requestedColumns.length)
+                      ) : filteredAndSortedRequestedCalls.length === 0 ? (
                         <tr>
                           <td colSpan={requestedColumns.length} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
                             {requestedCallsSearchTerm
@@ -4162,7 +4603,9 @@ const VendorDashboardPage = ({ onBack }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedCompletedCalls.length === 0 ? (
+                      {loadingCompletedCalls ? (
+                        renderTableSkeleton(completedColumns.length)
+                      ) : paginatedCompletedCalls.length === 0 ? (
                         <tr>
                           <td colSpan={completedColumns.length} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
                             No completed inspection calls found.
@@ -4170,108 +4613,23 @@ const VendorDashboardPage = ({ onBack }) => {
                         </tr>
                       ) : (
                         paginatedCompletedCalls.map((call) => (
-                          <React.Fragment key={call.id}>
-                            {/* Completed Call Row */}
-                            <tr
-                              className={`completed-call-row ${expandedCompletedRows[call.id] ? 'expanded' : ''}`}
-                              onClick={() => toggleCompletedRow(call.id)}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              {completedColumns.map(col => (
-                                <td
-                                  key={col.key}
-                                  data-label={col.label}
-                                  style={{
-                                    width: col.width || undefined,
-                                    minWidth: col.width || undefined
-                                  }}
-                                >
-                                  {col.render ? col.render(call[col.key], call) : call[col.key]}
-                                </td>
-                              ))}
-                            </tr>
-                            {/* Expanded Actions Row */}
-                            {expandedCompletedRows[call.id] && (
-                              <tr className="completed-actions-row">
-                                <td colSpan={completedColumns.length}>
-                                  <div className="completed-actions-container">
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedCallForActions(call);
-                                        setIsActionsModalOpen(true);
-                                      }}
-                                    >
-                                      View Call Details
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenInspectionSummaryModal(call);
-                                      }}
-                                    >
-                                      View Full Inspection Summary
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownloadCallLetter(call);
-                                      }}
-                                    >
-                                      Download Call Letter
-                                    </button>
-                                    {!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'WITHDRAW'].includes(call.workflowStatus) && (
-                                      <>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDownloadIC(call);
-                                          }}
-                                        >
-                                          Download Inspection Certificate (IC)
-                                        </button>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenICCorrectionModal(call);
-                                          }}
-                                        >
-                                          Request IC Correction
-                                        </button>
-                                      </>
-                                    )}
-                                    {!['WITHDRAW'].includes(call.workflowStatus) && (
-                                      <>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDownloadInspectionDocuments(call);
-                                          }}
-                                        >
-                                          Download Inspection Documents
-                                        </button>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedCallForAnnexure(call);
-                                          }}
-                                        >
-                                          View Annexures
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
+                          <tr
+                            key={call.id}
+                            className="completed-call-row"
+                          >
+                            {completedColumns.map(col => (
+                              <td
+                                key={col.key}
+                                data-label={col.label}
+                                style={{
+                                  width: col.width || undefined,
+                                  minWidth: col.width || undefined
+                                }}
+                              >
+                                {col.render ? col.render(call[col.key], call) : call[col.key]}
+                              </td>
+                            ))}
+                          </tr>
                         ))
                       )}
                     </tbody>
@@ -4311,118 +4669,198 @@ const VendorDashboardPage = ({ onBack }) => {
 
           {/* 4. Calibration & Approval (Combined) */}
           {activeTab === 'calibration-approval' && (
-            <>
-              <div className="vendor-section-header">
-                <div>
-                  <h3 className="vendor-section-header-title">
-                    Calibration &amp; Approval Records Management
-                  </h3>
-                  {/* <p className="vendor-section-header-desc">
-                    Manage calibration and approval documents for {VENDOR_PRODUCT_TYPE}. Compliance status controls inspection call eligibility.
-                  </p> */}
-                </div>
-              </div>
-
-              {/* Full Calibration View with All Items */}
+            isCalibrationLoading ? (
+              <div className="loading-message">Loading calibration records...</div>
+            ) : (
               <>
-                {/* Overall Compliance Status Banner */}
-                {/* <div className={`compliance-banner compliance-${overallCompliance.status.toLowerCase().replace(' ', '-')}`}>
-                    <div className="compliance-banner-content">
-                      <div className="compliance-status-icon">
-                        {overallCompliance.status === 'Compliant' && '✓'}
-                        {overallCompliance.status === 'Partially Compliant' && '⚠'}
-                        {overallCompliance.status === 'Non-Compliant' && '✗'}
-                      </div>
-                      <div className="compliance-status-info">
-                        <h4 className="compliance-status-title">
-                          Inspection Call Eligibility: {overallCompliance.canRaiseInspectionCall ? 'Eligible' : 'Blocked'}
-                        </h4>
-                        <p className="compliance-status-message">{overallCompliance.message}</p>
-                      </div>
-                    </div>
-                    <div className="compliance-stats">
-                      {overallCompliance.totalExpired > 0 && (
-                        <span className="compliance-stat expired">
-                          {overallCompliance.totalExpired} Expired
-                        </span>
-                      )}
-                      {overallCompliance.totalExpiring > 0 && (
-                        <span className="compliance-stat expiring">
-                          {overallCompliance.totalExpiring} Expiring Soon
-                        </span>
-                      )}
-                    </div>
-                  </div> */}
-
-                {/* Expiry Reminders Section */}
-                {overallCompliance.totalExpiring > 0 && (
-                  <div className="expiry-reminders-section">
-                    <h4 className="expiry-reminders-title">⏰ Upcoming Expiry Reminders</h4>
-                    <div className="expiry-reminders-list">
-                      {[
-                        ...instrumentItems.filter(i => {
-                          const days = getDaysUntilExpiry(i.calibration_due_date);
-                          return days >= 0 && days <= (i.notification_days || 30);
-                        }).map(i => ({ type: 'Instrument', name: i.instrument_name, serial: i.serial_number, dueDate: i.calibration_due_date })),
-                        ...approvalItems.filter(a => {
-                          const days = getDaysUntilExpiry(a.valid_till);
-                          return days >= 0 && days <= (a.notification_days || 30);
-                        }).map(a => ({ type: 'Approval', name: a.approval_document_name, serial: a.document_number, dueDate: a.valid_till })),
-                        ...gaugeItems.filter(g => {
-                          const days = getDaysUntilExpiry(g.calibration_due_date);
-                          return days >= 0 && days <= (g.notification_days || 30);
-                        }).map(g => ({ type: 'Gauge', name: g.gauge_description, serial: g.gauge_sr_no, dueDate: g.calibration_due_date }))
-                      ].map((item, idx) => (
-                        <div key={idx} className="expiry-reminder-item">
-                          <span className="expiry-reminder-type">{item.type}</span>
-                          <span className="expiry-reminder-name">{item.name} ({item.serial})</span>
-                          <span className="expiry-reminder-days">
-                            {getDaysUntilExpiry(item.dueDate)} days left
-                          </span>
-                          <span className="expiry-reminder-date">Due: {formatDate(item.dueDate)}</span>
-                        </div>
-                      ))}
+                {allCalibrationItems.length === 0 ? (
+                  <InitialCalibrationRegistration 
+                    vendorCode={user.userName}
+                  onSubmit={async (payload) => {
+                    setIsLoading(true);
+                    try {
+                      payload.vendorCode = user.userName;
+                      const response = await vendorCalibrationService.submitBulkRegistration(payload);
+                      if (response && response.success) {
+                        // Refresh data from backend to populate lists
+                        const freshData = await vendorCalibrationService.getCalibrationsByVendor(user.userName);
+                        if (freshData && freshData.success) {
+                          const items = freshData.data || [];
+                          setInstrumentItems(items.filter(i => i.category === 'Instrument'));
+                          setApprovalItems(items.filter(i => i.category === 'Document'));
+                          setGaugeItems(items.filter(i => i.category === 'Gauge'));
+                        } else {
+                          // Fallback local mapping if fetch fails
+                          const newItems = payload.items.map(item => ({
+                            id: `bulk-${Math.random().toString(36).substr(2, 9)}`,
+                            ...item,
+                            valid_till: item.calibrationDueDate,
+                            calibration_due_date: item.calibrationDueDate,
+                            instrument_name: item.instrumentName,
+                            serial_number: item.serialNumber,
+                            calibration_certificate_no: item.calibrationCertificateNo,
+                            calibration_date: item.calibrationDate,
+                            certifying_lab_name: item.certifyingLabName,
+                            accreditation_agency: item.accreditationAgency,
+                            notification_days: item.notificationDays,
+                            approval_document_name: item.instrumentName,
+                            document_number: item.serialNumber,
+                            gauge_description: item.instrumentName,
+                            gauge_sr_no: item.serialNumber
+                          }));
+                          setInstrumentItems(prev => [...prev, ...newItems.filter(i => i.category === 'Instrument')]);
+                          setApprovalItems(prev => [...prev, ...newItems.filter(i => i.category === 'Document')]);
+                          setGaugeItems(prev => [...prev, ...newItems.filter(i => i.category === 'Gauge')]);
+                        }
+                        
+                        // Clear localStorage and IndexedDB drafts
+                        const vCode = user.userName;
+                        localStorage.removeItem(`initialCalibrationDraft_${vCode}`);
+                        localStorage.removeItem(`initialCalibrationDraft_fileName_${vCode}`);
+                        localStorage.removeItem('initialCalibrationDraft');
+                        localStorage.removeItem('initialCalibrationDraft_fileName');
+                        localStorage.removeItem('initialCalibrationDraft_fileBase64');
+                        
+                        try {
+                          const idbRequest = indexedDB.open('CalibrationDraftDB', 1);
+                          idbRequest.onsuccess = (e) => {
+                            const db = e.target.result;
+                            if (db.objectStoreNames.contains('drafts')) {
+                              const tx = db.transaction('drafts', 'readwrite');
+                              const store = tx.objectStore('drafts');
+                              store.delete(`initialCalibrationDraft_fileBase64_${vCode}`);
+                            }
+                          };
+                        } catch (err) {
+                          console.error('Failed to clear IndexedDB draft file:', err);
+                        }
+                        
+                        showNotification('Initial calibration registration complete! Dashboard unlocked.', 'success');
+                      } else {
+                        showNotification(response.error || 'Failed to complete registration.', 'error');
+                      }
+                    } catch (error) {
+                      console.error('Error submitting registration:', error);
+                      showNotification(error.message || 'An error occurred during submission.', 'error');
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  isLoading={isLoading}
+                />
+              ) : (
+                <>
+                  <div className="vendor-section-header">
+                    <div>
+                      <h3 className="vendor-section-header-title">
+                        Calibration &amp; Approval Records Management
+                      </h3>
                     </div>
                   </div>
-                )}
 
-                {/* Section Title */}
-                <div className="calibration-section-title">
-                  {/* <h4>Required Documents & Equipment for {VENDOR_PRODUCT_TYPE}</h4> */}
-                  <p>All instruments, approvals, and gauges with calibration and validity details</p>
-                </div>
+                  {/* Expiry Reminders Section */}
+                  {overallCompliance.totalExpiring > 0 && (
+                    <div className="expiry-reminders-section-cards">
+                      <h4 className="expiry-reminders-title-cards">⏰ Upcoming Expiry Reminders</h4>
+                      <div className="expiry-reminders-grid">
+                        {[
+                          ...instrumentItems.filter(i => {
+                            const days = getDaysUntilExpiry(i.calibration_due_date);
+                            return days >= 0 && days <= (i.notification_days || 30);
+                          }).map(i => ({
+                            ...i,
+                            type: 'Instrument',
+                            name: i.instrument_name,
+                            serial: i.serial_number,
+                            dueDate: i.calibration_due_date
+                          })),
+                          ...approvalItems.filter(a => {
+                            const days = getDaysUntilExpiry(a.valid_till);
+                            return days >= 0 && days <= (a.notification_days || 30);
+                          }).map(a => ({
+                            ...a,
+                            type: 'Approval',
+                            name: a.approval_document_name,
+                            serial: a.document_number,
+                            dueDate: a.valid_till
+                          })),
+                          ...gaugeItems.filter(g => {
+                            const days = getDaysUntilExpiry(g.calibration_due_date);
+                            return days >= 0 && days <= (g.notification_days || 30);
+                          }).map(g => ({
+                            ...g,
+                            type: 'Gauge',
+                            name: g.gauge_description,
+                            serial: g.gauge_sr_no,
+                            dueDate: g.calibration_due_date
+                          }))
+                        ].map((item, idx) => {
+                          const daysLeft = getDaysUntilExpiry(item.dueDate);
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`expiry-reminder-card type-${item.type.toLowerCase()}`}
+                              onClick={() => handleOpenExpiryDetailModal(item)}
+                              title={`${item.name} (${item.serial || 'No Serial'})`}
+                            >
+                              <div className="card-badge-header">
+                                <span className={`card-badge-type ${item.type.toLowerCase()}`}>{item.type}</span>
+                                <span className="card-badge-days">{daysLeft}d left</span>
+                              </div>
+                              <h5 className="card-item-name">{item.name}</h5>
+                              <div className="card-item-details">
+                                <span className="card-detail-sn" title={`Serial/Doc No: ${item.serial || 'N/A'}`}>
+                                  S/N: {item.serial || 'N/A'}
+                                </span>
+                                <span className="card-detail-due">
+                                  Due: {formatDate(item.dueDate)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                {/* ========== UNIFIED CALIBRATION & APPROVALS SECTION ========== */}
-                <div className="calibration-full-section">
-                  <div className="calibration-section-header">
-                    <div className="calibration-section-header-left">
-                      <h4 className="calibration-section-heading">📏 Calibration &amp; Approvals Registry</h4>
-                      <p className="calibration-section-subtitle">Unified registry of all instruments, approvals, and gauges with validity tracking</p>
-                    </div>
-                    <div className="calibration-section-header-right">
-                      <span className="section-record-count">{allCalibrationItems.length} Total Records</span>
-                      <button className="btn btn-sm btn-primary" onClick={() => handleOpenInstrumentModal()}>
-                        + Register Calibration / Doc
-                      </button>
-                    </div>
+                  {/* Section Title */}
+                  <div className="calibration-section-title">
+                    <p>All instruments, approvals, and gauges with calibration and validity details</p>
                   </div>
 
-                  {/* Unified Items Table */}
-                  <DataTable
-                    columns={unifiedCalibrationColumns}
-                    data={allCalibrationItems}
-                    onRowClick={(row) => handleOpenInstrumentModal(row)}
-                    selectable={false}
-                    selectedRows={[]}
-                    onSelectionChange={() => { }}
-                  />
-                </div>
+                  {/* ========== UNIFIED CALIBRATION & APPROVALS SECTION ========== */}
+                  <div className="calibration-full-section">
+                    <div className="calibration-section-header">
+                      <div className="calibration-section-header-left">
+                        <h4 className="calibration-section-heading">📏 Calibration &amp; Approvals Registry</h4>
+                        <p className="calibration-section-subtitle">Unified registry of all instruments, approvals, and gauges with validity tracking</p>
+                      </div>
+                      <div className="calibration-section-header-right">
+                        <span className="section-record-count">{allCalibrationItems.length} Total Records</span>
+                        <button className="btn btn-sm btn-primary" onClick={() => handleOpenInstrumentModal()}>
+                          + Register Calibration / Doc
+                        </button>
+                      </div>
+                    </div>
 
-                <p className="mandatory-note">
-                  <span className="mandatory-badge">*</span> Mandatory categories must be complete with valid certificates to raise inspection calls.
-                </p>
-              </>
+                    {/* Unified Items Table */}
+                    <DataTable
+                      columns={unifiedCalibrationColumns}
+                      data={allCalibrationItems}
+                      onRowClick={(row) => handleOpenInstrumentModal(row)}
+                      selectable={false}
+                      selectedRows={[]}
+                      onSelectionChange={() => { }}
+                    />
+                  </div>
+
+                  <p className="mandatory-note">
+                    <span className="mandatory-badge">*</span> Mandatory categories must be complete with valid certificates to raise inspection calls.
+                  </p>
+                </>
+              )}
             </>
+          )
           )}
 
           {/* 7. Raising an Inspection Call */}
@@ -4714,6 +5152,171 @@ const VendorDashboardPage = ({ onBack }) => {
         editData={editingPayment}
         isLoading={isLoading}
       />
+
+      {/* ============ EXPIRY REMINDER DETAIL MODAL ============ */}
+      {isExpiryDetailModalOpen && selectedExpiryItem && (
+        <div className="modal-overlay" onClick={handleCloseExpiryDetailModal}>
+          <div className="modal expiry-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+              <h3 className="modal-title" style={{ color: '#ffffff' }}>
+                {selectedExpiryItem.type === 'Document' ? '📄 Document Approval Details' : (selectedExpiryItem.type === 'Gauge' ? '📐 Gauge Details' : '📏 Instrument Calibration Details')}
+              </h3>
+              <button className="modal-close" onClick={handleCloseExpiryDetailModal} style={{ color: '#ffffff' }}>×</button>
+            </div>
+            
+            <div className="modal-body" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', padding: '24px' }}>
+              <div className="view-details-grid">
+                
+                {/* General Information */}
+                <div className="detail-section" style={{ borderLeft: '4px solid #dc2626', background: '#fef2f2' }}>
+                  <h4 className="detail-section-title" style={{ color: '#991b1b', borderColor: '#fee2e2' }}>⚠️ Expiry & Validity Information</h4>
+                  <div className="detail-row">
+                    <span className="detail-label">Status:</span>
+                    <span className="detail-value" style={{ fontWeight: '700', color: '#dc2626' }}>
+                      Expiring in {getDaysUntilExpiry(selectedExpiryItem.dueDate)} Days
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Expiry / Due Date:</span>
+                    <span className="detail-value" style={{ fontWeight: '600', color: '#1f2937' }}>
+                      {formatDate(selectedExpiryItem.dueDate)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Registry Details */}
+                <div className="detail-section">
+                  <h4 className="detail-section-title">Record Details</h4>
+                  
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {selectedExpiryItem.type === 'Document' ? 'Document Type Name:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Description:' : 'Instrument/Machine Name:')}
+                    </span>
+                    <span className="detail-value" style={{ fontWeight: '600', color: '#1e3a5f' }}>
+                      {selectedExpiryItem.name}
+                    </span>
+                  </div>
+
+                  {selectedExpiryItem.type !== 'Document' && (
+                    <div className="detail-row">
+                      <span className="detail-label">
+                        {selectedExpiryItem.type === 'Gauge' ? 'Product Name:' : 'Capacity / Range:'}
+                      </span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.capacity || selectedExpiryItem.capacity_range || 'N/A'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="detail-row">
+                    <span className="detail-label">Description / Details:</span>
+                    <span className="detail-value">
+                      {selectedExpiryItem.description || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {selectedExpiryItem.type === 'Document' ? 'Document Number:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Serial Number:' : 'Serial Number:')}
+                    </span>
+                    <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                      {selectedExpiryItem.serial || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
+                    <span className="detail-label">Certificate / Document No:</span>
+                    <span className="detail-value">
+                      {selectedExpiryItem.calibrationCertificateNo || selectedExpiryItem.calibration_certificate_no || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Accreditation & Lab */}
+                <div className="detail-section">
+                  <h4 className="detail-section-title">Calibration / Authority Info</h4>
+                  
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {selectedExpiryItem.type === 'Document' ? 'Issue Date:' : 'Calibration Date:'}
+                    </span>
+                    <span className="detail-value">
+                      {formatDate(selectedExpiryItem.calibrationDate || selectedExpiryItem.calibration_date || selectedExpiryItem.date_of_issue)}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {selectedExpiryItem.type === 'Document' ? 'Approving Authority:' : 'Certifying Lab Name:'}
+                    </span>
+                    <span className="detail-value">
+                      {selectedExpiryItem.certifyingLabName || selectedExpiryItem.certifying_lab_name || selectedExpiryItem.approving_authority || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
+                    <span className="detail-label">Accreditation Agency:</span>
+                    <span className="detail-value">
+                      {selectedExpiryItem.accreditationAgency || selectedExpiryItem.accreditation_agency || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
+                    <span className="detail-label">Notification Days:</span>
+                    <span className="detail-value">
+                      {selectedExpiryItem.notificationDays || selectedExpiryItem.notification_days || 30} Days prior
+                    </span>
+                  </div>
+
+                  {selectedExpiryItem.usedFor && (
+                    <div className="detail-row">
+                      <span className="detail-label">Inspection Stages Used For:</span>
+                      <span className="detail-value">
+                        {Array.isArray(selectedExpiryItem.usedFor) 
+                          ? selectedExpiryItem.usedFor.join(', ') 
+                          : String(selectedExpiryItem.usedFor).split(',').join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Certificate File */}
+                {selectedExpiryItem.certificateFilePath && (
+                  <div className="detail-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderLeft: '4px solid #2563eb' }}>
+                    <div>
+                      <h5 style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#1f2937', fontWeight: '600' }}>📄 Calibration Certificate / File</h5>
+                      <span style={{ fontSize: '11px', color: '#6b7280' }}>Click to view the uploaded proof document</span>
+                    </div>
+                    <button 
+                      className="btn btn-sm btn-primary"
+                      onClick={() => {
+                        const url = vendorCalibrationService.getFileUrl(selectedExpiryItem.certificateFilePath);
+                        if (url) window.open(url, '_blank');
+                      }}
+                    >
+                      View Certificate
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            </div>
+            
+            <div className="modal-footer" style={{ borderTop: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  handleCloseExpiryDetailModal();
+                  handleOpenInstrumentModal(selectedExpiryItem);
+                }}
+              >
+                ✏️ Edit Record
+              </button>
+              <button className="btn btn-outline" onClick={handleCloseExpiryDetailModal}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============ RAISE / MODIFY INSPECTION REQUEST MODAL ============ */}
       {isInspectionModalOpen && (
@@ -5326,6 +5929,7 @@ const VendorDashboardPage = ({ onBack }) => {
         ];
         const needsWorkflow = workflowRequiredStatuses.includes(row.status);
         const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
+        const isScheduled = row.status === 'IE_SCHEDULED' || row.status === 'Call Scheduled by IE' || (row.status && row.status.toLowerCase().includes('scheduled'));
 
         return (
           <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {
@@ -5670,7 +6274,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
                   {/* Action 4: Withdraw Call */}
                   <button
-                    disabled={!isAllowed}
+                    disabled={!isAllowed || isScheduled}
                     onClick={() => {
                       setIsActionsModalOpen(false);
                       setSelectedCallForActions(null);
@@ -5679,24 +6283,24 @@ const VendorDashboardPage = ({ onBack }) => {
                       }
                       handleWithdrawCall(row);
                     }}
-                    title={!isAllowed ? `Action Restricted: Withdraw is not allowed for status "${row.status}"` : (needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call")}
+                    title={isScheduled ? "Action Restricted: Withdraw is not allowed for scheduled calls" : (!isAllowed ? `Action Restricted: Withdraw is not allowed for status "${row.status}"` : (needsWorkflow ? "Withdraw Call (Requires Workflow Approval)" : "Withdraw Call"))}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '14px',
                       padding: '16px',
-                      background: isAllowed ? '#ffffff' : '#f8fafc',
+                      background: (isAllowed && !isScheduled) ? '#ffffff' : '#f8fafc',
                       border: '1.5px solid #e2e8f0',
-                      borderLeft: isAllowed ? '4px solid #ef4444' : '4px solid #cbd5e1',
+                      borderLeft: (isAllowed && !isScheduled) ? '4px solid #ef4444' : '4px solid #cbd5e1',
                       borderRadius: '12px',
                       textAlign: 'left',
-                      cursor: isAllowed ? 'pointer' : 'not-allowed',
-                      opacity: isAllowed ? 1 : 0.65,
+                      cursor: (isAllowed && !isScheduled) ? 'pointer' : 'not-allowed',
+                      opacity: (isAllowed && !isScheduled) ? 1 : 0.65,
                       transition: 'all 0.2s ease',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
                     }}
                     onMouseEnter={(e) => {
-                      if (isAllowed) {
+                      if (isAllowed && !isScheduled) {
                         e.currentTarget.style.borderColor = '#ef4444';
                         e.currentTarget.style.backgroundColor = '#fef2f2';
                         e.currentTarget.style.transform = 'translateY(-2px)';
@@ -5704,7 +6308,7 @@ const VendorDashboardPage = ({ onBack }) => {
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (isAllowed) {
+                      if (isAllowed && !isScheduled) {
                         e.currentTarget.style.borderColor = '#e2e8f0';
                         e.currentTarget.style.backgroundColor = '#ffffff';
                         e.currentTarget.style.transform = 'translateY(0)';
@@ -5719,25 +6323,290 @@ const VendorDashboardPage = ({ onBack }) => {
                       width: '42px',
                       height: '42px',
                       borderRadius: '10px',
-                      background: isAllowed ? '#fef2f2' : '#f1f5f9',
-                      color: isAllowed ? '#dc2626' : '#94a3b8',
+                      background: (isAllowed && !isScheduled) ? '#fef2f2' : '#f1f5f9',
+                      color: (isAllowed && !isScheduled) ? '#dc2626' : '#94a3b8',
                       flexShrink: 0
                     }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: '650', color: isAllowed ? '#dc2626' : '#94a3b8' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: '650', color: (isAllowed && !isScheduled) ? '#dc2626' : '#94a3b8' }}>
                         Withdraw Call
-                        {!isAllowed && (
+                        {(!isAllowed || isScheduled) && (
                           <svg style={{ width: '12px', height: '12px', marginLeft: '6px', color: '#94a3b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         )}
                       </div>
                       <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                        {!isAllowed ? "Restricted for current status" : "Cancel inspection request"}
+                        {isScheduled ? "Restricted for scheduled calls" : !isAllowed ? "Restricted for current status" : "Cancel inspection request"}
                       </div>
                     </div>
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============ COMPLETED INSPECTION CALL ACTIONS POPUP MODAL ============ */}
+      {isCompletedActionsModalOpen && selectedCompletedCallForActions && (() => {
+        const call = selectedCompletedCallForActions;
+        const matchingPO = findMatchingPO(call.po_no || call.poNo);
+
+        return (
+          <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {
+            setIsCompletedActionsModalOpen(false);
+            setSelectedCompletedCallForActions(null);
+          }}>
+            <div className="modal actions-popup-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', borderRadius: '20px', border: '1px solid rgba(226, 232, 240, 0.8)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
+              <div className="modal-header" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', borderLeft: '4px solid #10b981' }}>
+                <div>
+                  <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '700', color: '#1e3a5f', margin: 0 }}>
+                    Completed Call Actions
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                    Quick access and documentation for completed call {call.call_no}
+                  </p>
+                </div>
+                <button className="modal-close-btn" style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => {
+                  setIsCompletedActionsModalOpen(false);
+                  setSelectedCompletedCallForActions(null);
+                }}>
+                  <svg style={{ width: '12px', height: '12px', color: '#64748b' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              <div className="modal-body" style={{ padding: '24px' }}>
+                {/* Details section */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '24px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px 20px'
+                  }}>
+                    {/* Call No */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Call No
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.call_no}</span>
+                    </div>
+
+                    {/* PO No */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        PO No
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.po_no}</span>
+                    </div>
+
+                    {/* Completion Date */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Completion Date
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatDate(call.completion_date)}</span>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Status
+                      </span>
+                      <div style={{ marginTop: '2px' }}>
+                        <StatusBadge status={call.workflowStatus} />
+                      </div>
+                    </div>
+
+                    {/* Qty Offered */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Qty Offered
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.quantity_offered}</span>
+                    </div>
+
+                    {/* Qty Accepted */}
+                    <div>
+                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Qty Accepted
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.quantity_accepted}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions Section */}
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#1e3a5f', marginBottom: '12px' }}>Available Actions</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                    
+                    {/* Common PO Doc button for all status types */}
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        if (matchingPO && matchingPO.pdfPath) {
+                          downloadPoDoc(matchingPO.pdfPath, call.po_no);
+                        } else {
+                          showNotification('PO document not found for this call.', 'warning');
+                        }
+                      }}
+                      style={{
+                        padding: '10px 16px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      PO Doc
+                    </button>
+
+                    {/* Status: INSPECTION_COMPLETE_CONFIRM or GENERATE_IC */}
+                    {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
+                      <>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => {
+                            setSelectedCallForAnnexure(call);
+                            setIsCompletedActionsModalOpen(false);
+                            setSelectedCompletedCallForActions(null);
+                          }}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Annexures
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handleDownloadCallLetter(call)}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Call Letter
+                        </button>
+                      </>
+                    )}
+
+                    {/* Status: WITHDRAW */}
+                    {call.workflowStatus === 'WITHDRAW' && (
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => {
+                          setSelectedCallForActions(call);
+                          setIsActionsModalOpen(true);
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
+                        }}
+                        style={{
+                          padding: '10px 16px',
+                          fontSize: '13px',
+                          fontWeight: '650',
+                          borderRadius: '8px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Call Details
+                      </button>
+                    )}
+
+                    {/* Status: DSC_SIGN_IC */}
+                    {call.workflowStatus === 'DSC_SIGN_IC' && (
+                      <>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handleDownloadCallLetter(call)}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Call Letter
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handleDownloadIC(call)}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          IC
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => {
+                            setSelectedCallForAnnexure(call);
+                            setIsCompletedActionsModalOpen(false);
+                            setSelectedCompletedCallForActions(null);
+                          }}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Annexure I
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Footer with Bulk Download */}
+              <div className="modal-footer" style={{ padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px' }}>
+                <button
+                  onClick={() => handleDownloadAllDocs(call)}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  Download Docs
+                </button>
               </div>
             </div>
           </div>

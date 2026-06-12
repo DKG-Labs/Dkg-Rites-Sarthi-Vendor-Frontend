@@ -47,7 +47,7 @@ const vendorCalibrationService = {
       console.log('📤 Sending transformed calibration data to backend:', transformedData);
 
       const response = await httpClient.post('/vendor/calibration', transformedData);
-      
+
       console.log('✅ Backend calibration response:', response);
 
       if (response && response.success) {
@@ -172,6 +172,34 @@ const vendorCalibrationService = {
     const apiUrl = getBaseUrl();
     const baseUrl = apiUrl.replace(/\/api$/, '');
     return `${baseUrl}/${filePath}`;
+  },
+
+  /**
+   * Submit bulk initial calibration registration (18 mandatory items + combined PDF)
+   * @param {Object} payload - { isBulkInitialRegistration: true, fileData, items }
+   * @returns {Promise<Object>} API response
+   */
+  submitBulkRegistration: async (payload) => {
+    try {
+      console.log('📤 Submitting bulk calibration registration:', payload);
+      const response = await httpClient.post('/vendor/calibration/bulk', payload);
+      console.log('✅ Bulk registration response:', response);
+      if (response && response.success) {
+        return {
+          success: true,
+          data: response.data,
+          message: response.message || 'Bulk registration completed successfully'
+        };
+      }
+      throw new Error(response?.message || 'Unexpected response from bulk registration');
+    } catch (error) {
+      console.error('❌ Bulk registration error:', error);
+      return {
+        success: false,
+        error: error.message || 'Bulk registration failed',
+        details: error.response?.data || error
+      };
+    }
   }
 };
 

@@ -585,7 +585,7 @@ const RawMaterialDashboard = ({ onBack, onNavigateToSubModule, onHeatsChange, on
               <label className="rm-form-label">Material Lot Status</label>
               <MobileResponsiveSelect
                 value="accepted"
-                onChange={() => {}}
+                onChange={() => { }}
                 options={[
                   { value: 'accepted', label: 'Accepted' },
                   { value: 'rejected', label: 'Rejected' }

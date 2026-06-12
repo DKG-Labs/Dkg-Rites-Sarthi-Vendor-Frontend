@@ -53,9 +53,11 @@ const addElementToPdf = async (element, pdf, options) => {
         layout.style.background = '#ffffff';
         layout.style.backgroundColor = '#ffffff';
 
-        // Stabilize Table within this layout
-        const table = layout.querySelector('table');
-        if (table) {
+        // Stabilize Tables within this layout
+        const tables = layout.querySelectorAll('table');
+        const originalTables = element.querySelectorAll('table');
+        
+        tables.forEach((table, tableIdx) => {
           const isLayoutItp = layout.classList.contains('itp-page');
           if (!isLayoutItp) {
             table.style.width = '100%';
@@ -84,20 +86,56 @@ const addElementToPdf = async (element, pdf, options) => {
               cell.style.lineHeight = '1.4';
             });
 
+            // Convert tr.pi-detail-row into flex layout to bypass html2canvas fixed colSpan bugs
+            const detailRows = table.querySelectorAll('tr.pi-detail-row');
+            detailRows.forEach(row => {
+              row.style.display = 'flex';
+              row.style.width = '100%';
+              row.style.alignItems = 'stretch';
+              
+              const rowCells = row.querySelectorAll('td');
+              if (rowCells.length >= 2) {
+                // First cell (empty Sr. No. spacer)
+                rowCells[0].style.display = 'block';
+                rowCells[0].style.width = '4.5%';
+                rowCells[0].style.minWidth = '4.5%';
+                rowCells[0].style.maxWidth = '4.5%';
+                rowCells[0].style.boxSizing = 'border-box';
+                rowCells[0].style.borderTop = 'none';
+                rowCells[0].style.borderLeft = '1px solid #000';
+                rowCells[0].style.borderBottom = '1px solid #000';
+                rowCells[0].style.borderRight = '1px solid #000';
+                rowCells[0].style.height = 'auto';
+                
+                // Second cell (pi-horizontal-detail)
+                rowCells[1].style.display = 'block';
+                rowCells[1].style.width = '95.5%';
+                rowCells[1].style.minWidth = '95.5%';
+                rowCells[1].style.maxWidth = '95.5%';
+                rowCells[1].style.boxSizing = 'border-box';
+                rowCells[1].style.borderTop = 'none';
+                rowCells[1].style.borderLeft = 'none';
+                rowCells[1].style.borderBottom = '1px solid #000';
+                rowCells[1].style.borderRight = '1px solid #000';
+                rowCells[1].style.padding = '4px 6px';
+                rowCells[1].style.height = 'auto';
+              }
+            });
+
             // Snapshot each row's actual rendered height from the ORIGINAL document
             // and apply it to the CLONED document to prevent collapse.
-            const originalTable = element.querySelector('table');
+            const originalTable = originalTables[tableIdx];
             if (originalTable) {
               const originalRows = originalTable.querySelectorAll('tr');
               const clonedRows = table.querySelectorAll('tr');
               
               originalRows.forEach((origRow, idx) => {
                 if (clonedRows[idx]) {
-                  let h = origRow.getBoundingClientRect().height;
-                  // Add a small safety buffer for detail rows to prevent line overlap
-                  if (origRow.classList.contains('detail-row')) {
-                    h += 2; 
+                  // Skip setting fixed height on detail rows to let them auto-expand
+                  if (origRow.classList.contains('pi-detail-row')) {
+                    return;
                   }
+                  let h = origRow.getBoundingClientRect().height;
                   if (h > 0) {
                     clonedRows[idx].style.height = h + 'px';
                     clonedRows[idx].style.minHeight = h + 'px';
@@ -109,7 +147,7 @@ const addElementToPdf = async (element, pdf, options) => {
             // Keep fixed layout for stable column widths
             table.style.tableLayout = 'fixed';
           }
-        }
+        });
 
         // Stabilize Rotated Headers
         const rotatedHeaders = layout.querySelectorAll('.annexure-th.rotated-header');

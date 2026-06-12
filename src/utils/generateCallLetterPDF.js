@@ -15,7 +15,7 @@ const val = (v, fallback = '-') => (v !== null && v !== undefined && v !== '' ? 
  * Main function to generate and download the Call Letter PDF
  * @param {object} call - Call data object from the dashboard
  */
-export const generateCallLetterPDF = (call) => {
+export const generateCallLetterPDF = (call, shouldDownload = true) => {
     if (!call) return;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -338,6 +338,9 @@ export const generateCallLetterPDF = (call) => {
     drawRow('Vendor Email', val(call.contactEmail || call.vendor?.email), { rowH: 9 });
 
     // ─── Save the PDF ─────────────────────────────────────────────────
-    const filename = `Call_Letter_${val(call.callNumber, 'UNKNOWN').replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
-    doc.save(filename);
+    if (shouldDownload) {
+        const filename = `Call_Letter_${val(call.callNumber, 'UNKNOWN').replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
+        doc.save(filename);
+    }
+    return doc;
 };
