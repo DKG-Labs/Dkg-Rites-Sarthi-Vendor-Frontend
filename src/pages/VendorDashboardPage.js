@@ -3713,33 +3713,7 @@ const VendorDashboardPage = ({ onBack }) => {
             <VisibilityIcon sx={{ fontSize: '16px' }} />
             View
           </button>
-          {row.tcFilePath && (
-            <button
-              className="btn btn-sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                const url = inventoryService.getTcFileUrl(row.tcNumber, row.vendorCode || user?.userName);
-                if (url) window.open(url, '_blank');
-              }}
-              title="View TC Document"
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white',
-                width: '90px',
-                height: '32px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                border: 'none',
-                fontSize: '13px'
-              }}
-            >
-              <span role="img" aria-label="pdf">📄</span>
-              TC PDF
-            </button>
-          )}
+
 
           {(row.status === 'Fresh' || row.status === 'FRESH_PO') && (
             <button
