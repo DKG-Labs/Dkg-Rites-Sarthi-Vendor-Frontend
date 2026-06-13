@@ -4174,7 +4174,8 @@ const VendorDashboardPage = ({ onBack }) => {
                                               <tr>
                                                 <th
                                                   onClick={() => handlePOItemsSort(po.id, 'item_name')}
-                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                  style={{ cursor: 'pointer', userSelect: 'none', minWidth: '260px' }}
+                                                  className="po-item-desc-cell"
                                                 >
                                                   Item Description {poItemsSortColumn[po.id] === 'item_name' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
                                                 </th>
@@ -4225,7 +4226,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
                                                     return (
                                                       <tr key={item.id}>
-                                                        <td>{item.item_name}</td>
+                                                        <td className="po-item-desc-cell">{item.item_name}</td>
                                                         <td>{item.po_serial_no}</td>
                                                         <td>{item.consignee}</td>
                                                         <td>{item.item_qty} {item.item_unit}</td>
