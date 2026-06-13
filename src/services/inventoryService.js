@@ -52,7 +52,9 @@ const inventoryService = {
         rateOfGst: inventoryData.rateOfGst ? parseFloat(inventoryData.rateOfGst) : 0,
         baseValuePo: (inventoryData.baseValuePo || inventoryData.baseValuePO) ? parseFloat(inventoryData.baseValuePo || inventoryData.baseValuePO) : 0,
         totalPo: (inventoryData.totalPo || inventoryData.totalPO) ? parseFloat(inventoryData.totalPo || inventoryData.totalPO) : 0,
-        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null
+        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null,
+        tcFileBase64: inventoryData.tcFileBase64 || null,
+        tcFileName: inventoryData.tcFileName || null
       };
 
       console.log('📤 Transformed data for backend:', transformedData);
@@ -268,7 +270,9 @@ const inventoryService = {
         rateOfGst: inventoryData.rateOfGst ? parseFloat(inventoryData.rateOfGst) : 0,
         baseValuePo: (inventoryData.baseValuePo || inventoryData.baseValuePO) ? parseFloat(inventoryData.baseValuePo || inventoryData.baseValuePO) : 0,
         totalPo: (inventoryData.totalPo || inventoryData.totalPO) ? parseFloat(inventoryData.totalPo || inventoryData.totalPO) : 0,
-        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null
+        numberOfBundles: inventoryData.numberOfBundles ? parseInt(inventoryData.numberOfBundles) : null,
+        tcFileBase64: inventoryData.tcFileBase64 || null,
+        tcFileName: inventoryData.tcFileName || null
       };
 
       console.log('📤 Transformed data for backend:', transformedData);
@@ -424,16 +428,31 @@ const inventoryService = {
   },
 
   /**
-   * Get full URL for a file path
-   * @param {String} filePath - Relative file path (e.g. uploads/tc_files/file.pdf)
-   * @returns {String} - Full URL to access the file
+   * Get URL for viewing a TC file via the backend proxy endpoint
+   * Works for both legacy local paths and new Azure Blob URLs.
+   * The backend fetches the file from Azure and streams it back as PDF.
+   * @param {String} tcNumber  - TC number (used to look up the file on backend)
+   * @param {String} vendorCode - Vendor code
+   * @returns {String} - Backend proxy URL to open the TC PDF
+   */
+  getTcFileUrl: (tcNumber, vendorCode) => {
+    if (!tcNumber || !vendorCode) return null;
+    const apiUrl = getBaseUrl(); // e.g. "https://api.ritesqasarthi.com/sarthi-backend/api"
+    const baseApiUrl = apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
+    return `${baseApiUrl}/vendor/inventory/tc-file?tcNumber=${encodeURIComponent(tcNumber)}&vendorCode=${encodeURIComponent(vendorCode)}`;
+  },
+
+  /**
+   * @deprecated Use getTcFileUrl instead.
+   * Legacy helper that constructed URL from a local file path — kept for compatibility.
    */
   getFileUrl: (filePath) => {
     if (!filePath) return null;
-    const apiUrl = getBaseUrl(); // "https://api.ritesqasarthi.com/sarthi-backend/api"
-    const baseUrl = apiUrl.replace(/\/api$/, ''); // "https://api.ritesqasarthi.com/sarthi-backend"
+    const apiUrl = getBaseUrl();
+    const baseUrl = apiUrl.replace(/\/api$/, '');
     return `${baseUrl}/${filePath}`;
   }
+
 };
 
 export default inventoryService;

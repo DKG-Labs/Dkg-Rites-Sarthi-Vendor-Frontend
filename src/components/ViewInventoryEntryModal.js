@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import StatusBadge from './StatusBadge';
 import inventoryService from '../services/inventoryService';
+import { getStoredUser } from '../services/authService';
 import './ViewInventoryEntryModal.css';
 
 /**
@@ -81,6 +82,28 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
 
   const modalFooter = (
     <div className="view-modal-footer">
+      {entry && entry.tcFilePath && (
+        <button
+          className="btn btn-outline"
+          onClick={() => {
+            const user = getStoredUser();
+            const url = inventoryService.getTcFileUrl(entry.tcNumber, user?.userName || entry.vendorCode || '');
+            if (url) window.open(url, '_blank');
+          }}
+          style={{
+            marginRight: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            borderColor: '#10b981',
+            color: '#10b981',
+            fontWeight: 600,
+            background: 'rgba(16, 185, 129, 0.05)'
+          }}
+        >
+          📄 View TC Doc
+        </button>
+      )}
       {canModify && (
         <>
           <button className="btn btn-primary" onClick={handleEdit}>
@@ -233,6 +256,33 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
                     {entry.qtyLeftForInspection} {entry.unitOfMeasurement}
                   </span>
                 </div>
+                {entry.tcFilePath && (
+                  <div className="detail-row full-width">
+                    <span className="detail-label">TC Document:</span>
+                    <span className="detail-value">
+                      <a
+                        href="#view-tc"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: '#3b82f6',
+                          fontWeight: 500,
+                          textDecoration: 'underline',
+                          cursor: 'pointer'
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const user = getStoredUser();
+                          const url = inventoryService.getTcFileUrl(entry.tcNumber, user?.userName || entry.vendorCode || '');
+                          if (url) window.open(url, '_blank');
+                        }}
+                      >
+                        📄 View Uploaded TC Document
+                      </a>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
