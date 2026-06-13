@@ -1577,6 +1577,7 @@ const VendorDashboardPage = ({ onBack }) => {
         companyName: entry.companyName,
         unitId: entry.unitId,
         unitName: entry.unitName,
+        tcFilePath: entry.tcFilePath,
         createdAt: entry.createdAt
       }));
 
@@ -1643,6 +1644,7 @@ const VendorDashboardPage = ({ onBack }) => {
           companyName: response.data.companyName,
           unitId: data.unitId || response.data.unitName,
           unitName: response.data.unitName,
+          tcFilePath: response.data.tcFilePath,
           createdAt: response.data.createdAt
         };
 
@@ -3716,7 +3718,7 @@ const VendorDashboardPage = ({ onBack }) => {
               className="btn btn-sm"
               onClick={(e) => {
                 e.stopPropagation();
-                const url = inventoryService.getFileUrl(row.tcFilePath);
+                const url = inventoryService.getTcFileUrl(row.tcNumber, row.vendorCode || user?.userName);
                 if (url) window.open(url, '_blank');
               }}
               title="View TC Document"
@@ -3738,6 +3740,7 @@ const VendorDashboardPage = ({ onBack }) => {
               TC PDF
             </button>
           )}
+
           {(row.status === 'Fresh' || row.status === 'FRESH_PO') && (
             <button
               className="btn btn-sm"
@@ -3825,13 +3828,6 @@ const VendorDashboardPage = ({ onBack }) => {
             </h1>
           </div>
         </div>
-        {onBack && (
-          <div className="vendor-header-right">
-            <button className="rm-back-button" onClick={onBack}>
-              <span className="back-arrow">←</span> Back to Landing Page
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Primary Tabs - Overview Stats in a Box */}

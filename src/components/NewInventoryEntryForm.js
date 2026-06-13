@@ -17,7 +17,7 @@ const initialHeatRow = {
   invoiceDate: ''
 };
 
-const initialFormState = {
+const getInitialFormState = () => ({
   rawMaterial: 'Spring Steel Rounds',
   gradeSpecification: '',
   lengthOfBars: '',
@@ -31,11 +31,11 @@ const initialFormState = {
   repeatPO: 'no',
   repeatInvoice: 'no',
   heats: [{ ...initialHeatRow }]
-};
+});
 
 const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmit, onCancel, editData = null, isLoading = false }) => {
 
-  const [formData, setFormData] = useState(initialFormState);
+  const [formData, setFormData] = useState(getInitialFormState);
   const [errors, setErrors] = useState({});
   const [suppliers, setSuppliers] = useState([]);
   const [units, setUnits] = useState([]);
@@ -43,6 +43,10 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   const [notification, setNotification] = useState({ message: '', type: 'success' });
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [loadingUnits, setLoadingUnits] = useState(false);
+
+  // TC file upload state
+  const [tcFileBase64, setTcFileBase64] = useState('');
+  const [tcFileName, setTcFileName] = useState('');
 
   // Debounced TC Number uniqueness check
   useEffect(() => {
@@ -105,7 +109,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         lengthOfBars: editData.lengthOfBars || '',
         supplierName: editData.supplierName || '',
         supplierAddress: editData.supplierAddress || '',
-        unitId: editData.unitId || '',
+        unitId: editData.unitId || editData.unitName || '',
         unitName: editData.unitName || '',
         tcNumber: editData.tcNumber || '',
         tcDate: formatDateForInput(editData.tcDate),
@@ -126,7 +130,9 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         }]
       });
     } else {
-      setFormData(initialFormState);
+      setFormData(getInitialFormState());
+      setTcFileBase64('');
+      setTcFileName('');
     }
   }, [editData]);
 
@@ -171,11 +177,11 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         const response = await inventoryService.getUnitsByCompany(formData.supplierName);
         if (response.success) {
           setUnits(response.data || []);
-          // Auto-fill supplier address if available
+          // Auto-fill supplier address if not already set (e.g. during initial edit load)
           if (response.data && response.data.length > 0 && response.data[0].address) {
             setFormData(prev => ({
               ...prev,
-              supplierAddress: response.data[0].address
+              supplierAddress: prev.supplierAddress || response.data[0].address
             }));
           }
         } else {
@@ -209,17 +215,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   };
 
 
-  // Reset unit fields when supplier changes (address is now handled in fetchUnits)
-  useEffect(() => {
-    if (formData.supplierName) {
-      setFormData(prev => ({
-        ...prev,
-        // Reset unit fields when supplier changes
-        unitId: '',
-        unitName: ''
-      }));
-    }
-  }, [formData.supplierName]);
+
 
 
 
@@ -289,8 +285,13 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
 
   const handleHeatChange = (index, e) => {
     const { name, value } = e.target;
-    const updatedHeats = [...formData.heats];
-    updatedHeats[index][name] = value;
+    const updatedHeats = formData.heats.map((heat, i) => {
+      let newHeat = { ...heat };
+      if (i === index) {
+        newHeat[name] = value;
+      }
+      return newHeat;
+    });
 
     // Apply repeat logic if enabled
     if (index === 0) {
@@ -363,6 +364,17 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         unitName: '',
         supplierAddress: ''
       }));
+    } else if (name === 'supplierName') {
+      setFormData(prev => ({
+        ...prev,
+        supplierName: value,
+        unitId: '',
+        unitName: '',
+        supplierAddress: ''
+      }));
+      if (errors.supplierName) {
+        setErrors(prev => ({ ...prev, supplierName: '' }));
+      }
     } else if (name === 'repeatPO' || name === 'repeatInvoice') {
       setFormData(prev => {
         const newState = { ...prev, [name]: value };
@@ -513,7 +525,9 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
           rateOfMaterial: Number(heat.rateOfMaterial),
           rateOfGst: Number(heat.rateOfGst),
           baseValuePO: (Number(heat.tcQuantity) * Number(heat.rateOfMaterial)) || 0,
-          totalPO: ((Number(heat.tcQuantity) * Number(heat.rateOfMaterial)) * (1 + (Number(heat.rateOfGst) / 100))) || 0
+          totalPO: ((Number(heat.tcQuantity) * Number(heat.rateOfMaterial)) * (1 + (Number(heat.rateOfGst) / 100))) || 0,
+          tcFileBase64: tcFileBase64 || null,
+          tcFileName: tcFileName || null
         };
 
         const response = await inventoryService.updateInventoryEntry(editData.id, updateData);
@@ -543,6 +557,8 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
           tcNumber: formData.tcNumber,
           tcDate: formData.tcDate,
           unitOfMeasurement: formData.unitOfMeasurement,
+          tcFileBase64: tcFileBase64 || null,
+          tcFileName: tcFileName || null,
           heatEntries: formData.heats.map(heat => ({
             heatNumber: heat.heatNumber,
             tcQuantity: Number(heat.tcQuantity),
@@ -574,9 +590,32 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   };
 
   const handleReset = () => {
-    setFormData(initialFormState);
+    setFormData(getInitialFormState());
     setErrors({});
+    setTcFileBase64('');
+    setTcFileName('');
   };
+
+  // Handle TC file selection — read as base64
+  const handleTcFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setNotification({ message: 'File too large. Maximum 15 MB allowed.', type: 'error' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTcFileBase64(reader.result);
+      setTcFileName(file.name);
+      setNotification({ message: `File "${file.name}" selected.`, type: 'success' });
+    };
+    reader.onerror = () => setNotification({ message: 'Failed to read file.', type: 'error' });
+    reader.readAsDataURL(file);
+    // reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
 
   return (
     <div className="inventory-entry-form-container">
@@ -668,6 +707,49 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
               <label>UOM (Unit of Measurement)</label>
               <input type="text" value={formData.unitOfMeasurement} disabled className="input-disabled" />
             </div>
+
+            {/* TC Document Upload */}
+            <div className="form-group full-width">
+              <label style={{ fontWeight: 600 }}>Upload TC Document (Combined PDF for all Heats)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <label htmlFor="tcFileInput" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 16px', background: '#3b82f6', color: '#fff',
+                  borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500
+                }}>
+                  📎 {tcFileName ? 'Change File' : 'Browse PDF'}
+                </label>
+                <input
+                  id="tcFileInput"
+                  type="file"
+                  accept=".pdf"
+                  style={{ display: 'none' }}
+                  onChange={handleTcFileUpload}
+                />
+                {tcFileName ? (
+                  <span style={{ fontSize: '13px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ✅ <strong>{tcFileName}</strong>
+                    <button type="button" onClick={() => { setTcFileBase64(''); setTcFileName(''); }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}
+                      title="Remove file">✕</button>
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>Max 15 MB · PDF only</span>
+                )}
+                {/* Show existing TC file link when editing */}
+                {editData?.tcFilePath && !tcFileName && (
+                  <a href="#view-tc" style={{ fontSize: '12px', color: '#3b82f6', marginLeft: '8px' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const user = getStoredUser();
+                      const url = inventoryService.getTcFileUrl(formData.tcNumber, user?.userName || '');
+                      if (url) window.open(url, '_blank');
+                    }}
+                  >📄 View Existing TC</a>
+                )}
+              </div>
+            </div>
+
             <div className="form-group repeat-options">
               <label>Repeat PO for all Heats?</label>
               <div className="radio-group">
