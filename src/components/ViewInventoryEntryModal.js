@@ -84,24 +84,28 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
     <div className="view-modal-footer">
       {entry && entry.tcFilePath && (
         <button
-          className="btn btn-outline"
+          className="btn"
           onClick={() => {
             const user = getStoredUser();
-            const url = inventoryService.getTcFileUrl(entry.tcNumber, user?.userName || entry.vendorCode || '');
+            const url = inventoryService.getTcFileUrl(entry.tcNumber, entry.vendorCode || user?.vendorCode || user?.userName || '');
             if (url) window.open(url, '_blank');
           }}
           style={{
             marginRight: 'auto',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            borderColor: '#10b981',
-            color: '#10b981',
+            gap: '6px',
+            backgroundColor: '#10b981',
+            color: 'white',
             fontWeight: 600,
-            background: 'rgba(16, 185, 129, 0.05)'
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer'
           }}
         >
-          📄 View TC Doc
+          <span role="img" aria-label="pdf">📄</span>
+          TC PDF
         </button>
       )}
       {canModify && (
@@ -274,7 +278,7 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
                         onClick={(e) => {
                           e.preventDefault();
                           const user = getStoredUser();
-                          const url = inventoryService.getTcFileUrl(entry.tcNumber, user?.userName || entry.vendorCode || '');
+                          const url = inventoryService.getTcFileUrl(entry.tcNumber, entry.vendorCode || user?.vendorCode || user?.userName || '');
                           if (url) window.open(url, '_blank');
                         }}
                       >
