@@ -515,6 +515,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
           unitOfMeasurement: formData.unitOfMeasurement,
           // Single entry fields
           heatNumber: heat.heatNumber,
+          tcQuantity: heat.tcQuantity ? Number(heat.tcQuantity) : 0,
           declaredQuantity: heat.tcQuantity ? Number(heat.tcQuantity) : 0,
           numberOfBundles: heat.numberOfBundles ? parseInt(heat.numberOfBundles) : null,
           subPoNumber: heat.subPoNumber,

@@ -409,15 +409,7 @@ const VendorDashboardPage = ({ onBack }) => {
           rateOfGst: entry.rateOfGst,
           tcQuantity: entry.tcQuantity,
           offeredQuantity: entry.offeredQuantity || 0,
-          // FIX: Handle case where backend incorrectly sends 0 for fresh entries
-          qtyLeftForInspection: (() => {
-            let qty = entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity;
-            const offered = entry.offeredQuantity || 0;
-            if (qty === 0 && offered === 0 && entry.tcQuantity > 0) {
-              return entry.tcQuantity;
-            }
-            return qty;
-          })(),
+          qtyLeftForInspection: Number((Number(entry.tcQuantity || 0) - Number(entry.offeredQuantity || 0)).toFixed(3)),
           unitOfMeasurement: entry.unitOfMeasurement,
           baseValuePO: entry.baseValuePo,
           totalPO: entry.totalPo,
