@@ -409,7 +409,15 @@ const VendorDashboardPage = ({ onBack }) => {
           rateOfGst: entry.rateOfGst,
           tcQuantity: entry.tcQuantity,
           offeredQuantity: entry.offeredQuantity || 0,
-          qtyLeftForInspection: Number((Number(entry.tcQuantity || 0) - Number(entry.offeredQuantity || 0)).toFixed(3)),
+          // FIX: Handle case where backend incorrectly sends 0 for fresh entries
+          qtyLeftForInspection: (() => {
+            let qty = entry.qtyLeftForInspection !== null && entry.qtyLeftForInspection !== undefined ? entry.qtyLeftForInspection : entry.tcQuantity;
+            const offered = entry.offeredQuantity || 0;
+            if (qty === 0 && offered === 0 && entry.tcQuantity > 0) {
+              return entry.tcQuantity;
+            }
+            return qty;
+          })(),
           unitOfMeasurement: entry.unitOfMeasurement,
           baseValuePO: entry.baseValuePo,
           totalPO: entry.totalPo,
@@ -4136,7 +4144,8 @@ const VendorDashboardPage = ({ onBack }) => {
                                               <tr>
                                                 <th
                                                   onClick={() => handlePOItemsSort(po.id, 'item_name')}
-                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                  style={{ cursor: 'pointer', userSelect: 'none', minWidth: '260px' }}
+                                                  className="po-item-desc-cell"
                                                 >
                                                   Item Description {poItemsSortColumn[po.id] === 'item_name' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
                                                 </th>
@@ -4187,7 +4196,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
                                                     return (
                                                       <tr key={item.id}>
-                                                        <td>{item.item_name}</td>
+                                                        <td className="po-item-desc-cell">{item.item_name}</td>
                                                         <td>{item.po_serial_no}</td>
                                                         <td>{item.consignee}</td>
                                                         <td>{item.item_qty} {item.item_unit}</td>

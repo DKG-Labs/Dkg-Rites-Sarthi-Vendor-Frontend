@@ -784,6 +784,15 @@
   background-color: #f9fafb;
 }
 
+/* Item description wraps across multiple lines */
+.po-item-desc-cell {
+  white-space: normal !important;
+  word-wrap: break-word;
+  min-width: 260px;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
 /* ============ RAISE INSPECTION MODAL ============ */
 .modal-overlay {
   position: fixed;
@@ -2720,4 +2729,4 @@
     font-size: 12.5px;
   }
 }
-
+
