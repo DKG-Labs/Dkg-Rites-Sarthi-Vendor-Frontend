@@ -479,6 +479,9 @@ const VendorDashboardPage = ({ onBack }) => {
               calibration_due_date: detail.calibrationDueDate,
               certifying_lab_name: detail.certifyingLabName,
               accreditation_agency: detail.accreditationAgency,
+              make_model: detail.makeModel,
+              master_equip_no_cert_validity: detail.masterEquipNoCertValidity,
+              master_equip_nabl_details: detail.masterEquipNablDetails,
               notification_days: detail.notificationDays,
               calibration_status: detail.calibrationStatus,
 
@@ -4673,6 +4676,9 @@ const VendorDashboardPage = ({ onBack }) => {
                             calibration_date: item.calibrationDate,
                             certifying_lab_name: item.certifyingLabName,
                             accreditation_agency: item.accreditationAgency,
+                            make_model: item.makeModel,
+                            master_equip_no_cert_validity: item.masterEquipNoCertValidity,
+                            master_equip_nabl_details: item.masterEquipNablDetails,
                             notification_days: item.notificationDays,
                             approval_document_name: item.instrumentName,
                             document_number: item.serialNumber,
@@ -5170,6 +5176,15 @@ const VendorDashboardPage = ({ onBack }) => {
 
                   {selectedExpiryItem.type !== 'Document' && (
                     <div className="detail-row">
+                      <span className="detail-label">Make Model:</span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.makeModel || selectedExpiryItem.make_model || 'N/A'}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedExpiryItem.type !== 'Document' && (
+                    <div className="detail-row">
                       <span className="detail-label">
                         {selectedExpiryItem.type === 'Gauge' ? 'Product Name:' : 'Capacity / Range:'}
                       </span>
@@ -5180,18 +5195,11 @@ const VendorDashboardPage = ({ onBack }) => {
                   )}
 
                   <div className="detail-row">
-                    <span className="detail-label">Description / Details:</span>
-                    <span className="detail-value">
-                      {selectedExpiryItem.description || 'N/A'}
-                    </span>
-                  </div>
-
-                  <div className="detail-row">
                     <span className="detail-label">
                       {selectedExpiryItem.type === 'Document' ? 'Document Number:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Serial Number:' : 'Serial Number:')}
                     </span>
                     <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
-                      {selectedExpiryItem.serial || 'N/A'}
+                      {selectedExpiryItem.serial || selectedExpiryItem.serialNumber || selectedExpiryItem.serial_number || 'N/A'}
                     </span>
                   </div>
 
@@ -5218,19 +5226,30 @@ const VendorDashboardPage = ({ onBack }) => {
 
                   <div className="detail-row">
                     <span className="detail-label">
-                      {selectedExpiryItem.type === 'Document' ? 'Approving Authority:' : 'Certifying Lab Name:'}
+                      {selectedExpiryItem.type === 'Document' ? 'Approving Authority:' : 'Calibrated By Laboratory:'}
                     </span>
                     <span className="detail-value">
                       {selectedExpiryItem.certifyingLabName || selectedExpiryItem.certifying_lab_name || selectedExpiryItem.approving_authority || 'N/A'}
                     </span>
                   </div>
 
-                  <div className="detail-row">
-                    <span className="detail-label">Accreditation Agency:</span>
-                    <span className="detail-value">
-                      {selectedExpiryItem.accreditationAgency || selectedExpiryItem.accreditation_agency || 'N/A'}
-                    </span>
-                  </div>
+                  {selectedExpiryItem.type !== 'Document' && (
+                    <div className="detail-row">
+                      <span className="detail-label">Master Equipment: NABL Details:</span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.masterEquipNablDetails || selectedExpiryItem.master_equip_nabl_details || 'N/A'}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedExpiryItem.type !== 'Document' && (
+                    <div className="detail-row">
+                      <span className="detail-label">Master Equipment: Description, Lab ID No. , Calibration Certificate No, Validity UP to:</span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.masterEquipNoCertValidity || selectedExpiryItem.master_equip_no_cert_validity || 'N/A'}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="detail-row">
                     <span className="detail-label">Notification Days:</span>
