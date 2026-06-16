@@ -11,6 +11,7 @@ import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
 import NewInventoryEntryForm from '../components/NewInventoryEntryForm';
 import AddSubPOForm from '../components/AddSubPOForm';
 import ViewInventoryEntryModal from '../components/ViewInventoryEntryModal';
+import Modal from '../components/Modal';
 import ViewMasterEntryModal from '../components/ViewMasterEntryModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import Notification from '../components/Notification';
@@ -205,6 +206,7 @@ const VendorDashboardPage = ({ onBack }) => {
   const [selectedInventoryEntry, setSelectedInventoryEntry] = useState(null);
   const [editingInventoryEntry, setEditingInventoryEntry] = useState(null);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({ message: '', type: 'error' });
@@ -718,9 +720,35 @@ const VendorDashboardPage = ({ onBack }) => {
       return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
     };
 
+    const isCategoryMatch = (itemName, category) => {
+      const normName = normalizeName(itemName);
+      const normCat = normalizeName(category);
+      
+      if (normCat === 'digitalvernier') {
+        return normName.includes('digital') && normName.includes('vernier');
+      }
+      if (normCat === 'vernier') {
+        return normName.includes('vernier') && !normName.includes('digital');
+      }
+      if (normCat === 'rockwellhardnesstester') {
+        return normName.includes('rockwell') || normName.includes('hardness');
+      }
+      if (normCat === 'rdsoapproval') {
+        return normName.includes('rdso');
+      }
+      if (normCat === 'qap') {
+        return normName.includes('qap');
+      }
+      if (normCat === 'dimensiongauge') {
+        return normName.includes('dimension') && normName.includes('gauge');
+      }
+      
+      return normName.includes(normCat) || normCat.includes(normName);
+    };
+
     // Calculate instrument compliance per category
     const instrumentCompliance = productRequirements.instruments.map(req => {
-      const matchingItems = instrumentItems.filter(i => normalizeName(i.instrument_name) === normalizeName(req.category));
+      const matchingItems = instrumentItems.filter(i => isCategoryMatch(i.instrument_name, req.category));
       const validItems = matchingItems.filter(i => {
         const dueDate = new Date(i.calibration_due_date);
         return dueDate >= today;
@@ -754,7 +782,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Calculate approval compliance per category
     const approvalCompliance = productRequirements.approvals.map(req => {
-      const matchingItems = approvalItems.filter(a => normalizeName(a.approval_document_name) === normalizeName(req.category));
+      const matchingItems = approvalItems.filter(a => isCategoryMatch(a.approval_document_name, req.category));
       const validItems = matchingItems.filter(a => {
         const validTill = new Date(a.valid_till);
         return validTill >= today;
@@ -788,7 +816,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Calculate gauge compliance per category
     const gaugeCompliance = productRequirements.gauges.map(req => {
-      const matchingItems = gaugeItems.filter(g => normalizeName(g.gauge_description) === normalizeName(req.category));
+      const matchingItems = gaugeItems.filter(g => isCategoryMatch(g.gauge_description, req.category));
       const validItems = matchingItems.filter(g => {
         const dueDate = new Date(g.calibration_due_date);
         return dueDate >= today;
@@ -838,8 +866,34 @@ const VendorDashboardPage = ({ onBack }) => {
     const mandatoryCategories = allCategories.filter(c => c.mandatory);
     const nonCompliantMandatory = mandatoryCategories.filter(c => c.status === 'Non-Compliant');
     const partiallyCompliantMandatory = mandatoryCategories.filter(c => c.status === 'Partially Compliant');
-    const totalExpired = allCategories.reduce((sum, c) => sum + c.expiredCount, 0);
-    const totalExpiring = allCategories.reduce((sum, c) => sum + c.expiringCount, 0);
+    
+    // Calculate total expired/expiring items directly from arrays to avoid name mapping gaps
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const actualExpired = [
+      ...instrumentItems.filter(i => i.calibration_due_date && new Date(i.calibration_due_date) < today),
+      ...approvalItems.filter(a => a.valid_till && new Date(a.valid_till) < today),
+      ...gaugeItems.filter(g => g.calibration_due_date && new Date(g.calibration_due_date) < today)
+    ].length;
+    
+    const actualExpiring = [
+      ...instrumentItems.filter(i => {
+        const days = getDaysUntilExpiry(i.calibration_due_date);
+        return days >= 0 && days <= (i.notification_days || i.notificationDays || 30);
+      }),
+      ...approvalItems.filter(a => {
+        const days = getDaysUntilExpiry(a.valid_till);
+        return days >= 0 && days <= (a.notification_days || a.notificationDays || 30);
+      }),
+      ...gaugeItems.filter(g => {
+        const days = getDaysUntilExpiry(g.calibration_due_date);
+        return days >= 0 && days <= (g.notification_days || g.notificationDays || 30);
+      })
+    ].length;
+
+    const totalExpired = actualExpired;
+    const totalExpiring = actualExpiring;
 
     // Check inspection call eligibility
     const canRaiseInspectionCall = nonCompliantMandatory.length === 0 && totalExpired === 0;
@@ -871,7 +925,7 @@ const VendorDashboardPage = ({ onBack }) => {
       totalExpired,
       totalExpiring
     };
-  }, [complianceStatus]);
+  }, [complianceStatus, instrumentItems, approvalItems, gaugeItems]);
 
   // Edit state (null means add new, object means edit existing)
   const [editingInstrument, setEditingInstrument] = useState(null);
@@ -1705,13 +1759,8 @@ const VendorDashboardPage = ({ onBack }) => {
     // Set the entry to be edited
     setEditingInventoryEntry(entry);
 
-    // Scroll to the inventory form section
-    setTimeout(() => {
-      const formSection = document.querySelector('.inventory-form-section');
-      if (formSection) {
-        formSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
+    // Open the inventory form modal
+    setIsInventoryModalOpen(true);
   };
 
   const handleDeleteInventoryEntry = (entry) => {
@@ -4773,6 +4822,7 @@ const VendorDashboardPage = ({ onBack }) => {
                           }))
                         ].map((item, idx) => {
                           const daysLeft = getDaysUntilExpiry(item.dueDate);
+                          const daysLeftClass = daysLeft <= 7 ? 'days-critical' : (daysLeft <= 15 ? 'days-warning' : 'days-info');
                           return (
                             <div 
                               key={idx} 
@@ -4782,7 +4832,7 @@ const VendorDashboardPage = ({ onBack }) => {
                             >
                               <div className="card-badge-header">
                                 <span className={`card-badge-type ${item.type.toLowerCase()}`}>{item.type}</span>
-                                <span className="card-badge-days">{daysLeft}d left</span>
+                                <span className={`card-badge-days ${daysLeftClass}`}>{daysLeft}d left</span>
                               </div>
                               <h5 className="card-item-name">{item.name}</h5>
                               <div className="card-item-details">
@@ -4996,14 +5046,24 @@ const VendorDashboardPage = ({ onBack }) => {
           {activeTab === 'inventory-entry' && (
             <>
               {/* List of Entries Section */}
-              <div className="vendor-section-header">
+              <div className="vendor-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <h3 className="vendor-section-header-title">Inventory - List of Entries</h3>
-                  <p className="vendor-section-header-desc">
+                  <p className="vendor-section-header-desc" style={{ margin: 0 }}>
                     Data entered during form with Quantity Offered for Inspection and Quantity left for inspection.
                     Status: Fresh, Inspection Requested, Under Inspection, Partially Inspected, Exhausted.
                   </p>
                 </div>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setEditingInventoryEntry(null);
+                    setIsInventoryModalOpen(true);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: '0 16px', whiteSpace: 'nowrap' }}
+                >
+                  + Add New Inventory Entry
+                </button>
               </div>
 
               <DataTable
@@ -5014,29 +5074,6 @@ const VendorDashboardPage = ({ onBack }) => {
                 selectedRows={[]}
                 onSelectionChange={() => { }}
               />
-
-              {/* New Entry Form Section */}
-              <div className="inventory-form-section">
-                <div className="inventory-form-header">
-                  <h4 className="inventory-form-title">
-                    {editingInventoryEntry ? 'Edit Inventory Entry' : 'Add New Inventory Entry'}
-                  </h4>
-                  <p className="inventory-form-subtitle">
-                    {editingInventoryEntry
-                      ? `Updating entry for Heat Number: ${editingInventoryEntry.heatNumber}`
-                      : 'Fill in the details below to add a new material entry'
-                    }
-                  </p>
-                </div>
-
-                <NewInventoryEntryForm
-                  inventoryEntries={inventoryEntries}
-                  editData={editingInventoryEntry}
-                  onCancel={() => setEditingInventoryEntry(null)}
-                  onSubmit={handleInventorySubmit}
-                  isLoading={isLoading}
-                />
-              </div>
             </>
           )}
 
@@ -5134,140 +5171,299 @@ const VendorDashboardPage = ({ onBack }) => {
       {isExpiryDetailModalOpen && selectedExpiryItem && (
         <div className="modal-overlay" onClick={handleCloseExpiryDetailModal}>
           <div className="modal expiry-detail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-              <h3 className="modal-title" style={{ color: '#ffffff' }}>
+            <style>{`
+              .expiry-detail-modal {
+                max-width: 650px !important;
+                border-radius: 16px !important;
+                overflow: hidden !important;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+                border: 1px solid #cbd5e1 !important;
+                background-color: #f8fafc !important;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+              }
+              .expiry-detail-modal .modal-header {
+                background: linear-gradient(135deg, #1e3a5f, #0f172a) !important;
+                padding: 16px 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+              }
+              .expiry-detail-modal .modal-title {
+                font-size: 16px !important;
+                font-weight: 600 !important;
+                color: #ffffff !important;
+                margin: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+              }
+              .expiry-detail-modal .modal-close {
+                font-size: 24px !important;
+                color: rgba(255, 255, 255, 0.7) !important;
+                background: transparent !important;
+                border: none !important;
+                cursor: pointer !important;
+                line-height: 1 !important;
+                transition: color 0.2s !important;
+              }
+              .expiry-detail-modal .modal-close:hover {
+                color: #ffffff !important;
+              }
+              .expiry-detail-modal .modal-body {
+                padding: 24px !important;
+                background-color: #f8fafc !important;
+              }
+              .expiry-detail-modal .detail-section {
+                background: #ffffff !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
+                padding: 20px !important;
+                margin-bottom: 20px !important;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+              }
+              .expiry-detail-modal .detail-section-title {
+                font-size: 13px !important;
+                font-weight: 700 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.5px !important;
+                color: #475569 !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+                padding-bottom: 10px !important;
+                margin-top: 0 !important;
+                margin-bottom: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+              }
+              .expiry-detail-modal .expiry-detail-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 16px 24px !important;
+              }
+              .expiry-detail-modal .detail-row {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+                padding: 4px 0 !important;
+                border-bottom: none !important;
+                font-size: 13.5px !important;
+              }
+              .expiry-detail-modal .detail-row.full-width {
+                grid-column: span 2 !important;
+              }
+              .expiry-detail-modal .detail-label {
+                color: #64748b !important;
+                font-weight: 500 !important;
+                text-transform: none !important; /* Override global uppercase leak */
+                letter-spacing: normal !important;
+                font-size: 12.5px !important;
+                margin-bottom: 4px !important;
+                min-width: auto !important;
+                text-align: left !important;
+              }
+              .expiry-detail-modal .detail-value {
+                color: #1e293b !important;
+                font-weight: 600 !important;
+                text-align: left !important;
+                flex: none !important;
+                padding-left: 0 !important;
+                font-size: 14px !important;
+              }
+              .expiry-detail-modal .modal-footer {
+                background-color: #f1f5f9 !important;
+                border-top: 1px solid #e2e8f0 !important;
+                padding: 16px 24px !important;
+                display: flex !important;
+                justify-content: flex-end !important;
+                gap: 12px !important;
+              }
+              .expiry-detail-modal .btn {
+                height: 38px !important;
+                padding: 0 18px !important;
+                font-size: 13px !important;
+                font-weight: 600 !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 6px !important;
+              }
+              .expiry-detail-modal .btn-primary {
+                background: linear-gradient(135deg, #1e3a5f, #0f172a) !important;
+                color: #ffffff !important;
+                border: none !important;
+              }
+              .expiry-detail-modal .btn-primary:hover {
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+              }
+              .expiry-detail-modal .btn-outline {
+                background: #ffffff !important;
+                color: #475569 !important;
+                border: 1px solid #cbd5e1 !important;
+              }
+              .expiry-detail-modal .btn-outline:hover {
+                background: #f8fafc !important;
+                border-color: #94a3b8 !important;
+                color: #1e293b !important;
+              }
+              .expiry-detail-modal::-webkit-scrollbar {
+                width: 6px !important;
+              }
+              .expiry-detail-modal::-webkit-scrollbar-track {
+                background: #f1f5f9 !important;
+              }
+              .expiry-detail-modal::-webkit-scrollbar-thumb {
+                background: #cbd5e1 !important;
+                border-radius: 3px !important;
+              }
+              .expiry-detail-modal::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8 !important;
+              }
+            `}</style>
+            <div className="modal-header">
+              <h3 className="modal-title">
                 {selectedExpiryItem.type === 'Document' ? '📄 Document Approval Details' : (selectedExpiryItem.type === 'Gauge' ? '📐 Gauge Details' : '📏 Instrument Calibration Details')}
               </h3>
-              <button className="modal-close" onClick={handleCloseExpiryDetailModal} style={{ color: '#ffffff' }}>×</button>
+              <button className="modal-close" onClick={handleCloseExpiryDetailModal}>×</button>
             </div>
             
             <div className="modal-body" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', padding: '24px' }}>
               <div className="view-details-grid">
                 
                 {/* General Information */}
+                {/* General Information */}
                 <div className="detail-section" style={{ borderLeft: '4px solid #dc2626', background: '#fef2f2' }}>
                   <h4 className="detail-section-title" style={{ color: '#991b1b', borderColor: '#fee2e2' }}>⚠️ Expiry & Validity Information</h4>
-                  <div className="detail-row">
-                    <span className="detail-label">Status:</span>
-                    <span className="detail-value" style={{ fontWeight: '700', color: '#dc2626' }}>
-                      Expiring in {getDaysUntilExpiry(selectedExpiryItem.dueDate)} Days
-                    </span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Expiry / Due Date:</span>
-                    <span className="detail-value" style={{ fontWeight: '600', color: '#1f2937' }}>
-                      {formatDate(selectedExpiryItem.dueDate)}
-                    </span>
+                  <div className="expiry-detail-grid">
+                    <div className="detail-row">
+                      <span className="detail-label">Status:</span>
+                      <span className="detail-value" style={{ fontWeight: '700', color: '#dc2626' }}>
+                        Expiring in {getDaysUntilExpiry(selectedExpiryItem.dueDate)} Days
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Expiry / Due Date:</span>
+                      <span className="detail-value" style={{ fontWeight: '600', color: '#1f2937' }}>
+                        {formatDate(selectedExpiryItem.dueDate)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Registry Details */}
                 <div className="detail-section">
                   <h4 className="detail-section-title">Record Details</h4>
-                  
-                  <div className="detail-row">
-                    <span className="detail-label">
-                      {selectedExpiryItem.type === 'Document' ? 'Document Type Name:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Description:' : 'Instrument/Machine Name:')}
-                    </span>
-                    <span className="detail-value" style={{ fontWeight: '600', color: '#1e3a5f' }}>
-                      {selectedExpiryItem.name}
-                    </span>
-                  </div>
-
-                  {selectedExpiryItem.type !== 'Document' && (
-                    <div className="detail-row">
-                      <span className="detail-label">Make Model:</span>
-                      <span className="detail-value">
-                        {selectedExpiryItem.makeModel || selectedExpiryItem.make_model || 'N/A'}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedExpiryItem.type !== 'Document' && (
+                  <div className="expiry-detail-grid">
                     <div className="detail-row">
                       <span className="detail-label">
-                        {selectedExpiryItem.type === 'Gauge' ? 'Product Name:' : 'Capacity / Range:'}
+                        {selectedExpiryItem.type === 'Document' ? 'Document Type Name:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Description:' : 'Instrument/Machine Name:')}
                       </span>
-                      <span className="detail-value">
-                        {selectedExpiryItem.capacity || selectedExpiryItem.capacity_range || 'N/A'}
+                      <span className="detail-value" style={{ fontWeight: '600', color: '#1e3a5f' }}>
+                        {selectedExpiryItem.name}
                       </span>
                     </div>
-                  )}
 
-                  <div className="detail-row">
-                    <span className="detail-label">
-                      {selectedExpiryItem.type === 'Document' ? 'Document Number:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Serial Number:' : 'Serial Number:')}
-                    </span>
-                    <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
-                      {selectedExpiryItem.serial || selectedExpiryItem.serialNumber || selectedExpiryItem.serial_number || 'N/A'}
-                    </span>
-                  </div>
+                    {selectedExpiryItem.type !== 'Document' && (
+                      <div className="detail-row">
+                        <span className="detail-label">Make Model:</span>
+                        <span className="detail-value">
+                          {selectedExpiryItem.makeModel || selectedExpiryItem.make_model || 'N/A'}
+                        </span>
+                      </div>
+                    )}
 
-                  <div className="detail-row">
-                    <span className="detail-label">Certificate / Document No:</span>
-                    <span className="detail-value">
-                      {selectedExpiryItem.calibrationCertificateNo || selectedExpiryItem.calibration_certificate_no || 'N/A'}
-                    </span>
+                    {selectedExpiryItem.type !== 'Document' && (
+                      <div className="detail-row">
+                        <span className="detail-label">
+                          {selectedExpiryItem.type === 'Gauge' ? 'Product Name:' : 'Capacity / Range:'}
+                        </span>
+                        <span className="detail-value">
+                          {selectedExpiryItem.capacity || selectedExpiryItem.capacity_range || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="detail-row">
+                      <span className="detail-label">
+                        {selectedExpiryItem.type === 'Document' ? 'Document Number:' : (selectedExpiryItem.type === 'Gauge' ? 'Gauge Serial Number:' : 'Serial Number:')}
+                      </span>
+                      <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                        {selectedExpiryItem.serial || selectedExpiryItem.serialNumber || selectedExpiryItem.serial_number || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="detail-row full-width">
+                      <span className="detail-label">Certificate / Document No:</span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.calibrationCertificateNo || selectedExpiryItem.calibration_certificate_no || 'N/A'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Accreditation & Lab */}
                 <div className="detail-section">
                   <h4 className="detail-section-title">Calibration / Authority Info</h4>
-                  
-                  <div className="detail-row">
-                    <span className="detail-label">
-                      {selectedExpiryItem.type === 'Document' ? 'Issue Date:' : 'Calibration Date:'}
-                    </span>
-                    <span className="detail-value">
-                      {formatDate(selectedExpiryItem.calibrationDate || selectedExpiryItem.calibration_date || selectedExpiryItem.date_of_issue)}
-                    </span>
-                  </div>
-
-                  <div className="detail-row">
-                    <span className="detail-label">
-                      {selectedExpiryItem.type === 'Document' ? 'Approving Authority:' : 'Calibrated By Laboratory:'}
-                    </span>
-                    <span className="detail-value">
-                      {selectedExpiryItem.certifyingLabName || selectedExpiryItem.certifying_lab_name || selectedExpiryItem.approving_authority || 'N/A'}
-                    </span>
-                  </div>
-
-                  {selectedExpiryItem.type !== 'Document' && (
+                  <div className="expiry-detail-grid">
                     <div className="detail-row">
-                      <span className="detail-label">Master Equipment: NABL Details:</span>
+                      <span className="detail-label">
+                        {selectedExpiryItem.type === 'Document' ? 'Issue Date:' : 'Calibration Date:'}
+                      </span>
                       <span className="detail-value">
-                        {selectedExpiryItem.masterEquipNablDetails || selectedExpiryItem.master_equip_nabl_details || 'N/A'}
+                        {formatDate(selectedExpiryItem.calibrationDate || selectedExpiryItem.calibration_date || selectedExpiryItem.date_of_issue)}
                       </span>
                     </div>
-                  )}
 
-                  {selectedExpiryItem.type !== 'Document' && (
                     <div className="detail-row">
-                      <span className="detail-label">Master Equipment: Description, Lab ID No. , Calibration Certificate No, Validity UP to:</span>
+                      <span className="detail-label">
+                        {selectedExpiryItem.type === 'Document' ? 'Approving Authority:' : 'Calibrated By Laboratory:'}
+                      </span>
                       <span className="detail-value">
-                        {selectedExpiryItem.masterEquipNoCertValidity || selectedExpiryItem.master_equip_no_cert_validity || 'N/A'}
+                        {selectedExpiryItem.certifyingLabName || selectedExpiryItem.certifying_lab_name || selectedExpiryItem.approving_authority || 'N/A'}
                       </span>
                     </div>
-                  )}
 
-                  <div className="detail-row">
-                    <span className="detail-label">Notification Days:</span>
-                    <span className="detail-value">
-                      {selectedExpiryItem.notificationDays || selectedExpiryItem.notification_days || 30} Days prior
-                    </span>
+                    {selectedExpiryItem.type !== 'Document' && (
+                      <div className="detail-row full-width">
+                        <span className="detail-label">Master Equipment: NABL Details:</span>
+                        <span className="detail-value">
+                          {selectedExpiryItem.masterEquipNablDetails || selectedExpiryItem.master_equip_nabl_details || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedExpiryItem.type !== 'Document' && (
+                      <div className="detail-row full-width">
+                        <span className="detail-label">Master Equipment: Description, Lab ID No. , Calibration Certificate No, Validity UP to:</span>
+                        <span className="detail-value">
+                          {selectedExpiryItem.masterEquipNoCertValidity || selectedExpiryItem.master_equip_no_cert_validity || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="detail-row">
+                      <span className="detail-label">Notification Days:</span>
+                      <span className="detail-value">
+                        {selectedExpiryItem.notificationDays || selectedExpiryItem.notification_days || 30} Days prior
+                      </span>
+                    </div>
+
+                    {selectedExpiryItem.usedFor && (
+                      <div className="detail-row">
+                        <span className="detail-label">Inspection Stages Used For:</span>
+                        <span className="detail-value">
+                          {Array.isArray(selectedExpiryItem.usedFor) 
+                            ? selectedExpiryItem.usedFor.join(', ') 
+                            : String(selectedExpiryItem.usedFor).split(',').join(', ')}
+                        </span>
+                      </div>
+                    )}
                   </div>
-
-                  {selectedExpiryItem.usedFor && (
-                    <div className="detail-row">
-                      <span className="detail-label">Inspection Stages Used For:</span>
-                      <span className="detail-value">
-                        {Array.isArray(selectedExpiryItem.usedFor) 
-                          ? selectedExpiryItem.usedFor.join(', ') 
-                          : String(selectedExpiryItem.usedFor).split(',').join(', ')}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Certificate File */}
@@ -6690,6 +6886,44 @@ const VendorDashboardPage = ({ onBack }) => {
           console.log('Refreshing inventory list...');
         }}
       />
+
+      {/* Add/Edit Inventory Entry Modal */}
+      <div className="inventory-modal-wrapper">
+        <Modal
+          isOpen={isInventoryModalOpen}
+          onClose={() => {
+            setIsInventoryModalOpen(false);
+            setEditingInventoryEntry(null);
+          }}
+          title={editingInventoryEntry ? 'Edit Inventory Entry' : 'Add New Inventory Entry'}
+        >
+          <div style={{ marginBottom: '20px', padding: '12px 16px', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', borderLeft: '4px solid #3b82f6', borderRadius: '6px' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#1e3a5f', fontWeight: 500 }}>
+              {editingInventoryEntry
+                ? `Updating entry for Heat Number: ${editingInventoryEntry.heatNumber}`
+                : 'Fill in the details below to register a new raw material/inventory entry.'
+              }
+            </p>
+          </div>
+          <NewInventoryEntryForm
+            inventoryEntries={inventoryEntries}
+            editData={editingInventoryEntry}
+            onCancel={() => {
+              setIsInventoryModalOpen(false);
+              setEditingInventoryEntry(null);
+            }}
+            onSubmit={async (data) => {
+              const success = await handleInventorySubmit(data);
+              if (success) {
+                setIsInventoryModalOpen(false);
+                setEditingInventoryEntry(null);
+                fetchInventoryEntries(); // refresh inventory list from database
+              }
+            }}
+            isLoading={isLoading}
+          />
+        </Modal>
+      </div>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

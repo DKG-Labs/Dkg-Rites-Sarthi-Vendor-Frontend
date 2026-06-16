@@ -2326,123 +2326,127 @@
 
 /* ============ UPCOMING EXPIRY REMINDERS CARDS ============ */
 .expiry-reminders-section-cards {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1px solid #fcd34d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-top: 4px solid #f59e0b;
   border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025);
 }
 
 .expiry-reminders-title-cards {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #92400e;
-  margin: 0 0 16px 0;
+  color: #0f172a;
+  margin: 0 0 20px 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .expiry-reminders-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
 }
 
 .expiry-reminder-card {
-  background: #ffffff;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  min-height: 120px;
 }
 
 .expiry-reminder-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 12px -3px rgba(146, 64, 14, 0.08), 0 3px 6px -2px rgba(146, 64, 14, 0.04);
-  border-color: #f59e0b;
-}
-
-.expiry-reminder-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3px;
-  height: 100%;
-}
-
-.expiry-reminder-card.type-instrument::before {
-  background-color: #f59e0b;
-}
-
-.expiry-reminder-card.type-approval::before {
-  background-color: #3b82f6;
-}
-
-.expiry-reminder-card.type-gauge::before {
-  background-color: #10b981;
+  transform: translateY(-3px);
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
 }
 
 .card-badge-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .card-badge-type {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 1.5px 5px;
-  border-radius: 4px;
-  letter-spacing: 0.03em;
+  padding: 2.5px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.05em;
 }
 
 .card-badge-type.instrument {
-  background-color: #fef3c7;
+  background-color: #fffbeb;
   color: #d97706;
+  border: 1px solid #fde68a;
 }
 
 .card-badge-type.approval {
-  background-color: #dbeafe;
+  background-color: #eff6ff;
   color: #2563eb;
+  border: 1px solid #bfdbfe;
 }
 
 .card-badge-type.gauge {
-  background-color: #d1fae5;
+  background-color: #ecfdf5;
   color: #059669;
+  border: 1px solid #a7f3d0;
 }
 
 .card-badge-days {
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
-  color: #dc2626;
-  background-color: #fee2e2;
-  padding: 1.5px 5px;
+  padding: 2.5px 6px;
   border-radius: 4px;
 }
 
+.card-badge-days.days-critical {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.card-badge-days.days-warning {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.card-badge-days.days-info {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
 .card-item-name {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 6px 0;
-  line-height: 1.35;
+  color: #1e293b;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: 32px; /* Fixed height for exactly 2 lines of text */
+  height: 34px;
   flex: none;
 }
 
@@ -2450,16 +2454,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 9.5px;
-  border-top: 1px dashed #e5e7eb;
-  padding-top: 6px;
-  color: #6b7280;
-  gap: 4px;
-  margin-top: 4px;
+  font-size: 10.5px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  color: #64748b;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .card-detail-sn {
-  font-family: monospace;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -2471,7 +2475,7 @@
 
 .card-detail-due {
   font-weight: 600;
-  color: #4b5563;
+  color: #475569;
   white-space: nowrap;
   text-align: right;
 }
@@ -2728,5 +2732,180 @@
   .vendor-page-subtitle-new {
     font-size: 12.5px;
   }
+}
+
+/* ============ INVENTORY FORM MODAL POPUP WIDENING & COMPACT DESIGN ============ */
+.inventory-modal-wrapper .modal {
+  max-width: 950px !important;
+  max-height: calc(100vh - 60px) !important;
+  overflow-y: auto !important;
+  border-radius: 16px !important;
+  background-color: #f8fafc !important; /* Muted modern backdrop */
+}
+
+.inventory-modal-wrapper .modal-body {
+  padding: 24px !important;
+}
+
+.inventory-modal-wrapper .inventory-entry-form-container {
+  padding: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.inventory-modal-wrapper .premium-form {
+  gap: 20px !important;
+}
+
+.inventory-modal-wrapper .form-section {
+  padding: 20px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  border-radius: 12px !important;
+}
+
+.inventory-modal-wrapper .ivory-section {
+  border-left: 4px solid #f59e0b !important; /* Modern warm amber accent border */
+}
+
+.inventory-modal-wrapper .heat-section {
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.inventory-modal-wrapper .form-grid,
+.inventory-modal-wrapper .form-grid-mini {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important; /* Force 3 columns inside desktop modal */
+  gap: 16px 20px !important;
+}
+
+/* Medium viewports inside modal: keep 3 columns if width is sufficient, or scale down */
+@media (max-width: 850px) {
+  .inventory-modal-wrapper .form-grid,
+  .inventory-modal-wrapper .form-grid-mini {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .inventory-modal-wrapper .form-grid,
+  .inventory-modal-wrapper .form-grid-mini {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Compact input and select elements */
+.inventory-modal-wrapper .form-group input,
+.inventory-modal-wrapper .form-group select {
+  height: 38px !important;
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+}
+
+.inventory-modal-wrapper .form-group input:focus,
+.inventory-modal-wrapper .form-group select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.inventory-modal-wrapper .form-group label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  margin-bottom: 2px !important;
+  letter-spacing: 0.03em !important;
+}
+
+.inventory-modal-wrapper .repeat-options {
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  background: rgba(245, 158, 11, 0.03) !important;
+  border: 1px dashed #f59e0b !important;
+}
+
+.inventory-modal-wrapper .heat-row-card {
+  padding: 16px 20px !important;
+  border-radius: 10px !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.inventory-modal-wrapper .heat-row-header {
+  margin-bottom: 14px !important;
+  padding-bottom: 8px !important;
+}
+
+.inventory-modal-wrapper .heat-row-header h5 {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #1e3a5f !important;
+}
+
+.inventory-modal-wrapper .form-actions {
+  padding-top: 16px !important;
+  margin-top: 4px !important;
+}
+
+.inventory-modal-wrapper .btn-primary,
+.inventory-modal-wrapper .btn-secondary {
+  height: 40px !important;
+  padding: 0 20px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+}
+
+/* Row-Grouping TC Document Upload & Repeat Options in one row */
+.inventory-modal-wrapper .tc-repeat-row {
+  grid-column: 1 / -1;
+  display: grid !important;
+  grid-template-columns: 1.2fr 1fr 1fr !important;
+  gap: 20px !important;
+  align-items: stretch !important;
+}
+
+@media (max-width: 850px) {
+  .inventory-modal-wrapper .tc-repeat-row {
+    grid-template-columns: 1fr 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .inventory-modal-wrapper .tc-repeat-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* Styling for the Add Another Heat button in the section header */
+.inventory-modal-wrapper .btn-add-heat {
+  margin-left: auto !important;
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.inventory-modal-wrapper .btn-add-heat:hover {
+  background-color: #2563eb !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+.inventory-modal-wrapper .btn-add-heat:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15) !important;
 }
 

@@ -708,60 +708,63 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
               <input type="text" value={formData.unitOfMeasurement} disabled className="input-disabled" />
             </div>
 
-            {/* TC Document Upload */}
-            <div className="form-group full-width">
-              <label style={{ fontWeight: 600 }}>Upload TC Document (Combined PDF for all Heats)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
-                <label htmlFor="tcFileInput" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 16px', background: '#3b82f6', color: '#fff',
-                  borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500
-                }}>
-                  📎 {tcFileName ? 'Change File' : 'Browse PDF'}
-                </label>
-                <input
-                  id="tcFileInput"
-                  type="file"
-                  accept=".pdf"
-                  style={{ display: 'none' }}
-                  onChange={handleTcFileUpload}
-                />
-                {tcFileName ? (
-                  <span style={{ fontSize: '13px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    ✅ <strong>{tcFileName}</strong>
-                    <button type="button" onClick={() => { setTcFileBase64(''); setTcFileName(''); }}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}
-                      title="Remove file">✕</button>
-                  </span>
-                ) : (
-                  <span style={{ fontSize: '12px', color: '#6b7280' }}>Max 15 MB · PDF only</span>
-                )}
-                {/* Show existing TC file link when editing */}
-                {editData?.tcFilePath && !tcFileName && (
-                  <a href="#view-tc" style={{ fontSize: '12px', color: '#3b82f6', marginLeft: '8px' }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const user = getStoredUser();
-                      const url = inventoryService.getTcFileUrl(formData.tcNumber, user?.userName || '');
-                      if (url) window.open(url, '_blank');
-                    }}
-                  >📄 View Existing TC</a>
-                )}
+            {/* TC Document Upload & Repeat Options in a single row container */}
+            <div className="tc-repeat-row full-width">
+              {/* TC Document Upload */}
+              <div className="form-group">
+                <label style={{ fontWeight: 600 }}>Upload TC Document</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  <label htmlFor="tcFileInput" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px', background: '#3b82f6', color: '#fff',
+                    borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500
+                  }}>
+                    📎 {tcFileName ? 'Change File' : 'Browse PDF'}
+                  </label>
+                  <input
+                    id="tcFileInput"
+                    type="file"
+                    accept=".pdf"
+                    style={{ display: 'none' }}
+                    onChange={handleTcFileUpload}
+                  />
+                  {tcFileName ? (
+                    <span style={{ fontSize: '13px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ✅ <strong>{tcFileName}</strong>
+                      <button type="button" onClick={() => { setTcFileBase64(''); setTcFileName(''); }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}
+                        title="Remove file">✕</button>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>Max 15 MB · PDF only</span>
+                  )}
+                  {/* Show existing TC file link when editing */}
+                  {editData?.tcFilePath && !tcFileName && (
+                    <a href="#view-tc" style={{ fontSize: '12px', color: '#3b82f6', marginLeft: '8px' }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const user = getStoredUser();
+                        const url = inventoryService.getTcFileUrl(formData.tcNumber, user?.userName || '');
+                        if (url) window.open(url, '_blank');
+                      }}
+                    >📄 View Existing TC</a>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="form-group repeat-options">
-              <label>Repeat PO for all Heats?</label>
-              <div className="radio-group">
-                <label><input type="radio" name="repeatPO" value="yes" checked={formData.repeatPO === 'yes'} onChange={handleChange} /> Yes</label>
-                <label><input type="radio" name="repeatPO" value="no" checked={formData.repeatPO === 'no'} onChange={handleChange} /> No</label>
+              <div className="form-group repeat-options">
+                <label>Repeat PO for all Heats?</label>
+                <div className="radio-group">
+                  <label><input type="radio" name="repeatPO" value="yes" checked={formData.repeatPO === 'yes'} onChange={handleChange} /> Yes</label>
+                  <label><input type="radio" name="repeatPO" value="no" checked={formData.repeatPO === 'no'} onChange={handleChange} /> No</label>
+                </div>
               </div>
-            </div>
-            <div className="form-group repeat-options">
-              <label>Repeat Invoice for all Heats?</label>
-              <div className="radio-group">
-                <label><input type="radio" name="repeatInvoice" value="yes" checked={formData.repeatInvoice === 'yes'} onChange={handleChange} /> Yes</label>
-                <label><input type="radio" name="repeatInvoice" value="no" checked={formData.repeatInvoice === 'no'} onChange={handleChange} /> No</label>
+              <div className="form-group repeat-options">
+                <label>Repeat Invoice for all Heats?</label>
+                <div className="radio-group">
+                  <label><input type="radio" name="repeatInvoice" value="yes" checked={formData.repeatInvoice === 'yes'} onChange={handleChange} /> Yes</label>
+                  <label><input type="radio" name="repeatInvoice" value="no" checked={formData.repeatInvoice === 'no'} onChange={handleChange} /> No</label>
+                </div>
               </div>
             </div>
           </div>
@@ -771,7 +774,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         <div className="form-section heat-section">
           <div className="section-header">
             <span className="section-number">3</span>
-            <h4 className="section-title">Heat-wise Details</h4>
+            <h4 className="section-title">Heat-Wise Details</h4>
             {!editData && (
               <button type="button" className="btn-add-heat" onClick={addHeatRow}>
                 + Add Another Heat

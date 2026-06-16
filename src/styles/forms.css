@@ -332,6 +332,11 @@
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+}
+
+.input-with-loader input {
+  width: 100%;
 }
 
 .loader-mini {
