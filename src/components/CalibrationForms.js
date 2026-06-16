@@ -236,15 +236,16 @@ export const CalibrationGroupForm = ({
           const mappedActive = activeDetail ? {
             id: activeDetail.id || null,
             instrumentName: activeDetail.instrumentName || activeDetail.instrument_name || '',
+            makeModel: activeDetail.makeModel || activeDetail.make_model || '',
             capacity: activeDetail.capacity || activeDetail.capacity_range || '',
-            description: activeDetail.description || '',
             usedFor: Array.isArray(activeDetail.usedFor) ? activeDetail.usedFor : (activeDetail.usedFor || activeDetail.used_for ? (activeDetail.usedFor || activeDetail.used_for).split(', ') : []),
             serialNumber: activeDetail.serialNumber || activeDetail.serial_number || '',
             calibrationCertificateNo: activeDetail.calibrationCertificateNo || activeDetail.calibration_certificate_no || '',
             calibrationDate: activeDetail.calibrationDate || activeDetail.calibration_date || '',
             calibrationDueDate: activeDetail.calibrationDueDate || activeDetail.calibration_due_date || '',
             certifyingLabName: activeDetail.certifyingLabName || activeDetail.certifying_lab_name || '',
-            accreditationAgency: activeDetail.accreditationAgency || activeDetail.accreditation_agency || '',
+            masterEquipNoCertValidity: activeDetail.masterEquipNoCertValidity || activeDetail.master_equip_no_cert_validity || '',
+            masterEquipNablDetails: activeDetail.masterEquipNablDetails || activeDetail.master_equip_nabl_details || '',
             notificationDays: activeDetail.notificationDays || activeDetail.notification_days || 30
           } : getInitialDetailState();
 
@@ -254,15 +255,16 @@ export const CalibrationGroupForm = ({
           const mappedOthers = others.map(d => ({
             id: d.id || null,
             instrumentName: d.instrumentName || d.instrument_name || '',
+            makeModel: d.makeModel || d.make_model || '',
             capacity: d.capacity || d.capacity_range || '',
-            description: d.description || '',
             usedFor: Array.isArray(d.usedFor) ? d.usedFor : (d.usedFor || d.used_for ? (d.usedFor || d.used_for).split(', ') : []),
             serialNumber: d.serialNumber || d.serial_number || '',
             calibrationCertificateNo: d.calibrationCertificateNo || d.calibration_certificate_no || '',
             calibrationDate: d.calibrationDate || d.calibration_date || '',
             calibrationDueDate: d.calibrationDueDate || d.calibration_due_date || '',
             certifyingLabName: d.certifyingLabName || d.certifying_lab_name || '',
-            accreditationAgency: d.accreditationAgency || d.accreditation_agency || '',
+            masterEquipNoCertValidity: d.masterEquipNoCertValidity || d.master_equip_no_cert_validity || '',
+            masterEquipNablDetails: d.masterEquipNablDetails || d.master_equip_nabl_details || '',
             notificationDays: d.notificationDays || d.notification_days || 30
           }));
 
@@ -271,15 +273,16 @@ export const CalibrationGroupForm = ({
           const mappedDetails = allDetails.map(d => ({
             id: d.id || null,
             instrumentName: d.instrumentName || d.instrument_name || '',
+            makeModel: d.makeModel || d.make_model || '',
             capacity: d.capacity || d.capacity_range || '',
-            description: d.description || '',
             usedFor: Array.isArray(d.usedFor) ? d.usedFor : (d.usedFor || d.used_for ? (d.usedFor || d.used_for).split(', ') : []),
             serialNumber: d.serialNumber || d.serial_number || '',
             calibrationCertificateNo: d.calibrationCertificateNo || d.calibration_certificate_no || '',
             calibrationDate: d.calibrationDate || d.calibration_date || '',
             calibrationDueDate: d.calibrationDueDate || d.calibration_due_date || '',
             certifyingLabName: d.certifyingLabName || d.certifying_lab_name || '',
-            accreditationAgency: d.accreditationAgency || d.accreditation_agency || '',
+            masterEquipNoCertValidity: d.masterEquipNoCertValidity || d.master_equip_no_cert_validity || '',
+            masterEquipNablDetails: d.masterEquipNablDetails || d.master_equip_nabl_details || '',
             notificationDays: d.notificationDays || d.notification_days || 30
           }));
 
@@ -303,15 +306,16 @@ export const CalibrationGroupForm = ({
   function getInitialDetailState() {
     return {
       instrumentName: '',
+      makeModel: '',
       capacity: '',
-      description: '',
       usedFor: [],
       serialNumber: '',
       calibrationCertificateNo: '',
       calibrationDate: '',
       calibrationDueDate: '',
       certifyingLabName: '',
-      accreditationAgency: '',
+      masterEquipNoCertValidity: '',
+      masterEquipNablDetails: '',
       notificationDays: 30
     };
   }
@@ -433,6 +437,9 @@ export const CalibrationGroupForm = ({
       if (!detail.instrumentName) {
         newErrors[`detail_${index}_instrumentName`] = 'Name is required';
       }
+      if (parentData.category !== 'Document' && !detail.makeModel) {
+        newErrors[`detail_${index}_makeModel`] = 'Make model is required';
+      }
       if (!detail.serialNumber) {
         newErrors[`detail_${index}_serialNumber`] = 'Serial number is required';
       }
@@ -451,9 +458,6 @@ export const CalibrationGroupForm = ({
       }
       if (!detail.certifyingLabName) {
         newErrors[`detail_${index}_certifyingLabName`] = 'Certifying lab is required';
-      }
-      if (!detail.accreditationAgency) {
-        newErrors[`detail_${index}_accreditationAgency`] = 'Accreditation agency is required';
       }
       if (!detail.usedFor || detail.usedFor.length === 0) {
         newErrors[`detail_${index}_usedFor`] = 'Select at least one inspection stage';
@@ -623,25 +627,24 @@ export const CalibrationGroupForm = ({
                 {errors[`detail_${index}_instrumentName`] && <span className="form-error">{errors[`detail_${index}_instrumentName`]}</span>}
               </FormField>
 
-              {parentData.category !== 'Document' && (
-                <FormField label={parentData.category === 'Gauge' ? 'Product Name' : 'Capacity / Range'}>
-                  <input
-                    type="text"
-                    className="vendor-form-input"
-                    value={detail.capacity}
-                    onChange={(e) => handleDetailChange(index, 'capacity', e.target.value)}
-                    placeholder={parentData.category === 'Gauge' ? 'e.g. ERC' : 'e.g. 0-150mm'}
-                  />
-                </FormField>
-              )}
-
-              <FormField label="Description / Details">
+              <FormField label="Make Model" required={parentData.category !== 'Document'}>
                 <input
                   type="text"
                   className="vendor-form-input"
-                  value={detail.description}
-                  onChange={(e) => handleDetailChange(index, 'description', e.target.value)}
-                  placeholder="e.g. Calibration details, tags"
+                  value={detail.makeModel || ''}
+                  onChange={(e) => handleDetailChange(index, 'makeModel', e.target.value)}
+                  placeholder="Enter make and model"
+                />
+                {errors[`detail_${index}_makeModel`] && <span className="form-error">{errors[`detail_${index}_makeModel`]}</span>}
+              </FormField>
+
+              <FormField label={parentData.category === 'Gauge' ? 'Product Name' : 'Capacity / Range'}>
+                <input
+                  type="text"
+                  className="vendor-form-input"
+                  value={detail.capacity || ''}
+                  onChange={(e) => handleDetailChange(index, 'capacity', e.target.value)}
+                  placeholder={parentData.category === 'Gauge' ? 'e.g. ERC' : 'e.g. 0-150mm'}
                 />
               </FormField>
 
@@ -687,41 +690,50 @@ export const CalibrationGroupForm = ({
                 {errors[`detail_${index}_calibrationDueDate`] && <span className="form-error">{errors[`detail_${index}_calibrationDueDate`]}</span>}
               </FormField>
 
-              <FormField label={parentData.category === 'Document' ? 'Approving Authority' : 'Certifying Lab Name'} required>
+              <FormField label={parentData.category === 'Document' ? 'Approving Authority' : 'Calibrated By Laboratory'} required>
                 <input
                   type="text"
                   className="vendor-form-input"
-                  value={detail.certifyingLabName}
+                  value={detail.certifyingLabName || ''}
                   onChange={(e) => handleDetailChange(index, 'certifyingLabName', e.target.value)}
                   placeholder="Enter authority / lab name"
                 />
                 {errors[`detail_${index}_certifyingLabName`] && <span className="form-error">{errors[`detail_${index}_certifyingLabName`]}</span>}
               </FormField>
 
-              {parentData.category !== 'Document' && (
-                <FormField label="Accreditation Agency" required>
-                  <CustomDropdown
-                    value={detail.accreditationAgency}
-                    onChange={(val) => handleDetailChange(index, 'accreditationAgency', val)}
-                    placeholder="Select Accreditation Agency"
-                    error={errors[`detail_${index}_accreditationAgency`]}
-                    options={ACCREDITATION_AGENCIES.filter(opt => opt.value !== '')}
-                  />
-                  {errors[`detail_${index}_accreditationAgency`] && <span className="form-error">{errors[`detail_${index}_accreditationAgency`]}</span>}
-                </FormField>
-              )}
+              <FormField label="Master Equipment: NABL Accreditation Details">
+                <input
+                  type="text"
+                  className="vendor-form-input"
+                  value={detail.masterEquipNablDetails || ''}
+                  onChange={(e) => handleDetailChange(index, 'masterEquipNablDetails', e.target.value)}
+                  placeholder="Enter accreditation details"
+                />
+              </FormField>
 
               <FormField label="Notification Reminder Days" required>
                 <input
                   type="number"
                   className="vendor-form-input"
-                  value={detail.notificationDays}
+                  value={detail.notificationDays || 30}
                   onChange={(e) => handleDetailChange(index, 'notificationDays', parseInt(e.target.value, 10))}
                   min="1"
                   placeholder="e.g. 30"
                 />
                 {errors[`detail_${index}_notificationDays`] && <span className="form-error">{errors[`detail_${index}_notificationDays`]}</span>}
               </FormField>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <FormField label="Master Equipment: Description, Lab ID No. , Calibration Certificate No, Validity UP to">
+                  <input
+                    type="text"
+                    className="vendor-form-input"
+                    value={detail.masterEquipNoCertValidity || ''}
+                    onChange={(e) => handleDetailChange(index, 'masterEquipNoCertValidity', e.target.value)}
+                    placeholder="Enter master equipment details (e.g. Cert No, Validity)"
+                  />
+                </FormField>
+              </div>
 
               <div style={{ gridColumn: 'span 2' }}>
                 <FormField label="Used for (Inspection Stages)" required>

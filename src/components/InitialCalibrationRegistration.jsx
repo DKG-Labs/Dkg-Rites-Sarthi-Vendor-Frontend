@@ -123,15 +123,16 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
 
   // Modal form fields state
   const [formFields, setFormFields] = useState({
+    makeModel: '',
     serialNumber: '',
     capacity: '',
-    description: '',
     usedFor: '',
     calibrationCertificateNo: '',
     calibrationDate: '',
     calibrationDueDate: '',
     certifyingLabName: '',
-    accreditationAgency: '',
+    masterEquipNoCertValidity: '',
+    masterEquipNablDetails: '',
     notificationDays: 30
   });
 
@@ -230,15 +231,16 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
     setActiveItemId(item.id);
     const existing = itemsData[item.id] || {};
     setFormFields({
+      makeModel: existing.makeModel || '',
       serialNumber: existing.serialNumber || '',
       capacity: existing.capacity || '',
-      description: existing.description || '',
       usedFor: existing.usedFor || item.defaultUsedFor || '',
       calibrationCertificateNo: existing.calibrationCertificateNo || '',
       calibrationDate: existing.calibrationDate || '',
       calibrationDueDate: existing.calibrationDueDate || '',
       certifyingLabName: existing.certifyingLabName || '',
-      accreditationAgency: existing.accreditationAgency || '',
+      masterEquipNoCertValidity: existing.masterEquipNoCertValidity || '',
+      masterEquipNablDetails: existing.masterEquipNablDetails || '',
       notificationDays: existing.notificationDays !== undefined ? existing.notificationDays : 30
     });
     setModalErrors({});
@@ -290,6 +292,11 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
     if (!formFields.serialNumber.trim()) {
       errors.serialNumber = 'Serial number is required.';
     }
+    if (item && item.category !== 'Document') {
+      if (!formFields.makeModel.trim()) {
+        errors.makeModel = 'Make Model is required.';
+      }
+    }
     if (!formFields.calibrationCertificateNo.trim()) {
       errors.calibrationCertificateNo = 'Certificate number is required.';
     }
@@ -305,13 +312,6 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
       const end = new Date(formFields.calibrationDueDate);
       if (start > end) {
         errors.calibrationDueDate = 'Due date must be after calibration date.';
-      }
-    }
-
-    // Accreditations agency is only required for Instruments & Gauges (non-Documents)
-    if (item && item.category !== 'Document') {
-      if (!formFields.accreditationAgency) {
-        errors.accreditationAgency = 'Accreditation agency is required.';
       }
     }
     
@@ -333,8 +333,6 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
       ...itemsData,
       [activeItemId]: {
         ...formFields,
-        capacity: formFields.capacity,
-        accreditationAgency: formFields.accreditationAgency,
         id: activeItemId,
         category: item.category,
         instrumentName: item.name,
@@ -435,23 +433,32 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
         <table className="initial-calib-table">
           <thead>
             <tr>
-              <th style={{ width: '120px' }}>Category</th>
-              <th>Name of Document / Instrument / Gauge</th>
-              <th>Capacity</th>
-              <th>Description</th>
-              <th>Used for</th>
-              <th>Serial Number</th>
-              <th>Calibration Certificate Number</th>
+              <th rowSpan={2} style={{ width: '100px', verticalAlign: 'middle' }}>Category</th>
+              <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Name of Document / Instrument / Gauge</th>
+              <th colSpan={3} style={{ textAlign: 'center', verticalAlign: 'middle' }}>Used for</th>
+              <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Make Model</th>
+              <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Capacity / Range</th>
+              <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Serial No / Id no</th>
+              <th colSpan={4} style={{ textAlign: 'center' }}>Laboratory details</th>
+              <th colSpan={2} style={{ textAlign: 'center' }}>Master Equipment Details</th>
+            </tr>
+            <tr>
+              <th style={{ width: '70px', textAlign: 'center' }}>RM Insp</th>
+              <th style={{ width: '70px', textAlign: 'center' }}>Process Insp</th>
+              <th style={{ width: '70px', textAlign: 'center' }}>final Insp</th>
+              <th>Calibrated By Laboratory</th>
+              <th>Calibration Certificate No</th>
               <th>Calibration Date</th>
               <th>Calibration Due Date</th>
-              <th>Certifying Lab Name</th>
-              <th>Accreditation Agency</th>
+              <th>Description, Lab ID No. , Calibration Certificate No, Validity UP to</th>
+              <th>NABL Accreditation Details</th>
             </tr>
           </thead>
           <tbody>
             {REQUIRED_ITEMS.map((item) => {
               const data = itemsData[item.id] || {};
               const isCompleted = !!data.serialNumber;
+              const usedForVal = data.usedFor !== undefined ? data.usedFor : item.defaultUsedFor;
 
               return (
                 <tr
@@ -466,15 +473,24 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
                     </div>
                   </td>
                   <td className="item-name font-semibold">{item.name}</td>
+                  <td className="text-center font-semibold text-checkmark">
+                    {usedForVal?.includes('RM Inspection') ? '✓' : ''}
+                  </td>
+                  <td className="text-center font-semibold text-checkmark">
+                    {usedForVal?.includes('Process Inspection') ? '✓' : ''}
+                  </td>
+                  <td className="text-center font-semibold text-checkmark">
+                    {usedForVal?.includes('Final Inspection') ? '✓' : ''}
+                  </td>
+                  <td>{data.makeModel || '-'}</td>
                   <td>{data.capacity || '-'}</td>
-                  <td>{data.description || '-'}</td>
-                  <td>{data.usedFor || '-'}</td>
                   <td>{data.serialNumber || '-'}</td>
+                  <td>{data.certifyingLabName || '-'}</td>
                   <td>{data.calibrationCertificateNo || '-'}</td>
                   <td>{data.calibrationDate || '-'}</td>
                   <td>{data.calibrationDueDate || '-'}</td>
-                  <td>{data.certifyingLabName || '-'}</td>
-                  <td>{data.accreditationAgency || '-'}</td>
+                  <td>{data.masterEquipNoCertValidity || '-'}</td>
+                  <td>{data.masterEquipNablDetails || '-'}</td>
                 </tr>
               );
             })}
@@ -501,60 +517,66 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
           <div className="modal-backdrop">
             <div className="modal-content-wrapper">
               <div className="modal-header">
-                <h3 className="modal-title">
-                  Enter Details for: <span className="highlight-text">{activeItem?.name}</span>
-                </h3>
+                <div className="modal-header-title-container">
+                  <span className={`modal-category-badge badge-${activeItem?.category.toLowerCase()}`}>
+                    {activeItem?.category}
+                  </span>
+                  <h3 className="modal-title">
+                    Enter Details for: <span className="highlight-text">{activeItem?.name}</span>
+                  </h3>
+                </div>
                 <button className="close-button" onClick={() => setActiveItemId(null)}>×</button>
               </div>
               <div className="modal-body">
                 <div className="form-grid">
-                  {/* Row 1: Capacity & Description */}
+                  {/* Row 1: Make Model & Capacity / Range */}
                   <div className="form-group">
-                    <label className="form-label font-medium">Capacity</label>
+                    <label className="form-label font-medium">{isDocument ? 'Make Model' : 'Make Model *'}</label>
+                    <input
+                      type="text"
+                      name="makeModel"
+                      className={`form-control ${modalErrors.makeModel ? 'input-error' : ''}`}
+                      placeholder="Enter make/model"
+                      value={formFields.makeModel || ''}
+                      onChange={handleInputChange}
+                    />
+                    {modalErrors.makeModel && <div className="field-error">{modalErrors.makeModel}</div>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label font-medium">Capacity / Range</label>
                     <input
                       type="text"
                       name="capacity"
                       className="form-control"
                       placeholder="e.g. 0-150mm, or ERC"
-                      value={formFields.capacity}
+                      value={formFields.capacity || ''}
                       onChange={handleInputChange}
                     />
                   </div>
 
+                  {/* Row 2: Serial No / Id no & Calibration Certificate No */}
                   <div className="form-group">
-                    <label className="form-label font-medium">Description</label>
-                    <input
-                      type="text"
-                      name="description"
-                      className="form-control"
-                      placeholder="e.g. Details, tags"
-                      value={formFields.description}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  {/* Row 2: Serial Number & Certificate Number */}
-                  <div className="form-group">
-                    <label className="form-label font-medium">Serial Number *</label>
+                    <label className="form-label font-medium">{isDocument ? 'Document Number *' : 'Serial No / Id no *'}</label>
                     <input
                       type="text"
                       name="serialNumber"
                       className={`form-control ${modalErrors.serialNumber ? 'input-error' : ''}`}
-                      placeholder="Enter serial number"
-                      value={formFields.serialNumber}
+                      placeholder={isDocument ? "Enter document number" : "Enter serial number / ID no"}
+                      value={formFields.serialNumber || ''}
                       onChange={handleInputChange}
                     />
                     {modalErrors.serialNumber && <div className="field-error">{modalErrors.serialNumber}</div>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label font-medium">Calibration Certificate Number *</label>
+                    <label className="form-label font-medium">{isDocument ? 'Approval Certificate No *' : 'Calibration Certificate No *'}</label>
                     <input
                       type="text"
                       name="calibrationCertificateNo"
                       className={`form-control ${modalErrors.calibrationCertificateNo ? 'input-error' : ''}`}
                       placeholder="Enter certificate number"
-                      value={formFields.calibrationCertificateNo}
+                      value={formFields.calibrationCertificateNo || ''}
                       onChange={handleInputChange}
                     />
                     {modalErrors.calibrationCertificateNo && <div className="field-error">{modalErrors.calibrationCertificateNo}</div>}
@@ -562,60 +584,66 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
 
                   {/* Row 3: Calibration Date & Calibration Due Date */}
                   <div className="form-group">
-                    <label className="form-label font-medium">Calibration Date *</label>
+                    <label className="form-label font-medium">{isDocument ? 'Issue Date *' : 'Calibration Date *'}</label>
                     <input
                       type="date"
                       name="calibrationDate"
                       className={`form-control ${modalErrors.calibrationDate ? 'input-error' : ''}`}
-                      value={formFields.calibrationDate}
+                      value={formFields.calibrationDate || ''}
                       onChange={handleInputChange}
                     />
                     {modalErrors.calibrationDate && <div className="field-error">{modalErrors.calibrationDate}</div>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label font-medium">Calibration Due Date *</label>
+                    <label className="form-label font-medium">{isDocument ? 'Valid Till Date *' : 'Calibration Due Date *'}</label>
                     <input
                       type="date"
                       name="calibrationDueDate"
                       className={`form-control ${modalErrors.calibrationDueDate ? 'input-error' : ''}`}
-                      value={formFields.calibrationDueDate}
+                      value={formFields.calibrationDueDate || ''}
                       onChange={handleInputChange}
                     />
                     {modalErrors.calibrationDueDate && <div className="field-error">{modalErrors.calibrationDueDate}</div>}
                   </div>
 
-                  {/* Row 4: Certifying Lab Name & Accreditation Agency */}
+                  {/* Row 4: Calibrated By Laboratory & Master Equipment: NABL Accreditation Details */}
                   <div className="form-group">
-                    <label className="form-label font-medium">Certifying Lab Name *</label>
+                    <label className="form-label font-medium">{isDocument ? 'Approving Authority *' : 'Calibrated By Laboratory *'}</label>
                     <input
                       type="text"
                       name="certifyingLabName"
                       className={`form-control ${modalErrors.certifyingLabName ? 'input-error' : ''}`}
-                      placeholder="Enter certifying lab name"
-                      value={formFields.certifyingLabName}
+                      placeholder={isDocument ? "Enter approving authority" : "Enter laboratory details"}
+                      value={formFields.certifyingLabName || ''}
                       onChange={handleInputChange}
                     />
                     {modalErrors.certifyingLabName && <div className="field-error">{modalErrors.certifyingLabName}</div>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label font-medium">
-                      Accreditation Agency {!isDocument && '*'}
-                    </label>
-                    <select
-                      name="accreditationAgency"
-                      className={`form-control ${modalErrors.accreditationAgency ? 'input-error' : ''}`}
-                      value={formFields.accreditationAgency}
+                    <label className="form-label font-medium">Master Equipment: NABL Accreditation Details</label>
+                    <input
+                      type="text"
+                      name="masterEquipNablDetails"
+                      className="form-control"
+                      placeholder="Enter accreditation details"
+                      value={formFields.masterEquipNablDetails || ''}
                       onChange={handleInputChange}
-                    >
-                      {ACCREDITATION_AGENCIES.map(agency => (
-                        <option key={agency.value} value={agency.value}>
-                          {agency.label}
-                        </option>
-                      ))}
-                    </select>
-                    {modalErrors.accreditationAgency && <div className="field-error">{modalErrors.accreditationAgency}</div>}
+                    />
+                  </div>
+
+                  {/* Row 5: Master Equipment Details: Description, Lab ID No., Calibration Certificate No., Validity UP to */}
+                  <div className="form-group full-width">
+                    <label className="form-label font-medium">Master Equipment: Description, Lab ID No. , Calibration Certificate No, Validity UP to</label>
+                    <input
+                      type="text"
+                      name="masterEquipNoCertValidity"
+                      className="form-control"
+                      placeholder="Enter master equipment details (e.g. Cert No, Validity)"
+                      value={formFields.masterEquipNoCertValidity || ''}
+                      onChange={handleInputChange}
+                    />
                   </div>
 
                   {/* Used for Checkboxes */}
