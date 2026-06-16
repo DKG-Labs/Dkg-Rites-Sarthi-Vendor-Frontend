@@ -1,17 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import InventoryDetail from './InventoryDetail';
+import { apiService } from '../../../services/api';
 
 const InventoryManagementDashboard = () => {
     const [selectedMaterial, setSelectedMaterial] = useState(null);
-
-    const materials = [
+    const [materials, setMaterials] = useState([
         { id: 'hts-wire', name: 'HTS wire', unit: 'Kg', quantity: 156.5, alerts: ['Test expiring in 3 days'], icon: '⛓️' },
         { id: 'cement', name: 'Cement', unit: 'Kg', quantity: 1250, alerts: [], icon: '🧱' },
         { id: 'admixture', name: 'Admixture', unit: 'Kg', quantity: 450, alerts: ['Min stock breach'], icon: '🧪' },
         { id: 'aggregates', name: 'Aggregates', unit: 'Kg', quantity: 890, alerts: [], icon: '🪨' },
         { id: 'sgci-insert', name: 'SGCI Insert', unit: 'Nos', quantity: 5000, alerts: [], icon: '🔩' },
         { id: 'dowel', name: 'Dowel', unit: 'Nos', quantity: 3200, alerts: [], icon: '📍' },
-    ];
+    ]);
+
+    useEffect(() => {
+        const fetchAllBalances = async () => {
+            try {
+                const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+                const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+
+                const filterByPlant = (items) => {
+                    if (!currentPlantId || !Array.isArray(items)) return items || [];
+                    return items.filter(item => String(item.plantId) === String(currentPlantId));
+                };
+
+                const isVerifiedStatus = (status) => {
+                    return status === 'Completed' || status === 'Locked' || status === 'Verified';
+                };
+
+                const getBalanceForMaterial = async (matId) => {
+                    let procuredList = [];
+                    if (matId === 'hts-wire') {
+                        procuredList = filterByPlant(await apiService.getHtsWires());
+                    } else if (matId === 'cement') {
+                        procuredList = filterByPlant(await apiService.getCements());
+                    } else if (matId === 'dowel') {
+                        procuredList = filterByPlant(await apiService.getDowels());
+                    } else if (matId === 'aggregates') {
+                        procuredList = filterByPlant(await apiService.getAggregates());
+                    } else if (matId === 'admixture') {
+                        procuredList = filterByPlant(await apiService.getAdmixtures());
+                    } else if (matId === 'sgci-insert') {
+                        procuredList = filterByPlant(await apiService.getSgciInserts());
+                    }
+
+                    const procuredTotal = procuredList
+                        .filter(e => isVerifiedStatus(e.status))
+                        .reduce((acc, curr) => acc + Number(curr.totalQtyReceived || curr.totalQuantity || curr.qty || 0), 0);
+
+                    let usedList = [];
+                    const savedUsed = localStorage.getItem(`inventory_used_${matId}`);
+                    if (savedUsed) {
+                        usedList = JSON.parse(savedUsed);
+                    } else {
+                        // Default seed values for demonstration
+                        if (matId === 'hts-wire' && procuredTotal > 0) usedList = [{ qty: 1085, status: 'Completed' }];
+                        else if (matId === 'cement' && procuredTotal > 0) usedList = [{ qty: 5000, status: 'Completed' }];
+                        else if (matId === 'aggregates' && procuredTotal > 0) usedList = [{ qty: 6200, status: 'Completed' }];
+                    }
+
+                    const usedTotal = usedList
+                        .filter(e => isVerifiedStatus(e.status))
+                        .reduce((acc, curr) => acc + Number(curr.qty || 0), 0);
+
+                    // Return the calculated balance if there are entries, otherwise 0
+                    if (procuredList.length === 0 && usedList.length === 0) return -1;
+                    return procuredTotal - usedTotal;
+                };
+
+                const updated = await Promise.all(
+                    materials.map(async (m) => {
+                        const bal = await getBalanceForMaterial(m.id);
+                        return {
+                            ...m,
+                            quantity: bal >= 0 ? bal : m.quantity
+                        };
+                    })
+                );
+                setMaterials(updated);
+            } catch (error) {
+                console.error("Error fetching balances for dashboard:", error);
+            }
+        };
+
+        fetchAllBalances();
+    }, [selectedMaterial]);
 
     return (
         <div className="inventory-dashboard fade-in" style={{ padding: '20px' }}>
@@ -97,7 +170,7 @@ const InventoryManagementDashboard = () => {
                             <div style={{
                                 position: 'absolute',
                                 bottom: '-10px',
-                                left: '50%',
+                                  left: '50%',
                                 transform: 'translateX(-50%)',
                                 width: '0',
                                 height: '0',

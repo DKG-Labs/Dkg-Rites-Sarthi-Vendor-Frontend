@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import InventoryForm from './InventoryForm';
+import InventoryUsedForm from './InventoryUsedForm';
+import InventoryRegister from './InventoryRegister';
 import { apiService } from '../../../services/api';
 
 const InventoryDetail = ({ material, onBack }) => {
     const [showForm, setShowForm] = useState(false);
     const [editingEntry, setEditingEntry] = useState(null);
-    const [entries, setEntries] = useState([]);
+    const [entries, setEntries] = useState([]); // Procured entries
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('unverified'); // 'unverified' or 'verified'
+    const [activeTab, setActiveTab] = useState('unverified'); // 'unverified' or 'verified' (inner tabs)
+
+    // New states for RM Used and Inventory Register
+    const [activeSection, setActiveSection] = useState('procured'); // 'procured', 'used', 'register'
+    const [usedEntries, setUsedEntries] = useState([]);
+    const [productionDeclarations, setProductionDeclarations] = useState([]);
+    const [mixDesigns, setMixDesigns] = useState([]);
+    const [showUsedForm, setShowUsedForm] = useState(false);
+    const [editingUsedEntry, setEditingUsedEntry] = useState(null);
 
     const fetchEntries = async () => {
         setLoading(true);
@@ -55,6 +65,62 @@ const InventoryDetail = ({ material, onBack }) => {
                 data = getMockEntries(material.id);
             }
             setEntries(data || []);
+
+            // Load RM Used from local storage
+            const savedUsed = localStorage.getItem(`inventory_used_${material.id}`);
+            if (savedUsed) {
+                setUsedEntries(JSON.parse(savedUsed));
+            } else {
+                // Seed initial verified used entries if empty
+                let initialUsed = [];
+                if (material.id === 'hts-wire') {
+                    initialUsed = [{
+                        id: 'USED-HTS-INIT-1',
+                        date: '2026-06-14',
+                        rawMaterial: 'HTS wire',
+                        subType: '9.5mm',
+                        usedFor: 'Manufacturing of Sleepers',
+                        sleepersMade: 120,
+                        estimatedQty: 1110,
+                        qty: 1085,
+                        status: 'Completed'
+                    }];
+                } else if (material.id === 'cement') {
+                    initialUsed = [{
+                        id: 'USED-CEM-INIT-1',
+                        date: '2026-06-14',
+                        rawMaterial: 'Cement',
+                        subType: 'OPC 53',
+                        usedFor: 'Manufacturing of Sleepers',
+                        sleepersMade: 120,
+                        estimatedQty: 4992,
+                        qty: 5000,
+                        status: 'Completed'
+                    }];
+                } else if (material.id === 'aggregates') {
+                    initialUsed = [{
+                        id: 'USED-AGG-INIT-1',
+                        date: '2026-06-14',
+                        rawMaterial: 'Aggregates',
+                        subType: 'CA1',
+                        usedFor: 'Manufacturing of Sleepers',
+                        sleepersMade: 120,
+                        estimatedQty: 6240,
+                        qty: 6200,
+                        status: 'Completed'
+                    }];
+                }
+                setUsedEntries(initialUsed);
+                localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(initialUsed));
+            }
+
+            // Fetch production declarations and mix designs for estimations
+            const pdData = await apiService.getProductionDeclarations();
+            setProductionDeclarations(filterByPlant(pdData) || []);
+
+            const mixData = await apiService.getMixDesigns();
+            setMixDesigns(filterByPlant(mixData) || []);
+
         } catch (error) {
             console.error('Fetch error:', error);
             setEntries([]);
@@ -99,15 +165,33 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
+    // Helper checking verified status
+    const isVerifiedStatus = (status) => {
+        return status === 'Completed' || status === 'Locked' || status === 'Verified';
+    };
+
+    // Calculate official register stats (verified entries only)
     const stats = {
-        procured: entries.reduce((acc, curr) => acc + Number(curr.totalQtyReceived || curr.totalQuantity || curr.qty || 0), 0),
-        used: material.id === 'hts-wire' ? 43.5 : (material.id === 'cement' ? 150 : 0),
+        procured: entries
+            .filter(e => isVerifiedStatus(e.status))
+            .reduce((acc, curr) => acc + Number(curr.totalQtyReceived || curr.totalQuantity || curr.qty || 0), 0),
+        
+        used: usedEntries
+            .filter(e => isVerifiedStatus(e.status))
+            .reduce((acc, curr) => acc + Number(curr.qty || 0), 0),
+        
         get balance() { return this.procured - this.used; }
     };
 
-    const unverifiedEntries = entries.filter(entry => entry.status !== 'Completed' && entry.status !== 'Locked');
-    const verifiedEntries = entries.filter(entry => entry.status === 'Completed' || entry.status === 'Locked');
-    const filteredEntries = activeTab === 'verified' ? verifiedEntries : unverifiedEntries;
+    // Procured categorization
+    const unverifiedEntries = entries.filter(e => !isVerifiedStatus(e.status));
+    const verifiedEntries = entries.filter(e => isVerifiedStatus(e.status));
+    const filteredProcured = activeTab === 'verified' ? verifiedEntries : unverifiedEntries;
+
+    // Used categorization
+    const unverifiedUsed = usedEntries.filter(e => !isVerifiedStatus(e.status));
+    const verifiedUsed = usedEntries.filter(e => isVerifiedStatus(e.status));
+    const filteredUsed = activeTab === 'verified' ? verifiedUsed : unverifiedUsed;
 
     const handleFormSubmit = () => {
         setShowForm(false);
@@ -143,10 +227,80 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
+    // Simulate Inspecting Engineer Approval for Procured
+    const handleSimulateVerifyProcured = async (entry) => {
+        if (!window.confirm('Simulate Inspecting Engineer verification for this procurement entry?')) return;
+        setLoading(true);
+        try {
+            const payload = {
+                ...entry,
+                status: 'Completed',
+                totalQtyReceived: entry.totalQtyReceived || entry.qty,
+                invoiceNumber: entry.invoiceNumber || entry.details?.invoiceNo,
+                ritesIcNumber: entry.ritesIcNumber || entry.details?.icNo
+            };
+
+            if (material.id === 'hts-wire') {
+                await apiService.saveHtsWire(payload);
+            } else if (material.id === 'cement') {
+                await apiService.saveCement(payload);
+            } else if (material.id === 'dowel') {
+                await apiService.saveDowel(payload);
+            } else if (material.id === 'aggregates') {
+                await apiService.saveAggregate(payload);
+            } else if (material.id === 'admixture') {
+                await apiService.saveAdmixture(payload);
+            } else if (material.id === 'sgci-insert') {
+                await apiService.saveSgciInsert(payload);
+            } else {
+                // Mock behavior
+                const updatedMock = entries.map(e => e.id === entry.id ? { ...e, status: 'Completed' } : e);
+                setEntries(updatedMock);
+            }
+            alert('Inspecting Engineer verified this entry! Officially added to stock.');
+            await fetchEntries();
+        } catch (error) {
+            alert('Verification failed: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // RM Used logic handlers
+    const handleUsedFormSubmit = (data) => {
+        let updated;
+        if (usedEntries.some(e => e.id === data.id)) {
+            updated = usedEntries.map(e => e.id === data.id ? data : e);
+        } else {
+            updated = [...usedEntries, data];
+        }
+        setUsedEntries(updated);
+        localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
+        setShowUsedForm(false);
+        setEditingUsedEntry(null);
+    };
+
+    const handleUsedDelete = (id) => {
+        if (window.confirm('Are you sure you want to delete this consumption entry?')) {
+            const updated = usedEntries.filter(e => e.id !== id);
+            setUsedEntries(updated);
+            localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
+            setShowUsedForm(false);
+            setEditingUsedEntry(null);
+        }
+    };
+
+    const handleSimulateVerifyUsed = (entry) => {
+        if (!window.confirm('Simulate Inspecting Engineer verification for this consumption entry?')) return;
+        const updated = usedEntries.map(e => e.id === entry.id ? { ...e, status: 'Completed' } : e);
+        setUsedEntries(updated);
+        localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
+        alert('Inspecting Engineer verified this entry! Consumption deducted from register.');
+    };
+
     const getStatusLabel = (status) => {
-        if (!status || status === 'Created') return 'Pending for verification';
-        if (status === 'Pending') return 'Pending for verification';
-        if (status === 'Completed' || status === 'Locked') return 'Verified & Locked';
+        if (!status || status === 'Created' || status === 'Pending') return 'Pending for verification';
+        if (status === 'Completed' || status === 'Locked' || status === 'Verified') return 'Verified & Locked';
         return status;
     };
 
@@ -201,7 +355,11 @@ const InventoryDetail = ({ material, onBack }) => {
                             {entry.batchDetails?.map(b => `${b.mtcNo} (W${b.weekNo})`).join(', ') || '-'}
                         </td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -226,40 +384,18 @@ const InventoryDetail = ({ material, onBack }) => {
                             {!entry.relaxationTestTc && !entry.relaxationTestDate && '-'}
                         </td>
                         <td style={tdStyle}>
-                            {entry.relaxationTestValidity || (() => {
-                                if (entry.relaxationTestDate && entry.relaxationTest) {
-                                    try {
-                                        const parts = entry.relaxationTestDate.split('/');
-                                        if (parts.length === 3) {
-                                            const day = parseInt(parts[0], 10);
-                                            const month = parseInt(parts[1], 10) - 1;
-                                            const year = parseInt(parts[2], 10);
-                                            const date = new Date(year, month, day);
-                                            if (!isNaN(date.getTime())) {
-                                                if (entry.relaxationTest === '1000 Hours Test') {
-                                                    date.setFullYear(date.getFullYear() + 1);
-                                                } else if (entry.relaxationTest === '100 Hours Test') {
-                                                    date.setMonth(date.getMonth() + 6);
-                                                }
-                                                const d = String(date.getDate()).padStart(2, '0');
-                                                const m = String(date.getMonth() + 1).padStart(2, '0');
-                                                const y = date.getFullYear();
-                                                return `${d}/${m}/${y}`;
-                                            }
-                                        }
-                                    } catch (e) {
-                                        console.error(e);
-                                    }
-                                }
-                                return '-';
-                            })()}
+                            {entry.relaxationTestValidity || '-'}
                         </td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={{ ...tdStyle, maxWidth: '220px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                             {coilSummary}
                         </td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -276,7 +412,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Nos.</span></td>
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -291,7 +431,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.challanNumber}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -306,7 +450,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={boldStyle}>{entry.totalQuantity} <span style={{ fontSize: '11px', color: '#64748b' }}>Kg</span></td>
                         <td style={tdStyle}>{entry.lotNo} / {entry.mtcNo}</td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -322,7 +470,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={boldStyle}>{entry.totalQtyReceived} <span style={{ fontSize: '11px', color: '#64748b' }}>Nos.</span></td>
                         <td style={tdStyle}>{entry.ritesIcNumber}</td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -336,7 +488,11 @@ const InventoryDetail = ({ material, onBack }) => {
                         <td style={tdStyle}>{entry.manufacturer || entry.details?.manufacturer}</td>
                         <td style={boldStyle}>{entry.totalQtyReceived || entry.qty}</td>
                         <td style={tdStyle}>
-                            <span style={{ background: '#f0f9fa', color: '#42818c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            <span style={{ 
+                                background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                            }}>
                                 {getStatusLabel(entry.status)}
                             </span>
                         </td>
@@ -345,8 +501,24 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
+    const actionButtonStyle = {
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        color: '#42818c',
+        padding: '6px 14px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '11px',
+        fontWeight: '700',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        transition: 'all 0.2s'
+    };
+
     return (
         <div className="inventory-detail fade-in">
+            {/* Page Header */}
             <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <button onClick={onBack} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#64748b' }}>
                     ← Back
@@ -357,173 +529,272 @@ const InventoryDetail = ({ material, onBack }) => {
                 <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>{material.name} Management</h2>
             </div>
 
+            {/* Dynamic Status Tabs (Cumulative Status Cards) */}
             <div style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Cumulative Status</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                {[{ label: 'Procured', value: stats.procured, color: '#42818c' }, { label: 'Used', value: stats.used, color: '#64748b' }, { label: 'Balance', value: stats.balance.toFixed(2), color: '#10b981' }].map(stat => (
-                    <div key={stat.label} style={{ background: 'white', padding: '16px 20px', borderRadius: '20px', border: `1px solid #e2e8f0`, textAlign: 'left', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                        <div style={{ fontSize: '12px', color: stat.color, fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
-                        <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b' }}>{stat.value} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>{material.unit}</span></div>
-                    </div>
-                ))}
-            </div>
-
-            <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
-                    <div>
-                        <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>List of Inventory Entered</h3>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>View and manage record entries for {material.name}</p>
-                    </div>
-                    <button onClick={() => { setEditingEntry(null); setShowForm(true); }} style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(66, 129, 140, 0.2)' }}>
-                        + Add Entry
-                    </button>
-                </div>
-
-                {/* Modern Pill Tab Switcher */}
-                <div style={{ padding: '16px 24px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center' }}>
-                    <div style={{
-                        background: '#f1f5f9',
-                        borderRadius: '16px',
-                        padding: '6px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}>
-                        {/* Tab: Pending Declaration / Unverified */}
-                        <button
-                            onClick={() => setActiveTab('unverified')}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '10px 18px',
-                                background: activeTab === 'unverified' ? 'white' : 'transparent',
-                                border: 'none',
-                                borderRadius: '12px',
+                {[
+                    { id: 'procured', label: 'RM Procured', value: stats.procured, color: '#42818c' },
+                    { id: 'used', label: 'RM Used', value: stats.used, color: '#64748b' },
+                    { id: 'register', label: 'RM Inventory Register', value: stats.balance.toFixed(2), color: '#10b981' }
+                ].map(stat => {
+                    const isActive = activeSection === stat.id;
+                    return (
+                        <div 
+                            key={stat.id} 
+                            onClick={() => {
+                                setActiveSection(stat.id);
+                                // Default inner tab to unverified when switching sections
+                                setActiveTab('unverified');
+                            }}
+                            style={{ 
+                                background: isActive ? '#f0f7ff' : 'white', 
+                                padding: '16px 20px', 
+                                borderRadius: '20px', 
+                                border: `2px solid ${isActive ? '#0ea5e9' : '#e2e8f0'}`, 
+                                textAlign: 'left', 
+                                boxShadow: isActive ? '0 10px 15px -3px rgba(14, 165, 233, 0.15)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 cursor: 'pointer',
-                                boxShadow: activeTab === 'unverified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)' : 'none',
                                 transition: 'all 0.2s ease',
-                                outline: 'none'
+                                position: 'relative'
                             }}
                         >
-                            <span style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: '#f59e0b',
-                                display: 'inline-block'
-                            }}></span>
-                            <span style={{
-                                color: '#374151',
-                                fontWeight: '700',
-                                fontSize: '13px'
-                            }}>
-                                Pending Declaration
-                            </span>
-                            <span style={{
-                                background: '#ecfdf5',
-                                color: '#047857',
-                                padding: '2px 8px',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '700'
-                            }}>
-                                {unverifiedEntries.length}
-                            </span>
-                        </button>
-
-                        {/* Tab: Verified Production / Verified */}
-                        <button
-                            onClick={() => setActiveTab('verified')}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '10px 18px',
-                                background: activeTab === 'verified' ? 'white' : 'transparent',
-                                border: 'none',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                boxShadow: activeTab === 'verified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)' : 'none',
-                                transition: 'all 0.2s ease',
-                                outline: 'none'
-                            }}
-                        >
-                            <span style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: '#34d399',
-                                display: 'inline-block'
-                            }}></span>
-                            <span style={{
-                                color: '#374151',
-                                fontWeight: '700',
-                                fontSize: '13px'
-                            }}>
-                                Verified Production
-                            </span>
-                            <span style={{
-                                background: '#e5e7eb',
-                                color: '#374151',
-                                padding: '2px 8px',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '700'
-                            }}>
-                                {verifiedEntries.length}
-                            </span>
-                        </button>
-                    </div>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                    {loading ? (
-                        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading inventory records...</div>
-                    ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                            <thead>
-                                <tr style={{ background: '#f8fafc' }}>
-                                    {getColumns().map(col => (<th key={col} style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{col}</th>))}
-                                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredEntries.length === 0 ? (
-                                    <tr><td colSpan={getColumns().length + 1} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No records found.</td></tr>
-                                ) : (
-                                    filteredEntries.map((entry, idx) => (
-                                        <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                            {renderRow(entry)}
-                                            <td style={{ padding: '16px 24px' }}>
-                                                <button
-                                                    onClick={() => handleEdit(entry)}
-                                                    style={{
-                                                        background: '#f8fafc',
-                                                        border: '1px solid #e2e8f0',
-                                                        color: '#42818c',
-                                                        padding: '6px 14px',
-                                                        borderRadius: '8px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '11px',
-                                                        fontWeight: '700',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                >
-                                                    👁 View
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
+                            <div style={{ fontSize: '11px', color: stat.color, fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
+                            <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b' }}>
+                                {stat.value.toLocaleString()} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>{material.unit}</span>
+                            </div>
+                            {isActive && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '-10px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: '0',
+                                    height: '0',
+                                    borderLeft: '10px solid transparent',
+                                    borderRight: '10px solid transparent',
+                                    borderBottom: '10px solid #ffffff',
+                                    zIndex: 10
+                                }}></div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
+            {/* Main Action Block Based on Active Section */}
+            {activeSection === 'register' ? (
+                <InventoryRegister 
+                    material={material}
+                    procuredEntries={entries}
+                    usedEntries={usedEntries}
+                />
+            ) : (
+                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                    {/* Header */}
+                    <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                                {activeSection === 'procured' ? 'RM Procured Registry' : 'RM Consumption Records'}
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                                {activeSection === 'procured' 
+                                    ? `View and declare incoming inventory for ${material.name}`
+                                    : `View and log daily consumption/wastage for ${material.name}`}
+                            </p>
+                        </div>
+                        
+                        {activeSection === 'procured' ? (
+                            <button 
+                                onClick={() => { setEditingEntry(null); setShowForm(true); }} 
+                                style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(66, 129, 140, 0.2)' }}
+                            >
+                                + Add New Inventory
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => { setEditingUsedEntry(null); setShowUsedForm(true); }} 
+                                style={{ background: '#0284c7', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.2)' }}
+                            >
+                                + Add New Entry
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Inner Tabs: Pending vs Verified Switcher */}
+                    <div style={{ padding: '16px 24px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center' }}>
+                        <div style={{
+                            background: '#f1f5f9',
+                            borderRadius: '16px',
+                            padding: '6px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}>
+                            <button
+                                onClick={() => setActiveTab('unverified')}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 18px',
+                                    background: activeTab === 'unverified' ? 'white' : 'transparent',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    boxShadow: activeTab === 'unverified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    outline: 'none'
+                                }}
+                            >
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
+                                <span style={{ color: '#374151', fontWeight: '700', fontSize: '13px' }}>Pending for Verification</span>
+                                <span style={{ background: '#fffbeb', color: '#b45309', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
+                                    {activeSection === 'procured' ? unverifiedEntries.length : unverifiedUsed.length}
+                                </span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('verified')}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 18px',
+                                    background: activeTab === 'verified' ? 'white' : 'transparent',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    boxShadow: activeTab === 'verified' ? '0 4px 6px -1px rgba(0, 0, 0, 0.08)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    outline: 'none'
+                                }}
+                            >
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                                <span style={{ color: '#374151', fontWeight: '700', fontSize: '13px' }}>Verified</span>
+                                <span style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
+                                    {activeSection === 'procured' ? verifiedEntries.length : verifiedUsed.length}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Table Render */}
+                    <div style={{ overflowX: 'auto' }}>
+                        {loading ? (
+                            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading records...</div>
+                        ) : activeSection === 'procured' ? (
+                            // RM Procured Table
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8fafc' }}>
+                                        {getColumns().map(col => (<th key={col} style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{col}</th>))}
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredProcured.length === 0 ? (
+                                        <tr><td colSpan={getColumns().length + 1} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No records found.</td></tr>
+                                    ) : (
+                                        filteredProcured.map((entry, idx) => (
+                                            <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
+                                                {renderRow(entry)}
+                                                <td style={{ padding: '16px 24px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                                                        {activeTab === 'unverified' ? (
+                                                            <>
+                                                                <button onClick={() => handleEdit(entry)} style={{ ...actionButtonStyle, color: '#0284c7' }}>
+                                                                    Modify
+                                                                </button>
+                                                                <button onClick={() => handleDelete(entry.id)} style={{ ...actionButtonStyle, color: '#ef4444' }}>
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button onClick={() => handleEdit(entry)} style={actionButtonStyle}>
+                                                                👁 View
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        ) : (
+                            // RM Used Table
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8fafc' }}>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date of Use</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Sub Type</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>RM Used For</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Sleepers Made</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Estimated Qty Used</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Actual Qty Used</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredUsed.length === 0 ? (
+                                        <tr><td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No consumption records found.</td></tr>
+                                    ) : (
+                                        filteredUsed.map((entry, idx) => (
+                                            <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b' }}>{entry.date}</td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b' }}>
+                                                    <span style={{ fontWeight: '700' }}>{material.name}</span>
+                                                    <span style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: '700' }}>{entry.subType}</span>
+                                                </td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#475569' }}>{entry.usedFor}</td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b', fontWeight: '600', textAlign: 'right' }}>
+                                                    {entry.usedFor === 'Wastage' ? '-' : entry.sleepersMade}
+                                                </td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#047857', fontWeight: '600', textAlign: 'right' }}>
+                                                    {entry.usedFor === 'Wastage' ? '-' : `${entry.estimatedQty.toLocaleString()} ${material.unit}`}
+                                                </td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b', fontWeight: '700', textAlign: 'right' }}>
+                                                    {entry.qty.toLocaleString()} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{material.unit}</span>
+                                                </td>
+                                                <td style={{ padding: '16px 24px', fontSize: '13px' }}>
+                                                    <span style={{ 
+                                                        background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
+                                                        color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                                        padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
+                                                    }}>
+                                                        {getStatusLabel(entry.status)}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '16px 24px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                                                        {activeTab === 'unverified' ? (
+                                                            <>
+                                                                <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={{ ...actionButtonStyle, color: '#0284c7' }}>
+                                                                    Modify
+                                                                </button>
+                                                                <button onClick={() => handleUsedDelete(entry.id)} style={{ ...actionButtonStyle, color: '#ef4444' }}>
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={actionButtonStyle}>
+                                                                👁 View
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Forms */}
             {showForm && (
                 <InventoryForm
                     material={material}
@@ -532,6 +803,18 @@ const InventoryDetail = ({ material, onBack }) => {
                     onDelete={handleDelete}
                     initialData={editingEntry}
                     existingEntries={entries}
+                />
+            )}
+
+            {showUsedForm && (
+                <InventoryUsedForm
+                    material={material}
+                    onClose={() => { setShowUsedForm(false); setEditingUsedEntry(null); }}
+                    onSubmit={handleUsedFormSubmit}
+                    onDelete={handleUsedDelete}
+                    initialData={editingUsedEntry}
+                    productionDeclarations={productionDeclarations}
+                    mixDesigns={mixDesigns}
                 />
             )}
         </div>
