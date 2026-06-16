@@ -110,25 +110,7 @@ const VendorDashboard = () => {
     };
 
     return (
-        <div className="dashboard-container" style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
-            <header style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h1 style={{
-                            fontSize: '32px',
-                            fontWeight: '800',
-                            color: '#0f172a',
-                            letterSpacing: '-0.025em'
-                        }}>
-                            Sleeper Vendor Dashboard
-                        </h1>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
-                            Quality assurance and production management system
-                        </p>
-                    </div>
-                </div>
-            </header>
-
+        <div className="dashboard-container" style={{ padding: '0px 24px 24px', background: '#f8fafc', minHeight: '100vh' }}>
             <div style={{
                 background: 'white',
                 borderRadius: '12px',
