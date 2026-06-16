@@ -44,11 +44,11 @@ const REQUIRED_ITEMS = [
   { id: 'cutBarsGauge', category: 'Gauge', name: 'Gauge for checking length of cut bars', defaultUsedFor: 'RM Inspection' }
 ];
 
-const ACCREDITATION_AGENCIES = [
-  { value: '', label: 'Select Accreditation Agency' },
-  { value: 'NABL', label: 'NABL' },
-  { value: 'NPL', label: 'NPL' }
-];
+// const ACCREDITATION_AGENCIES = [
+//   { value: '', label: 'Select Accreditation Agency' },
+//   { value: 'NABL', label: 'NABL' },
+//   { value: 'NPL', label: 'NPL' }
+// ];
 
 // IndexedDB Helper functions for storing large Base64 files
 const initDB = () => {
@@ -109,6 +109,15 @@ const removeFromIndexedDB = async (key) => {
   } catch (error) {
     console.error('IndexedDB delete failed', error);
   }
+};
+
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dateStr;
 };
 
 const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => {
@@ -302,12 +311,22 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
     }
     if (!formFields.calibrationDate) {
       errors.calibrationDate = 'Calibration date is required.';
+    } else {
+      const year = new Date(formFields.calibrationDate).getFullYear();
+      if (isNaN(year) || year < 2000 || year > 2099) {
+        errors.calibrationDate = 'Year must be between 2000 and 2099.';
+      }
     }
     if (!formFields.calibrationDueDate) {
       errors.calibrationDueDate = 'Calibration due date is required.';
+    } else {
+      const year = new Date(formFields.calibrationDueDate).getFullYear();
+      if (isNaN(year) || year < 2000 || year > 2099) {
+        errors.calibrationDueDate = 'Year must be between 2000 and 2099.';
+      }
     }
 
-    if (formFields.calibrationDate && formFields.calibrationDueDate) {
+    if (formFields.calibrationDate && formFields.calibrationDueDate && !errors.calibrationDate && !errors.calibrationDueDate) {
       const start = new Date(formFields.calibrationDate);
       const end = new Date(formFields.calibrationDueDate);
       if (start > end) {
@@ -487,8 +506,8 @@ const InitialCalibrationRegistration = ({ vendorCode, onSubmit, isLoading }) => 
                   <td>{data.serialNumber || '-'}</td>
                   <td>{data.certifyingLabName || '-'}</td>
                   <td>{data.calibrationCertificateNo || '-'}</td>
-                  <td>{data.calibrationDate || '-'}</td>
-                  <td>{data.calibrationDueDate || '-'}</td>
+                  <td>{formatDateToDDMMYYYY(data.calibrationDate)}</td>
+                  <td>{formatDateToDDMMYYYY(data.calibrationDueDate)}</td>
                   <td>{data.masterEquipNoCertValidity || '-'}</td>
                   <td>{data.masterEquipNablDetails || '-'}</td>
                 </tr>
