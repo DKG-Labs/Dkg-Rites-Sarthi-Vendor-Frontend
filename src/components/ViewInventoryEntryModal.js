@@ -20,6 +20,7 @@ import './ViewInventoryEntryModal.css';
  */
 const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, onRefresh }) => {
   const [entry, setEntry] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -28,12 +29,19 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
     setError(null);
 
     try {
-      const response = await inventoryService.getInventoryEntryById(entryId);
+      const [response, historyResponse] = await Promise.all([
+        inventoryService.getInventoryEntryById(entryId),
+        inventoryService.getInventoryHistory(entryId)
+      ]);
 
       if (response.success) {
         setEntry(response.data);
       } else {
         setError(response.error || 'Failed to fetch entry details');
+      }
+
+      if (historyResponse.success) {
+        setHistory(historyResponse.data || []);
       }
     } catch (err) {
       setError('An error occurred while fetching entry details');
@@ -346,6 +354,45 @@ const ViewInventoryEntryModal = ({ isOpen, onClose, entryId, onEdit, onDelete, o
                 </div>
               </div>
             </div>
+
+            {/* Consumption History Information */}
+            {history && history.length > 0 && (
+              <div className="detail-section">
+                <h4 className="section-title">Consumption History</h4>
+                <div className="history-table-container">
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        <th>Inspection Call No.</th>
+                        <th>Date</th>
+                        <th>Offered Qty</th>
+                        <th>Status</th>
+                        <th>Certificate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((h, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 500 }}>{h.inspectionCallNo}</td>
+                          <td>{formatDate(h.inspectionDate)}</td>
+                          <td className="qty-cell">{h.offeredQuantity} {entry.unitOfMeasurement}</td>
+                          <td><StatusBadge status={h.status} /></td>
+                          <td>
+                            {h.certificateUrl ? (
+                              <a href={h.certificateUrl} target="_blank" rel="noreferrer" className="cert-link">
+                                📄 View
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Audit Information */}
             <div className="detail-section">
