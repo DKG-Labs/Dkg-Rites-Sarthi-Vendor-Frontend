@@ -190,6 +190,38 @@ const inventoryService = {
   },
 
   /**
+   * Get history of an inventory entry by ID
+   * @param {Number} id - Inventory entry ID
+   * @returns {Promise<Object>} - API response with inventory history
+   */
+  getInventoryHistory: async (id) => {
+    try {
+      console.log('📥 Fetching inventory history by ID:', id);
+
+      const response = await httpClient.get(`/vendor/inventory/entries/${id}/history`);
+
+      // Backend returns success: true for success
+      if (response && response.success) {
+        return {
+          success: true,
+          data: response.data,
+          message: 'Inventory history fetched successfully'
+        };
+      } else {
+        throw new Error('Unexpected response format from backend');
+      }
+
+    } catch (error) {
+      console.error('❌ Error fetching inventory history:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch inventory history',
+        details: error.response?.data || error
+      };
+    }
+  },
+
+  /**
    * Get available heat numbers for a vendor (for dropdown in Raw Material Raising Call)
    * This endpoint returns only heat numbers with:
    * - Remaining quantity > 0
