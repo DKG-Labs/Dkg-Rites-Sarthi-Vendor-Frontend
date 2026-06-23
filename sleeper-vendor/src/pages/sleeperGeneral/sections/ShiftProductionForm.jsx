@@ -433,6 +433,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             sleeperCategory: category,
                             sleepers: sleepersList,
                             mouldsPerBench: g.mouldPerBench || 8,
+                            totalRmt: g.rft || '',
                             _originalRft: g.rft,
                             _originalSleepers: g.sleepers,
                             _originalSleeperList: g.sleeperList, // Store original sleeperList
@@ -471,6 +472,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         sleeperType: g.sleeperType,
                         sleeperCategory: category,
                         sleepers: sleepersList,
+                        totalRmt: g.rft || '',
                         _isOld: true,
                         _originalSleepers: g.sleepers,
                         _originalSleeperList: g.sleeperList // Store original sleeperList
@@ -807,7 +809,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 }
                 // For stress bench, RFT is per bench, not per mould.
                 // Assuming RFT is determined by sleeper type of the bench.
+                if (entry.totalRmt && parseFloat(entry.totalRmt) > 0) {
+                    return acc + parseFloat(entry.totalRmt);
+                }
                 return acc + benchesToSum.reduce((bAcc, b) => bAcc + getBenchMasterDetailsForType(b, entry.sleeperType).rft, 0);
+            }, 0);
+        } else if (plantType === 'Long Line') {
+            return longLineEntries.reduce((acc, entry) => {
+                if (entry.totalRmt && parseFloat(entry.totalRmt) > 0) {
+                    return acc + parseFloat(entry.totalRmt);
+                }
+                return acc;
             }, 0);
         }
         return 0;
