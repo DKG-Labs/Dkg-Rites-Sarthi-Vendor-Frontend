@@ -265,12 +265,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     // Sleeper layout config per Turnout drawing
     const turnoutSleeperConfig = {
-        '1 in 12 PnC: RT-4218':  { approach: ['60S', '60-4A', '60-3A', '60-2AS', '60-1AS'],  turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 12 PnC: RT-4218':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 12 PnC: RT-9790':  { approach: ['70S', '70-4A', '70-3A', '70-2AS', '70-1AS'],  turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
-        '1 in 8.5 PnC: RT-4865': { approach: ['80S', '80-4A', '80-3A'],                       turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E' ,'4E']},
+        '1 in 8.5 PnC: RT-4865': { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 54 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 8.5 PnC: RT-9841': { approach: ['90S', '90-4A', '90-3A', '90-2AS'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
-        '1 in 8.5 DS: RT-6068':  { approach: ['100S', '100-4A', '100-3A'],                    turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
-        '1 in 16 curved: RT-5691': { approach: ['110S', '110-4A'],                             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 8.5 DS: RT-6068':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 22 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 16 curved: RT-5691': { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 101 }, (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 20 curved: RT-5858': { approach: ['120S', '120-4A', '120-3A'],                   turnout: Array.from({ length: 83 }, (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 8.5 SCC: RT-6092': { approach: ['130S', '130-4A', '130-3A'],                    turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
         '1 in 12 SCC: RT-8109':  { approach: ['140S', '140-4A', '140-3A', '140-2AS'],         turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
@@ -523,6 +523,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 singleNo: entry.singleNo,
                 mouldsPerBench: entry.mouldsPerBench,
                 sleeperType: entry.sleeperType,
+                sleeperCategory: entry.sleeperCategory,
+                totalRmt: entry.totalRmt,
+                turnoutSelectedSleepers: entry.turnoutSelectedSleepers,
                 _originalRft: entry._originalRft,
                 _originalSleepers: entry._originalSleepers,
                 _originalSleeperList: entry._originalSleeperList,
@@ -1586,7 +1589,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     style={{ ...inputStyle, background: '#f1f5f9', color: '#42818c', fontWeight: '700', cursor: 'default' }}
                                                 />
                                             </div>
-                                            <div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Mainline' ? 'hidden' : 'visible' }}>
                                                 <label style={labelStyle}>Total RMT</label>
                                                 <input
                                                     type="number"
@@ -1604,14 +1607,26 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             const cfg = turnoutSleeperConfig[row.sleeperType];
                                             if (!cfg) return null;
 
-                                            const toggleSleeper = (section, id) => {
+                                            const increaseSleeper = (section, id) => {
                                                 const current = row.turnoutSelectedSleepers[section] || [];
-                                                const exists = current.includes(id);
-                                                const updatedSection = exists ? current.filter(x => x !== id) : [...current, id];
+                                                const updatedSection = [...current, id];
                                                 updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
                                                     ...row.turnoutSelectedSleepers,
                                                     [section]: updatedSection
                                                 });
+                                            };
+
+                                            const decreaseSleeper = (section, id) => {
+                                                const current = row.turnoutSelectedSleepers[section] || [];
+                                                const index = current.indexOf(id);
+                                                if (index !== -1) {
+                                                    const updatedSection = [...current];
+                                                    updatedSection.splice(index, 1);
+                                                    updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                        ...row.turnoutSelectedSleepers,
+                                                        [section]: updatedSection
+                                                    });
+                                                }
                                             };
 
                                             const selectAll = (section) => {
@@ -1627,22 +1642,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     [section]: []
                                                 });
                                             };
-
-                                            const chipStyle = (section, id) => ({
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '5px 10px',
-                                                borderRadius: '8px',
-                                                border: row.turnoutSelectedSleepers[section]?.includes(id) ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
-                                                background: row.turnoutSelectedSleepers[section]?.includes(id) ? '#e6f4f5' : '#fff',
-                                                cursor: isReadOnly ? 'default' : 'pointer',
-                                                fontSize: '13px',
-                                                fontWeight: '600',
-                                                color: row.turnoutSelectedSleepers[section]?.includes(id) ? '#42818c' : '#475569',
-                                                transition: 'all 0.15s',
-                                                userSelect: 'none'
-                                            });
 
                                             const sectionBtnStyle = {
                                                 padding: '4px 10px',
@@ -1670,27 +1669,69 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                        {cfg[sectionKey].map(id => (
-                                                            <div
-                                                                key={id}
-                                                                style={chipStyle(sectionKey, id)}
-                                                                onClick={() => !isReadOnly && toggleSleeper(sectionKey, id)}
-                                                            >
-                                                                <span>{id}</span>
-                                                                <span style={{
-                                                                    minWidth: '18px',
-                                                                    textAlign: 'center',
-                                                                    background: row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? '#42818c' : '#f1f5f9',
-                                                                    color: row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? 'white' : '#94a3b8',
-                                                                    borderRadius: '4px',
-                                                                    padding: '1px 5px',
-                                                                    fontSize: '11px',
-                                                                    fontWeight: '700'
-                                                                }}>
-                                                                    {row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? '1' : '0'}
-                                                                </span>
-                                                            </div>
-                                                        ))}
+                                                        {cfg[sectionKey].map(id => {
+                                                            const qty = row.turnoutSelectedSleepers[sectionKey]?.filter(x => x === id).length || 0;
+                                                            const isSelected = qty > 0;
+                                                            
+                                                            return (
+                                                                <div
+                                                                    key={id}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        borderRadius: '8px',
+                                                                        border: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                        background: isSelected ? '#e6f4f5' : '#fff',
+                                                                        fontSize: '13px',
+                                                                        fontWeight: '600',
+                                                                        color: isSelected ? '#42818c' : '#475569',
+                                                                        transition: 'all 0.15s',
+                                                                        userSelect: 'none',
+                                                                        overflow: 'hidden'
+                                                                    }}
+                                                                >
+                                                                    {/* Left side: Decrement */}
+                                                                    <div
+                                                                        style={{
+                                                                            padding: '5px 8px 5px 10px',
+                                                                            cursor: isReadOnly ? 'default' : 'pointer',
+                                                                            borderRight: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                            background: isSelected ? '#d9edef' : 'transparent',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px'
+                                                                        }}
+                                                                        onClick={() => !isReadOnly && decreaseSleeper(sectionKey, id)}
+                                                                        title="Click to decrease quantity"
+                                                                    >
+                                                                        {!isReadOnly && <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? '#2c5a62' : '#94a3b8' }}>(-)</span>}
+                                                                        <span>{id}</span>
+                                                                    </div>
+                                                                    
+                                                                    {/* Right side: Increment */}
+                                                                    <div
+                                                                        style={{
+                                                                            padding: '5px 10px 5px 8px',
+                                                                            cursor: isReadOnly ? 'default' : 'pointer',
+                                                                            background: isSelected ? '#42818c' : '#f1f5f9',
+                                                                            color: isSelected ? 'white' : '#94a3b8',
+                                                                            fontWeight: '700',
+                                                                            fontSize: '11px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            gap: '4px',
+                                                                            minWidth: '20px'
+                                                                        }}
+                                                                        onClick={() => !isReadOnly && increaseSleeper(sectionKey, id)}
+                                                                        title="Click to increase quantity"
+                                                                    >
+                                                                        <span>{qty}</span>
+                                                                        {!isReadOnly && <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.8 }}>(+)</span>}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             );
@@ -1930,7 +1971,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     style={{ ...inputStyle, background: '#f1f5f9', color: '#42818c', fontWeight: '700', cursor: 'default' }}
                                                 />
                                             </div>
-                                            <div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Mainline' ? 'hidden' : 'visible' }}>
                                                 <label style={labelStyle}>Total RMT</label>
                                                 <input
                                                     type="number"
@@ -1948,14 +1989,26 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             const cfg = turnoutSleeperConfig[row.sleeperType];
                                             if (!cfg) return null;
 
-                                            const toggleSleeper = (section, id) => {
+                                            const increaseSleeper = (section, id) => {
                                                 const current = row.turnoutSelectedSleepers[section] || [];
-                                                const exists = current.includes(id);
-                                                const updatedSection = exists ? current.filter(x => x !== id) : [...current, id];
+                                                const updatedSection = [...current, id];
                                                 updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
                                                     ...row.turnoutSelectedSleepers,
                                                     [section]: updatedSection
                                                 });
+                                            };
+
+                                            const decreaseSleeper = (section, id) => {
+                                                const current = row.turnoutSelectedSleepers[section] || [];
+                                                const index = current.indexOf(id);
+                                                if (index !== -1) {
+                                                    const updatedSection = [...current];
+                                                    updatedSection.splice(index, 1);
+                                                    updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                        ...row.turnoutSelectedSleepers,
+                                                        [section]: updatedSection
+                                                    });
+                                                }
                                             };
 
                                             const selectAll = (section) => {
@@ -1971,22 +2024,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     [section]: []
                                                 });
                                             };
-
-                                            const chipStyle = (section, id) => ({
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '5px 10px',
-                                                borderRadius: '8px',
-                                                border: row.turnoutSelectedSleepers[section]?.includes(id) ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
-                                                background: row.turnoutSelectedSleepers[section]?.includes(id) ? '#e6f4f5' : '#fff',
-                                                cursor: isReadOnly ? 'default' : 'pointer',
-                                                fontSize: '13px',
-                                                fontWeight: '600',
-                                                color: row.turnoutSelectedSleepers[section]?.includes(id) ? '#42818c' : '#475569',
-                                                transition: 'all 0.15s',
-                                                userSelect: 'none'
-                                            });
 
                                             const sectionBtnStyle = {
                                                 padding: '4px 10px',
@@ -2014,30 +2051,72 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                        {cfg[sectionKey].map(id => (
-                                                            <div
-                                                                key={id}
-                                                                style={chipStyle(sectionKey, id)}
-                                                                onClick={() => !isReadOnly && toggleSleeper(sectionKey, id)}
-                                                            >
-                                                                <span>{id}</span>
-                                                                <span style={{
-                                                                    minWidth: '18px',
-                                                                    textAlign: 'center',
-                                                                    background: row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? '#42818c' : '#f1f5f9',
-                                                                    color: row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? 'white' : '#94a3b8',
-                                                                    borderRadius: '4px',
-                                                                    padding: '1px 5px',
-                                                                    fontSize: '11px',
-                                                                    fontWeight: '700'
-                                                                }}>
-                                                                    {row.turnoutSelectedSleepers[sectionKey]?.includes(id) ? '1' : '0'}
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
+                                                         {cfg[sectionKey].map(id => {
+                                                             const qty = row.turnoutSelectedSleepers[sectionKey]?.filter(x => x === id).length || 0;
+                                                             const isSelected = qty > 0;
+                                                             
+                                                             return (
+                                                                 <div
+                                                                     key={id}
+                                                                     style={{
+                                                                         display: 'inline-flex',
+                                                                         alignItems: 'center',
+                                                                         borderRadius: '8px',
+                                                                         border: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                         background: isSelected ? '#e6f4f5' : '#fff',
+                                                                         fontSize: '13px',
+                                                                         fontWeight: '600',
+                                                                         color: isSelected ? '#42818c' : '#475569',
+                                                                         transition: 'all 0.15s',
+                                                                         userSelect: 'none',
+                                                                         overflow: 'hidden'
+                                                                     }}
+                                                                 >
+                                                                     {/* Left side: Decrement */}
+                                                                     <div
+                                                                         style={{
+                                                                             padding: '5px 8px 5px 10px',
+                                                                             cursor: isReadOnly ? 'default' : 'pointer',
+                                                                             borderRight: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                             background: isSelected ? '#d9edef' : 'transparent',
+                                                                             display: 'flex',
+                                                                             alignItems: 'center',
+                                                                             gap: '4px'
+                                                                         }}
+                                                                         onClick={() => !isReadOnly && decreaseSleeper(sectionKey, id)}
+                                                                         title="Click to decrease quantity"
+                                                                     >
+                                                                         {!isReadOnly && <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? '#2c5a62' : '#94a3b8' }}>(-)</span>}
+                                                                         <span>{id}</span>
+                                                                     </div>
+                                                                     
+                                                                     {/* Right side: Increment */}
+                                                                     <div
+                                                                         style={{
+                                                                             padding: '5px 10px 5px 8px',
+                                                                             cursor: isReadOnly ? 'default' : 'pointer',
+                                                                             background: isSelected ? '#42818c' : '#f1f5f9',
+                                                                             color: isSelected ? 'white' : '#94a3b8',
+                                                                             fontWeight: '700',
+                                                                             fontSize: '11px',
+                                                                             display: 'flex',
+                                                                             alignItems: 'center',
+                                                                             justifyContent: 'center',
+                                                                             gap: '4px',
+                                                                             minWidth: '20px'
+                                                                         }}
+                                                                         onClick={() => !isReadOnly && increaseSleeper(sectionKey, id)}
+                                                                         title="Click to increase quantity"
+                                                                     >
+                                                                         <span>{qty}</span>
+                                                                         {!isReadOnly && <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.8 }}>(+)</span>}
+                                                                     </div>
+                                                                 </div>
+                                                             );
+                                                         })}
+                                                     </div>
+                                                 </div>
+                                             );
 
                                             return (
                                                 <div style={{ background: 'white', padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', marginTop: '16px', marginBottom: '24px' }}>
@@ -2297,18 +2376,31 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                                                         return benchList.map(bench => {
                                                             const isOriginalBench = group._isOld && bench === group.singleNo;
-                                                            const originalRft = isOriginalBench ? group._originalRft : getBenchMasterDetails(bench).rft;
-                                                            const originalSleepers = group.sleepers || (isOriginalBench ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench));
-                                                            const originalSleeperList = isOriginalBench ? group._originalSleeperList : null;
+                                                            const isTurnout = group.sleeperCategory === 'Turnout';
+                                                            const explicitRft = group.totalRmt ? parseFloat(group.totalRmt) : 0;
+                                                            const rftToUse = (isTurnout && explicitRft > 0) ? (explicitRft / benchList.length) : (isOriginalBench ? group._originalRft : getBenchMasterDetails(bench).rft);
+                                                            
+                                                            let finalSleepers = [];
+                                                            if (isTurnout && group.turnoutSelectedSleepers) {
+                                                                const s = group.turnoutSelectedSleepers;
+                                                                finalSleepers = [...(s.approach || []), ...(s.turnout || []), ...(s.exit || [])];
+                                                            } else {
+                                                                finalSleepers = group.sleepers || (isOriginalBench ? (group._originalSleepers || (group._originalSleeperList ? group._originalSleeperList.map(s=>s.sleeperNo) : [])) : generateSleeperIds(bench, group.mouldsPerBench));
+                                                            }
+                                                            finalSleepers = finalSleepers || [];
+
+                                                            const originalSleeperList = (isOriginalBench && !isTurnout) ? group._originalSleeperList : null;
                                                             
                                                             return {
                                                                 id: group.id || 0,
                                                                 benchNo: parseInt(bench) || 0,
                                                                 sleeperType: group.sleeperType,
                                                                 mouldPerBench: parseInt(group.mouldsPerBench) || 0,
-                                                                rft: originalRft,
-                                                                sleepers: originalSleepers,
-                                                                sleeperList: originalSleeperList || originalSleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                                rft: rftToUse,
+                                                                sleeperCategory: group.sleeperCategory || 'Mainline',
+                                                                totalSleepers: finalSleepers.length,
+                                                                sleepers: finalSleepers,
+                                                                sleeperList: originalSleeperList || finalSleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                             };
                                                         });
                                                     })
@@ -2321,16 +2413,26 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 const gangNo = entry.entryMode === 'single' ? parseInt(entry.singleNo) : null;
                                                 const mouldsPerGang = parseInt(entry.mouldsPerGang) || 0;
 
-                                                let sleepers = entry.sleepers || entry._originalSleepers || [];
-                                                if (sleepers.length === 0) {
-                                                    if (mode === 'RANGE' && gangFrom && gangTo) {
-                                                        for (let i = gangFrom; i <= gangTo; i++) {
-                                                            sleepers.push(...generateSleeperIds(i.toString(), mouldsPerGang));
+                                                const isTurnout = entry.sleeperCategory === 'Turnout';
+                                                
+                                                let sleepers = [];
+                                                if (isTurnout && entry.turnoutSelectedSleepers) {
+                                                    const s = entry.turnoutSelectedSleepers;
+                                                    sleepers = [...(s.approach || []), ...(s.turnout || []), ...(s.exit || [])];
+                                                } else {
+                                                    sleepers = entry.sleepers || entry._originalSleepers || (entry._originalSleeperList ? entry._originalSleeperList.map(s=>s.sleeperNo) : []) || [];
+                                                    if (sleepers.length === 0) {
+                                                        if (mode === 'RANGE' && gangFrom && gangTo) {
+                                                            for (let i = gangFrom; i <= gangTo; i++) {
+                                                                sleepers.push(...generateSleeperIds(i.toString(), mouldsPerGang));
+                                                            }
+                                                        } else if (mode === 'SINGLE' && gangNo) {
+                                                            sleepers = generateSleeperIds(gangNo.toString(), mouldsPerGang);
                                                         }
-                                                    } else if (mode === 'SINGLE' && gangNo) {
-                                                        sleepers = generateSleeperIds(gangNo.toString(), mouldsPerGang);
                                                     }
                                                 }
+                                                sleepers = sleepers || [];
+                                                const explicitRft = entry.totalRmt ? parseFloat(entry.totalRmt) : 0;
 
                                                 return {
                                                     id: entry.originalId || 0,
@@ -2340,8 +2442,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     gangNo,
                                                     sleeperType: entry.sleeperType,
                                                     mouldsPerGang,
+                                                    sleeperCategory: entry.sleeperCategory || 'Mainline',
+                                                    totalSleepers: sleepers.length,
+                                                    rft: explicitRft,
                                                     sleepers,
-                                                    sleeperList: entry._originalSleeperList || sleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                    sleeperList: (entry._originalSleeperList && !isTurnout) ? entry._originalSleeperList : sleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                 };
                                             }) : []
                                     };
