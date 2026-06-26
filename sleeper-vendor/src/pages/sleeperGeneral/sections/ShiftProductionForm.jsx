@@ -940,9 +940,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     ...(row.turnoutSelectedSleepers.exit || [])
                 ];
                 sleepers.forEach(s => {
-                    if (!turnoutSleepersByType[type].includes(s)) {
-                        turnoutSleepersByType[type].push(s);
-                    }
+                    turnoutSleepersByType[type].push(s);
                 });
                 
                 const benches = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
@@ -1098,9 +1096,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     ...(row.turnoutSelectedSleepers.exit || [])
                 ];
                 sleepers.forEach(s => {
-                    if (!turnoutSleepersByType[type].includes(s)) {
-                        turnoutSleepersByType[type].push(s);
-                    }
+                    turnoutSleepersByType[type].push(s);
                 });
                 
                 const gangs = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
@@ -1970,7 +1966,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.singleNo}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperCategory || '—'}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerBench}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerBench}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
@@ -2359,7 +2355,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{gangDisplay}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperCategory || '—'}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerGang}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerGang}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
