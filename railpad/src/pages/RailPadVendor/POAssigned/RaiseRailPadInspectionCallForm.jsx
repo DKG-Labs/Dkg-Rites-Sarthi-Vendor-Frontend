@@ -20,6 +20,15 @@ const RAIL_PAD_TYPES = [
     '10.00mm NCRGRSP'
 ];
 
+const DRAWING_MAPPING = {
+    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
+    "10.00mm GRSP": [], 
+    "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
+    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8747"],
+    "6.00mm NCRGRSP": ["1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
+    "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
+};
+
 const UOM_OPTIONS = ['Nos.', 'Set'];
 
 // ─── Mock Inventory Data ──────────────────────────────────────────────────────
@@ -68,10 +77,15 @@ const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
 );
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
-const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall }) => {
+const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall, isWrapped }) => {
     // Form State
     const [railPadType, setRailPadType] = useState('');
-    const [uom, setUom] = useState(UOM_OPTIONS[0]);
+    const [drawingNo, setDrawingNo] = useState('');
+    const [selectedProcessIcs, setSelectedProcessIcs] = useState([]);
+    const [processCalls, setProcessCalls] = useState([]);
+    const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
+
+    const uom = srItem?.unit || srItem?.uom || 'Nos.';
     const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
     const [totalQtyToOffer, setTotalQtyToOffer] = useState('');
     const [noOfLots, setNoOfLots] = useState(1);
@@ -105,21 +119,91 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     const [activePartialLotIdx, setActivePartialLotIdx] = useState(null);
 
     // ─── Effects ──────────────────────────────────────────────────────────────
+    // Reset drawing no and process IC on railPadType change
+    const handleRailPadTypeChange = (val) => {
+        setRailPadType(val);
+        setDrawingNo('');
+        setSelectedProcessIcs([]);
+        setProcessCalls([]);
+        setInventory([]);
+    };
+
+    // Fetch process calls matching railPadType and drawingNo
     useEffect(() => {
-        const fetchInventory = async () => {
-            if (!plantId) return;
+        const fetchProcessCalls = async () => {
+            if (!railPadType || !drawingNo || !plantId) {
+                setProcessCalls([]);
+                return;
+            }
+            try {
+                setLoadingProcessCalls(true);
+                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId);
+                setProcessCalls(data || []);
+            } catch (error) {
+                console.error('Error fetching process calls:', error);
+            } finally {
+                setLoadingProcessCalls(false);
+            }
+        };
+        fetchProcessCalls();
+    }, [railPadType, drawingNo, plantId]);
+
+    // Fetch process inspection result batches on selectedProcessIcs change
+    useEffect(() => {
+        const fetchProcessBatches = async () => {
+            if (selectedProcessIcs.length === 0) {
+                setInventory([]);
+                return;
+            }
             try {
                 setLoadingInventory(true);
-                const data = await inventoryService.getAcceptedInventory(plantId, railPadType);
-                setInventory(data || []);
+                const results = await Promise.all(
+                    selectedProcessIcs.map(ic => inspectionCallService.getAvailableFinalBatches(ic))
+                );
+                
+                const allBatches = [];
+                results.forEach(processResult => {
+                    if (processResult && processResult.batches) {
+                        allBatches.push(...processResult.batches);
+                    }
+                });
+
+                const grouped = {};
+                allBatches.forEach(b => {
+                    const dateStr = b.productionDate;
+                    if (!grouped[dateStr]) {
+                        grouped[dateStr] = [];
+                    }
+                    const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo);
+                    if (existingBatch) {
+                        existingBatch.acceptedQty += b.qtyAccepted;
+                        existingBatch.quantity += b.qtyAccepted;
+                    } else {
+                        grouped[dateStr].push({
+                            id: b.declarationBatchId || b.id,
+                            infoId: b.declarationBatchId || b.id,
+                            batchNo: b.batchNo,
+                            productType: railPadType,
+                            acceptedQty: b.qtyAccepted,
+                            quantity: b.qtyAccepted
+                        });
+                    }
+                });
+
+                const mappedInventory = Object.entries(grouped).map(([date, batches]) => ({
+                    castingDate: date,
+                    batches: batches
+                }));
+                setInventory(mappedInventory);
             } catch (error) {
-                console.error('Error fetching inventory:', error);
+                console.error('Error fetching process batches:', error);
+                setInventory([]);
             } finally {
                 setLoadingInventory(false);
             }
         };
-        fetchInventory();
-    }, [plantId, railPadType]);
+        fetchProcessBatches();
+    }, [selectedProcessIcs, railPadType]);
     useEffect(() => {
         const count = parseInt(noOfLots) || 0;
         if (count > 0) {
@@ -162,7 +246,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     const totalOfferedFromLots = lots.reduce((acc, lot) => acc + getLotSum(lot), 0);
     const totalMatchesOffered = totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0);
     const hasLotExceedingLimit = lots.some(lot => getLotSum(lot) > lotLimit);
-    const isValid = totalMatchesOffered && totalOfferedFromLots > 0 && !lotCountError && !hasLotExceedingLimit;
+    const isValid = railPadType && drawingNo && selectedProcessIcs.length > 0 && totalMatchesOffered && totalOfferedFromLots > 0 && !lotCountError && !hasLotExceedingLimit;
 
     const handleSubmit = async () => {
         if (hasLotExceedingLimit) {
@@ -177,7 +261,10 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 poNo: `${poNo}/${srItem?.itemSrNo || srItem?.srNo || '01'}`,
                 vendorCode: vendorCode || srItem?.vendorCode || 'V001',
                 plantId: plantId,
+                callType: 'FINAL',
                 railPadType: railPadType,
+                drawingNo: drawingNo,
+                processIcNo: selectedProcessIcs.join(','),
                 totalQty: parseInt(totalQtyToOffer),
                 noOfLots: parseInt(noOfLots),
                 inspectionDate: desiredDate,
@@ -313,34 +400,11 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
         border: '1px solid #e2e8f0'
     };
 
-    return createPortal(
-        <div style={overlayStyle}>
-            <div style={modalStyle}>
-                {/* ── Header ── */}
-                <div style={{
-                    background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                    padding: '10px 16px', flexShrink: 0,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                    <div>
-                        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '2px', textTransform: 'uppercase' }}>
-                            RAISE FINAL INSPECTION CALL
-                        </div>
-                        <div style={{ color: '#fff', fontSize: '16px', fontWeight: 900, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Package size={18} />
-                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '001'}
-                        </div>
-                    </div>
-                    <button onClick={onClose} style={{
-                        background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
-                        width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s'
-                    }}><Plus size={16} style={{ transform: 'rotate(45deg)' }} /></button>
-                </div>
-
-                {/* ── Scrollable Body ── */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+    const content = (
+        <>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* ── Scrollable Body ── */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
 
                     {/* ════ SECTION A ════ */}
                     <div style={{
@@ -382,20 +446,62 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     }}>
                         <SectionHeader step="B" label="Rail Pad Type & Granular Batch Selection" color="#7c3aed" />
                         <div style={{ paddingLeft: '8px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '10px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>RAIL PAD TYPE <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select value={railPadType} onChange={e => setRailPadType(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', background: '#fff', fontSize: '12px', outline: 'none' }}>
+                                    <select value={railPadType} onChange={e => handleRailPadTypeChange(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', background: '#fff', fontSize: '12px', outline: 'none' }}>
                                         <option value="" disabled>Select Rail Pad Type</option>
                                         {RAIL_PAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Select UoM</label>
-                                    <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '6px', padding: '2px', gap: '2px' }}>
-                                        {UOM_OPTIONS.map(opt => (
-                                            <button key={opt} onClick={() => setUom(opt)} style={{ flex: 1, height: '28px', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: 800, cursor: 'pointer', background: uom === opt ? '#fff' : 'transparent', boxShadow: uom === opt ? '0 1px 2px rgba(0,0,0,0.05)' : 'none', color: uom === opt ? '#0f172a' : '#64748b', transition: 'all 0.1s' }}>{opt}</button>
-                                        ))}
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Drawing No. <span style={{ color: '#ef4444' }}>*</span></label>
+                                    {DRAWING_MAPPING[railPadType] && DRAWING_MAPPING[railPadType].length > 0 ? (
+                                        <select value={drawingNo} onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', background: '#fff', fontSize: '12px', outline: 'none' }} disabled={!railPadType}>
+                                            <option value="" disabled>Select Drawing</option>
+                                            {DRAWING_MAPPING[railPadType].map(d => <option key={d} value={d}>{d}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input type="text" value={drawingNo} onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }} placeholder="Enter drawing no." style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', fontSize: '12px', outline: 'none' }} disabled={!railPadType} />
+                                    )}
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Process ICs <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px', maxHeight: '58px', overflowY: 'auto', background: '#fff', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        {loadingProcessCalls ? (
+                                            <span style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 4px' }}>Loading...</span>
+                                        ) : processCalls.length === 0 ? (
+                                            <span style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 4px' }}>No Process ICs</span>
+                                        ) : (
+                                            processCalls.map(c => {
+                                                const isChecked = selectedProcessIcs.includes(c.callNo);
+                                                return (
+                                                    <label key={c.callNo} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px', cursor: 'pointer', borderRadius: '4px', background: isChecked ? '#f1f5f9' : 'transparent', margin: 0 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedProcessIcs(prev => [...prev, c.callNo]);
+                                                                } else {
+                                                                    setSelectedProcessIcs(prev => prev.filter(id => id !== c.callNo));
+                                                                }
+                                                            }}
+                                                            style={{ cursor: 'pointer', margin: 0, width: '13px', height: '13px' }}
+                                                        />
+                                                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#1e293b' }}>
+                                                            {c.callNo} ({c.totalQty} Nos.)
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Unit of Measurement</label>
+                                    <div style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#64748b', background: '#f8fafc', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+                                        {uom}
                                     </div>
                                 </div>
                                 <div>
@@ -720,6 +826,38 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     background: #94a3b8;
                 }
             `}</style>
+        </>
+    );
+
+    if (isWrapped) return content;
+
+    return createPortal(
+        <div style={overlayStyle}>
+            <div style={modalStyle}>
+                {/* ── Header ── */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
+                    padding: '10px 16px', flexShrink: 0,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                    <div>
+                        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '2px', textTransform: 'uppercase' }}>
+                            RAISE FINAL INSPECTION CALL
+                        </div>
+                        <div style={{ color: '#fff', fontSize: '16px', fontWeight: 900, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Package size={18} />
+                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '001'}
+                        </div>
+                    </div>
+                    <button onClick={onClose} style={{
+                        background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+                        width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}><Plus size={16} style={{ transform: 'rotate(45deg)' }} /></button>
+                </div>
+                {content}
+            </div>
         </div>,
         document.body
     );

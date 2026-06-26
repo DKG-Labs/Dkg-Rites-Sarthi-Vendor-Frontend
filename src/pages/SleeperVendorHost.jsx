@@ -21,7 +21,7 @@ const SleeperVendorHost = () => {
     const isDevelopment = process.env.NODE_ENV === 'development';
     const vendorCode = localStorage.getItem('vendorCode') || '';
     const sleeperVendorUrl = isDevelopment
-        ? `http://localhost:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`
+        ? `http://${window.location.hostname}:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`
         : `/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`;
 
     return (

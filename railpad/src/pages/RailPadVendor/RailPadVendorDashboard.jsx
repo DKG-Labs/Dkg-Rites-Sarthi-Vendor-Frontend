@@ -5,6 +5,7 @@ import InventoryManagementDashboard from './InventoryManagement/InventoryManagem
 import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDeclarationDashboard';
 import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
 import RequestedCallsDashboard from './RequestedCalls/RequestedCallsDashboard';
+import CompletedCallsDashboard from './CompletedCalls/CompletedCallsDashboard';
 import inspectionCallService from '../../services/inspectionCallService';
 
 const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
@@ -12,6 +13,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
         return localStorage.getItem('railpad_selectedModule') || 'po-assigned';
     });
     const [requestedCallsCount, setRequestedCallsCount] = useState(0);
+    const [completedCallsCount, setCompletedCallsCount] = useState(0);
 
     const vendorName = localStorage.getItem('railpad_vendorName') || 'RailPad Vendor';
     const plantName = selectedPlant?.plantName || localStorage.getItem('railpad_selectedPlantName');
@@ -23,15 +25,23 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
     }, [selectedModule]);
 
     useEffect(() => {
-        fetchCounts();
-    }, []);
+        if (plantId) {
+            fetchCounts();
+        }
+    }, [plantId]);
 
     const fetchCounts = async () => {
         try {
-            const vendorCode = localStorage.getItem('railpad_vendorCode');
-            if (vendorCode) {
-                const calls = await inspectionCallService.getByVendor(vendorCode);
-                setRequestedCallsCount(Array.isArray(calls) ? calls.length : 0);
+            if (plantId) {
+                // Use paginated API with size=1 to efficiently get the total count without fetching all data
+                // Run in parallel for maximum speed
+                const [pendingData, completedData] = await Promise.all([
+                    inspectionCallService.getPaginatedByPlant(plantId, 0, 1, 'pending'),
+                    inspectionCallService.getCompletedPaginatedByPlant(plantId, 0, 1)
+                ]);
+                
+                setRequestedCallsCount(pendingData?.totalElements || 0);
+                setCompletedCallsCount(completedData?.totalElements || 0);
             }
         } catch (err) {
             console.error("Error fetching module counts:", err);
@@ -41,7 +51,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
         { id: 'requested-calls', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: requestedCallsCount },
-        { id: 'verified-locked', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', icon: '🔒' },
+        { id: 'verified-locked', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: completedCallsCount, icon: '🔒' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
@@ -69,6 +79,8 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
                 return <PoAssignedDashboard {...contextProps} />;
             case 'requested-calls':
                 return <RequestedCallsDashboard {...contextProps} />;
+            case 'verified-locked':
+                return <CompletedCallsDashboard {...contextProps} />;
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
