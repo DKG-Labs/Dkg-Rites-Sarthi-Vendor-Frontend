@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import InventoryForm from './InventoryForm';
 import InventoryUsedForm from './InventoryUsedForm';
 import InventoryRegister from './InventoryRegister';
+import HistoryModal from './HistoryModal';
+import Notification from '../../../components/common/Notification';
 import { apiService } from '../../../services/api';
 
 const InventoryDetail = ({ material, onBack }) => {
@@ -18,6 +20,15 @@ const InventoryDetail = ({ material, onBack }) => {
     const [mixDesigns, setMixDesigns] = useState([]);
     const [showUsedForm, setShowUsedForm] = useState(false);
     const [editingUsedEntry, setEditingUsedEntry] = useState(null);
+    const [historyEntryId, setHistoryEntryId] = useState(null);
+    const [notification, setNotification] = useState({ message: '', type: '' });
+    const [usedPage, setUsedPage] = useState(0);
+    const [usedTotalPages, setUsedTotalPages] = useState(0);
+    const pageSize = 10;
+
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+    };
 
     const fetchEntries = async () => {
         setLoading(true);
@@ -66,52 +77,20 @@ const InventoryDetail = ({ material, onBack }) => {
             }
             setEntries(data || []);
 
-            // Load RM Used from local storage
-            const savedUsed = localStorage.getItem(`inventory_used_${material.id}`);
-            if (savedUsed) {
-                setUsedEntries(JSON.parse(savedUsed));
-            } else {
-                // Seed initial verified used entries if empty
-                let initialUsed = [];
-                if (material.id === 'hts-wire') {
-                    initialUsed = [{
-                        id: 'USED-HTS-INIT-1',
-                        date: '2026-06-14',
-                        rawMaterial: 'HTS wire',
-                        subType: '9.5mm',
-                        usedFor: 'Manufacturing of Sleepers',
-                        sleepersMade: 120,
-                        estimatedQty: 1110,
-                        qty: 1085,
-                        status: 'Completed'
-                    }];
-                } else if (material.id === 'cement') {
-                    initialUsed = [{
-                        id: 'USED-CEM-INIT-1',
-                        date: '2026-06-14',
-                        rawMaterial: 'Cement',
-                        subType: 'OPC 53',
-                        usedFor: 'Manufacturing of Sleepers',
-                        sleepersMade: 120,
-                        estimatedQty: 4992,
-                        qty: 5000,
-                        status: 'Completed'
-                    }];
-                } else if (material.id === 'aggregates') {
-                    initialUsed = [{
-                        id: 'USED-AGG-INIT-1',
-                        date: '2026-06-14',
-                        rawMaterial: 'Aggregates',
-                        subType: 'CA1',
-                        usedFor: 'Manufacturing of Sleepers',
-                        sleepersMade: 120,
-                        estimatedQty: 6240,
-                        qty: 6200,
-                        status: 'Completed'
-                    }];
+            // Load RM Used from API
+            try {
+                if (currentPlantId) {
+                    const consumedData = await apiService.getRmConsumptionsByMaterial(currentPlantId, material.name, usedPage, pageSize);
+                    setUsedEntries(consumedData.responseData || []);
+                    setUsedTotalPages(consumedData.totalPages || 0);
+                } else {
+                    setUsedEntries([]);
+                    setUsedTotalPages(0);
                 }
-                setUsedEntries(initialUsed);
-                localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(initialUsed));
+            } catch (err) {
+                console.error('Failed to fetch RM Consumptions:', err);
+                setUsedEntries([]);
+                setUsedTotalPages(0);
             }
 
             // Fetch production declarations and mix designs for estimations
@@ -131,7 +110,8 @@ const InventoryDetail = ({ material, onBack }) => {
 
     useEffect(() => {
         fetchEntries();
-    }, [material.id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [material, activeSection, usedPage]);
 
     const getMockEntries = (type) => {
         const common = { status: 'Pending for verification', dateOfReceipt: '2026-02-12' };
@@ -267,35 +247,69 @@ const InventoryDetail = ({ material, onBack }) => {
     };
 
     // RM Used logic handlers
-    const handleUsedFormSubmit = (data) => {
-        let updated;
-        if (usedEntries.some(e => e.id === data.id)) {
-            updated = usedEntries.map(e => e.id === data.id ? data : e);
-        } else {
-            updated = [...usedEntries, data];
-        }
-        setUsedEntries(updated);
-        localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
-        setShowUsedForm(false);
-        setEditingUsedEntry(null);
-    };
-
-    const handleUsedDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this consumption entry?')) {
-            const updated = usedEntries.filter(e => e.id !== id);
-            setUsedEntries(updated);
-            localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
+    const handleUsedFormSubmit = async (data) => {
+        try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            data.plantId = selectedPlant ? selectedPlant.plantId : null;
+            data.vendorCode = (selectedPlant && selectedPlant.vendorCode) ? selectedPlant.vendorCode : (localStorage.getItem('vendorCode') || sessionStorage.getItem('vendorCode'));
+            const currentUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+            if (data.numericId) {
+                data.updatedBy = currentUserId ? parseInt(currentUserId, 10) : null;
+            } else {
+                data.createdBy = currentUserId ? parseInt(currentUserId, 10) : null;
+            }
+            
+            await apiService.saveRmConsumption(data);
             setShowUsedForm(false);
             setEditingUsedEntry(null);
+            showNotification(data.numericId ? 'Consumption entry updated successfully!' : 'Consumption entry saved successfully!', 'success');
+            fetchEntries(); // Refresh the list from the backend
+        } catch (error) {
+            showNotification('Failed to save consumption entry: ' + error.message, 'error');
         }
     };
 
-    const handleSimulateVerifyUsed = (entry) => {
+    const handleUsedDelete = async (id) => {
+        if (window.confirm('Are you sure you want to delete this consumption entry?')) {
+            try {
+                // Determine if it's a numeric ID (backend) or string ID
+                let backendId = id;
+                const entryToDelete = usedEntries.find(e => e.id === id);
+                if (entryToDelete && entryToDelete.numericId) {
+                    backendId = entryToDelete.numericId;
+                } else if (typeof id === 'string' && id.includes('-ID-')) {
+                    backendId = id.split('-ID-')[1];
+                }
+                
+                await apiService.deleteRmConsumption(backendId);
+                setShowUsedForm(false);
+                setEditingUsedEntry(null);
+                showNotification('Consumption record deleted successfully!', 'success');
+                fetchEntries();
+            } catch (error) {
+                showNotification('Failed to delete consumption entry: ' + error.message, 'error');
+            }
+        }
+    };
+
+    const handleSimulateVerifyUsed = async (entry) => {
         if (!window.confirm('Simulate Inspecting Engineer verification for this consumption entry?')) return;
-        const updated = usedEntries.map(e => e.id === entry.id ? { ...e, status: 'Completed' } : e);
-        setUsedEntries(updated);
-        localStorage.setItem(`inventory_used_${material.id}`, JSON.stringify(updated));
-        alert('Inspecting Engineer verified this entry! Consumption deducted from register.');
+        try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            const currentUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+            const payload = { 
+                ...entry, 
+                status: 'Completed', 
+                plantId: selectedPlant ? selectedPlant.plantId : null,
+                vendorCode: (selectedPlant && selectedPlant.vendorCode) ? selectedPlant.vendorCode : (localStorage.getItem('vendorCode') || sessionStorage.getItem('vendorCode')),
+                updatedBy: currentUserId ? parseInt(currentUserId, 10) : null
+            };
+            await apiService.saveRmConsumption(payload);
+            showNotification('Inspecting Engineer verified this entry! Consumption deducted from register.', 'success');
+            fetchEntries();
+        } catch (error) {
+            showNotification('Verification failed: ' + error.message, 'error');
+        }
     };
 
     const getStatusLabel = (status) => {
@@ -518,6 +532,8 @@ const InventoryDetail = ({ material, onBack }) => {
 
     return (
         <div className="inventory-detail fade-in">
+            <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} autoClose={true} autoCloseDelay={5000} />
+            
             {/* Page Header */}
             <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <button onClick={onBack} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#64748b' }}>
@@ -722,10 +738,11 @@ const InventoryDetail = ({ material, onBack }) => {
                                 </tbody>
                             </table>
                         ) : (
-                            // RM Used Table
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ background: '#f8fafc' }}>
+                            <>
+                                {/* RM Used Table */}
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8fafc' }}>
                                         <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date of Use</th>
                                         <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Sub Type</th>
                                         <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>RM Used For</th>
@@ -776,11 +793,19 @@ const InventoryDetail = ({ material, onBack }) => {
                                                                 <button onClick={() => handleUsedDelete(entry.id)} style={{ ...actionButtonStyle, color: '#ef4444' }}>
                                                                     Delete
                                                                 </button>
+                                                                <button onClick={() => setHistoryEntryId(entry.id)} style={{ ...actionButtonStyle, color: '#4f46e5' }}>
+                                                                    History
+                                                                </button>
                                                             </>
                                                         ) : (
-                                                            <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={actionButtonStyle}>
-                                                                👁 View
-                                                            </button>
+                                                            <>
+                                                                <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={actionButtonStyle}>
+                                                                    👁 View
+                                                                </button>
+                                                                <button onClick={() => setHistoryEntryId(entry.numericId || entry.id)} style={{ ...actionButtonStyle, color: '#10b981' }}>
+                                                                    History
+                                                                </button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </td>
@@ -789,6 +814,30 @@ const InventoryDetail = ({ material, onBack }) => {
                                     )}
                                 </tbody>
                             </table>
+                                
+                                {/* Pagination Controls */}
+                                {usedTotalPages > 1 && (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '16px', borderTop: '1px solid #e2e8f0' }}>
+                                        <button 
+                                            disabled={usedPage === 0}
+                                            onClick={() => setUsedPage(prev => Math.max(0, prev - 1))}
+                                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: usedPage === 0 ? '#f8fafc' : 'white', cursor: usedPage === 0 ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
+                                        >
+                                            Previous
+                                        </button>
+                                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+                                            Page {usedPage + 1} of {usedTotalPages}
+                                        </span>
+                                        <button 
+                                            disabled={usedPage >= usedTotalPages - 1}
+                                            onClick={() => setUsedPage(prev => Math.min(usedTotalPages - 1, prev + 1))}
+                                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: usedPage >= usedTotalPages - 1 ? '#f8fafc' : 'white', cursor: usedPage >= usedTotalPages - 1 ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -817,6 +866,19 @@ const InventoryDetail = ({ material, onBack }) => {
                     mixDesigns={mixDesigns}
                 />
             )}
+
+            {historyEntryId && (
+                <HistoryModal 
+                    entryId={historyEntryId} 
+                    onClose={() => setHistoryEntryId(null)} 
+                />
+            )}
+
+            <Notification 
+                message={notification.message} 
+                type={notification.type} 
+                onClose={() => setNotification({ message: '', type: '' })} 
+            />
         </div>
     );
 };

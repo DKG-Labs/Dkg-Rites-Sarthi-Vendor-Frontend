@@ -20,9 +20,10 @@ const SleeperVendorHost = () => {
     // In production, it should be in a subfolder /sleeper-vendor/
     const isDevelopment = process.env.NODE_ENV === 'development';
     const vendorCode = localStorage.getItem('vendorCode') || '';
+    const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '';
     const sleeperVendorUrl = isDevelopment
-        ? `http://${window.location.hostname}:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`
-        : `/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}`;
+        ? `http://localhost:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}&userId=${encodeURIComponent(userId)}`
+        : `/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}&userId=${encodeURIComponent(userId)}`;
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden', border: 'none' }}>

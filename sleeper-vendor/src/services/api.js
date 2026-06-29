@@ -1128,5 +1128,65 @@ export const apiService = {
             console.error('API Error (getRlyList):', error);
             return [];
         }
-    }
+    },
+
+    // RM Consumption APIs
+    getRmConsumptions: async (plantId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/rm-consumption/plant/${plantId}`);
+            if (!response.ok) throw new Error('Failed to fetch RM consumptions');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    getRmConsumptionsByMaterial: async (plantId, material, page = 0, size = 10) => {
+        try {
+            const response = await fetch(`${BASE_URL}/rm-consumption/by-plant-material?plantId=${encodeURIComponent(plantId)}&material=${encodeURIComponent(material)}&page=${page}&size=${size}`);
+            if (!response.ok) throw new Error('Failed to fetch RM consumptions by material');
+            const data = await response.json();
+            return data || { responseData: [], totalPages: 0 };
+        } catch (error) {
+            console.error('API Error:', error);
+            return { responseData: [], totalPages: 0 };
+        }
+    },
+
+    deleteRmConsumption: async (id) => {
+        try {
+            const response = await fetch(`${BASE_URL}/rm-consumption/${id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) throw new Error('Failed to delete RM consumption');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
+
+    saveRmConsumption: async (consumptionData) => {
+        try {
+            const isUpdate = consumptionData.numericId != null;
+            const url = isUpdate ? `${BASE_URL}/rm-consumption/${consumptionData.numericId}` : `${BASE_URL}/rm-consumption`;
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify(consumptionData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to save RM consumption');
+            return data.responseData;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+
 };
