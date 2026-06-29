@@ -1143,15 +1143,31 @@ export const apiService = {
         }
     },
 
-    getRmConsumptionsByMaterial: async (plantId, material, page = 0, size = 10) => {
+    getRmConsumptionsByMaterial: async (plantId, material, statuses = [], page = 0, size = 10) => {
         try {
-            const response = await fetch(`${BASE_URL}/rm-consumption/by-plant-material?plantId=${encodeURIComponent(plantId)}&material=${encodeURIComponent(material)}&page=${page}&size=${size}`);
+            let url = `${BASE_URL}/rm-consumption/by-plant-material?plantId=${encodeURIComponent(plantId)}&material=${encodeURIComponent(material)}&page=${page}&size=${size}`;
+            if (statuses && statuses.length > 0) {
+                url += `&statuses=${statuses.join(',')}`;
+            }
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch RM consumptions by material');
             const data = await response.json();
-            return data || { responseData: [], totalPages: 0 };
+            return data || { responseData: [], totalPages: 0, totalItems: 0 };
         } catch (error) {
             console.error('API Error:', error);
-            return { responseData: [], totalPages: 0 };
+            return { responseData: [], totalPages: 0, totalItems: 0 };
+        }
+    },
+
+    getAllVerifiedRmConsumptions: async (plantId, material) => {
+        try {
+            const response = await fetch(`${BASE_URL}/rm-consumption/by-plant-material/all-verified?plantId=${encodeURIComponent(plantId)}&material=${encodeURIComponent(material)}`);
+            if (!response.ok) throw new Error('Failed to fetch all verified RM consumptions');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
         }
     },
 

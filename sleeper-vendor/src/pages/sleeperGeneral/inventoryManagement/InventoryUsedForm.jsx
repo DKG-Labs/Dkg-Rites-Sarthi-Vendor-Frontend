@@ -117,7 +117,11 @@ const InventoryUsedForm = ({
         }));
     };
 
-    const isReadOnly = initialData && (initialData.status === 'Completed' || initialData.status === 'Locked' || initialData.status === 'Verified');
+    // Entry is locked for editing if DB status OR workflowStatus indicates IE verification
+    const isReadOnly = initialData && (
+        initialData.status === 'Completed' || initialData.status === 'Locked' || initialData.status === 'Verified' ||
+        initialData.workflowStatus === 'Completed' || initialData.workflowStatus === 'Verified' || initialData.workflowStatus === 'Locked'
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();

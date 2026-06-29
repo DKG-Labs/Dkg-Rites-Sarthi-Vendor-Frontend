@@ -15,15 +15,23 @@ const InventoryDetail = ({ material, onBack }) => {
 
     // New states for RM Used and Inventory Register
     const [activeSection, setActiveSection] = useState('procured'); // 'procured', 'used', 'register'
-    const [usedEntries, setUsedEntries] = useState([]);
+    const [unverifiedUsed, setUnverifiedUsed] = useState([]);
+    const [verifiedUsed, setVerifiedUsed] = useState([]);
+    const [allVerifiedUsed, setAllVerifiedUsed] = useState([]); // For Ledger and cumulative stats
+    const [unverifiedTotal, setUnverifiedTotal] = useState(0);
+    const [verifiedTotal, setVerifiedTotal] = useState(0);
+    
     const [productionDeclarations, setProductionDeclarations] = useState([]);
     const [mixDesigns, setMixDesigns] = useState([]);
     const [showUsedForm, setShowUsedForm] = useState(false);
     const [editingUsedEntry, setEditingUsedEntry] = useState(null);
     const [historyEntryId, setHistoryEntryId] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
-    const [usedPage, setUsedPage] = useState(0);
-    const [usedTotalPages, setUsedTotalPages] = useState(0);
+    
+    const [unverifiedPage, setUnverifiedPage] = useState(0);
+    const [verifiedPage, setVerifiedPage] = useState(0);
+    const [unverifiedTotalPages, setUnverifiedTotalPages] = useState(0);
+    const [verifiedTotalPages, setVerifiedTotalPages] = useState(0);
     const pageSize = 10;
 
     const showNotification = (message, type = 'success') => {
@@ -77,20 +85,42 @@ const InventoryDetail = ({ material, onBack }) => {
             }
             setEntries(data || []);
 
-            // Load RM Used from API
-            try {
-                if (currentPlantId) {
-                    const consumedData = await apiService.getRmConsumptionsByMaterial(currentPlantId, material.name, usedPage, pageSize);
-                    setUsedEntries(consumedData.responseData || []);
-                    setUsedTotalPages(consumedData.totalPages || 0);
-                } else {
-                    setUsedEntries([]);
-                    setUsedTotalPages(0);
+            // Load RM Used from API — fetch ALL records, categorize client-side by workflowStatus
+            if (currentPlantId) {
+                try {
+                    const [pageData, allData] = await Promise.all([
+                        apiService.getRmConsumptionsByMaterial(currentPlantId, material.name, [], unverifiedPage, 100),
+                        apiService.getAllVerifiedRmConsumptions(currentPlantId, material.name)
+                    ]);
+                    
+                    const allRecords = pageData.responseData || [];
+                    
+                    // A record is "verified" if its workflowStatus is Completed/Verified/Locked,
+                    // regardless of what the DB status field says.
+                    const isRecordVerified = (rec) => {
+                        const wf = rec.workflowStatus;
+                        return wf === 'Completed' || wf === 'Verified' || wf === 'Locked';
+                    };
+
+                    const unverified = allRecords.filter(r => !isRecordVerified(r));
+                    const verified = allRecords.filter(r => isRecordVerified(r));
+
+                    setUnverifiedUsed(unverified.slice(unverifiedPage * pageSize, (unverifiedPage + 1) * pageSize));
+                    setUnverifiedTotalPages(Math.ceil(unverified.length / pageSize) || 1);
+                    setUnverifiedTotal(unverified.length);
+
+                    setVerifiedUsed(verified.slice(verifiedPage * pageSize, (verifiedPage + 1) * pageSize));
+                    setVerifiedTotalPages(Math.ceil(verified.length / pageSize) || 1);
+                    setVerifiedTotal(verified.length);
+
+                    // allVerifiedUsed for ledger stats — use verified records from current page + allVerified from API
+                    setAllVerifiedUsed(allData && allData.length > 0 ? allData : verified);
+                } catch (err) {
+                    console.error('Failed to fetch RM Consumptions:', err);
+                    setUnverifiedUsed([]); setVerifiedUsed([]); setAllVerifiedUsed([]);
                 }
-            } catch (err) {
-                console.error('Failed to fetch RM Consumptions:', err);
-                setUsedEntries([]);
-                setUsedTotalPages(0);
+            } else {
+                setUnverifiedUsed([]); setVerifiedUsed([]); setAllVerifiedUsed([]);
             }
 
             // Fetch production declarations and mix designs for estimations
@@ -108,10 +138,11 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
+    // Re-fetch when pagination states change
     useEffect(() => {
         fetchEntries();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [material, activeSection, usedPage]);
+    }, [material.id, unverifiedPage, verifiedPage]);
 
     const getMockEntries = (type) => {
         const common = { status: 'Pending for verification', dateOfReceipt: '2026-02-12' };
@@ -145,9 +176,16 @@ const InventoryDetail = ({ material, onBack }) => {
         }
     };
 
-    // Helper checking verified status
+    // Helper checking verified status on procured entries (uses DB status field)
     const isVerifiedStatus = (status) => {
         return status === 'Completed' || status === 'Locked' || status === 'Verified';
+    };
+
+    // Helper for RM Used: also check workflowStatus for IE-verified records
+    const isUsedEntryVerified = (entry) => {
+        const wf = entry.workflowStatus;
+        if (wf === 'Completed' || wf === 'Verified' || wf === 'Locked') return true;
+        return isVerifiedStatus(entry.status);
     };
 
     // Calculate official register stats (verified entries only)
@@ -156,8 +194,7 @@ const InventoryDetail = ({ material, onBack }) => {
             .filter(e => isVerifiedStatus(e.status))
             .reduce((acc, curr) => acc + Number(curr.totalQtyReceived || curr.totalQuantity || curr.qty || 0), 0),
         
-        used: usedEntries
-            .filter(e => isVerifiedStatus(e.status))
+        used: allVerifiedUsed
             .reduce((acc, curr) => acc + Number(curr.qty || 0), 0),
         
         get balance() { return this.procured - this.used; }
@@ -168,9 +205,7 @@ const InventoryDetail = ({ material, onBack }) => {
     const verifiedEntries = entries.filter(e => isVerifiedStatus(e.status));
     const filteredProcured = activeTab === 'verified' ? verifiedEntries : unverifiedEntries;
 
-    // Used categorization
-    const unverifiedUsed = usedEntries.filter(e => !isVerifiedStatus(e.status));
-    const verifiedUsed = usedEntries.filter(e => isVerifiedStatus(e.status));
+    // Used categorization (directly from server-paginated state)
     const filteredUsed = activeTab === 'verified' ? verifiedUsed : unverifiedUsed;
 
     const handleFormSubmit = () => {
@@ -602,7 +637,7 @@ const InventoryDetail = ({ material, onBack }) => {
                 <InventoryRegister 
                     material={material}
                     procuredEntries={entries}
-                    usedEntries={usedEntries}
+                    usedEntries={allVerifiedUsed}
                 />
             ) : (
                 <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
@@ -665,7 +700,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
                                 <span style={{ color: '#374151', fontWeight: '700', fontSize: '13px' }}>Pending for Verification</span>
                                 <span style={{ background: '#fffbeb', color: '#b45309', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
-                                    {activeSection === 'procured' ? unverifiedEntries.length : unverifiedUsed.length}
+                                    {activeSection === 'procured' ? unverifiedEntries.length : unverifiedTotal}
                                 </span>
                             </button>
 
@@ -688,7 +723,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
                                 <span style={{ color: '#374151', fontWeight: '700', fontSize: '13px' }}>Verified</span>
                                 <span style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
-                                    {activeSection === 'procured' ? verifiedEntries.length : verifiedUsed.length}
+                                    {activeSection === 'procured' ? verifiedEntries.length : verifiedTotal}
                                 </span>
                             </button>
                         </div>
@@ -776,16 +811,28 @@ const InventoryDetail = ({ material, onBack }) => {
                                                 </td>
                                                 <td style={{ padding: '16px 24px', fontSize: '13px' }}>
                                                     <span style={{ 
-                                                        background: isVerifiedStatus(entry.status) ? '#ecfdf5' : '#fffbeb', 
-                                                        color: isVerifiedStatus(entry.status) ? '#047857' : '#d97706', 
+                                                        background: isUsedEntryVerified(entry) ? '#ecfdf5' : '#fffbeb', 
+                                                        color: isUsedEntryVerified(entry) ? '#047857' : '#d97706', 
                                                         padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' 
                                                     }}>
-                                                        {getStatusLabel(entry.status)}
+                                                        {entry.workflowRemarks
+                                                            ? entry.workflowRemarks
+                                                            : getStatusLabel(entry.status)}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '16px 24px' }}>
                                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                                                        {activeTab === 'unverified' ? (
+                                                        {isUsedEntryVerified(entry) ? (
+                                                            <>
+                                                                <span title="Verified & Locked by IE" style={{ fontSize: '14px' }}>🔒</span>
+                                                                <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={actionButtonStyle}>
+                                                                    👁 View
+                                                                </button>
+                                                                <button onClick={() => setHistoryEntryId(entry.numericId || entry.id)} style={{ ...actionButtonStyle, color: '#10b981' }}>
+                                                                    History
+                                                                </button>
+                                                            </>
+                                                        ) : (
                                                             <>
                                                                 <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={{ ...actionButtonStyle, color: '#0284c7' }}>
                                                                     Modify
@@ -794,15 +841,6 @@ const InventoryDetail = ({ material, onBack }) => {
                                                                     Delete
                                                                 </button>
                                                                 <button onClick={() => setHistoryEntryId(entry.id)} style={{ ...actionButtonStyle, color: '#4f46e5' }}>
-                                                                    History
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <button onClick={() => { setEditingUsedEntry(entry); setShowUsedForm(true); }} style={actionButtonStyle}>
-                                                                    👁 View
-                                                                </button>
-                                                                <button onClick={() => setHistoryEntryId(entry.numericId || entry.id)} style={{ ...actionButtonStyle, color: '#10b981' }}>
                                                                     History
                                                                 </button>
                                                             </>
@@ -815,28 +853,45 @@ const InventoryDetail = ({ material, onBack }) => {
                                 </tbody>
                             </table>
                                 
-                                {/* Pagination Controls */}
-                                {usedTotalPages > 1 && (
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '16px', borderTop: '1px solid #e2e8f0' }}>
-                                        <button 
-                                            disabled={usedPage === 0}
-                                            onClick={() => setUsedPage(prev => Math.max(0, prev - 1))}
-                                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: usedPage === 0 ? '#f8fafc' : 'white', cursor: usedPage === 0 ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
-                                        >
-                                            Previous
-                                        </button>
-                                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
-                                            Page {usedPage + 1} of {usedTotalPages}
-                                        </span>
-                                        <button 
-                                            disabled={usedPage >= usedTotalPages - 1}
-                                            onClick={() => setUsedPage(prev => Math.min(usedTotalPages - 1, prev + 1))}
-                                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: usedPage >= usedTotalPages - 1 ? '#f8fafc' : 'white', cursor: usedPage >= usedTotalPages - 1 ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                )}
+                        {/* Pagination for RM Used */}
+                        {activeSection === 'used' && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
+                                    Showing {activeTab === 'verified' ? verifiedTotal : unverifiedTotal} items
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <button 
+                                        onClick={() => {
+                                            if (activeTab === 'verified') {
+                                                setVerifiedPage(Math.max(0, verifiedPage - 1));
+                                            } else {
+                                                setUnverifiedPage(Math.max(0, unverifiedPage - 1));
+                                            }
+                                        }}
+                                        disabled={activeTab === 'verified' ? verifiedPage === 0 : unverifiedPage === 0}
+                                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: (activeTab === 'verified' ? verifiedPage === 0 : unverifiedPage === 0) ? '#f8fafc' : 'white', cursor: (activeTab === 'verified' ? verifiedPage === 0 : unverifiedPage === 0) ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
+                                    >
+                                        Previous
+                                    </button>
+                                    <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600', margin: '0 8px' }}>
+                                        Page {(activeTab === 'verified' ? verifiedPage : unverifiedPage) + 1} of {Math.max(1, activeTab === 'verified' ? verifiedTotalPages : unverifiedTotalPages)}
+                                    </span>
+                                    <button 
+                                        onClick={() => {
+                                            if (activeTab === 'verified') {
+                                                setVerifiedPage(Math.min(verifiedTotalPages - 1, verifiedPage + 1));
+                                            } else {
+                                                setUnverifiedPage(Math.min(unverifiedTotalPages - 1, unverifiedPage + 1));
+                                            }
+                                        }}
+                                        disabled={activeTab === 'verified' ? verifiedPage >= verifiedTotalPages - 1 : unverifiedPage >= unverifiedTotalPages - 1}
+                                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: (activeTab === 'verified' ? verifiedPage >= verifiedTotalPages - 1 : unverifiedPage >= unverifiedTotalPages - 1) ? '#f8fafc' : 'white', cursor: (activeTab === 'verified' ? verifiedPage >= verifiedTotalPages - 1 : unverifiedPage >= unverifiedTotalPages - 1) ? 'not-allowed' : 'pointer', color: '#475569', fontWeight: '600', fontSize: '13px' }}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                             </>
                         )}
                     </div>
