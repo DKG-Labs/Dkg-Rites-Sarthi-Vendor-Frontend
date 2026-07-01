@@ -65,45 +65,56 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout, selectedPlant
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        {selectedPlant && (
-                            <div style={{
-                                background: '#f0fdf4',
-                                color: '#166534',
-                                padding: '6px 14px',
-                                borderRadius: '8px',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                border: '1px solid #bbf7d0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                📍 {selectedPlant.plantName} ({selectedPlant.plantId})
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
+                        <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px', borderRadius: '50px' }}>
+                            <div className="user-avatar" style={{
+                                width: '38px',
+                                height: '38px',
                                 borderRadius: '50%',
-                                background: '#338691',
+                                background: '#0f172a',
                                 color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '14px',
+                                fontSize: '15px',
                                 fontWeight: '700'
-                            }}>{vendorName.charAt(0)}</div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{vendorName}</span>
-                                <button
-                                    onClick={onLogout}
-                                    style={{ padding: '0', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    Logout
-                                </button>
+                            }}>{vendorName.substring(0, 2).toUpperCase()}</div>
+                            <div className="user-meta" style={{ display: 'flex', flexDirection: 'column', paddingRight: '8px' }}>
+                                <div className="user-role" style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', lineHeight: '1.2' }} title={vendorName}>
+                                    {vendorName}
+                                </div>
+                                <div className="user-email" style={{ fontSize: '12px', color: '#64748b', fontWeight: '500', marginTop: '2px' }}>
+                                    {selectedPlant ? `Railpad Vendor • Plant ID : ${selectedPlant.plantId}` : `Railpad Vendor • ID: ${vendorCode}`}
+                                </div>
                             </div>
                         </div>
+
+                        {/* Separator */}
+                        <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0', margin: '0 4px' }}></div>
+
+                        <button
+                            className="btn btn-sm btn-outline logout-btn"
+                            onClick={onLogout}
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '6px',
+                                borderRadius: '8px',
+                                fontWeight: '600',
+                                padding: '8px 16px',
+                                border: '1px solid #e2e8f0',
+                                background: '#ffffff',
+                                color: '#475569',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#475569' }}>
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Logout
+                        </button>
                     </div>
                 </header>
 

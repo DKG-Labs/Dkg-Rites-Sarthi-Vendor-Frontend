@@ -13,6 +13,7 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
 
     const [vendorCode, setVendorCode] = useState(() => sessionStorage.getItem('vendorCode'));
     const [userId, setUserId] = useState(() => sessionStorage.getItem('userId'));
+    const [vendorName, setVendorName] = useState(() => localStorage.getItem('vendorName') || 'Sleeper Vendor');
     const [selectedPlant, setSelectedPlant] = useState(() => {
         const saved = localStorage.getItem('selectedPlant');
         return saved ? JSON.parse(saved) : null;
@@ -54,6 +55,10 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                     if (data.responseData.userName && data.responseData.userName !== String(data.responseData.userId)) {
                         setVendorCode(data.responseData.userName);
                         sessionStorage.setItem('vendorCode', data.responseData.userName);
+                    }
+                    if (data.responseData.vendorName) {
+                        setVendorName(data.responseData.vendorName);
+                        localStorage.setItem('vendorName', data.responseData.vendorName);
                     }
                     
                     // Clean up URL parameters after successful silent login to prevent re-triggering
@@ -146,63 +151,56 @@ const MainLayout = ({ children, activeItem, onItemClick, onLogout }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {userId && (
-                                <div className="user-id-display" style={{
-                                    background: '#ffffff',
-                                    color: '#21808d',
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    fontSize: 'var(--fs-xs)',
-                                    fontWeight: '600',
-                                    border: '1px solid rgba(33, 128, 141, 0.2)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                }}>
-                                    <span style={{ opacity: 0.7 }}>👤</span>
-                                    User ID: {userId}
-                                </div>
-                            )}
-                            {selectedPlant && (
-                                <div className="selected-plant-display" style={{
-                                    background: '#f0f9fa',
-                                    color: '#21808d',
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    fontSize: 'var(--fs-xs)',
-                                    fontWeight: '600',
-                                    border: '1px solid rgba(33, 128, 141, 0.2)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}>
-                                    <span style={{ opacity: 0.7 }}>📍</span>
-                                    {selectedPlant.plantName} - {selectedPlant.plantId} ({vendorCode})
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
+                        <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px', borderRadius: '50px' }}>
+                            <div className="user-avatar" style={{
+                                width: '38px',
+                                height: '38px',
                                 borderRadius: '50%',
-                                background: '#338691',
+                                background: '#0f172a',
                                 color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: 'var(--fs-sm)',
-                                fontWeight: '600'
-                            }}>V</div>
-                            <button
-                                onClick={onLogout}
-                                style={{ padding: '0', background: 'transparent', border: 'none', color: '#475467', fontSize: 'var(--fs-sm)', fontWeight: '500', cursor: 'pointer' }}
-                            >
-                                Logout
-                            </button>
+                                fontSize: '15px',
+                                fontWeight: '700'
+                            }}>{vendorName.substring(0, 2).toUpperCase()}</div>
+                            <div className="user-meta" style={{ display: 'flex', flexDirection: 'column', paddingRight: '8px' }}>
+                                <div className="user-role" style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', lineHeight: '1.2' }} title={vendorName}>
+                                    {vendorName}
+                                </div>
+                                <div className="user-email" style={{ fontSize: '12px', color: '#64748b', fontWeight: '500', marginTop: '2px' }}>
+                                    {selectedPlant ? `Sleeper Vendor • Plant ID : ${selectedPlant.plantId}` : `Sleeper Vendor • ID: ${vendorCode}`}
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Separator */}
+                        <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0', margin: '0 4px' }}></div>
+
+                        <button
+                            className="btn btn-sm btn-outline logout-btn"
+                            onClick={onLogout}
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '6px',
+                                borderRadius: '8px',
+                                fontWeight: '600',
+                                padding: '8px 16px',
+                                border: '1px solid #e2e8f0',
+                                background: '#ffffff',
+                                color: '#475569',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#475569' }}>
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Logout
+                        </button>
                     </div>
                 </header>
 

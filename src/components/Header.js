@@ -15,7 +15,7 @@ const Header = ({
     window.location.href = '/login';
   };
 
-  const isVendor = activeRole === 'Vendor' || activeRole === 'Sleeper Vendor' || (user?.roleName && (user.roleName.includes('Vendor') || user.roleName.includes('Sleeper Vendor')));
+  const isVendor = activeRole?.includes('Vendor') || (user?.roleName && (Array.isArray(user.roleName) ? user.roleName.some(r => r.includes('Vendor')) : user.roleName.includes('Vendor')));
   
   let displayName = 'Inspection Engineer';
   let displayRole = activeRole || 'Inspection Engineer';
@@ -30,6 +30,8 @@ const Header = ({
 
   const displayEmail = isVendor ? (user?.userName || userEmail) : userEmail;
   const avatarText = isVendor ? (user?.vendorName ? user.vendorName.substring(0, 2).toUpperCase() : 'V') : 'IE';
+  const isSleeperOrRailpad = activeRole === 'Sleeper Vendor' || activeRole === 'Rail Vendor';
+  const idLabel = isSleeperOrRailpad ? 'Plant ID' : 'ID';
 
 
   return (
@@ -65,7 +67,7 @@ const Header = ({
             <div className="user-role" title={displayName}>
               {displayName}
             </div>
-            <div className="user-email">{isVendor ? `${displayRole} • ID: ${displayEmail}` : `IE • ID: ${displayEmail}`}</div>
+            <div className="user-email">{isVendor ? `${displayRole} • ${idLabel}: ${displayEmail}` : `IE • ID: ${displayEmail}`}</div>
           </div>
         </div>
 
