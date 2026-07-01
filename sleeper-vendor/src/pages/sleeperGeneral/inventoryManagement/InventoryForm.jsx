@@ -386,7 +386,7 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
         setIsSubmitting(true);
 
         const userId = sessionStorage.getItem('userId') || 0;
-        const vendorCode = sessionStorage.getItem('vendorCode');
+        const vendorCode = localStorage.getItem('vendorCode') || sessionStorage.getItem('vendorCode');
         const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
         const plantId = selectedPlant ? selectedPlant.plantId : '';
 

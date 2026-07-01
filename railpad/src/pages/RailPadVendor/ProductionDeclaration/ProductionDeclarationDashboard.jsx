@@ -13,6 +13,15 @@ const PRODUCT_TYPES = [
     "10.00mm NCRGRSP"
 ];
 
+const DRAWING_NUMBERS = {
+    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
+    "10.00mm GRSP": [], 
+    "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
+    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8747"],
+    "6.00mm NCRGRSP": ["1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
+    "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
+};
+
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
 
 const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled }) => {
@@ -315,6 +324,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             {
                 id: Date.now(),
                 productType: '',
+                drawingNo: '',
                 mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }
@@ -455,6 +465,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             productBlocks: [...prev.productBlocks, {
                 id: Date.now(),
                 productType: '',
+                drawingNo: '',
                 mode: 'Nos',
                 batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
             }]
@@ -570,6 +581,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             productBlocks: (decl.products || []).map(p => ({
                 id: p.id,
                 productType: p.productType,
+                drawingNo: p.drawingNo || '',
                 mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
                 batches: (p.batches || []).map(b => ({
                     id: b.id,
@@ -666,6 +678,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                 updatedBy: user.userId,
                 products: formData.productBlocks.map(block => ({
                     productType: block.productType,
+                    drawingNo: block.drawingNo,
                     measurementMode: block.mode,
                     batches: block.batches.map(batch => ({
                         batchNo: batch.batchNo,
@@ -986,7 +999,9 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                 <td>
                                     {decl.products?.map((p, i) => (
                                         <div key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>
-                                            <span style={{ fontWeight: '700' }}>{p.productType}:</span> {p.batches?.reduce((sum, b) => sum + (b.quantity || 0), 0).toLocaleString()} {p.measurementMode}
+                                            <span style={{ fontWeight: '700' }}>{p.productType}</span>
+                                            {p.drawingNo ? <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '4px' }}>({p.drawingNo})</span> : ''}
+                                            <span style={{ fontWeight: '700' }}>:</span> {p.batches?.reduce((sum, b) => sum + (b.quantity || 0), 0).toLocaleString()} {p.measurementMode}
                                         </div>
                                     ))}
                                 </td>
@@ -1090,12 +1105,22 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                         )}
                                         
                                         <div className="product-block-header">
-                                            <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: 0, flex: 1 }}>
+                                            <div className="form-grid" style={{ gridTemplateColumns: '2fr 2fr 1.5fr', gap: '24px', marginBottom: 0, flex: 1 }}>
                                                 <div className="form-group">
                                                     <label className="form-label">Product Type</label>
-                                                    <select className="form-select" value={block.productType} onChange={(e) => handleBlockChange(block.id, 'productType', e.target.value)} required disabled={isReadOnly}>
+                                                    <select className="form-select" value={block.productType} onChange={(e) => {
+                                                        handleBlockChange(block.id, 'productType', e.target.value);
+                                                        handleBlockChange(block.id, 'drawingNo', '');
+                                                    }} required disabled={isReadOnly}>
                                                         <option value="">Select Product</option>
                                                         {PRODUCT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label className="form-label">Drawing No</label>
+                                                    <select className="form-select" value={block.drawingNo} onChange={(e) => handleBlockChange(block.id, 'drawingNo', e.target.value)} disabled={isReadOnly || !block.productType}>
+                                                        <option value="">Select Drawing</option>
+                                                        {(DRAWING_NUMBERS[block.productType] || []).map(d => <option key={d} value={d}>{d}</option>)}
                                                     </select>
                                                 </div>
                                                 <div className="form-group">

@@ -117,9 +117,13 @@ const InventoryUsedForm = ({
         }));
     };
 
-    const isReadOnly = initialData && (initialData.status === 'Completed' || initialData.status === 'Locked' || initialData.status === 'Verified');
+    // Entry is locked for editing if DB status OR workflowStatus indicates IE verification
+    const isReadOnly = initialData && (
+        initialData.status === 'Completed' || initialData.status === 'Locked' || initialData.status === 'Verified' ||
+        initialData.workflowStatus === 'Completed' || initialData.workflowStatus === 'Verified' || initialData.workflowStatus === 'Locked'
+    );
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -130,8 +134,13 @@ const InventoryUsedForm = ({
             qty: parseFloat(formData.qty) || 0
         };
         
-        onSubmit(payload);
-        setIsSubmitting(false);
+        try {
+            await onSubmit(payload);
+        } finally {
+            if (document.body.contains(e.target)) {
+                setIsSubmitting(false);
+            }
+        }
     };
 
     const handleDeleteClick = () => {
@@ -250,7 +259,7 @@ const InventoryUsedForm = ({
                                         Delete Entry
                                     </button>
                                 )}
-                                <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#42818c', color: 'white', fontWeight: '700', cursor: 'pointer' }}>
+                                <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#42818c', color: 'white', fontWeight: '700', cursor: isSubmitting ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
                                     {isSubmitting ? 'Saving...' : (initialData ? 'Update Entry' : 'Save Entry')}
                                 </button>
                             </>
