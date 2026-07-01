@@ -39,7 +39,7 @@ const RailpadHost = () => {
     };
 
     const railpadUrl = isDevelopment
-        ? `http://localhost:5174/railpad/?${buildParams()}`
+        ? `http://${window.location.hostname}:5175/railpad/?${buildParams()}`
         : `/railpad/index.html?${buildParams()}`;
 
     return (
