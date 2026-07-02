@@ -1592,6 +1592,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 <label style={labelStyle}>Time of LBC</label>
                                 <input
                                     type="time"
+                                    lang="en-GB"
                                     style={inputStyle}
                                     value={formHeader.timeLbc}
                                     onChange={(e) => setFormHeader({ ...formHeader, timeLbc: e.target.value })}
