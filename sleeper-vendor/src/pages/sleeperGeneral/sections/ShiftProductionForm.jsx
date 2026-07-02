@@ -1589,14 +1589,28 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Time of LBC</label>
-                                <input
-                                    type="time"
-                                    lang="en-GB"
-                                    style={inputStyle}
-                                    value={formHeader.timeLbc}
-                                    onChange={(e) => setFormHeader({ ...formHeader, timeLbc: e.target.value })}
-                                />
+                                <label style={labelStyle}>Time of LBC (24h)</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <CustomDropdown
+                                            disabled={isReadOnly}
+                                            value={(formHeader.timeLbc || '00:00').split(':')[0]}
+                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${val}:${(formHeader.timeLbc || '00:00').split(':')[1]}` })}
+                                            options={Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))}
+                                            placeholder="HH"
+                                        />
+                                    </div>
+                                    <span style={{ fontWeight: 'bold', color: '#475569' }}>:</span>
+                                    <div style={{ flex: 1 }}>
+                                        <CustomDropdown
+                                            disabled={isReadOnly}
+                                            value={(formHeader.timeLbc || '00:00').split(':')[1]}
+                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${(formHeader.timeLbc || '00:00').split(':')[0]}:${val}` })}
+                                            options={Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))}
+                                            placeholder="MM"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
