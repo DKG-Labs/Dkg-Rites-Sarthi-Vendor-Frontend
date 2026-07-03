@@ -962,10 +962,26 @@ const VendorDashboardPage = ({ onBack }) => {
 
 
 
-  // Unified submit handler for parent-child calibration
   const handleSubmitCalibration = async (data) => {
     setIsLoading(true);
     try {
+      if (editingInstrument && editingInstrument.id) {
+        // Find the specific updated instrument
+        const updatedDetail = data.details.find(d => d.id === editingInstrument.id) || data.details[0];
+        
+        if (updatedDetail) {
+          const response = await vendorCalibrationService.updateCalibrationDetail(editingInstrument.id, updatedDetail);
+          if (response.success) {
+            showNotification('Calibration instrument updated successfully', 'success');
+            await fetchCalibrationRecords();
+            handleCloseInstrumentModal();
+          } else {
+            showNotification(response.error || 'Failed to update calibration instrument', 'error');
+          }
+          return;
+        }
+      }
+
       const payload = {
         id: data.id || null,
         vendorCode: user.userName,
