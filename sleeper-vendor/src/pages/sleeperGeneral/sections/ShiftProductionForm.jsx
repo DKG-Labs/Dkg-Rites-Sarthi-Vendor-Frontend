@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { apiService } from '../../../services/api';
 import { BASE_URL } from '../../../services/api';
 
@@ -37,25 +38,86 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
     const [stressBenchEntries, setStressBenchEntries] = useState([]);
-    const [stressBenchForm, setStressBenchForm] = useState({
+    const [longLineEntries, setLongLineEntries] = useState([]);
+    const getInitialStressBenchForm = () => ({
+        id: Date.now() + Math.random(),
         chamberNo: '',
-        entryMode: 'range',
+        entryMode: 'single',
         fromNo: '',
         toNo: '',
         singleNo: '',
-        sleeperType: 'RT-8746', // Default can remain RT-8746
-        mouldsPerBench: 8
+        sleeperCategory: 'Mainline',
+        sleeperType: '',
+        mouldsPerBench: 8,
+        totalRmt: '',
+        turnoutSelectedSleepers: { approach: [], turnout: [], exit: [] }
     });
 
-    const [longLineEntries, setLongLineEntries] = useState([]);
-    const [longLineForm, setLongLineForm] = useState({
-        entryMode: 'range',
+    const getInitialLongLineForm = () => ({
+        id: Date.now() + Math.random(),
+        entryMode: 'single',
         fromNo: '',
         toNo: '',
         singleNo: '',
+        sleeperCategory: 'Mainline',
+        sleeperType: '',
         mouldsPerGang: 8,
-        sleeperType: 'RT-8746'
+        totalRmt: '',
+        turnoutSelectedSleepers: { approach: [], turnout: [], exit: [] }
     });
+
+    const [stressBenchForms, setStressBenchForms] = useState([getInitialStressBenchForm()]);
+    const [longLineForms, setLongLineForms] = useState([getInitialLongLineForm()]);
+
+    const updateStressBenchRow = (index, field, value) => {
+        setStressBenchForms(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row));
+    };
+
+    const addStressBenchRow = () => {
+        setStressBenchForms(prev => {
+            if (prev.length > 0) {
+                const lastRow = prev[prev.length - 1];
+                return [...prev, {
+                    ...getInitialStressBenchForm(),
+                    sleeperCategory: lastRow.sleeperCategory,
+                    sleeperType: lastRow.sleeperType,
+                    mouldsPerBench: lastRow.mouldsPerBench,
+                    totalRmt: lastRow.totalRmt,
+                    turnoutSelectedSleepers: JSON.parse(JSON.stringify(lastRow.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] }))
+                }];
+            }
+            return [...prev, getInitialStressBenchForm()];
+        });
+    };
+
+    const removeStressBenchRow = (index) => {
+        setStressBenchForms(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateLongLineRow = (index, field, value) => {
+        setLongLineForms(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row));
+    };
+
+    const addLongLineRow = () => {
+        setLongLineForms(prev => {
+            if (prev.length > 0) {
+                const lastRow = prev[prev.length - 1];
+                return [...prev, {
+                    ...getInitialLongLineForm(),
+                    sleeperCategory: lastRow.sleeperCategory,
+                    sleeperType: lastRow.sleeperType,
+                    mouldsPerGang: lastRow.mouldsPerGang,
+                    totalRmt: lastRow.totalRmt,
+                    turnoutSelectedSleepers: JSON.parse(JSON.stringify(lastRow.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] }))
+                }];
+            }
+            return [...prev, getInitialLongLineForm()];
+        });
+    };
+
+    const removeLongLineRow = (index) => {
+        setLongLineForms(prev => prev.filter((_, i) => i !== index));
+    };
 
     const [unitOptions, setUnitOptions] = useState([]);
     const [editingEntryId, setEditingEntryId] = useState(null);
@@ -72,31 +134,29 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     };
 
     useEffect(() => {
-    const fetchUnits = async () => {
-        try {
-            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
-            const plantId = selectedPlant?.plantId;
-           const vendorId = sessionStorage.getItem('userId');
+        const fetchUnits = async () => {
+            try {
+                const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+                const plantId = selectedPlant?.plantId;
+                const vendorId = sessionStorage.getItem('userId');
 
-            const res = await fetch(
-                `${BASE_URL}/plant-profile/vendor/{vendorId}/{plantId}/sheds?vendorId=${vendorId}&plantId=${encodeURIComponent(plantId)}`
-            );
-            const data = await res.json();
+                const res = await fetch(
+                    `${BASE_URL}/plant-profile/vendor/{vendorId}/{plantId}/sheds?vendorId=${vendorId}&plantId=${encodeURIComponent(plantId)}`
+                );
+                const data = await res.json();
 
-            if (data?.responseData) {
-                if (plantType === 'Stress Bench') {
-                    setUnitOptions(data.responseData["Stress Bench"] || []);
-                } else {
-                    setUnitOptions(data.responseData["Longline"] || []);
+                if (data?.responseData) {
+                    const stressUnits = (data.responseData["Stress Bench"] || []).map(u => ({ label: `Stress Bench - ${u}`, value: u, type: 'Stress Bench' }));
+                    const longlineUnits = (data.responseData["Longline"] || []).map(u => ({ label: `Long Line - ${u}`, value: u, type: 'Long Line' }));
+                    setUnitOptions([...stressUnits, ...longlineUnits]);
                 }
+            } catch (err) {
+                console.error("Failed to fetch units", err);
             }
-        } catch (err) {
-            console.error("Failed to fetch units", err);
-        }
-    };
+        };
 
-    fetchUnits();
-}, [plantType]);
+        fetchUnits();
+    }, []);
 
     useEffect(() => {
         const fetchMasterData = async () => {
@@ -204,6 +264,47 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         }));
     }, [plantDetails, plantProfiles, plantType]);
     
+    // Drawing No. options grouped by Sleeper Category
+    const sleeperTypesByCategory = {
+        'Mainline': [
+            'BG: RT-2496',
+            'WB: RT-8527',
+            'WB: RT-8746',
+            'BG: RT-7008',
+            'WB: RT-9007'
+        ],
+        'Turnout': [
+            '1 in 12 PnC: RT-4218',
+            '1 in 12 PnC: RT-9790',
+            '1 in 8.5 PnC: RT-4865',
+            '1 in 8.5 PnC: RT-9841',
+            '1 in 8.5 DS: RT-6068',
+            '1 in 16 curved: RT-5691',
+            '1 in 20 curved: RT-5858',
+            '1 in 8.5 SCC: RT-6092',
+            '1 in 12 SCC: RT-8109',
+            '1 in 8.5 DCS: RT-6492',
+            '1 in 8.5 DCS: RT-6493',
+            '1 in 8.5 DCS: RT-6494'
+        ]
+    };
+
+    // Sleeper layout config per Turnout drawing
+    const turnoutSleeperConfig = {
+        '1 in 12 PnC: RT-4218':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 12 PnC: RT-9790':  { approach: ['70S', '70-4A', '70-3A', '70-2AS', '70-1AS'],  turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 8.5 PnC: RT-4865': { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 54 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 8.5 PnC: RT-9841': { approach: ['90S', '90-4A', '90-3A', '90-2AS'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
+        '1 in 8.5 DS: RT-6068':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 22 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 16 curved: RT-5691': { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 101 }, (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 20 curved: RT-5858': { approach: ['120S', '120-4A', '120-3A'],                   turnout: Array.from({ length: 83 }, (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 8.5 SCC: RT-6092': { approach: ['130S', '130-4A', '130-3A'],                    turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
+        '1 in 12 SCC: RT-8109':  { approach: ['140S', '140-4A', '140-3A', '140-2AS'],         turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 8.5 DCS: RT-6492': { approach: ['150S', '150-4A', '150-3A'],                    turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
+        '1 in 8.5 DCS: RT-6493': { approach: ['160S', '160-4A'],                               turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
+        '1 in 8.5 DCS: RT-6494': { approach: ['170S', '170-4A', '170-3A'],                     turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] }
+    };
+
     const allSleeperTypes = React.useMemo(() => {
         // Hardcoded as per request, others commented out
         const types = ['RT-8746', 'RT-2496'];
@@ -218,9 +319,26 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         return types;
     }, []);
 
+    // Get Drawing No. options for the currently selected sleeperCategory
+    const getDrawingOptions = (category) => {
+        return sleeperTypesByCategory[category] || allSleeperTypes;
+    };
+
+    const getSleeperLetter = (index, totalCount) => {
+        if (Number(totalCount) === 10) {
+            if (index < 5) {
+                return String.fromCharCode(65 + index); // A-E
+            } else {
+                return String.fromCharCode(86 + (index - 5)); // V-Z
+            }
+        }
+        return String.fromCharCode(65 + index);
+    };
+
     const generateSleeperIds = (benchNo, count) => {
         if (!benchNo || !count) return [];
-        return Array.from({ length: count }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+        const numCount = Number(count);
+        return Array.from({ length: numCount }).map((_, i) => `${benchNo}${getSleeperLetter(i, numCount)}`);
     };
 
     const getBenchMasterDetails = (benchNo) => {
@@ -244,7 +362,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const sleeperType = uniqueTypes.join(', ');
             const isPnC = sleeperType.toLowerCase().includes('pnc');
             const rft = isPnC ? 2.5 : 0;
-            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${getSleeperLetter(i, moulds)}`);
             return { moulds, rft, sleeperNames, isPnC, sleeperType, allTypes: uniqueTypes };
         }
 
@@ -266,12 +384,30 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             const moulds = match.numMouldsPerItem || match.mouldsPerBench || 0;
             const isPnC = sleeperType.toLowerCase().includes('pnc');
             const rft = isPnC ? 2.5 : 0;
-            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${String.fromCharCode(65 + i)}`);
+            const sleeperNames = Array.from({ length: moulds }).map((_, i) => `${benchNo}${getSleeperLetter(i, moulds)}`);
             return { moulds, rft, sleeperNames, isPnC };
         }
         return { moulds: 0, rft: 0, sleeperNames: [] };
     };
 
+    const getLongLineMasterDetails = (gangNo) => {
+        if (!gangNo) return { moulds: 0, sleeperType: '' };
+        const gNo = parseInt(gangNo);
+        const match = masterLongLines.find(l => {
+            if (l.entryMode === 'SINGLE') {
+                return l.gangNo == gNo;
+            } else if (l.entryMode === 'RANGE') {
+                return gNo >= l.gangFrom && gNo <= l.gangTo;
+            }
+            return false;
+        });
+        if (match) {
+            const moulds = match.numMouldsPerItem || match.mouldsPerGang || 0;
+            const sleeperType = match.category || '';
+            return { moulds, sleeperType };
+        }
+        return { moulds: 0, sleeperType: '' };
+    };
 
     const hasInitialized = React.useRef(false);
 
@@ -299,6 +435,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                 initialData.chambers.forEach(c => {
                     c.benchGroups.forEach(g => {
+                        const isPnC = g.sleeperType && (
+                            sleeperTypesByCategory['Turnout']?.includes(g.sleeperType) || 
+                            g.sleeperType.toLowerCase().includes('pnc') || 
+                            g.sleeperType.toLowerCase().includes('curved') || 
+                            g.sleeperType.toLowerCase().includes('scc') || 
+                            g.sleeperType.toLowerCase().includes('dcs') || 
+                            g.sleeperType.toLowerCase().includes('ds')
+                        );
+                        const category = isPnC ? 'Turnout' : 'Mainline';
+                        const sleepersList = g.sleepers || g.sleeperList?.map(s => s.sleeperNo) || [];
+
                         mappedEntries.push({
                             id: Date.now() + Math.random(), // Unique ID for form state
                             chamberNo: c.chamberNo,
@@ -309,7 +456,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             toNo: g.benchTo?.toString() || '',
                             singleNo: g.benchNo?.toString() || '',
                             sleeperType: g.sleeperType || '',
+                            sleeperCategory: category,
+                            sleepers: sleepersList,
                             mouldsPerBench: g.mouldPerBench || 8,
+                            totalRmt: g.rft || '',
                             _originalRft: g.rft,
                             _originalSleepers: g.sleepers,
                             _originalSleeperList: g.sleeperList, // Store original sleeperList
@@ -326,6 +476,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 const mappedEntries = [];
                 
                 initialData.gangs.forEach((g, gIdx) => {
+                    const isPnC = g.sleeperType && (
+                        sleeperTypesByCategory['Turnout']?.includes(g.sleeperType) || 
+                        g.sleeperType.toLowerCase().includes('pnc') || 
+                        g.sleeperType.toLowerCase().includes('curved') || 
+                        g.sleeperType.toLowerCase().includes('scc') || 
+                        g.sleeperType.toLowerCase().includes('dcs') || 
+                        g.sleeperType.toLowerCase().includes('ds')
+                    );
+                    const category = isPnC ? 'Turnout' : 'Mainline';
+                    const sleepersList = g.sleepers || g.sleeperList?.map(s => s.sleeperNo) || [];
+
                     mappedEntries.push({
                         id: Date.now() + gIdx,
                         originalId: g.id, // Store original gang ID
@@ -335,6 +496,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         singleNo: g.gangNo?.toString() || '',
                         mouldsPerGang: g.mouldsPerGang,
                         sleeperType: g.sleeperType,
+                        sleeperCategory: category,
+                        sleepers: sleepersList,
+                        totalRmt: g.rft || '',
                         _isOld: true,
                         _originalSleepers: g.sleepers,
                         _originalSleeperList: g.sleeperList // Store original sleeperList
@@ -365,29 +529,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dynamicUnits]);
 
-    useEffect(() => {
-        const gangNo = longLineForm.entryMode === 'single' ? longLineForm.singleNo : longLineForm.fromNo;
-        if (!gangNo || masterLongLines.length === 0) return;
 
-        const gNo = parseInt(gangNo);
-        const matches = masterLongLines.filter(m => {
-            if (m.entryType === 'SINGLE') {
-                return m.gangNo == gNo;
-            } else if (m.entryType === 'RANGE') {
-                return gNo >= m.gangFrom && gNo <= m.gangTo;
-            }
-            return false;
-        });
-
-        if (matches.length > 0) {
-            const uniqueTypes = [...new Set(matches.map(m => m.category).filter(Boolean))];
-            setLongLineForm(prev => ({
-                ...prev,
-                sleeperType: uniqueTypes.join(', ') || prev.sleeperType,
-                mouldsPerGang: matches[0].mouldsPerGang || prev.mouldsPerGang
-            }));
-        }
-    }, [longLineForm.singleNo, longLineForm.fromNo, longLineForm.entryMode, masterLongLines]);
 
     // This useEffect will group stressBenchEntries into chambers for submission/display
     useEffect(() => {
@@ -409,6 +551,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 singleNo: entry.singleNo,
                 mouldsPerBench: entry.mouldsPerBench,
                 sleeperType: entry.sleeperType,
+                sleeperCategory: entry.sleeperCategory,
+                totalRmt: entry.totalRmt,
+                turnoutSelectedSleepers: entry.turnoutSelectedSleepers,
+                sleepers: entry.sleepers,
                 _originalRft: entry._originalRft,
                 _originalSleepers: entry._originalSleepers,
                 _originalSleeperList: entry._originalSleeperList,
@@ -419,20 +565,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         setChambers(Object.values(groupedChambers));
     }, [stressBenchEntries]);
 
-    // Autopopulate Stress Bench sleeper type from bench master
-    useEffect(() => {
-        const benchNo = stressBenchForm.entryMode === 'single' ? stressBenchForm.singleNo : stressBenchForm.fromNo;
-        if (!benchNo) return;
 
-        const details = getBenchMasterDetails(benchNo);
-        if (details.sleeperType) {
-            setStressBenchForm(prev => ({
-                ...prev,
-                sleeperType: prev.sleeperType || 'RT-8746', // Keep current or default
-                mouldsPerBench: details.moulds || prev.mouldsPerBench
-            }));
-        }
-    }, [stressBenchForm.singleNo, stressBenchForm.fromNo, stressBenchForm.entryMode]);
 
 
     const isGroupPnC = (group) => {
@@ -643,6 +776,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const calculateTotalCast = () => {
         if (plantType === 'Stress Bench') {
             return stressBenchEntries.reduce((acc, entry) => {
+                if (entry.sleeperCategory === 'Turnout' && entry.sleepers) {
+                    return acc + entry.sleepers.length;
+                }
                 let count = 0;
                 if (entry.entryMode === 'range') {
                     const from = parseInt(entry.fromNo) || 0;
@@ -655,6 +791,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             }, 0);
         } else {
             return longLineEntries.reduce((acc, e) => {
+                if (e.sleeperCategory === 'Turnout' && e.sleepers) {
+                    return acc + e.sleepers.length;
+                }
                 const count = e.entryMode === 'range' ? (parseInt(e.toNo) - parseInt(e.fromNo) + 1) : 1;
                 return acc + (count * (parseInt(e.mouldsPerGang) || 0));
             }, 0);
@@ -697,7 +836,17 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 }
                 // For stress bench, RFT is per bench, not per mould.
                 // Assuming RFT is determined by sleeper type of the bench.
+                if (entry.totalRmt && parseFloat(entry.totalRmt) > 0) {
+                    return acc + parseFloat(entry.totalRmt);
+                }
                 return acc + benchesToSum.reduce((bAcc, b) => bAcc + getBenchMasterDetailsForType(b, entry.sleeperType).rft, 0);
+            }, 0);
+        } else if (plantType === 'Long Line') {
+            return longLineEntries.reduce((acc, entry) => {
+                if (entry.totalRmt && parseFloat(entry.totalRmt) > 0) {
+                    return acc + parseFloat(entry.totalRmt);
+                }
+                return acc;
             }, 0);
         }
         return 0;
@@ -708,117 +857,182 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         if (plantType === 'Stress Bench') {
             stressBenchEntries.forEach(entry => {
                 if (entry.sleeperType) {
-                    let count = 0;
-                    if (entry.entryMode === 'range') {
-                        const from = parseInt(entry.fromNo) || 0;
-                        const to = parseInt(entry.toNo) || 0;
-                        count = from > 0 && to >= from ? (to - from + 1) : 0;
-                    } else if (entry.entryMode === 'single') {
-                        count = entry.singleNo ? 1 : 0;
+                    let totalVal = 0;
+                    if (entry.sleeperCategory === 'Turnout' && entry.sleepers) {
+                        totalVal = entry.sleepers.length;
+                    } else {
+                        let count = 0;
+                        if (entry.entryMode === 'range') {
+                            const from = parseInt(entry.fromNo) || 0;
+                            const to = parseInt(entry.toNo) || 0;
+                            count = from > 0 && to >= from ? (to - from + 1) : 0;
+                        } else if (entry.entryMode === 'single') {
+                            count = entry.singleNo ? 1 : 0;
+                        }
+                        totalVal = count * (parseInt(entry.mouldsPerBench) || 0);
                     }
-                    counts[entry.sleeperType] = (counts[entry.sleeperType] || 0) + (count * (parseInt(entry.mouldsPerBench) || 0));
+                    counts[entry.sleeperType] = (counts[entry.sleeperType] || 0) + totalVal;
                 }
             });
         } else {
             longLineEntries.forEach(e => {
-                const count = e.entryMode === 'range' ? (parseInt(e.toNo) - parseInt(e.fromNo) + 1) : 1;
-                counts[e.sleeperType] = (counts[e.sleeperType] || 0) + (count * (parseInt(e.mouldsPerGang) || 0));
+                if (e.sleeperType) {
+                    let totalVal = 0;
+                    if (e.sleeperCategory === 'Turnout' && e.sleepers) {
+                        totalVal = e.sleepers.length;
+                    } else {
+                        const count = e.entryMode === 'range' ? (parseInt(e.toNo) - parseInt(e.fromNo) + 1) : 1;
+                        totalVal = count * (parseInt(e.mouldsPerGang) || 0);
+                    }
+                    counts[e.sleeperType] = (counts[e.sleeperType] || 0) + totalVal;
+                }
             });
         }
         return counts;
     };
 
     const handleAddStressBench = () => {
-        if (!stressBenchForm.chamberNo) return alert('Chamber No is required');
-        
-        let currentBenchesToAdd = [];
-        if (stressBenchForm.entryMode === 'range') {
-            if (!stressBenchForm.fromNo || !stressBenchForm.toNo) return alert('Bench From and To are required');
-            const from = parseInt(stressBenchForm.fromNo);
-            const to = parseInt(stressBenchForm.toNo);
-            if (from > to) return alert('Bench From cannot be greater than To');
-            for (let i = from; i <= to; i++) currentBenchesToAdd.push(i);
-        } else {
-            if (!stressBenchForm.singleNo) return alert('Bench No is required');
-            const benches = stressBenchForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-            if (benches.length === 0) return alert('Valid Bench No is required');
-            currentBenchesToAdd.push(...benches);
+        const activeFormsWithIndices = stressBenchForms
+            .map((row, index) => ({ row, index }))
+            .filter(item => item.row.chamberNo.toString().trim() !== '' || item.row.singleNo.toString().trim() !== '');
+
+        if (activeFormsWithIndices.length === 0) {
+            return alert('Please fill in at least one entry.');
         }
 
-        if (stressBenchForm.sleeperType !== 'RT-8746' && stressBenchForm.sleeperType !== 'RT-2496') {
-            return alert('Sleeper Type RT-8746 or RT-2496 is mandatory');
-        }
+        let lastDrawingNo = null;
+        for (let i = 0; i < activeFormsWithIndices.length; i++) {
+            const { row, index } = activeFormsWithIndices[i];
+            const displayIndex = index + 1;
+            if (!row.chamberNo) return alert(`Row ${displayIndex}: Chamber No is required`);
+            if (!row.singleNo) return alert(`Row ${displayIndex}: Bench No is required`);
 
-        // Check for duplicates in current session
-        let duplicates = [];
-        stressBenchEntries.forEach(entry => {
-            if (editingEntryId === entry.id) return;
-            let entryBenches = [];
-            if (entry.entryMode === 'range') {
-                const f = parseInt(entry.fromNo);
-                const t = parseInt(entry.toNo);
-                for (let i = f; i <= t; i++) entryBenches.push(i);
-            } else {
-                entryBenches.push(parseInt(entry.singleNo));
+            const benches = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            if (benches.length === 0) return alert(`Row ${displayIndex}: Valid Bench No is required`);
+
+            if (row.sleeperType) {
+                lastDrawingNo = row.sleeperType;
+            } else if (lastDrawingNo) {
+                row.sleeperType = lastDrawingNo;
             }
-            currentBenchesToAdd.forEach(b => {
-                if (entryBenches.includes(b)) duplicates.push(b);
+
+            const allValidDrawings = Object.values(sleeperTypesByCategory).flat();
+            if (!row.sleeperType || !allValidDrawings.includes(row.sleeperType)) {
+                return alert(`Row ${displayIndex}: Please select a valid Drawing No.`);
+            }
+        }
+
+        let allNewEntries = [];
+        let duplicates = [];
+
+        // --- Pool turnout sleepers and benches by Drawing No ---
+        const turnoutSleepersByType = {};
+        const turnoutBenchesCount = {};
+        
+        activeFormsWithIndices.forEach(({ row }) => {
+            if (row.sleeperCategory === 'Turnout' && row.sleeperType) {
+                const type = row.sleeperType;
+                if (!turnoutSleepersByType[type]) turnoutSleepersByType[type] = [];
+                
+                const sleepers = [
+                    ...(row.turnoutSelectedSleepers.approach || []),
+                    ...(row.turnoutSelectedSleepers.turnout || []),
+                    ...(row.turnoutSelectedSleepers.exit || [])
+                ];
+                sleepers.forEach(s => {
+                    turnoutSleepersByType[type].push(s);
+                });
+                
+                const benches = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                turnoutBenchesCount[type] = (turnoutBenchesCount[type] || 0) + benches.length;
+            }
+        });
+        
+        const turnoutAllocatedBenches = {};
+
+        activeFormsWithIndices.forEach(({ row }) => {
+            const benches = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            
+            benches.forEach(b => {
+                stressBenchEntries.forEach(entry => {
+                    if (editingEntryId === entry.id) return;
+                    if (parseInt(entry.singleNo) === b) duplicates.push(b);
+                });
+            });
+
+            if (currentDeclarations) {
+                currentDeclarations.forEach(pd => {
+                    if (initialData && pd.id === initialData.id) return;
+                    if (pd.chambers) {
+                        pd.chambers.forEach(c => {
+                            if (c.benchGroups) {
+                                c.benchGroups.forEach(bg => {
+                                    const f = parseInt(bg.benchFrom || bg.benchNo);
+                                    const t = parseInt(bg.benchTo || bg.benchNo);
+                                    if (!isNaN(f) && !isNaN(t)) {
+                                        for (let i = f; i <= t; i++) {
+                                            if (benches.includes(i)) duplicates.push(i);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            benches.forEach((bench, idx) => {
+                let sleepers = null;
+                if (row.sleeperCategory === 'Turnout' && row.sleeperType) {
+                    const type = row.sleeperType;
+                    const allTurnoutSleepers = turnoutSleepersByType[type];
+                    const totalSleepers = allTurnoutSleepers.length;
+                    const numBenches = turnoutBenchesCount[type];
+                    
+                    if (!turnoutAllocatedBenches[type]) turnoutAllocatedBenches[type] = 0;
+                    const globalIdx = turnoutAllocatedBenches[type]++;
+                    
+                    if (numBenches > 0) {
+                        const baseSize = Math.floor(totalSleepers / numBenches);
+                        const remainder = totalSleepers % numBenches;
+                        
+                        let startIndex = 0;
+                        if (globalIdx < numBenches - remainder) {
+                            startIndex = globalIdx * baseSize;
+                        } else {
+                            startIndex = (numBenches - remainder) * baseSize + (globalIdx - (numBenches - remainder)) * (baseSize + 1);
+                        }
+                        
+                        const bucketSize = globalIdx < numBenches - remainder ? baseSize : baseSize + 1;
+                        sleepers = allTurnoutSleepers.slice(startIndex, startIndex + bucketSize);
+                    } else {
+                        sleepers = [...allTurnoutSleepers];
+                    }
+                }
+                allNewEntries.push({
+                    ...row,
+                    entryMode: 'single',
+                    singleNo: bench.toString(),
+                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + Math.random(),
+                    sleepers: sleepers
+                });
             });
         });
 
-        // Check for duplicates in other declarations of the plant
-        if (currentDeclarations) {
-            currentDeclarations.forEach(pd => {
-                if (initialData && pd.id === initialData.id) return;
-                if (pd.chambers) {
-                    pd.chambers.forEach(c => {
-                        if (c.benchGroups) {
-                            c.benchGroups.forEach(bg => {
-                                const f = parseInt(bg.benchFrom || bg.benchNo);
-                                const t = parseInt(bg.benchTo || bg.benchNo);
-                                if (!isNaN(f) && !isNaN(t)) {
-                                    for (let i = f; i <= t; i++) {
-                                        if (currentBenchesToAdd.includes(i)) duplicates.push(i);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        }
-
         const uniqueDuplicates = [...new Set(duplicates)];
-        
+
         const proceedWithAddition = () => {
-            if (stressBenchForm.entryMode === 'single') {
-                const benches = stressBenchForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                const newEntries = benches.map((bench, idx) => ({
-                    ...stressBenchForm,
-                    singleNo: bench.toString(),
-                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + idx
-                }));
-                
-                if (editingEntryId) {
-                    let updatedEntries = stressBenchEntries.map(e => e.id === editingEntryId ? newEntries[0] : e);
-                    if (newEntries.length > 1) {
-                        updatedEntries = [...updatedEntries, ...newEntries.slice(1)];
-                    }
-                    setStressBenchEntries(updatedEntries);
-                    setEditingEntryId(null);
-                } else {
-                    setStressBenchEntries([...stressBenchEntries, ...newEntries]);
+            if (editingEntryId) {
+                let updatedEntries = stressBenchEntries.map(e => e.id === editingEntryId ? allNewEntries[0] : e);
+                if (allNewEntries.length > 1) {
+                    updatedEntries = [...updatedEntries, ...allNewEntries.slice(1)];
                 }
+                setStressBenchEntries(updatedEntries);
+                setEditingEntryId(null);
             } else {
-                if (editingEntryId) {
-                    setStressBenchEntries(stressBenchEntries.map(e => e.id === editingEntryId ? { ...stressBenchForm, id: editingEntryId } : e));
-                    setEditingEntryId(null);
-                } else {
-                    const newEntry = { ...stressBenchForm, id: Date.now() };
-                    setStressBenchEntries([...stressBenchEntries, newEntry]);
-                }
+                setStressBenchEntries([...stressBenchEntries, ...allNewEntries]);
             }
-            setStressBenchForm({ ...stressBenchForm, fromNo: '', toNo: '', singleNo: '' });
+            setStressBenchForms([getInitialStressBenchForm()]);
             setConfirmModal({ show: false, message: '', onConfirm: null });
         };
 
@@ -835,90 +1049,153 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     };
 
     const handleAddLongLine = () => {
-        if (longLineForm.entryMode === 'range') {
-            if (!longLineForm.fromNo || !longLineForm.toNo) return alert('Gang From and To are required');
-        } else {
-            if (!longLineForm.singleNo) return alert('Gang No is required');
-        }
-        if (longLineForm.sleeperType !== 'RT-8746' && longLineForm.sleeperType !== 'RT-2496') {
-            return alert('Sleeper Type RT-8746 or RT-2496 is mandatory');
+        const activeFormsWithIndices = longLineForms
+            .map((row, index) => ({ row, index }))
+            .filter(item => item.row.singleNo.toString().trim() !== '');
+
+        if (activeFormsWithIndices.length === 0) {
+            return alert('Please fill in at least one entry.');
         }
 
-        let currentGangsToAdd = [];
-        if (longLineForm.entryMode === 'range') {
-            const from = parseInt(longLineForm.fromNo);
-            const to = parseInt(longLineForm.toNo);
-            for (let i = from; i <= to; i++) currentGangsToAdd.push(i);
-        } else {
-            const gangs = longLineForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-            if (gangs.length === 0) return alert('Valid Gang No is required');
-            currentGangsToAdd.push(...gangs);
-        }
+        let lastDrawingNo = null;
+        for (let i = 0; i < activeFormsWithIndices.length; i++) {
+            const { row, index } = activeFormsWithIndices[i];
+            const displayIndex = index + 1;
+            if (!row.singleNo) return alert(`Row ${displayIndex}: Gang No is required`);
 
-        let duplicates = [];
-        longLineEntries.forEach(entry => {
-            if (editingEntryId === entry.id) return;
-            let entryGangs = [];
-            if (entry.entryMode === 'range') {
-                const f = parseInt(entry.fromNo);
-                const t = parseInt(entry.toNo);
-                for (let i = f; i <= t; i++) entryGangs.push(i);
-            } else {
-                entryGangs.push(parseInt(entry.singleNo));
+            const gangs = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            if (gangs.length === 0) return alert(`Row ${displayIndex}: Valid Gang No is required`);
+
+            if (row.sleeperType) {
+                lastDrawingNo = row.sleeperType;
+            } else if (lastDrawingNo) {
+                row.sleeperType = lastDrawingNo;
             }
-            currentGangsToAdd.forEach(g => {
-                if (entryGangs.includes(g)) duplicates.push(g);
+
+            const allValidDrawings = Object.values(sleeperTypesByCategory).flat();
+            if (!row.sleeperType || !allValidDrawings.includes(row.sleeperType)) {
+                return alert(`Row ${displayIndex}: Please select a valid Drawing No.`);
+            }
+        }
+
+        let allNewEntries = [];
+        let duplicates = [];
+
+        // --- Pool turnout sleepers and gangs by Drawing No ---
+        const turnoutSleepersByType = {};
+        const turnoutGangsCount = {};
+        
+        activeFormsWithIndices.forEach(({ row }) => {
+            if (row.sleeperCategory === 'Turnout' && row.sleeperType) {
+                const type = row.sleeperType;
+                if (!turnoutSleepersByType[type]) turnoutSleepersByType[type] = [];
+                
+                const sleepers = [
+                    ...(row.turnoutSelectedSleepers.approach || []),
+                    ...(row.turnoutSelectedSleepers.turnout || []),
+                    ...(row.turnoutSelectedSleepers.exit || [])
+                ];
+                sleepers.forEach(s => {
+                    turnoutSleepersByType[type].push(s);
+                });
+                
+                const gangs = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                turnoutGangsCount[type] = (turnoutGangsCount[type] || 0) + gangs.length;
+            }
+        });
+        
+        const turnoutAllocatedGangs = {};
+
+        activeFormsWithIndices.forEach(({ row }) => {
+            const gangs = row.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+
+            gangs.forEach(g => {
+                longLineEntries.forEach(entry => {
+                    if (editingEntryId === entry.id) return;
+                    let entryGangs = [];
+                    if (entry.entryMode === 'range') {
+                        const f = parseInt(entry.fromNo);
+                        const t = parseInt(entry.toNo);
+                        if (!isNaN(f) && !isNaN(t)) {
+                            for (let idx = f; idx <= t; idx++) entryGangs.push(idx);
+                        }
+                    } else {
+                        const bVal = parseInt(entry.singleNo);
+                        if (!isNaN(bVal)) entryGangs.push(bVal);
+                    }
+                    if (entryGangs.includes(g)) duplicates.push(g);
+                });
+            });
+
+            if (currentDeclarations) {
+                currentDeclarations.forEach(pd => {
+                    if (initialData && pd.id === initialData.id) return;
+                    if (pd.gangs) {
+                        pd.gangs.forEach(g => {
+                            const f = parseInt(g.gangFrom || g.gangNo);
+                            const t = parseInt(g.gangTo || g.gangNo);
+                            if (!isNaN(f) && !isNaN(t)) {
+                                for (let idx = f; idx <= t; idx++) {
+                                    if (gangs.includes(idx)) duplicates.push(idx);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            gangs.forEach((gang, idx) => {
+                let sleepers = null;
+                if (row.sleeperCategory === 'Turnout' && row.sleeperType) {
+                    const type = row.sleeperType;
+                    const allTurnoutSleepers = turnoutSleepersByType[type];
+                    const totalSleepers = allTurnoutSleepers.length;
+                    const numGangs = turnoutGangsCount[type];
+                    
+                    if (!turnoutAllocatedGangs[type]) turnoutAllocatedGangs[type] = 0;
+                    const globalIdx = turnoutAllocatedGangs[type]++;
+                    
+                    if (numGangs > 0) {
+                        const baseSize = Math.floor(totalSleepers / numGangs);
+                        const remainder = totalSleepers % numGangs;
+                        
+                        let startIndex = 0;
+                        if (globalIdx < numGangs - remainder) {
+                            startIndex = globalIdx * baseSize;
+                        } else {
+                            startIndex = (numGangs - remainder) * baseSize + (globalIdx - (numGangs - remainder)) * (baseSize + 1);
+                        }
+                        
+                        const bucketSize = globalIdx < numGangs - remainder ? baseSize : baseSize + 1;
+                        sleepers = allTurnoutSleepers.slice(startIndex, startIndex + bucketSize);
+                    } else {
+                        sleepers = [...allTurnoutSleepers];
+                    }
+                }
+                allNewEntries.push({
+                    ...row,
+                    entryMode: 'single',
+                    singleNo: gang.toString(),
+                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + Math.random(),
+                    sleepers: sleepers
+                });
             });
         });
 
-        if (currentDeclarations) {
-            currentDeclarations.forEach(pd => {
-                if (initialData && pd.id === initialData.id) return;
-                if (pd.gangs) {
-                    pd.gangs.forEach(g => {
-                        const f = parseInt(g.gangFrom || g.gangNo);
-                        const t = parseInt(g.gangTo || g.gangNo);
-                        if (!isNaN(f) && !isNaN(t)) {
-                            for (let i = f; i <= t; i++) {
-                                if (currentGangsToAdd.includes(i)) duplicates.push(i);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
         const uniqueDuplicates = [...new Set(duplicates)];
-        
+
         const proceedWithAddition = () => {
-            if (longLineForm.entryMode === 'single') {
-                const gangs = longLineForm.singleNo.toString().split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                const newEntries = gangs.map((gang, idx) => ({
-                    ...longLineForm,
-                    singleNo: gang.toString(),
-                    id: editingEntryId && idx === 0 ? editingEntryId : Date.now() + idx
-                }));
-                
-                if (editingEntryId) {
-                    let updatedEntries = longLineEntries.map(e => e.id === editingEntryId ? newEntries[0] : e);
-                    if (newEntries.length > 1) {
-                        updatedEntries = [...updatedEntries, ...newEntries.slice(1)];
-                    }
-                    setLongLineEntries(updatedEntries);
-                    setEditingEntryId(null);
-                } else {
-                    setLongLineEntries([...longLineEntries, ...newEntries]);
+            if (editingEntryId) {
+                let updatedEntries = longLineEntries.map(e => e.id === editingEntryId ? allNewEntries[0] : e);
+                if (allNewEntries.length > 1) {
+                    updatedEntries = [...updatedEntries, ...allNewEntries.slice(1)];
                 }
+                setLongLineEntries(updatedEntries);
+                setEditingEntryId(null);
             } else {
-                if (editingEntryId) {
-                    setLongLineEntries(longLineEntries.map(e => e.id === editingEntryId ? { ...longLineForm, id: editingEntryId } : e));
-                    setEditingEntryId(null);
-                } else {
-                    const newEntry = { ...longLineForm, id: Date.now() };
-                    setLongLineEntries([...longLineEntries, newEntry]);
-                }
+                setLongLineEntries([...longLineEntries, ...allNewEntries]);
             }
-            setLongLineForm({ ...longLineForm, fromNo: '', toNo: '', singleNo: '' });
+            setLongLineForms([getInitialLongLineForm()]);
             setConfirmModal({ show: false, message: '', onConfirm: null });
         };
 
@@ -940,6 +1217,140 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const handleKeyDownLongLine = (e) => {
         if (e.key === 'Enter') handleAddLongLine();
+    };
+
+    // Custom dropdown — uses a portal so it escapes overflow:hidden parents
+    const CustomDropdown = ({ value, onChange, options, disabled, placeholder, bold }) => {
+        const [open, setOpen] = React.useState(false);
+        const [rect, setRect] = React.useState(null);
+        const triggerRef = React.useRef(null);
+
+        const openDropdown = () => {
+            if (disabled) return;
+            if (!open && triggerRef.current) {
+                setRect(triggerRef.current.getBoundingClientRect());
+            }
+            setOpen(prev => !prev);
+        };
+
+        React.useEffect(() => {
+            if (!open) return;
+            const handleClose = (e) => {
+                if (triggerRef.current && !triggerRef.current.contains(e.target)) {
+                    // Check if click is inside the portal list
+                    const list = document.getElementById('custom-dropdown-portal');
+                    if (list && list.contains(e.target)) return;
+                    setOpen(false);
+                }
+            };
+            const handleScroll = () => {
+                if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
+            };
+            document.addEventListener('mousedown', handleClose);
+            window.addEventListener('scroll', handleScroll, true);
+            return () => {
+                document.removeEventListener('mousedown', handleClose);
+                window.removeEventListener('scroll', handleScroll, true);
+            };
+        }, [open]);
+
+        const displayLabel = value || placeholder || 'Select';
+
+        const dropdownList = open && rect && ReactDOM.createPortal(
+            <div
+                id="custom-dropdown-portal"
+                style={{
+                    position: 'fixed',
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                    width: rect.width,
+                    zIndex: 999999,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    maxHeight: '260px',
+                    overflowY: 'auto'
+                }}
+            >
+                {placeholder && (
+                    <div
+                        onMouseDown={(e) => { e.preventDefault(); onChange(''); setOpen(false); }}
+                        style={{
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            borderBottom: '1px solid #f1f5f9',
+                            background: !value ? '#1a69d8' : 'white',
+                            color: !value ? 'white' : '#94a3b8',
+                            borderRadius: '10px 10px 0 0'
+                        }}
+                    >
+                        {placeholder}
+                    </div>
+                )}
+                {options.map((opt, idx) => (
+                    <div
+                        key={opt}
+                        onMouseDown={(e) => { e.preventDefault(); onChange(opt); setOpen(false); }}
+                        style={{
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            background: value === opt ? '#1a69d8' : 'white',
+                            color: value === opt ? 'white' : '#1e293b',
+                            borderRadius: idx === options.length - 1 ? '0 0 10px 10px' : '0',
+                            transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = '#f1f5f9'; }}
+                        onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = 'white'; }}
+                    >
+                        {opt}
+                    </div>
+                ))}
+            </div>,
+            document.body
+        );
+
+        return (
+            <div style={{ position: 'relative', width: '100%' }}>
+                <div
+                    ref={triggerRef}
+                    onClick={openDropdown}
+                    style={{
+                        ...inputStyle,
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: disabled ? 'default' : 'pointer',
+                        userSelect: 'none',
+                        border: bold ? '2px solid #e2e8f0' : '1px solid #cbd5e1',
+                        boxShadow: bold ? 'inset 0 2px 4px 0 rgba(0,0,0,0.06)' : 'none',
+                        fontWeight: bold ? '700' : '400',
+                        paddingRight: '8px'
+                    }}
+                >
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: value ? '#1e293b' : '#94a3b8' }}>
+                        {displayLabel}
+                    </span>
+                    <span style={{
+                        fontSize: '10px',
+                        color: '#42818c',
+                        background: '#f1f5f9',
+                        padding: '4px 6px',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
+                        marginLeft: '6px',
+                        flexShrink: 0,
+                        transition: 'transform 0.2s',
+                        transform: open ? 'rotate(180deg)' : 'rotate(0deg)'
+                    }}>▼</span>
+                </div>
+                {dropdownList}
+            </div>
+        );
     };
 
     const DuplicateBenchConfirmModal = ({ isOpen, message, onYes, onNo }) => {
@@ -1082,71 +1493,50 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 </div>
                 {activeSections[1] && (
                     <div style={{ padding: '24px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px' }}>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <label style={labelStyle}>Plant Type</label>
-                                <div style={{ display: 'flex', gap: '30px', marginTop: '10px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '16px', fontWeight: '600' }}>
-                                        <input
-                                            type="radio"
-                                            name="plantType"
-                                            checked={plantType === 'Stress Bench'}
-                                            onChange={() => {
-                                                setPlantType('Stress Bench');
-                                                // Calculate prefix for Sheds
-                                                const benchProfile = plantProfiles.find(p => p.type === 'Stress Bench');
-                                                const totalSheds = parseInt(benchProfile?.numberOfSheds || benchProfile?.shedLines || 0);
-                                                const firstUnit = totalSheds > 0 ? 'Shed 1' : '';
-                                                setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Twin' });
-                                                setEditingEntryId(null);
-                                            }}
-                                            disabled={isReadOnly}
-                                            style={radioStyle}
-                                        />
-                                        Stress Bench
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '16px', fontWeight: '600' }}>
-                                        <input
-                                            type="radio"
-                                            name="plantType"
-                                            checked={plantType === 'Long Line'}
-                                            onChange={() => {
-                                                setPlantType('Long Line');
-                                                // Calculate prefix for Gangs
-                                                const longLineProfile = plantProfiles.find(p => p.type === 'Longline' || p.type === 'Long Line');
-                                                const totalLines = parseInt(longLineProfile?.numberOfSheds || longLineProfile?.shedLines || 0);
-                                                const firstUnit = totalLines > 0 ? 'Line 1' : '';
-                                                setFormHeader({ ...formHeader, unit: firstUnit, shedType: 'Long Line' });
-                                                setEditingEntryId(null);
-                                            }}
-                                            style={radioStyle}
-                                        />
-                                        Long Line
-                                    </label>
-                                </div>
-                            </div>
-
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
                             <div>
-                                <label style={labelStyle}>{plantType === 'Stress Bench' ? 'Production Unit (Shed No.)' : 'Production Unit (Line No.)'}</label>
+                                <label style={labelStyle}>Production Unit (Shed/Line No.)</label>
                                 <select
-                                            disabled={isReadOnly}
-                                            style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
-                                    value={formHeader.unit}
-                                  onChange={(e) => {
-    setFormHeader({
-        ...formHeader,
-        unit: e.target.value,
-        shedType: plantType   
-    });
-}}
+                                    disabled={isReadOnly}
+                                    style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
+                                    value={formHeader.unit && plantType ? `${formHeader.unit}|${plantType}` : ""}
+                                    onChange={(e) => {
+                                        if (!e.target.value) {
+                                            setFormHeader({ ...formHeader, unit: "", shedType: "" });
+                                            setPlantType("");
+                                            return;
+                                        }
+                                        const [val, type] = e.target.value.split('|');
+                                        setPlantType(type);
+                                        setFormHeader({
+                                            ...formHeader,
+                                            unit: val,
+                                            shedType: type === 'Long Line' ? 'Long Line' : 'Twin'
+                                        });
+                                        setEditingEntryId(null);
+                                    }}
                                 >
                                     <option value="">Select Unit</option>
-                                   {unitOptions.map(unit => (
-    <option key={unit} value={unit}>{unit}</option>
-))}
+                                    {unitOptions.filter(opt => opt.type === 'Stress Bench').length > 0 && (
+                                        <optgroup label="Sheds">
+                                            {unitOptions.filter(opt => opt.type === 'Stress Bench').map(opt => (
+                                                <option key={`${opt.type}-${opt.value}`} value={`${opt.value}|${opt.type}`}>
+                                                    {opt.value}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                    {unitOptions.filter(opt => opt.type === 'Long Line').length > 0 && (
+                                        <optgroup label="Lines">
+                                            {unitOptions.filter(opt => opt.type === 'Long Line').map(opt => (
+                                                <option key={`${opt.type}-${opt.value}`} value={`${opt.value}|${opt.type}`}>
+                                                    {opt.value}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
                                 </select>
                             </div>
-
 
                             <div>
                                 <label style={labelStyle}>Date of Casting</label>
@@ -1199,13 +1589,28 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Time of LBC</label>
-                                <input
-                                    type="time"
-                                    style={inputStyle}
-                                    value={formHeader.timeLbc}
-                                    onChange={(e) => setFormHeader({ ...formHeader, timeLbc: e.target.value })}
-                                />
+                                <label style={labelStyle}>Time of LBC (24h)</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <CustomDropdown
+                                            disabled={isReadOnly}
+                                            value={(formHeader.timeLbc || '00:00').split(':')[0]}
+                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${val}:${(formHeader.timeLbc || '00:00').split(':')[1]}` })}
+                                            options={Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))}
+                                            placeholder="HH"
+                                        />
+                                    </div>
+                                    <span style={{ fontWeight: 'bold', color: '#475569' }}>:</span>
+                                    <div style={{ flex: 1 }}>
+                                        <CustomDropdown
+                                            disabled={isReadOnly}
+                                            value={(formHeader.timeLbc || '00:00').split(':')[1]}
+                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${(formHeader.timeLbc || '00:00').split(':')[0]}:${val}` })}
+                                            options={Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))}
+                                            placeholder="MM"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1222,133 +1627,381 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     <div style={{ padding: '24px' }}>
                         {plantType === 'Stress Bench' ? (
                             <div>
-                                <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Stress Bench Entry</h4>
-                                        <div style={{ display: 'flex', gap: '20px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" disabled={isReadOnly} checked={stressBenchForm.entryMode === 'range'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'range' })} style={radioStyle} />
-                                                Range
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" disabled={isReadOnly} checked={stressBenchForm.entryMode === 'single'} onChange={() => setStressBenchForm({ ...stressBenchForm, entryMode: 'single' })} style={radioStyle} />
-                                                Single
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
-                                        <div>
-                                            <label style={labelStyle}>Chamber No.</label>
-                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.chamberNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, chamberNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="No." />
-                                        </div>
-                                        {stressBenchForm.entryMode === 'range' ? (
-                                            <>
-                                                <div>
-                                                    <label style={labelStyle}>Bench From</label>
-                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.fromNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, fromNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
-                                                </div>
-                                                <div>
-                                                    <label style={labelStyle}>Bench To</label>
-                                                    <input type="number" disabled={isReadOnly} value={stressBenchForm.toNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, toNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={labelStyle}>Bench No.</label>
-                                                <input type="text" disabled={isReadOnly} value={stressBenchForm.singleNo} onChange={(e) => setStressBenchForm({ ...stressBenchForm, singleNo: e.target.value })} onKeyDown={handleKeyDownStress} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No. (e.g. 12, 13)" />
-                                            </div>
-                                        )}
-                                        <div style={{ position: 'relative' }}>
-                                            <label style={labelStyle}>Sleeper Type</label>
-                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <select
-                                                    disabled={isReadOnly}
-                                                    value={stressBenchForm.sleeperType}
-                                                    onChange={(e) => setStressBenchForm({ ...stressBenchForm, sleeperType: e.target.value })}
-                                                    style={{ 
-                                                        ...inputStyle, 
-                                                        background: '#ffffff', 
-                                                        textAlign: 'center', 
-                                                        fontWeight: '700', 
-                                                        paddingRight: '40px',
-                                                        cursor: 'pointer',
-                                                        border: '2px solid #e2e8f0',
-                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)',
-                                                        appearance: 'none',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
+                                {stressBenchForms.map((row, rowIndex) => (
+                                    <div key={row.id} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <h4 style={{ margin: 0, color: '#1e293b', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stress Bench Row #{rowIndex + 1}</h4>
+                                            {stressBenchForms.length > 1 && !isReadOnly && (
+                                                <button
+                                                    onClick={() => removeStressBenchRow(rowIndex)}
+                                                    style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}
                                                 >
-                                                    {allSleeperTypes.map(type => (
-                                                        <option key={type} value={type}>{type}</option>
-                                                    ))}
-                                                </select>
-                                                <span style={{ 
-                                                    position: 'absolute', 
-                                                    right: '15px', 
-                                                    fontSize: '10px',
-                                                    color: '#42818c',
-                                                    pointerEvents: 'none',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    background: '#f1f5f9',
-                                                    padding: '4px 6px',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid #e2e8f0'
-                                                }}>▼</span>
+                                                    Remove Row
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1fr 1fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
+                                            <div>
+                                                <label style={labelStyle}>Chamber No.</label>
+                                                <input
+                                                    type="number"
+                                                    disabled={isReadOnly}
+                                                    value={row.chamberNo}
+                                                    onChange={(e) => updateStressBenchRow(rowIndex, 'chamberNo', e.target.value)}
+                                                    onKeyDown={handleKeyDownStress}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                    placeholder="No."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Bench No.</label>
+                                                <input
+                                                    type="text"
+                                                    disabled={isReadOnly}
+                                                    value={row.singleNo}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        updateStressBenchRow(rowIndex, 'singleNo', val);
+                                                        
+                                                        const firstBench = val.split(',')[0]?.trim();
+                                                        if (firstBench) {
+                                                            const details = getBenchMasterDetails(firstBench);
+                                                            if (details && details.moulds > 0) {
+                                                                updateStressBenchRow(rowIndex, 'mouldsPerBench', details.moulds);
+                                                                if (details.sleeperType) {
+                                                                    const isPnC = details.sleeperType.toLowerCase().includes('pnc');
+                                                                    const category = isPnC ? 'Turnout' : 'Mainline';
+                                                                    updateStressBenchRow(rowIndex, 'sleeperCategory', category);
+                                                                    
+                                                                    const options = sleeperTypesByCategory[category] || [];
+                                                                    const matchedDrawing = options.find(opt => opt.includes(details.sleeperType) || details.sleeperType.includes(opt.split(': ')[1]));
+                                                                    if (matchedDrawing) {
+                                                                        updateStressBenchRow(rowIndex, 'sleeperType', matchedDrawing);
+                                                                    } else if (allSleeperTypes.includes(details.sleeperType)) {
+                                                                        updateStressBenchRow(rowIndex, 'sleeperType', details.sleeperType);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                    onKeyDown={handleKeyDownStress}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                    placeholder="e.g. 12, 13"
+                                                />
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <label style={labelStyle}>Sleeper Category</label>
+                                                <CustomDropdown
+                                                    disabled={isReadOnly}
+                                                    value={row.sleeperCategory}
+                                                    onChange={(newCategory) => {
+                                                        updateStressBenchRow(rowIndex, 'sleeperCategory', newCategory);
+                                                        updateStressBenchRow(rowIndex, 'sleeperType', '');
+                                                        updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', { approach: [], turnout: [], exit: [] });
+                                                    }}
+                                                    options={['Mainline', 'Turnout']}
+                                                    bold={true}
+                                                />
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <label style={labelStyle}>Drawing No.</label>
+                                                <CustomDropdown
+                                                    disabled={isReadOnly}
+                                                    value={row.sleeperType}
+                                                    onChange={(val) => {
+                                                        updateStressBenchRow(rowIndex, 'sleeperType', val);
+                                                        updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', { approach: [], turnout: [], exit: [] });
+                                                    }}
+                                                    options={getDrawingOptions(row.sleeperCategory)}
+                                                    placeholder="Select Drawing No."
+                                                    bold={true}
+                                                />
+                                            </div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Turnout' ? 'hidden' : 'visible' }}>
+                                                <label style={labelStyle}>Moulds/Bench</label>
+                                                <input
+                                                    type="number"
+                                                    disabled={isReadOnly}
+                                                    value={row.mouldsPerBench}
+                                                    onChange={(e) => updateStressBenchRow(rowIndex, 'mouldsPerBench', e.target.value)}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Total Sleepers</label>
+                                                <input
+                                                    type="number"
+                                                    readOnly
+                                                    value={(() => {
+                                                        if (row.sleeperCategory === 'Turnout') {
+                                                            return (row.turnoutSelectedSleepers?.approach?.length || 0)
+                                                                 + (row.turnoutSelectedSleepers?.turnout?.length || 0)
+                                                                 + (row.turnoutSelectedSleepers?.exit?.length || 0);
+                                                        }
+                                                        const cnt = row.singleNo ? row.singleNo.toString().split(',').filter(s => s.trim() && !isNaN(parseInt(s.trim()))).length : 0;
+                                                        return cnt * (parseInt(row.mouldsPerBench) || 0);
+                                                    })()}
+                                                    style={{ ...inputStyle, background: '#f1f5f9', color: '#42818c', fontWeight: '700', cursor: 'default' }}
+                                                />
+                                            </div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Mainline' ? 'hidden' : 'visible' }}>
+                                                <label style={labelStyle}>Total RMT</label>
+                                                <input
+                                                    type="number"
+                                                    disabled={isReadOnly}
+                                                    value={row.totalRmt}
+                                                    onChange={(e) => updateStressBenchRow(rowIndex, 'totalRmt', e.target.value)}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                    placeholder="RMT"
+                                                />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label style={labelStyle}>Moulds/Bench</label>
-                                            <input type="number" disabled={isReadOnly} value={stressBenchForm.mouldsPerBench} onChange={(e) => setStressBenchForm({ ...stressBenchForm, mouldsPerBench: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
-                                        </div>
-                                        {!isReadOnly && (
-                                            <button
-                                                onClick={handleAddStressBench}
-                                                style={{ background: editingEntryId ? '#0261c7ff' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
-                                            >
-                                                {editingEntryId ? 'Update Entry' : 'Add Entry'}
-                                            </button>
-                                        )}
                                     </div>
-                                </div>
+                                ))}
+
+                                {/* Turnout Sleeper Selection Panels (Global for pooled rows) */}
+                                {(() => {
+                                    const distinctTurnoutTypes = [...new Set(stressBenchForms.filter(r => r.sleeperCategory === 'Turnout' && r.sleeperType).map(r => r.sleeperType))];
+                                    
+                                    return distinctTurnoutTypes.map(type => {
+                                        const rowIndex = stressBenchForms.findIndex(r => r.sleeperCategory === 'Turnout' && r.sleeperType === type);
+                                        const row = stressBenchForms[rowIndex];
+                                        const cfg = turnoutSleeperConfig[type];
+                                        if (!cfg) return null;
+
+                                        const increaseSleeper = (section, id) => {
+                                            const current = row.turnoutSelectedSleepers[section] || [];
+                                            const updatedSection = [...current, id];
+                                            updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: updatedSection
+                                            });
+                                        };
+
+                                        const decreaseSleeper = (section, id) => {
+                                            const current = row.turnoutSelectedSleepers[section] || [];
+                                            const index = current.indexOf(id);
+                                            if (index !== -1) {
+                                                const updatedSection = [...current];
+                                                updatedSection.splice(index, 1);
+                                                updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                    ...row.turnoutSelectedSleepers,
+                                                    [section]: updatedSection
+                                                });
+                                            }
+                                        };
+
+                                        const selectAll = (section) => {
+                                            updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: [...cfg[section]]
+                                            });
+                                        };
+
+                                        const deselectAll = (section) => {
+                                            updateStressBenchRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: []
+                                            });
+                                        };
+
+                                        const sectionBtnStyle = {
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #cbd5e1',
+                                            background: 'white',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            color: '#475569'
+                                        };
+
+                                        const renderSection = (label, sectionKey) => (
+                                            <div style={{ marginBottom: '18px' }} key={sectionKey}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                                    <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', minWidth: '80px' }}>{label}</span>
+                                                    {!isReadOnly && (
+                                                        <>
+                                                            <button style={sectionBtnStyle} onClick={() => selectAll(sectionKey)}>Select All</button>
+                                                            <button style={sectionBtnStyle} onClick={() => deselectAll(sectionKey)}>Deselect All</button>
+                                                        </>
+                                                    )}
+                                                    <span style={{ fontSize: '12px', color: '#42818c', fontWeight: '600' }}>
+                                                        {row.turnoutSelectedSleepers[sectionKey]?.length || 0} selected
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    {cfg[sectionKey].map(id => {
+                                                        const qty = row.turnoutSelectedSleepers[sectionKey]?.filter(x => x === id).length || 0;
+                                                        const isSelected = qty > 0;
+                                                        
+                                                        return (
+                                                            <div
+                                                                key={id}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    borderRadius: '8px',
+                                                                    border: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                    background: isSelected ? '#e6f4f5' : '#fff',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: '600',
+                                                                    color: isSelected ? '#42818c' : '#475569',
+                                                                    transition: 'all 0.15s',
+                                                                    userSelect: 'none',
+                                                                    overflow: 'hidden'
+                                                                }}
+                                                            >
+                                                                {/* Left side: Decrement */}
+                                                                <div
+                                                                    style={{
+                                                                        padding: '5px 8px 5px 10px',
+                                                                        cursor: isReadOnly ? 'default' : 'pointer',
+                                                                        borderRight: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                        background: isSelected ? '#d9edef' : 'transparent',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                    onClick={() => !isReadOnly && decreaseSleeper(sectionKey, id)}
+                                                                    title="Click to decrease quantity"
+                                                                >
+                                                                    {!isReadOnly && <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? '#2c5a62' : '#94a3b8' }}>(-)</span>}
+                                                                    <span>{id}</span>
+                                                                </div>
+                                                                
+                                                                {/* Right side: Increment */}
+                                                                <div
+                                                                    style={{
+                                                                        padding: '5px 10px 5px 8px',
+                                                                        cursor: isReadOnly ? 'default' : 'pointer',
+                                                                        background: isSelected ? '#42818c' : '#f1f5f9',
+                                                                        color: isSelected ? 'white' : '#94a3b8',
+                                                                        fontWeight: '700',
+                                                                        fontSize: '11px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        gap: '4px',
+                                                                        minWidth: '20px'
+                                                                    }}
+                                                                    onClick={() => !isReadOnly && increaseSleeper(sectionKey, id)}
+                                                                    title="Click to increase quantity"
+                                                                >
+                                                                    <span>{qty}</span>
+                                                                    {!isReadOnly && <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.8 }}>(+)</span>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+
+                                        return (
+                                            <div key={type} style={{ background: 'white', padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', marginTop: '16px', marginBottom: '16px' }}>
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '18px' }}>
+                                                    Select Sleepers for Turnout
+                                                    <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+                                                        — {type}
+                                                    </span>
+                                                </div>
+                                                {renderSection('Approach', 'approach')}
+                                                {renderSection('Turnout', 'turnout')}
+                                                {renderSection('Exit', 'exit')}
+                                            </div>
+                                        );
+                                    });
+                                })()}
+
+                                {/* Multi-row entry action buttons */}
+                                {!isReadOnly && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '24px' }}>
+                                        <button
+                                            onClick={addStressBenchRow}
+                                            style={{
+                                                background: 'transparent',
+                                                color: '#42818c',
+                                                border: '2px solid #42818c',
+                                                padding: '10px 20px',
+                                                borderRadius: '10px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseOver={e => { e.target.style.background = '#e6f4f5'; }}
+                                            onMouseOut={e => { e.target.style.background = 'transparent'; }}
+                                        >
+                                            + Add Row
+                                        </button>
+                                        <button
+                                            onClick={handleAddStressBench}
+                                            style={{
+                                                background: editingEntryId ? '#0261c7ff' : '#42818c',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '12px 24px',
+                                                borderRadius: '10px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 10px rgba(66, 129, 140, 0.2)'
+                                            }}
+                                        >
+                                            {editingEntryId ? 'Update Entry' : 'Add Entries to Table'}
+                                        </button>
+                                    </div>
+                                )}
 
                                 {stressBenchEntries.length > 0 && (
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '50px' }}>S.No.</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '100px' }}>Chamber</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Benches</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '80px' }}>Count</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '150px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Moulds/B.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '40px' }}>S.No.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '90px' }}>Chamber</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '80px' }}>Bench No.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '100px' }}>Category</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Drawing No.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '90px' }}>Moulds/B.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Total Sleepers</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '90px' }}>Total RMT</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '80px' }}>Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {stressBenchEntries.map((entry, index) => {
-                                                    const count = entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) : 1;
+                                                    const totalSleepers = entry.sleeperCategory === 'Turnout' && entry.sleepers
+                                                        ? entry.sleepers.length
+                                                        : (parseInt(entry.mouldsPerBench) || 0);
                                                     return (
                                                         <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                             <td style={{ padding: '12px 8px', color: '#64748b', fontSize: '14px' }}>{index + 1}</td>
                                                             <td style={{ padding: '12px 8px', fontWeight: '700', color: '#115e59' }}>#{entry.chamberNo}</td>
-                                                            <td style={{ padding: '12px 8px', textTransform: 'capitalize', color: '#1e293b' }}>{entry.entryMode}</td>
-                                                            <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{count}</td>
+                                                            <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.singleNo}</td>
+                                                            <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperCategory || '—'}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerBench}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerBench}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                                 {!isReadOnly && (
                                                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                                         <button 
                                                                             onClick={() => {
                                                                                 setEditingEntryId(entry.id);
-                                                                                setStressBenchForm({ ...entry });
+                                                                                let turnoutSelected = entry.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] };
+                                                                                if (entry.sleeperCategory === 'Turnout' && entry.sleepers && (!entry.turnoutSelectedSleepers || (entry.turnoutSelectedSleepers.approach.length === 0 && entry.turnoutSelectedSleepers.turnout.length === 0 && entry.turnoutSelectedSleepers.exit.length === 0))) {
+                                                                                    const cfg = turnoutSleeperConfig[entry.sleeperType];
+                                                                                    if (cfg) {
+                                                                                        turnoutSelected = {
+                                                                                            approach: entry.sleepers.filter(s => cfg.approach?.includes(s)),
+                                                                                            turnout: entry.sleepers.filter(s => cfg.turnout?.includes(s)),
+                                                                                            exit: entry.sleepers.filter(s => cfg.exit?.includes(s))
+                                                                                        };
+                                                                                    }
+                                                                                }
+                                                                                setStressBenchForms([{ ...entry, sleeperCategory: entry.sleeperCategory || 'Mainline', totalRmt: entry.totalRmt || '', turnoutSelectedSleepers: turnoutSelected }]);
                                                                             }}
                                                                             style={{ color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
                                                                         >
@@ -1377,94 +2030,316 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                             </div>
                         ) : (
                             <div>
-                                <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h4 style={{ margin: 0, color: '#1e293b' }}>Long Line Gang Entry</h4>
-                                        <div style={{ display: 'flex', gap: '20px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" disabled={isReadOnly} checked={longLineForm.entryMode === 'range'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'range' })} style={radioStyle} />
-                                                Range
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isReadOnly ? 'default' : 'pointer', fontWeight: '600' }}>
-                                                <input type="radio" disabled={isReadOnly} checked={longLineForm.entryMode === 'single'} onChange={() => setLongLineForm({ ...longLineForm, entryMode: 'single' })} style={radioStyle} />
-                                                Single
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2.5fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
-                                        {longLineForm.entryMode === 'range' ? (
-                                            <>
-                                                <div>
-                                                    <label style={labelStyle}>Gang No. From</label>
-                                                    <input type="number" disabled={isReadOnly} value={longLineForm.fromNo} onChange={(e) => setLongLineForm({ ...longLineForm, fromNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Start" />
-                                                </div>
-                                                <div>
-                                                    <label style={labelStyle}>Gang No. To</label>
-                                                    <input type="number" disabled={isReadOnly} value={longLineForm.toNo} onChange={(e) => setLongLineForm({ ...longLineForm, toNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="End" />
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={labelStyle}>Gang No.</label>
-                                                <input type="text" disabled={isReadOnly} value={longLineForm.singleNo} onChange={(e) => setLongLineForm({ ...longLineForm, singleNo: e.target.value })} onKeyDown={handleKeyDownLongLine} style={{ ...inputStyle, background: 'white' }} placeholder="Enter No. (e.g. 24, 25)" />
-                                            </div>
-                                        )}
-                                        <div style={{ position: 'relative' }}>
-                                            <label style={labelStyle}>Sleeper Type</label>
-                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <select
-                                                    disabled={isReadOnly}
-                                                    value={longLineForm.sleeperType}
-                                                    onChange={(e) => setLongLineForm({ ...longLineForm, sleeperType: e.target.value })}
-                                                    style={{ 
-                                                        ...inputStyle, 
-                                                        background: '#ffffff', 
-                                                        textAlign: 'center', 
-                                                        fontWeight: '700', 
-                                                        paddingRight: '40px',
-                                                        cursor: 'pointer',
-                                                        border: '2px solid #e2e8f0',
-                                                        boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)',
-                                                        appearance: 'none',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
+                                {longLineForms.map((row, rowIndex) => (
+                                    <div key={row.id} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <h4 style={{ margin: 0, color: '#1e293b', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Long Line Row #{rowIndex + 1}</h4>
+                                            {longLineForms.length > 1 && !isReadOnly && (
+                                                <button
+                                                    onClick={() => removeLongLineRow(rowIndex)}
+                                                    style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}
                                                 >
-                                                    {allSleeperTypes.map(type => (
-                                                        <option key={type} value={type}>{type}</option>
-                                                    ))}
-                                                </select>
-                                                <span style={{ 
-                                                    position: 'absolute', 
-                                                    right: '15px', 
-                                                    fontSize: '10px',
-                                                    color: '#42818c',
-                                                    pointerEvents: 'none',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    background: '#f1f5f9',
-                                                    padding: '4px 6px',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid #e2e8f0'
-                                                }}>▼</span>
+                                                    Remove Row
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
+                                            <div>
+                                                <label style={labelStyle}>Gang No.</label>
+                                                <input
+                                                    type="text"
+                                                    disabled={isReadOnly}
+                                                    value={row.singleNo}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        updateLongLineRow(rowIndex, 'singleNo', val);
+                                                        
+                                                        const firstGang = val.split(',')[0]?.trim();
+                                                        if (firstGang) {
+                                                            const details = getLongLineMasterDetails(firstGang);
+                                                            if (details && details.moulds > 0) {
+                                                                updateLongLineRow(rowIndex, 'mouldsPerGang', details.moulds);
+                                                                if (details.sleeperType) {
+                                                                    updateLongLineRow(rowIndex, 'sleeperCategory', 'Mainline');
+                                                                    const options = sleeperTypesByCategory['Mainline'] || [];
+                                                                    const matchedDrawing = options.find(opt => opt.includes(details.sleeperType) || details.sleeperType.includes(opt.split(': ')[1]));
+                                                                    if (matchedDrawing) {
+                                                                        updateLongLineRow(rowIndex, 'sleeperType', matchedDrawing);
+                                                                    } else if (allSleeperTypes.includes(details.sleeperType)) {
+                                                                        updateLongLineRow(rowIndex, 'sleeperType', details.sleeperType);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                    onKeyDown={handleKeyDownLongLine}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                    placeholder="e.g. 12, 13"
+                                                />
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <label style={labelStyle}>Sleeper Category</label>
+                                                <CustomDropdown
+                                                    disabled={isReadOnly}
+                                                    value={row.sleeperCategory}
+                                                    onChange={(newCategory) => {
+                                                        updateLongLineRow(rowIndex, 'sleeperCategory', newCategory);
+                                                        updateLongLineRow(rowIndex, 'sleeperType', '');
+                                                        updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', { approach: [], turnout: [], exit: [] });
+                                                    }}
+                                                    options={['Mainline']}
+                                                    bold={true}
+                                                />
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <label style={labelStyle}>Drawing No.</label>
+                                                <CustomDropdown
+                                                    disabled={isReadOnly}
+                                                    value={row.sleeperType}
+                                                    onChange={(val) => {
+                                                        updateLongLineRow(rowIndex, 'sleeperType', val);
+                                                        updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', { approach: [], turnout: [], exit: [] });
+                                                    }}
+                                                    options={getDrawingOptions(row.sleeperCategory)}
+                                                    placeholder="Select Drawing No."
+                                                    bold={true}
+                                                />
+                                            </div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Turnout' ? 'hidden' : 'visible' }}>
+                                                <label style={labelStyle}>Moulds/Gang</label>
+                                                <input
+                                                    type="number"
+                                                    disabled={isReadOnly}
+                                                    value={row.mouldsPerGang}
+                                                    onChange={(e) => updateLongLineRow(rowIndex, 'mouldsPerGang', e.target.value)}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Total Sleepers</label>
+                                                <input
+                                                    type="number"
+                                                    readOnly
+                                                    value={(() => {
+                                                        if (row.sleeperCategory === 'Turnout') {
+                                                            return (row.turnoutSelectedSleepers?.approach?.length || 0)
+                                                                 + (row.turnoutSelectedSleepers?.turnout?.length || 0)
+                                                                 + (row.turnoutSelectedSleepers?.exit?.length || 0);
+                                                        }
+                                                        const cnt = row.singleNo ? row.singleNo.toString().split(',').filter(s => s.trim() && !isNaN(parseInt(s.trim()))).length : 0;
+                                                        return cnt * (parseInt(row.mouldsPerGang) || 0);
+                                                    })()}
+                                                    style={{ ...inputStyle, background: '#f1f5f9', color: '#42818c', fontWeight: '700', cursor: 'default' }}
+                                                />
+                                            </div>
+                                            <div style={{ visibility: row.sleeperCategory === 'Mainline' ? 'hidden' : 'visible' }}>
+                                                <label style={labelStyle}>Total RMT</label>
+                                                <input
+                                                    type="number"
+                                                    disabled={isReadOnly}
+                                                    value={row.totalRmt}
+                                                    onChange={(e) => updateLongLineRow(rowIndex, 'totalRmt', e.target.value)}
+                                                    style={{ ...inputStyle, background: 'white' }}
+                                                    placeholder="RMT"
+                                                />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label style={labelStyle}>Moulds/Gang</label>
-                                            <input type="number" disabled={isReadOnly} value={longLineForm.mouldsPerGang} onChange={(e) => setLongLineForm({ ...longLineForm, mouldsPerGang: e.target.value })} style={{ ...inputStyle, background: 'white' }} />
-                                        </div>
-                                        {!isReadOnly && (
-                                            <button
-                                                onClick={handleAddLongLine}
-                                                style={{ background: editingEntryId ? '#0284c7' : '#42818c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
-                                            >
-                                                {editingEntryId ? 'Update Entry' : 'Add Entry'}
-                                            </button>
-                                        )}
                                     </div>
-                                </div>
+                                ))}
+
+                                {/* Turnout Sleeper Selection Panels (Global for pooled rows) for Long Line */}
+                                {(() => {
+                                    const distinctTurnoutTypes = [...new Set(longLineForms.filter(r => r.sleeperCategory === 'Turnout' && r.sleeperType).map(r => r.sleeperType))];
+                                    
+                                    return distinctTurnoutTypes.map(type => {
+                                        const rowIndex = longLineForms.findIndex(r => r.sleeperCategory === 'Turnout' && r.sleeperType === type);
+                                        const row = longLineForms[rowIndex];
+                                        const cfg = turnoutSleeperConfig[type];
+                                        if (!cfg) return null;
+
+                                        const increaseSleeper = (section, id) => {
+                                            const current = row.turnoutSelectedSleepers[section] || [];
+                                            const updatedSection = [...current, id];
+                                            updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: updatedSection
+                                            });
+                                        };
+
+                                        const decreaseSleeper = (section, id) => {
+                                            const current = row.turnoutSelectedSleepers[section] || [];
+                                            const index = current.indexOf(id);
+                                            if (index !== -1) {
+                                                const updatedSection = [...current];
+                                                updatedSection.splice(index, 1);
+                                                updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                    ...row.turnoutSelectedSleepers,
+                                                    [section]: updatedSection
+                                                });
+                                            }
+                                        };
+
+                                        const selectAll = (section) => {
+                                            updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: [...cfg[section]]
+                                            });
+                                        };
+
+                                        const deselectAll = (section) => {
+                                            updateLongLineRow(rowIndex, 'turnoutSelectedSleepers', {
+                                                ...row.turnoutSelectedSleepers,
+                                                [section]: []
+                                            });
+                                        };
+
+                                        const sectionBtnStyle = {
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #cbd5e1',
+                                            background: 'white',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            color: '#475569'
+                                        };
+
+                                        const renderSection = (label, sectionKey) => (
+                                            <div style={{ marginBottom: '18px' }} key={sectionKey}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                                    <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', minWidth: '80px' }}>{label}</span>
+                                                    {!isReadOnly && (
+                                                        <>
+                                                            <button style={sectionBtnStyle} onClick={() => selectAll(sectionKey)}>Select All</button>
+                                                            <button style={sectionBtnStyle} onClick={() => deselectAll(sectionKey)}>Deselect All</button>
+                                                        </>
+                                                    )}
+                                                    <span style={{ fontSize: '12px', color: '#42818c', fontWeight: '600' }}>
+                                                        {row.turnoutSelectedSleepers[sectionKey]?.length || 0} selected
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    {cfg[sectionKey].map(id => {
+                                                        const qty = row.turnoutSelectedSleepers[sectionKey]?.filter(x => x === id).length || 0;
+                                                        const isSelected = qty > 0;
+                                                        
+                                                        return (
+                                                            <div
+                                                                key={id}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    borderRadius: '8px',
+                                                                    border: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                    background: isSelected ? '#e6f4f5' : '#fff',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: '600',
+                                                                    color: isSelected ? '#42818c' : '#475569',
+                                                                    transition: 'all 0.15s',
+                                                                    userSelect: 'none',
+                                                                    overflow: 'hidden'
+                                                                }}
+                                                            >
+                                                                {/* Left side: Decrement */}
+                                                                <div
+                                                                    style={{
+                                                                        padding: '5px 8px 5px 10px',
+                                                                        cursor: isReadOnly ? 'default' : 'pointer',
+                                                                        borderRight: isSelected ? '1.5px solid #42818c' : '1.5px solid #e2e8f0',
+                                                                        background: isSelected ? '#d9edef' : 'transparent',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                    onClick={() => !isReadOnly && decreaseSleeper(sectionKey, id)}
+                                                                    title="Click to decrease quantity"
+                                                                >
+                                                                    {!isReadOnly && <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? '#2c5a62' : '#94a3b8' }}>(-)</span>}
+                                                                    <span>{id}</span>
+                                                                </div>
+                                                                
+                                                                {/* Right side: Increment */}
+                                                                <div
+                                                                    style={{
+                                                                        padding: '5px 10px 5px 8px',
+                                                                        cursor: isReadOnly ? 'default' : 'pointer',
+                                                                        background: isSelected ? '#42818c' : '#f1f5f9',
+                                                                        color: isSelected ? 'white' : '#94a3b8',
+                                                                        fontWeight: '700',
+                                                                        fontSize: '11px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        gap: '4px',
+                                                                        minWidth: '20px'
+                                                                    }}
+                                                                    onClick={() => !isReadOnly && increaseSleeper(sectionKey, id)}
+                                                                    title="Click to increase quantity"
+                                                                >
+                                                                    <span>{qty}</span>
+                                                                    {!isReadOnly && <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.8 }}>(+)</span>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+
+                                        return (
+                                            <div key={type} style={{ background: 'white', padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', marginTop: '16px', marginBottom: '24px' }}>
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '18px' }}>
+                                                    Select Sleepers for Turnout
+                                                    <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+                                                        — {type}
+                                                    </span>
+                                                </div>
+                                                {renderSection('Approach', 'approach')}
+                                                {renderSection('Turnout', 'turnout')}
+                                                {renderSection('Exit', 'exit')}
+                                            </div>
+                                        );
+                                    });
+                                })()}
+
+                                {/* Multi-row entry action buttons for Long Line */}
+                                {!isReadOnly && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '24px' }}>
+                                        <button
+                                            onClick={addLongLineRow}
+                                            style={{
+                                                background: 'transparent',
+                                                color: '#42818c',
+                                                border: '2px solid #42818c',
+                                                padding: '10px 20px',
+                                                borderRadius: '10px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseOver={e => { e.target.style.background = '#e6f4f5'; }}
+                                            onMouseOut={e => { e.target.style.background = 'transparent'; }}
+                                        >
+                                            + Add Row
+                                        </button>
+                                        <button
+                                            onClick={handleAddLongLine}
+                                            style={{
+                                                background: editingEntryId ? '#0261c7ff' : '#42818c',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '12px 24px',
+                                                borderRadius: '10px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 10px rgba(66, 129, 140, 0.2)'
+                                            }}
+                                        >
+                                            {editingEntryId ? 'Update Entry' : 'Add Entries to Table'}
+                                        </button>
+                                    </div>
+                                )}
 
                                 {longLineEntries.length > 0 && (
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
@@ -1472,32 +2347,50 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '50px' }}>S.No.</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Mode</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Gangs</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Count</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '180px' }}>Sleeper Type</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Moulds/Gang</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '120px' }}>Gang No.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '120px' }}>Category</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Drawing No.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '110px' }}>Moulds/G.</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Total Sleepers</th>
+                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '110px' }}>Total RMT</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {longLineEntries.map((entry, index) => {
-                                                    const count = entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) : 1;
+                                                    const totalSleepers = entry.sleeperCategory === 'Turnout' && entry.sleepers 
+                                                        ? entry.sleepers.length 
+                                                        : (entry.entryMode === 'range' ? (parseInt(entry.toNo) - parseInt(entry.fromNo) + 1) * (parseInt(entry.mouldsPerGang) || 0) : (parseInt(entry.mouldsPerGang) || 0));
+                                                    
+                                                    const gangDisplay = entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo;
+
                                                     return (
                                                         <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                             <td style={{ padding: '12px 8px', color: '#64748b', fontSize: '14px' }}>{index + 1}</td>
-                                                            <td style={{ padding: '12px 8px', textTransform: 'capitalize', color: '#1e293b' }}>{entry.entryMode}</td>
-                                                            <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{entry.entryMode === 'range' ? `${entry.fromNo} - ${entry.toNo}` : entry.singleNo}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{count}</td>
+                                                            <td style={{ padding: '12px 8px', fontWeight: '600', color: '#1e293b' }}>{gangDisplay}</td>
+                                                            <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperCategory || '—'}</td>
                                                             <td style={{ padding: '12px 8px', color: '#1e293b' }}>{entry.sleeperType}</td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.mouldsPerGang}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerGang}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
+                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                                 {!isReadOnly && (
                                                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                                         <button 
                                                                             onClick={() => {
                                                                                 setEditingEntryId(entry.id);
-                                                                                setLongLineForm({ ...entry });
+                                                                                let turnoutSelected = entry.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] };
+                                                                                if (entry.sleeperCategory === 'Turnout' && entry.sleepers && (!entry.turnoutSelectedSleepers || (entry.turnoutSelectedSleepers.approach.length === 0 && entry.turnoutSelectedSleepers.turnout.length === 0 && entry.turnoutSelectedSleepers.exit.length === 0))) {
+                                                                                    const cfg = turnoutSleeperConfig[entry.sleeperType];
+                                                                                    if (cfg) {
+                                                                                        turnoutSelected = {
+                                                                                            approach: entry.sleepers.filter(s => cfg.approach?.includes(s)),
+                                                                                            turnout: entry.sleepers.filter(s => cfg.turnout?.includes(s)),
+                                                                                            exit: entry.sleepers.filter(s => cfg.exit?.includes(s))
+                                                                                        };
+                                                                                    }
+                                                                                }
+                                                                                setLongLineForms([{ ...entry, sleeperCategory: entry.sleeperCategory || 'Mainline', totalRmt: entry.totalRmt || '', turnoutSelectedSleepers: turnoutSelected }]);
                                                                             }}
                                                                             style={{ color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
                                                                         >
@@ -1604,13 +2497,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         return alert('Production Unit is mandatory. Please select a unit in Section 1.');
                                     }
 
-                                    const breakdown = getProductionBreakdown();
-                                    const invalidTypes = Object.keys(breakdown).filter(type => type !== 'RT-8746' && type !== 'RT-2496');
-
-                                    if (invalidTypes.length > 0) {
-                                        return alert('Form Submission Failed: Only RT-8746 and RT-2496 sleeper types are allowed for production declaration.');
-                                    }
-
                                     if (calculateTotalCast() === 0) {
                                         return alert('Please add at least one valid entry.');
                                     }
@@ -1658,18 +2544,33 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                                                         return benchList.map(bench => {
                                                             const isOriginalBench = group._isOld && bench === group.singleNo;
-                                                            const originalRft = isOriginalBench ? group._originalRft : getBenchMasterDetails(bench).rft;
-                                                            const originalSleepers = isOriginalBench ? group._originalSleepers : generateSleeperIds(bench, group.mouldsPerBench);
-                                                            const originalSleeperList = isOriginalBench ? group._originalSleeperList : null;
+                                                            const isTurnout = group.sleeperCategory === 'Turnout';
+                                                            const explicitRft = group.totalRmt ? parseFloat(group.totalRmt) : 0;
+                                                            const rftToUse = (isTurnout && explicitRft > 0) ? (explicitRft / benchList.length) : (isOriginalBench ? group._originalRft : getBenchMasterDetails(bench).rft);
+                                                            
+                                                            let finalSleepers = [];
+                                                            if (isTurnout && group.sleepers) {
+                                                                finalSleepers = [...group.sleepers];
+                                                            } else if (isTurnout && group.turnoutSelectedSleepers) {
+                                                                const s = group.turnoutSelectedSleepers;
+                                                                finalSleepers = [...(s.approach || []), ...(s.turnout || []), ...(s.exit || [])];
+                                                            } else {
+                                                                finalSleepers = group.sleepers || (isOriginalBench ? (group._originalSleepers || (group._originalSleeperList ? group._originalSleeperList.map(s=>s.sleeperNo) : [])) : generateSleeperIds(bench, group.mouldsPerBench));
+                                                            }
+                                                            finalSleepers = finalSleepers || [];
+
+                                                            const originalSleeperList = (isOriginalBench && !isTurnout) ? group._originalSleeperList : null;
                                                             
                                                             return {
                                                                 id: group.id || 0,
                                                                 benchNo: parseInt(bench) || 0,
                                                                 sleeperType: group.sleeperType,
                                                                 mouldPerBench: parseInt(group.mouldsPerBench) || 0,
-                                                                rft: originalRft,
-                                                                sleepers: originalSleepers,
-                                                                sleeperList: originalSleeperList || originalSleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                                rft: rftToUse,
+                                                                sleeperCategory: group.sleeperCategory || 'Mainline',
+                                                                totalSleepers: finalSleepers.length,
+                                                                sleepers: finalSleepers,
+                                                                sleeperList: originalSleeperList || finalSleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                             };
                                                         });
                                                     })
@@ -1682,16 +2583,28 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 const gangNo = entry.entryMode === 'single' ? parseInt(entry.singleNo) : null;
                                                 const mouldsPerGang = parseInt(entry.mouldsPerGang) || 0;
 
-                                                let sleepers = entry._originalSleepers || [];
-                                                if (sleepers.length === 0) {
-                                                    if (mode === 'RANGE' && gangFrom && gangTo) {
-                                                        for (let i = gangFrom; i <= gangTo; i++) {
-                                                            sleepers.push(...generateSleeperIds(i.toString(), mouldsPerGang));
+                                                const isTurnout = entry.sleeperCategory === 'Turnout';
+                                                
+                                                let sleepers = [];
+                                                if (isTurnout && entry.sleepers) {
+                                                    sleepers = [...entry.sleepers];
+                                                } else if (isTurnout && entry.turnoutSelectedSleepers) {
+                                                    const s = entry.turnoutSelectedSleepers;
+                                                    sleepers = [...(s.approach || []), ...(s.turnout || []), ...(s.exit || [])];
+                                                } else {
+                                                    sleepers = entry.sleepers || entry._originalSleepers || (entry._originalSleeperList ? entry._originalSleeperList.map(s=>s.sleeperNo) : []) || [];
+                                                    if (sleepers.length === 0) {
+                                                        if (mode === 'RANGE' && gangFrom && gangTo) {
+                                                            for (let i = gangFrom; i <= gangTo; i++) {
+                                                                sleepers.push(...generateSleeperIds(i.toString(), mouldsPerGang));
+                                                            }
+                                                        } else if (mode === 'SINGLE' && gangNo) {
+                                                            sleepers = generateSleeperIds(gangNo.toString(), mouldsPerGang);
                                                         }
-                                                    } else if (mode === 'SINGLE' && gangNo) {
-                                                        sleepers = generateSleeperIds(gangNo.toString(), mouldsPerGang);
                                                     }
                                                 }
+                                                sleepers = sleepers || [];
+                                                const explicitRft = entry.totalRmt ? parseFloat(entry.totalRmt) : 0;
 
                                                 return {
                                                     id: entry.originalId || 0,
@@ -1701,8 +2614,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     gangNo,
                                                     sleeperType: entry.sleeperType,
                                                     mouldsPerGang,
+                                                    sleeperCategory: entry.sleeperCategory || 'Mainline',
+                                                    totalSleepers: sleepers.length,
+                                                    rft: explicitRft,
                                                     sleepers,
-                                                    sleeperList: entry._originalSleeperList || sleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                    sleeperList: (entry._originalSleeperList && !isTurnout) ? entry._originalSleeperList : sleepers.map(s => ({ id: 0, sleeperNo: s }))
                                                 };
                                             }) : []
                                     };

@@ -400,14 +400,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
         const activeRole = localStorage.getItem('activeRole');
 
-        // Determine if current user is a Sleeper user
-        let isSleeperUser = (activeRole === 'Sleeper Vendor' || activeRole === 'SLEEPER_VENDOR') ||
-                            (Array.isArray(userRoles) && userRoles.some(r => r === 'Sleeper Vendor' || r === 'SLEEPER_VENDOR'));
+        // Determine if current user is explicitly a Sleeper user
+        let isSleeperUser = (activeRole === 'Sleeper Vendor' || activeRole === 'SLEEPER_VENDOR');
         
-        // Fallback: If no explicit role data found in localStorage, 
-        // we check if we are in a context that implies Sleeper Vendor.
-        if (!isSleeperUser && activeRole !== 'Vendor' && activeRole !== 'Rail Vendor') {
-            isSleeperUser = true;
+        // If activeRole is NOT explicitly Sleeper, check if it's explicitly ERC/Rail.
+        const isExplicitlyOther = (activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' || activeRole === 'Rail Vendor');
+        
+        // If activeRole doesn't explicitly tell us, check userRoles or fallback to Sleeper
+        if (!isSleeperUser && !isExplicitlyOther) {
+            isSleeperUser = (Array.isArray(userRoles) && userRoles.some(r => r === 'Sleeper Vendor' || r === 'SLEEPER_VENDOR'));
+            if (!isSleeperUser) {
+                isSleeperUser = true;
+            }
         }
         
         const dashboardRole = isSleeperUser ? "Sleeper" : "ERC";

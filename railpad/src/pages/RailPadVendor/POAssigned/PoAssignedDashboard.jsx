@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import RaiseRailPadInspectionCallForm from './RaiseRailPadInspectionCallForm';
+import RaiseRailPadCallWrapper from './RaiseRailPadCallWrapper';
 import poAssignedService from '../../../services/poAssignedService';
 import SyncPOButton from '../../../components/common/SyncPOButton';
 
@@ -105,7 +105,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 </td>
             </tr>
             {showForm && (
-                <RaiseRailPadInspectionCallForm
+                <RaiseRailPadCallWrapper
                     srItem={item}
                     poNo={poNo}
                     plantId={plantId}
@@ -285,6 +285,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const [viewingPdfUrl, setViewingPdfUrl] = useState(null);
     const [loading, setLoading] = useState(true);
     const [poDataList, setPoDataList] = useState([]);
+    const [notification, setNotification] = useState(null);
 
     const fetchPoData = async () => {
         try {
@@ -321,9 +322,14 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 5000);
+    };
+
     const onSubmitInspectionCall = (payload) => {
-        const callNo = `RPCALL/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
-        alert(`✅ Inspection Call Raised Successfully!\n\nCall No: ${callNo}\nPO No: ${payload.poNo}\nQty Offered: ${payload.totalQtyOffered}\nNo. of Lots: ${payload.noOfLots}`);
+        showNotification(`✅ Inspection Call Raised Successfully! Call No: ${payload.callNo || payload.callNo_}`, 'success');
+        fetchPoData();
     };
 
     if (viewingPdfUrl) {
@@ -456,6 +462,21 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                     100% { opacity: 0.6; }
                 }
             `}</style>
+            
+            {/* ── Toast Notification ── */}
+            {notification && (
+                <div style={{
+                    position: 'fixed', top: 20, right: 20, zIndex: 9999,
+                    background: notification.type === 'success' ? '#10b981' : '#ef4444',
+                    color: '#fff', padding: '12px 24px', borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontWeight: 600, fontSize: '14px',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    animation: 'pulse 0.3s ease-out' // Using existing pulse animation for simplicity
+                }}>
+                    {notification.message}
+                </div>
+            )}
+            
             {/* ── Page Header & Filter Bar Container ── */}
             <div style={{
                 background: '#fff',
@@ -481,7 +502,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                 vendorCode={vendorCode}
                                 plantId={plantId}
                                 onSuccess={() => fetchPoData()}
-                                onError={(err) => alert('Sync failed: ' + err.message)}
+                                onError={(err) => showNotification('Sync failed: ' + err.message, 'error')}
                             />
                         </div>
 

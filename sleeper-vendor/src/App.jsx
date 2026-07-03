@@ -51,6 +51,12 @@ const App = () => {
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('bypassAuth') === 'true') {
       setIsAuthenticated(true);
+      if (searchParams.get('vendorCode')) {
+        sessionStorage.setItem('vendorCode', searchParams.get('vendorCode'));
+      }
+      if (searchParams.get('userId')) {
+        sessionStorage.setItem('userId', searchParams.get('userId'));
+      }
     }
   }, []);
 

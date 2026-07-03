@@ -1,5 +1,6 @@
 import React from 'react';
 import { getStoredUser, getActiveRole } from '../services/authService';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 
 const Header = ({
@@ -14,19 +15,23 @@ const Header = ({
     window.location.href = '/login';
   };
 
-  const isVendor = activeRole === 'Vendor' || activeRole === 'Sleeper Vendor' || (user?.roleName && (user.roleName.includes('Vendor') || user.roleName.includes('Sleeper Vendor')));
+  const isVendor = activeRole?.includes('Vendor') || (user?.roleName && (Array.isArray(user.roleName) ? user.roleName.some(r => r.includes('Vendor')) : user.roleName.includes('Vendor')));
   
   let displayName = 'Inspection Engineer';
+  let displayRole = activeRole || 'Inspection Engineer';
   if (isVendor) {
+    displayRole = activeRole === 'Vendor' ? 'ERC Vendor' : (activeRole === 'Rail Vendor' ? 'Railpad Vendor' : (activeRole || 'Vendor'));
     if (user?.vendorName) {
       displayName = user.vendorName;
     } else {
-      displayName = activeRole === 'Vendor' ? 'ERC Vendor' : (activeRole === 'Rail Vendor' ? 'Railpad Vendor' : (activeRole || 'Vendor'));
+      displayName = displayRole;
     }
   }
 
   const displayEmail = isVendor ? (user?.userName || userEmail) : userEmail;
   const avatarText = isVendor ? (user?.vendorName ? user.vendorName.substring(0, 2).toUpperCase() : 'V') : 'IE';
+  const isSleeperOrRailpad = activeRole === 'Sleeper Vendor' || activeRole === 'Rail Vendor';
+  const idLabel = isSleeperOrRailpad ? 'Plant ID' : 'ID';
 
 
   return (
@@ -57,25 +62,26 @@ const Header = ({
 
         {/* User */}
         <div className="user-info">
-          <div className="user-avatar">{avatarText}</div>
+          <div className="user-avatar" style={{ background: '#0f172a', boxShadow: 'none' }}>{avatarText}</div>
           <div className="user-meta">
             <div className="user-role" title={displayName}>
-              {displayName.length > 30 ? displayName.substring(0, 30) + '...' : displayName}
+              {displayName}
             </div>
-            <div className="user-email">{displayEmail}</div>
+            <div className="user-email">{isVendor ? `${displayRole} • ${idLabel}: ${displayEmail}` : `IE • ID: ${displayEmail}`}</div>
           </div>
         </div>
 
+        {/* Separator */}
+        <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0', margin: '0 4px' }}></div>
+
         {/* Logout */}
-        {/* <button className="btn btn-sm btn-outline logout-btn">
-          Logout
-        </button> */}
         <button
-  className="btn btn-sm btn-outline logout-btn"
-  onClick={handleLogout}
->
-  Logout
-</button>
+          className="btn btn-sm btn-outline logout-btn"
+          onClick={handleLogout}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <LogoutIcon style={{ fontSize: '18px', color: '#475569' }} /> Logout
+        </button>
 
         <button
           className="icon-btn"

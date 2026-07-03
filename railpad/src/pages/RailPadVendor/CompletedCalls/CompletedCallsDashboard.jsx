@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 
-const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
+const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const [calls, setCalls] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -28,7 +28,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     const fetchCalls = async () => {
         try {
             setLoading(true);
-            const data = await inspectionCallService.getPaginatedByPlant(plantId, page, size, 'pending');
+            const data = await inspectionCallService.getCompletedPaginatedByPlant(plantId, page, size);
             if (data && data.content) {
                 setCalls(data.content);
                 setTotalPages(data.totalPages);
@@ -156,8 +156,8 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0 }}>Requested Calls</h2>
-                    <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Track and manage your submitted inspection requests</p>
+                    <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0 }}>Completed Calls</h2>
+                    <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>View and manage your completed inspection requests and download certificates</p>
                 </div>
                 
                 <div style={{ position: 'relative' }}>
@@ -704,4 +704,4 @@ const ActivityItem = ({ icon, title, date, text, active, customColor }) => {
     );
 };
 
-export default RequestedCallsDashboard;
+export default CompletedCallsDashboard;

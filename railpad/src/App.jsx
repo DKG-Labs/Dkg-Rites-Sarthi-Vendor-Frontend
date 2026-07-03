@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from './components/Layout/MainLayout';
 import RailPadVendorDashboard from './pages/RailPadVendor/RailPadVendorDashboard';
-import RailPadVendorLogin from './pages/RailPadVendor/RailPadVendorLogin';
 import PlantDeclarationDashboard from './pages/RailPadVendor/PlantDeclaration/PlantDeclarationDashboard';
 import { logoutUser } from './services/authService.js';
 
@@ -9,12 +8,6 @@ import { logoutUser } from './services/authService.js';
  * App Component - Standalone Vendor Application
  */
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const railpadToken = localStorage.getItem('railpad_token');
-    const authToken = localStorage.getItem('authToken');
-    return !!railpadToken || !!authToken || new URLSearchParams(window.location.search).get('bypassAuth') === 'true';
-  });
-
   const [selectedPlant, setSelectedPlant] = useState(() => {
     const id = localStorage.getItem('railpad_selectedPlantId');
     const name = localStorage.getItem('railpad_selectedPlantName');
@@ -48,7 +41,6 @@ const App = () => {
     if (urlUserId) localStorage.setItem('railpad_userId', urlUserId);
     if (urlToken) {
         localStorage.setItem('railpad_token', urlToken);
-        setIsAuthenticated(true);
     }
     
     if (urlPlant) {
@@ -66,23 +58,14 @@ const App = () => {
 
     // Sync with main portal if needed
     const authToken = localStorage.getItem('authToken');
-    const railpadToken = localStorage.getItem('railpad_token');
-    if (!railpadToken && authToken) {
+    if (authToken) {
         localStorage.setItem('railpad_token', authToken);
-        setIsAuthenticated(true);
     }
   }, []);
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    setVendorCode(localStorage.getItem('railpad_vendorCode'));
-    setVendorName(localStorage.getItem('railpad_vendorName') || 'RailPad Vendor');
-  };
 
   const handleLogout = () => {
     logoutUser();
     window.top.postMessage('logout', '*');
-    setIsAuthenticated(false);
   };
 
   const handlePlantSelect = (plant) => {
@@ -109,21 +92,17 @@ const App = () => {
 
   return (
     <>
-      {!isAuthenticated ? (
-        <RailPadVendorLogin onLogin={handleLoginSuccess} />
-      ) : (
-        <MainLayout 
-            activeItem={activeItem} 
-            onItemClick={setActiveItem} 
-            onLogout={handleLogout}
-            selectedPlant={selectedPlant}
-            onPlantSelect={handlePlantSelect}
-            vendorCode={vendorCode}
-            vendorName={vendorName}
-        >
-          {renderContent()}
-        </MainLayout>
-      )}
+      <MainLayout 
+          activeItem={activeItem} 
+          onItemClick={setActiveItem} 
+          onLogout={handleLogout}
+          selectedPlant={selectedPlant}
+          onPlantSelect={handlePlantSelect}
+          vendorCode={vendorCode}
+          vendorName={vendorName}
+      >
+        {renderContent()}
+      </MainLayout>
     </>
   );
 };
