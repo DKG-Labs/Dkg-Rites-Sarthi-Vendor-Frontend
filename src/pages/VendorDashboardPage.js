@@ -4,6 +4,7 @@ import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm } from '../components/CalibrationForms';
+import { getDetailedStatus } from '../utils/statusMapper';
 import InitialCalibrationRegistration from '../components/InitialCalibrationRegistration';
 import { PaymentForm } from '../components/PaymentForm';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
@@ -3302,16 +3303,19 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'status',
       label: 'Status',
       width: '160px',
-      render: (val, row) => (
-        <div>
-          <StatusBadge status={val} />
-          {val === 'SCHEDULED' && row.scheduledDate && (
-            <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
-              Scheduled: {formatDate(row.scheduledDate)}
-            </div>
-          )}
-        </div>
-      )
+      render: (val, row) => {
+        const { mainStatus, combinedText } = getDetailedStatus(val);
+        return (
+          <div>
+            <StatusBadge status={mainStatus} text={combinedText} />
+            {val === 'SCHEDULED' && row.scheduledDate && (
+              <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
+                Scheduled: {formatDate(row.scheduledDate)}
+              </div>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'actions',
@@ -3361,7 +3365,10 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'status',
       label: 'Status',
       width: '160px',
-      render: (value) => <StatusBadge status={value} />
+      render: (value) => {
+        const { mainStatus, combinedText } = getDetailedStatus(value);
+        return <StatusBadge status={mainStatus} text={combinedText} />;
+      }
     },
     {
       key: 'actions',
