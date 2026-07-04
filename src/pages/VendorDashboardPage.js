@@ -2479,11 +2479,11 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
     },
-    {
-      id: 'feedback-system',
-      label: 'Feedback',
-      description: 'Send feedback to Railway Board'
-    }
+    // {
+    //   id: 'feedback-system',
+    //   label: 'Feedback',
+    //   description: 'Send feedback to Railway Board'
+    // }
   ];
 
 
