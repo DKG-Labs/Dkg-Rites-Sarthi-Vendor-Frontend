@@ -313,13 +313,20 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
 
     // Raw Material Details to be offered
     checkPageBreak(30);
+    const calculatedHeatTotal = call.heatDetails && call.heatDetails.length > 0
+        ? call.heatDetails.reduce((sum, h) => sum + (parseFloat(h.qtyOffered) || 0), 0)
+        : null;
+    const displayTotalQty = calculatedHeatTotal !== null && calculatedHeatTotal > 0
+        ? calculatedHeatTotal
+        : (call.callQty || call.subPoQuantity || call.quantity || '-');
+
     const heatDetails = call.heatDetails && call.heatDetails.length > 0
         ? call.heatDetails.map(h =>
             `Heat No.: ${val(h.heatNo)}, TC No. - ${val(h.tcNo)}, Qty Offered: ${val(h.qtyOffered)} MT`
         ).join('\n') +
-        `\n\nTotal Qty Offered - ${call.subPoQuantity || call.quantity || '-'} MT`
+        `\n\nTotal Qty Offered - ${displayTotalQty} MT`
         : call.tcNumber
-            ? `Heat No.: -, TC No. - ${val(call.tcNumber)}, Qty Offered: ${val(call.subPoQuantity || call.quantity)} MT\n\nTotal Qty Offered - ${val(call.subPoQuantity || call.quantity)} MT`
+            ? `Heat No.: -, TC No. - ${val(call.tcNumber)}, Qty Offered: ${val(call.callQty || call.subPoQuantity || call.quantity)} MT\n\nTotal Qty Offered - ${val(call.callQty || call.subPoQuantity || call.quantity)} MT`
             : '-';
     drawRow('Raw Material Details to be offered', heatDetails);
 
