@@ -41,7 +41,7 @@ export const getDisplayStatus = (apiStatus) => {
     [API_STATUS.CALL_REGISTERED]: DISPLAY_STATUS.PENDING,
     [API_STATUS.IE_SCHEDULED]: DISPLAY_STATUS.SCHEDULED,
     [API_STATUS.SCHEDULED]: DISPLAY_STATUS.SCHEDULED,
-    [API_STATUS.VERIFY_PO_DETAILS]: DISPLAY_STATUS.UNDER_INSPECTION,
+    [API_STATUS.VERIFY_PO_DETAILS]: DISPLAY_STATUS.PENDING,
     [API_STATUS.ENTER_SHIFT_DETAILS_AND_START_INSPECTION]: DISPLAY_STATUS.UNDER_INSPECTION,
     [API_STATUS.PAUSE_INSPECTION_RESUME_NEXT_DAY]: DISPLAY_STATUS.INSPECTION_PAUSED,
     [API_STATUS.INSPECTION_PAUSED]: DISPLAY_STATUS.INSPECTION_PAUSED,
@@ -97,7 +97,7 @@ export const getStatusVariant = (apiStatus) => {
     [API_STATUS.CALL_REGISTERED]: 'warning', // Yellow/Orange for pending
     [API_STATUS.IE_SCHEDULED]: 'info',       // Blue for scheduled
     [API_STATUS.SCHEDULED]: 'info',          // Blue for scheduled
-    [API_STATUS.VERIFY_PO_DETAILS]: 'success', // Green for under inspection
+    [API_STATUS.VERIFY_PO_DETAILS]: 'info',  // Blue for scheduled
     [API_STATUS.ENTER_SHIFT_DETAILS_AND_START_INSPECTION]: 'success', // Green for under inspection
     [API_STATUS.PAUSE_INSPECTION_RESUME_NEXT_DAY]: 'warning', // Orange for paused
     [API_STATUS.INSPECTION_PAUSED]: 'warning', // Orange for paused
@@ -122,15 +122,16 @@ export const getDetailedStatus = (systemStatus) => {
     'IE_SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' }, // Fallback for some frontend statuses
     'INITIATE_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Inspection Started' },
-    'VERIFY_PO_DETAILS': { mainStatus: 'Under Inspection', subStatus: 'Inspection Started' },
+    'VERIFY_PO_DETAILS': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'PAUSE_INSPECTION_RESUME_NEXT_DAY': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' },
     'INSPECTION_PAUSED': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' }, // Alias
-    'ENTER_SHIFT_DETAILS_AND_START_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Under inspection' },
+    'ENTER_SHIFT_DETAILS_AND_START_INSPECTION': { mainStatus: 'Under Inspection', subStatus: '-' },
     'INSPECTION_COMPLETE_CONFIRM': { mainStatus: 'Completed', subStatus: 'IC Issuance Pending' },
     'GENERATE_IC': { mainStatus: 'Completed', subStatus: 'IC Issued' },
     'DSC_SIGN_IC': { mainStatus: 'Completed', subStatus: 'E-Signed' },
     'CANCELLED': { mainStatus: 'Completed', subStatus: 'cancelled' },
-    'WITHHELD': { mainStatus: 'Under Inspection', subStatus: 'withheld' }
+    'WITHHELD': { mainStatus: 'Under Inspection', subStatus: 'withheld' },
+    'IC_PENDING': { mainStatus: 'Completed', subStatus: 'IC Pending' }
   };
 
   const result = mapping[statusLower] || { mainStatus: statusLower || '-', subStatus: '-' };

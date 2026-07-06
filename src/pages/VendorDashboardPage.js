@@ -6164,7 +6164,7 @@ const VendorDashboardPage = ({ onBack }) => {
         ];
         const needsWorkflow = workflowRequiredStatuses.includes(row.status);
         const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
-        const isScheduled = row.status === 'IE_SCHEDULED' || row.status === 'Call Scheduled by IE' || (row.status && row.status.toLowerCase().includes('scheduled'));
+        const isScheduled = row.status === 'IE_SCHEDULED' || row.status === 'VERIFY_PO_DETAILS' || row.status === 'Call Scheduled by IE' || (row.status && row.status.toLowerCase().includes('scheduled'));
 
         return (
           <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {
