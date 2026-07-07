@@ -121,11 +121,11 @@ export const getDetailedStatus = (systemStatus) => {
     'CALL_REGISTERED': { mainStatus: 'Pending', subStatus: 'Call Registered' },
     'IE_SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' }, // Fallback for some frontend statuses
-    'INITIATE_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Inspection Started' },
+    'INITIATE_INSPECTION': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'VERIFY_PO_DETAILS': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'PAUSE_INSPECTION_RESUME_NEXT_DAY': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' },
     'INSPECTION_PAUSED': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' }, // Alias
-    'ENTER_SHIFT_DETAILS_AND_START_INSPECTION': { mainStatus: 'Under Inspection', subStatus: '-' },
+    'ENTER_SHIFT_DETAILS_AND_START_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Under inspection' },
     'INSPECTION_COMPLETE_CONFIRM': { mainStatus: 'Completed', subStatus: 'IC Issuance Pending' },
     'GENERATE_IC': { mainStatus: 'Completed', subStatus: 'IC Issued' },
     'DSC_SIGN_IC': { mainStatus: 'Completed', subStatus: 'E-Signed' },
