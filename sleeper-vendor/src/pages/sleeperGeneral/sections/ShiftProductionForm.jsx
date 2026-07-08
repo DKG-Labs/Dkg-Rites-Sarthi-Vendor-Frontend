@@ -83,7 +83,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     sleeperType: lastRow.sleeperType,
                     mouldsPerBench: lastRow.mouldsPerBench,
                     totalRmt: lastRow.totalRmt,
-                    turnoutSelectedSleepers: JSON.parse(JSON.stringify(lastRow.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] }))
+                    turnoutSelectedSleepers: { approach: [], turnout: [], exit: [] }
                 }];
             }
             return [...prev, getInitialStressBenchForm()];
@@ -108,7 +108,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     sleeperType: lastRow.sleeperType,
                     mouldsPerGang: lastRow.mouldsPerGang,
                     totalRmt: lastRow.totalRmt,
-                    turnoutSelectedSleepers: JSON.parse(JSON.stringify(lastRow.turnoutSelectedSleepers || { approach: [], turnout: [], exit: [] }))
+                    turnoutSelectedSleepers: { approach: [], turnout: [], exit: [] }
                 }];
             }
             return [...prev, getInitialLongLineForm()];
