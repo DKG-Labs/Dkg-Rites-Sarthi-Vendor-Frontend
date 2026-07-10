@@ -17,6 +17,7 @@ import ViewMasterEntryModal from '../components/ViewMasterEntryModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import Notification from '../components/Notification';
 import SyncPOModal from '../components/common/SyncPOModal';
+import VendorFeedbackModule from './VendorFeedbackModule/VendorFeedbackModule';
 import {
   VENDOR_PO_LIST,
   VENDOR_REQUESTED_CALLS,
@@ -49,7 +50,6 @@ import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import VendorFeedback from '../components/Feedback/VendorFeedback';
 import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
 
@@ -2480,11 +2480,11 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
     },
-    // {
-    //   id: 'feedback-system',
-    //   label: 'Feedback',
-    //   description: 'Send feedback to Railway Board'
-    // }
+    {
+      id: 'feedback-system',
+      label: 'Feedback System',
+      description: 'View and rectify discrepancies'
+    }
   ];
 
 
@@ -5182,10 +5182,9 @@ const VendorDashboardPage = ({ onBack }) => {
               <div className="vendor-section-header">
                 <div>
                   <h3 className="vendor-section-header-title">Feedback System</h3>
-
                 </div>
               </div>
-              <VendorFeedback currentUser={user} productContext="ERC Vendor" />
+              <VendorFeedbackModule />
             </div>
           )}
         </div>
