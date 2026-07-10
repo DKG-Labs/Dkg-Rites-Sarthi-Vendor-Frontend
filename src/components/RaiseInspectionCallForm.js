@@ -1129,6 +1129,18 @@ export const RaiseInspectionCallForm = ({
               const earlierRes = await inspectionCallService.getOfferedEarlierQuantity(heatNo, lotNumber);
               if (earlierRes && earlierRes.success) {
                 offeredEarlier = earlierRes.data || 0;
+                
+                // In modify mode, the backend's offeredEarlier already includes the original call's quantity.
+                // We need to subtract the original quantity for this lot from this call so it doesn't get double-counted.
+                if (isModifyMode && selectedItem && selectedItem.final_lots_data) {
+                  const originalLot = selectedItem.final_lots_data.find(l => l.lotNumber === lotNumber);
+                  if (originalLot && originalLot.offeredQty) {
+                    const originalOfferedQty = parseInt(originalLot.offeredQty) || 0;
+                    if (originalOfferedQty > 0) {
+                      offeredEarlier = Math.max(0, offeredEarlier - originalOfferedQty);
+                    }
+                  }
+                }
               }
             } catch (error) {
               console.error(`Error fetching data for lot ${lotNumber}:`, error);
@@ -1606,8 +1618,8 @@ export const RaiseInspectionCallForm = ({
 
       const summaryData = [];
 
-      // For each selected RM IC, fetch PO number and then heat summary
-      for (const rmIcNumber of selectedRmIcNumbers) {
+      // Process all RM ICs concurrently
+      await Promise.all(selectedRmIcNumbers.map(async (rmIcNumber) => {
         try {
           // Step 1: Get PO number from RM IC
           console.log(`  📋 Getting PO number for RM IC: ${rmIcNumber}`);
@@ -1628,8 +1640,8 @@ export const RaiseInspectionCallForm = ({
               const heatNumbers = heatResponse.data;
               console.log(`  ✅ Got ${heatNumbers.length} heat numbers for RM IC: ${rmIcNumber}`);
 
-              // Step 3: For each heat number, fetch the summary data
-              for (const heat of heatNumbers) {
+              // Step 3: For each heat number, fetch the summary data concurrently
+              const heatSummaryPromises = heatNumbers.map(async (heat) => {
                 try {
                   const heatNo = heat.heatNumber;
                   console.log(`    🔥 Fetching summary for Heat: ${heatNo}, PO: ${poNo}`);
@@ -1654,7 +1666,7 @@ export const RaiseInspectionCallForm = ({
                       status = 'Exhausted';
                     }
 
-                    summaryData.push({
+                    return {
                       heatNo: heatData.heatNo || heatNo,
                       acceptedMt: heatData.weightAcceptedMt || 0,
                       maxErc: heatData.rmAcceptedQty || 0,
@@ -1665,27 +1677,29 @@ export const RaiseInspectionCallForm = ({
                       status: status,
                       rmIcNumber: rmIcNumber,
                       poNo: poNo
-                    });
-
-                    console.log(`    ✅ Heat summary fetched:`, {
-                      heatNo: heatData.heatNo || heatNo,
-                      maxErc: heatData.rmAcceptedQty,
-                      manufactured: heatData.manufaturedQty,
-                      offeredEarlier: offeredEarlier,
-                      futureBalance: futureBalance,
-                      status: status
-                    });
+                    };
                   }
                 } catch (error) {
                   console.error(`    ❌ Error fetching summary for heat ${heat.heatNumber}:`, error);
                 }
-              }
+                return null;
+              });
+
+              // Wait for all heat summaries for this RM IC to resolve
+              const heatSummaries = await Promise.all(heatSummaryPromises);
+              
+              // Add valid summaries to the array
+              heatSummaries.forEach(summary => {
+                if (summary) {
+                  summaryData.push(summary);
+                }
+              });
             }
           }
         } catch (error) {
           console.error(`  ❌ Error processing RM IC ${rmIcNumber}:`, error);
         }
-      }
+      }));
 
       // Remove duplicates based on heat number
       const uniqueSummaryData = summaryData.reduce((acc, current) => {
@@ -1696,8 +1710,45 @@ export const RaiseInspectionCallForm = ({
         return acc;
       }, []);
 
-      console.log('📊 Final heat summary data:', uniqueSummaryData);
-      setHeatSummaryData(uniqueSummaryData);
+      console.log('📊 Final heat summary data before adjustment:', uniqueSummaryData);
+
+      // Adjust offeredEarlier and offeredNow based on current form data
+      const adjustedSummaryData = uniqueSummaryData.map(heat => {
+        // Find total offered qty for this heat in the current form (from all lots)
+        const currentCallOfferedQty = formData.process_lot_heat_mapping
+          .filter(lot => lot.heatNumber === heat.heatNo)
+          .reduce((sum, lot) => sum + (parseInt(lot.offeredQty) || 0), 0);
+          
+        let adjustedOfferedEarlier = heat.offeredEarlier;
+        
+        // In modify mode, the backend's offeredEarlier already includes this call's quantity.
+        // We need to subtract it so it doesn't get double-counted.
+        if (isModifyMode && currentCallOfferedQty > 0) {
+          adjustedOfferedEarlier = Math.max(0, adjustedOfferedEarlier - currentCallOfferedQty);
+        }
+        
+        // Calculate new future balance
+        const newFutureBalance = heat.maxErc - adjustedOfferedEarlier - currentCallOfferedQty;
+        
+        // Determine status
+        let newStatus = 'Good';
+        if (newFutureBalance < 0) {
+          newStatus = 'Critical';
+        } else if (newFutureBalance === 0) {
+          newStatus = 'Exhausted';
+        }
+        
+        return {
+          ...heat,
+          offeredEarlier: adjustedOfferedEarlier,
+          offeredNow: currentCallOfferedQty,
+          futureBalance: newFutureBalance,
+          status: newStatus
+        };
+      });
+
+      console.log('📊 Final heat summary data after adjustment:', adjustedSummaryData);
+      setHeatSummaryData(adjustedSummaryData);
     } catch (error) {
       console.error('❌ Error fetching heat summary data:', error);
       setHeatSummaryData([]);
@@ -2154,6 +2205,27 @@ export const RaiseInspectionCallForm = ({
         heat.id === id ? { ...heat, offeredQty } : heat
       )
     }));
+
+    // Perform immediate validation
+    const heatMapping = formData.rm_heat_tc_mapping.find(h => h.id === id);
+    if (heatMapping) {
+      const index = formData.rm_heat_tc_mapping.findIndex(h => h.id === id);
+      const errorKey = `heat_${index}_offeredQty`;
+      const numOffered = parseFloat(offeredQty);
+      const maxAllowed = parseFloat(heatMapping.maxQty) || parseFloat(heatMapping.tcQtyRemaining);
+
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (isNaN(numOffered) || numOffered <= 0) {
+          newErrors[errorKey] = 'Offered Quantity must be greater than 0';
+        } else if (maxAllowed !== undefined && !isNaN(maxAllowed) && numOffered > maxAllowed) {
+          newErrors[errorKey] = `Offered Qty cannot be more than TC Qty Remaining with Vendor (${maxAllowed} ${heatMapping.unit})`;
+        } else {
+          delete newErrors[errorKey];
+        }
+        return newErrors;
+      });
+    }
   };
 
   // Handle chemical analysis change for a specific heat
@@ -3106,7 +3178,7 @@ export const RaiseInspectionCallForm = ({
                         label="Offered Qty (MT)"
                         name={`heat_${index}_offeredQty`}
                         required
-                        hint={heatMapping.tcQtyRemaining ? `Max: ${heatMapping.tcQtyRemaining} MT (TC Qty Remaining)` : heatMapping.maxQty ? `Max: ${heatMapping.maxQty} ${heatMapping.unit}` : ''}
+                        hint={heatMapping.maxQty !== undefined && heatMapping.maxQty !== '' ? `Max: ${heatMapping.maxQty} MT (Original Limit)` : heatMapping.tcQtyRemaining ? `Max: ${heatMapping.tcQtyRemaining} MT (TC Qty Remaining)` : ''}
                         errors={errors}
                       >
                         <input
@@ -3116,7 +3188,7 @@ export const RaiseInspectionCallForm = ({
                           onChange={(e) => handleHeatOfferedQtyChange(heatMapping.id, e.target.value)}
                           step="0.001"
                           min="0"
-                          max={heatMapping.tcQtyRemaining || heatMapping.maxQty || undefined}
+                          max={heatMapping.maxQty !== undefined && heatMapping.maxQty !== '' ? heatMapping.maxQty : heatMapping.tcQtyRemaining || undefined}
                           placeholder="Enter quantity in MT"
                           disabled={!heatMapping.tcNumber}
                         />

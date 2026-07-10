@@ -675,4 +675,63 @@
     opacity: 1;
     transform: translateY(0);
   }
+}.login-redesign-wrapper .dashboard-panel:has(.forgot-password-form) {
+  padding: 1.5rem 1.2rem 1rem !important;
+}
+.login-redesign-wrapper .dashboard-panel:has(.forgot-password-form) .dashboard-logo-wrap {
+  transform: scale(0.7);
+  margin-bottom: 0 !important;
+}
+.login-redesign-wrapper .dashboard-panel:has(.forgot-password-form) .dashboard-header h2 {
+  font-size: 1.2rem !important;
+}
+.login-redesign-wrapper .dashboard-panel:has(.forgot-password-form) .dashboard-fullform {
+  font-size: 0.65rem !important;
+  margin-top: 0.1rem !important;
+  margin-bottom: 0.5rem !important;
+}
+.login-redesign-wrapper .forgot-password-form .form-header {
+  margin-bottom: 0.1rem !important;
+}
+.login-redesign-wrapper .forgot-password-form .form-header h2 {
+  font-size: 1rem !important;
+}
+.login-redesign-wrapper .forgot-password-form .form-header p {
+  display: none !important;
+}
+.login-redesign-wrapper .forgot-password-form input {
+  padding: 0.4rem 0.6rem 0.4rem 2.8rem !important;
+  font-size: 0.8rem !important;
+  height: 32px !important;
+}
+.login-redesign-wrapper .forgot-password-form .submit-btn {
+  padding: 0.5rem !important;
+  font-size: 0.85rem !important;
+  margin-top: 0.2rem !important;
+}
+/* Reduce overall size of dashboard header elements */
+.login-redesign-wrapper .dashboard-rites-mark {
+  width: 80px !important;
+  margin: 0 auto 0.4rem !important;
+}
+.login-redesign-wrapper .dashboard-header h2 {
+  font-size: 1.8rem !important;
+}
+.login-redesign-wrapper .dashboard-fullform {
+  font-size: 0.75rem !important;
+}
+
+/* Reduce size of form elements globally in dashboard panel */
+.login-redesign-wrapper .form-group label {
+  font-size: 0.75rem !important;
+  margin-bottom: 0.2rem !important;
+}
+.login-redesign-wrapper .input-field-shell input {
+  padding: 0.6rem 0.8rem 0.6rem 2.8rem !important;
+  font-size: 0.85rem !important;
+}
+.login-redesign-wrapper .submit-btn {
+  padding: 0.7rem !important;
+  font-size: 0.9rem !important;
+  margin-top: 0.5rem !important;
 }

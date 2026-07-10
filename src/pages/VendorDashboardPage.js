@@ -4,6 +4,7 @@ import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm } from '../components/CalibrationForms';
+import { getDetailedStatus } from '../utils/statusMapper';
 import InitialCalibrationRegistration from '../components/InitialCalibrationRegistration';
 import { PaymentForm } from '../components/PaymentForm';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
@@ -962,10 +963,26 @@ const VendorDashboardPage = ({ onBack }) => {
 
 
 
-  // Unified submit handler for parent-child calibration
   const handleSubmitCalibration = async (data) => {
     setIsLoading(true);
     try {
+      if (editingInstrument && editingInstrument.id) {
+        // Find the specific updated instrument
+        const updatedDetail = data.details.find(d => d.id === editingInstrument.id) || data.details[0];
+        
+        if (updatedDetail) {
+          const response = await vendorCalibrationService.updateCalibrationDetail(editingInstrument.id, updatedDetail);
+          if (response.success) {
+            showNotification('Calibration instrument updated successfully', 'success');
+            await fetchCalibrationRecords();
+            handleCloseInstrumentModal();
+          } else {
+            showNotification(response.error || 'Failed to update calibration instrument', 'error');
+          }
+          return;
+        }
+      }
+
       const payload = {
         id: data.id || null,
         vendorCode: user.userName,
@@ -1366,11 +1383,18 @@ const VendorDashboardPage = ({ onBack }) => {
           errorMessage.includes('exceeds available quantity')) {
           errorDetails += '\n\n⚠️ Inventory Issue:\nThe offered quantity exceeds the available quantity in inventory.\nPlease check the heat numbers and reduce the offered quantities.';
         }
+
+        // Mask SQL and internal exceptions with a user-friendly message
+        if (errorMessage.includes('could not execute statement') || errorMessage.includes('SQL') || errorMessage.includes('Exception')) {
+          errorMessage = 'Please contact admin or support team.';
+        }
+      } else if (errorMessage.includes('Network Error') || errorMessage.includes('could not execute statement') || errorMessage.includes('SQL')) {
+        errorMessage = 'Please contact admin or support team.';
       }
 
       // Show user-friendly error message
       setNotification({
-        message: `❌ Failed to raise inspection call\n\n${errorMessage}${errorDetails}`,
+        message: `❌ Failed to raise inspection call. ${errorMessage}${errorDetails}`,
         type: 'error'
       });
     } finally {
@@ -1420,8 +1444,11 @@ const VendorDashboardPage = ({ onBack }) => {
           chromium: parseFloat(heat.chemical_chromium) || null
         }));
 
+        // Calculate the total offered quantity dynamically from the individual heat mappings
+        const calculatedTotalQtyMt = heatQuantities.reduce((sum, h) => sum + (h.offeredQty || 0), 0);
+
         const rmFields = {
-          totalOfferedQtyMt: parseFloat(data.rm_total_offered_qty_mt) || null,
+          totalOfferedQtyMt: calculatedTotalQtyMt || parseFloat(data.rm_total_offered_qty_mt) || null,
           offeredQtyErc: parseInt(data.rm_offered_qty_erc) || null,
           heatNumbers: heatQuantities.map(h => h.heatNumber).filter(Boolean).join(',') || null,
           tcNumber: heatQuantities[0]?.tcNumber || null,
@@ -1576,8 +1603,22 @@ const VendorDashboardPage = ({ onBack }) => {
       }
     } catch (error) {
       console.error('❌ Error modifying inspection call:', error);
+      
+      let errorMessage = error.message || 'Unknown error';
+      if (error.response?.data?.responseStatus?.message) {
+        errorMessage = error.response.data.responseStatus.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      if (errorMessage.includes('could not execute statement') || errorMessage.includes('SQL') || errorMessage.includes('Exception') || errorMessage.includes('Network Error')) {
+        errorMessage = 'Please contact admin or support team.';
+      }
+      
       setNotification({
-        message: `❌ Failed to modify inspection call: ${error.message || 'Unknown error'}`,
+        message: `❌ Failed to modify inspection call. ${errorMessage}`,
         type: 'error'
       });
     } finally {
@@ -2439,11 +2480,11 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
     },
-    {
-      id: 'feedback-system',
-      label: 'Feedback',
-      description: 'Send feedback to Railway Board'
-    }
+    // {
+    //   id: 'feedback-system',
+    //   label: 'Feedback',
+    //   description: 'Send feedback to Railway Board'
+    // }
   ];
 
 
@@ -2559,12 +2600,12 @@ const VendorDashboardPage = ({ onBack }) => {
                   invoiceDate: rmDetails.invoiceDate || '',
                   subPoNumber: rmDetails.subPoNumber || '',
                   subPoDate: rmDetails.subPoDate || '',
-                  subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                  subPoQty: rmDetails.subPoQty != null ? `${rmDetails.subPoQty}` : '',
                   subPoTotalValue: '',
-                  tcQty: h.tcQuantity ? `${h.tcQuantity}` : '',
-                  tcQtyRemaining: h.qtyLeft && h.qtyLeft !== 'null' ? `${h.qtyLeft}` : '',
-                  offeredQty: h.offeredQty || '',
-                  maxQty: h.qtyLeft && h.qtyLeft !== 'null' ? h.qtyLeft : '',
+                  tcQty: h.tcQuantity != null ? `${h.tcQuantity}` : '',
+                  tcQtyRemaining: h.qtyLeft != null && h.qtyLeft !== 'null' ? `${h.qtyLeft}` : '',
+                  offeredQty: h.offeredQty != null ? h.offeredQty : '',
+                  maxQty: h.qtyLeft != null && h.qtyLeft !== 'null' ? parseFloat(h.qtyLeft) + (parseFloat(h.offeredQty) || 0) : '',
                   unit: rmDetails.unitOfMeasurement || '',
                   isLoading: false,
                   isLoadingChemical: false,
@@ -2590,11 +2631,11 @@ const VendorDashboardPage = ({ onBack }) => {
                 invoiceDate: rmDetails.invoiceDate || '',
                 subPoNumber: rmDetails.subPoNumber || '',
                 subPoDate: rmDetails.subPoDate || '',
-                subPoQty: rmDetails.subPoQty ? `${rmDetails.subPoQty}` : '',
+                subPoQty: rmDetails.subPoQty != null ? `${rmDetails.subPoQty}` : '',
                 subPoTotalValue: '',
-                tcQty: rmDetails.tcQuantity ? `${rmDetails.tcQuantity}` : '',
+                tcQty: rmDetails.tcQuantity != null ? `${rmDetails.tcQuantity}` : '',
                 tcQtyRemaining: '',
-                offeredQty: rmDetails.totalOfferedQtyMt || '',
+                offeredQty: rmDetails.totalOfferedQtyMt != null ? rmDetails.totalOfferedQtyMt : '',
                 maxQty: '',
                 unit: rmDetails.unitOfMeasurement || '',
                 isLoading: false,
@@ -3262,16 +3303,19 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'status',
       label: 'Status',
       width: '160px',
-      render: (val, row) => (
-        <div>
-          <StatusBadge status={val} />
-          {val === 'SCHEDULED' && row.scheduledDate && (
-            <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
-              Scheduled: {formatDate(row.scheduledDate)}
-            </div>
-          )}
-        </div>
-      )
+      render: (val, row) => {
+        const { mainStatus, combinedText } = getDetailedStatus(val);
+        return (
+          <div>
+            <StatusBadge status={mainStatus} text={combinedText} />
+            {val === 'SCHEDULED' && row.scheduledDate && (
+              <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
+                Scheduled: {formatDate(row.scheduledDate)}
+              </div>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'actions',
@@ -3321,7 +3365,10 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'status',
       label: 'Status',
       width: '160px',
-      render: (value) => <StatusBadge status={value} />
+      render: (value) => {
+        const { mainStatus, combinedText } = getDetailedStatus(value);
+        return <StatusBadge status={mainStatus} text={combinedText} />;
+      }
     },
     {
       key: 'actions',
@@ -3397,16 +3444,17 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Apply search filter
     if (requestedCallsSearchTerm) {
-      const searchLower = requestedCallsSearchTerm.toLowerCase();
+      const searchLower = requestedCallsSearchTerm.toLowerCase().replace(/[\s-]/g, '');
       result = result.filter(call => {
         return (
-          (call.call_no && call.call_no.toLowerCase().includes(searchLower)) ||
-          (call.po_no && call.po_no.toLowerCase().includes(searchLower)) ||
-          (call.item_name && call.item_name.toLowerCase().includes(searchLower)) ||
-          (call.stage && call.stage.toLowerCase().includes(searchLower)) ||
-          (call.quantity_offered && String(call.quantity_offered).toLowerCase().includes(searchLower)) ||
-          (call.location && call.location.toLowerCase().includes(searchLower)) ||
-          (call.status && call.status.toLowerCase().replace(/_/g, ' ').includes(searchLower.replace(/_/g, ' ')))
+          (call.call_no && call.call_no.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.po_no && call.po_no.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.item_name && call.item_name.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.stage && call.stage.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.ercType && call.ercType.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.quantity_offered && String(call.quantity_offered).toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.location && call.location.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.status && call.status.toLowerCase().replace(/_/g, ' ').replace(/[\s-]/g, '').includes(searchLower))
         );
       });
     }
@@ -3438,17 +3486,18 @@ const VendorDashboardPage = ({ onBack }) => {
 
     // Apply search filter
     if (completedCallsSearchTerm) {
-      const searchLower = completedCallsSearchTerm.toLowerCase();
+      const searchLower = completedCallsSearchTerm.toLowerCase().replace(/[\s-]/g, '');
       result = result.filter(call => {
         return (
-          (call.call_no && call.call_no.toLowerCase().includes(searchLower)) ||
-          (call.po_no && call.po_no.toLowerCase().includes(searchLower)) ||
-          (call.item_name && call.item_name.toLowerCase().includes(searchLower)) ||
-          (call.stage && call.stage.toLowerCase().includes(searchLower)) ||
-          (call.quantity_offered && String(call.quantity_offered).toLowerCase().includes(searchLower)) ||
-          (call.status && call.status.toLowerCase().replace(/_/g, ' ').includes(searchLower.replace(/_/g, ' '))) ||
-          (call.ic_number && call.ic_number.toLowerCase().includes(searchLower)) ||
-          (call.completion_date && call.completion_date.toLowerCase().includes(searchLower))
+          (call.call_no && call.call_no.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.po_no && call.po_no.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.item_name && call.item_name.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.stage && call.stage.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.ercType && call.ercType.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.quantity_offered && String(call.quantity_offered).toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.status && call.status.toLowerCase().replace(/_/g, ' ').replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.ic_number && call.ic_number.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.completion_date && call.completion_date.toLowerCase().replace(/[\s-]/g, '').includes(searchLower))
         );
       });
     }
@@ -6115,7 +6164,7 @@ const VendorDashboardPage = ({ onBack }) => {
         ];
         const needsWorkflow = workflowRequiredStatuses.includes(row.status);
         const isAllowed = ALLOWED_ACTION_STATUSES.includes(row.status);
-        const isScheduled = row.status === 'IE_SCHEDULED' || row.status === 'Call Scheduled by IE' || (row.status && row.status.toLowerCase().includes('scheduled'));
+        const isScheduled = row.status === 'IE_SCHEDULED' || row.status === 'VERIFY_PO_DETAILS' || row.status === 'Call Scheduled by IE' || (row.status && row.status.toLowerCase().includes('scheduled'));
 
         return (
           <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {

@@ -27,6 +27,8 @@ const vendorCalibrationService = {
         category: calibrationData.category,
         certificateFilePath: calibrationData.certificateFilePath || '',
         certificateFileBase64: calibrationData.certificateFileBase64 || '',
+        createdBy: calibrationData.createdBy || user?.userId,
+        updatedBy: user?.userId,
         details: (calibrationData.details || []).map(detail => ({
           id: detail.id || null,
           instrumentName: detail.instrumentName || detail.instrument_name || '',
@@ -40,7 +42,9 @@ const vendorCalibrationService = {
           certifyingLabName: detail.certifyingLabName || detail.certifying_lab_name || '',
           accreditationAgency: detail.accreditationAgency || detail.accreditation_agency || '',
           notificationDays: detail.notificationDays !== undefined ? parseInt(detail.notificationDays, 10) : (detail.notification_days !== undefined ? parseInt(detail.notification_days, 10) : 30),
-          calibrationStatus: detail.calibrationStatus || detail.calibration_status || 'Valid'
+          calibrationStatus: detail.calibrationStatus || detail.calibration_status || 'Valid',
+          createdBy: detail.createdBy || user?.userId,
+          updatedBy: user?.userId
         }))
       };
 
@@ -65,6 +69,63 @@ const vendorCalibrationService = {
       return {
         success: false,
         error: error.message || 'Failed to save calibration records',
+        details: error.response?.data || error
+      };
+    }
+  },
+
+  /**
+   * Update an individual calibration detail
+   * @param {Long} detailId - ID of the detail to update
+   * @param {Object} detailData - The updated detail data
+   * @returns {Promise<Object>} - API response
+   */
+  updateCalibrationDetail: async (detailId, detailData) => {
+    const user = getStoredUser();
+    try {
+      console.log(`📥 Updating calibration detail ${detailId}:`, detailData);
+      
+      const transformedData = {
+        id: detailData.id || detailId,
+        instrumentName: detailData.instrumentName || detailData.instrument_name || '',
+        capacity: detailData.capacity || detailData.capacity_range || '',
+        description: detailData.description || '',
+        usedFor: Array.isArray(detailData.usedFor) ? detailData.usedFor.join(', ') : (detailData.usedFor || detailData.used_for || ''),
+        serialNumber: detailData.serialNumber || detailData.serial_number || '',
+        calibrationCertificateNo: detailData.calibrationCertificateNo || detailData.calibration_certificate_no || '',
+        calibrationDate: detailData.calibrationDate || detailData.calibration_date || null,
+        calibrationDueDate: detailData.calibrationDueDate || detailData.calibration_due_date || null,
+        certifyingLabName: detailData.certifyingLabName || detailData.certifying_lab_name || '',
+        accreditationAgency: detailData.accreditationAgency || detailData.accreditation_agency || '',
+        notificationDays: detailData.notificationDays !== undefined ? parseInt(detailData.notificationDays, 10) : (detailData.notification_days !== undefined ? parseInt(detailData.notification_days, 10) : 30),
+        makeModel: detailData.makeModel || detailData.make_model || '',
+        masterEquipNoCertValidity: detailData.masterEquipNoCertValidity || detailData.master_equip_no_cert_validity || '',
+        masterEquipNablDetails: detailData.masterEquipNablDetails || detailData.master_equip_nabl_details || '',
+        calibrationStatus: detailData.calibrationStatus || detailData.calibration_status || 'Valid',
+        createdBy: detailData.createdBy || user?.userId,
+        updatedBy: user?.userId
+      };
+
+      console.log('📤 Sending updated detail to backend:', transformedData);
+
+      const response = await httpClient.put(`/vendor/calibration/detail/${detailId}?userId=${user?.userId || ''}`, transformedData);
+
+      console.log('✅ Backend detail update response:', response);
+
+      if (response && response.success) {
+        return {
+          success: true,
+          data: response.data,
+          message: 'Calibration detail updated successfully'
+        };
+      } else {
+        throw new Error('Unexpected response format from backend');
+      }
+    } catch (error) {
+      console.error('❌ Error updating calibration detail:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to update calibration detail',
         details: error.response?.data || error
       };
     }
