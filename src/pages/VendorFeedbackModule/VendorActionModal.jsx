@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import httpClient from '../../services/httpClient';
 import Modal from '../../components/Modal';
 import { getBaseUrl } from '../../services/apiConfig';
 
@@ -28,7 +28,7 @@ const VendorActionModal = ({ discrepancy, actionType, onClose, onSuccess, showNo
         correctiveAction: rectificationData.correctiveAction
       };
 
-      await axios.post(`${getBaseUrl()}/feedback-workflow/vendor-rectification/${dNo}?actionBy=${userId || 0}`, payload);
+      await httpClient.post(`/feedback-workflow/vendor-rectification/${dNo}?actionBy=${userId || 0}`, payload);
       
       // Also initiate the workflow transition logic
       const currentStatus = discrepancy?.nextStatus || discrepancy?.status || '';
@@ -44,7 +44,7 @@ const VendorActionModal = ({ discrepancy, actionType, onClose, onSuccess, showNo
         actionBy: userId || 0
       };
 
-      await axios.post(`${getBaseUrl()}/feedback-workflow/performTransitionAction`, actionData);
+      await httpClient.post(`/feedback-workflow/performTransitionAction`, actionData);
       
       onSuccess();
     } catch (error) {

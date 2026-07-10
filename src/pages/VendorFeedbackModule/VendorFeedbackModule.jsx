@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import httpClient from '../../services/httpClient';
 import Notification from '../../components/Notification';
 import VendorActionModal from './VendorActionModal';
 import { getBaseUrl } from '../../services/apiConfig';
@@ -27,13 +27,13 @@ const VendorFeedbackModule = ({ productType = 'ERC' }) => {
       const baseUrl = getBaseUrl();
       
       const [pendingRes, completedRes] = await Promise.all([
-        axios.get(`${baseUrl}/feedback-workflow/pending?roleId=${roleId}&productType=${productType}`),
-        axios.get(`${baseUrl}/feedback-workflow/feedbacks/completed?productType=${productType}`)
+        httpClient.get(`/feedback-workflow/pending?roleId=${roleId}&productType=${productType}`),
+        httpClient.get(`/feedback-workflow/feedbacks/completed?productType=${productType}`)
       ]);
 
-      if (pendingRes.data?.responseData) {
+      if (pendingRes?.data) {
         // Vendors see discrepancies matching their vendor code
-        const filteredOpen = pendingRes.data.responseData.filter(item => {
+        const filteredOpen = pendingRes.data.filter(item => {
           return item.vendorCode === vendorCode || 
                  item.vendorCode === `:${vendorCode}` || 
                  item.assignedToUser === parseInt(userId, 10);
@@ -41,8 +41,8 @@ const VendorFeedbackModule = ({ productType = 'ERC' }) => {
         setOpenDiscrepancies(filteredOpen);
       }
       
-      if (completedRes.data?.responseData) {
-        const filteredClosed = completedRes.data.responseData.filter(item => {
+      if (completedRes?.data) {
+        const filteredClosed = completedRes.data.filter(item => {
           return item.vendorCode === vendorCode || 
                  item.vendorCode === `:${vendorCode}` || 
                  item.assignedToUser === parseInt(userId, 10);
