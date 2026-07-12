@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import httpClient from '../../services/httpClient';
 import Modal from '../../components/Modal';
-import { getBaseUrl } from '../../services/apiConfig';
 
 const VendorActionModal = ({ discrepancy, actionType, onClose, onSuccess, showNotification }) => {
   const [rectificationData, setRectificationData] = useState({

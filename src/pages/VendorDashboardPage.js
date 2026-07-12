@@ -524,6 +524,10 @@ const VendorDashboardPage = ({ onBack }) => {
   }, [user.userName]);
 
   const fetchVendorPlants = useCallback(async () => {
+    // ERC vendors (role === 'Vendor') do not have plant assignments — skip this API
+    const activeRole = localStorage.getItem('activeRole');
+    if (!activeRole || activeRole === 'Vendor') return;
+
     try {
       const response = await httpClient.get(`/vendor-plant/vendor/${user.userName}/plants`);
       if (response.success && response.data) {
@@ -589,7 +593,7 @@ const VendorDashboardPage = ({ onBack }) => {
           jobStatus: call.jobStatus,
           // Fields for completed calls view
           completion_date: call.updatedAt || call.desiredInspectionDate || '',
-          quantity_accepted: (call.workflowStatus === 'WITHDRAW' ? 0 : call.quantityOffered) || 0,
+          quantity_accepted: call.workflowStatus === 'WITHDRAW' ? 0 : (call.acceptedQty ?? call.quantityOffered ?? 0),
           quantity_rejected: 0,
           ic_number: call.icNumber || '',
           workflowTransitionId: call.workflowTransitionId,

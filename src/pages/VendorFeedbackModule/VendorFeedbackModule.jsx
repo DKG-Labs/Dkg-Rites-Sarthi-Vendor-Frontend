@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import httpClient from '../../services/httpClient';
 import Notification from '../../components/Notification';
 import VendorActionModal from './VendorActionModal';
-import { getBaseUrl } from '../../services/apiConfig';
+
 
 const VendorFeedbackModule = ({ productType = 'ERC' }) => {
   const [activeSubTab, setActiveSubTab] = useState('open'); 
@@ -24,7 +24,6 @@ const VendorFeedbackModule = ({ productType = 'ERC' }) => {
     try {
       // Vendor usually has a different role ID (e.g. 1) but we use dynamic.
       const roleId = userRoleId;
-      const baseUrl = getBaseUrl();
       
       const [pendingRes, completedRes] = await Promise.all([
         httpClient.get(`/feedback-workflow/pending?roleId=${roleId}&productType=${productType}`),
