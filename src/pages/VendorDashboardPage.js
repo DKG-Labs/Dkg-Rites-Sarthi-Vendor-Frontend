@@ -17,6 +17,7 @@ import ViewMasterEntryModal from '../components/ViewMasterEntryModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import Notification from '../components/Notification';
 import SyncPOModal from '../components/common/SyncPOModal';
+import VendorFeedbackModule from './VendorFeedbackModule/VendorFeedbackModule';
 import {
   VENDOR_PO_LIST,
   VENDOR_REQUESTED_CALLS,
@@ -49,7 +50,6 @@ import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import VendorFeedback from '../components/Feedback/VendorFeedback';
 import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
 
@@ -524,6 +524,10 @@ const VendorDashboardPage = ({ onBack }) => {
   }, [user.userName]);
 
   const fetchVendorPlants = useCallback(async () => {
+    // ERC vendors (role === 'Vendor') do not have plant assignments — skip this API
+    const activeRole = localStorage.getItem('activeRole');
+    if (!activeRole || activeRole === 'Vendor') return;
+
     try {
       const response = await httpClient.get(`/vendor-plant/vendor/${user.userName}/plants`);
       if (response.success && response.data) {
@@ -589,7 +593,7 @@ const VendorDashboardPage = ({ onBack }) => {
           jobStatus: call.jobStatus,
           // Fields for completed calls view
           completion_date: call.updatedAt || call.desiredInspectionDate || '',
-          quantity_accepted: (call.workflowStatus === 'WITHDRAW' ? 0 : call.quantityOffered) || 0,
+          quantity_accepted: call.workflowStatus === 'WITHDRAW' ? 0 : (call.acceptedQty ?? call.quantityOffered ?? 0),
           quantity_rejected: 0,
           ic_number: call.icNumber || '',
           workflowTransitionId: call.workflowTransitionId,
@@ -2480,11 +2484,11 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
     },
-    // {
-    //   id: 'feedback-system',
-    //   label: 'Feedback',
-    //   description: 'Send feedback to Railway Board'
-    // }
+    {
+      id: 'feedback-system',
+      label: 'Feedback System',
+      description: 'View and rectify discrepancies'
+    }
   ];
 
 
@@ -5182,10 +5186,9 @@ const VendorDashboardPage = ({ onBack }) => {
               <div className="vendor-section-header">
                 <div>
                   <h3 className="vendor-section-header-title">Feedback System</h3>
-
                 </div>
               </div>
-              <VendorFeedback currentUser={user} productContext="ERC Vendor" />
+              <VendorFeedbackModule />
             </div>
           )}
         </div>

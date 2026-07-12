@@ -22,7 +22,7 @@ const DRAWING_NUMBERS = {
     "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
 };
 
-const SHIFTS = ["Shift A", "Shift B", "Shift C", "General", "Day", "Night"];
+const SHIFTS = ["Shift A", "Shift B", "Shift C", "General"];
 
 const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
