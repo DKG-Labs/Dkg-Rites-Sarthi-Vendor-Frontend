@@ -77,7 +77,7 @@ export const API_ENDPOINTS = {
     GET_BY_VENDOR: '/vendor/po-assigned',
     GET_COUNT: '/vendor/po-assigned/count'
   },
-  
+
   ANNEXURES: '/annexures'
 };
 

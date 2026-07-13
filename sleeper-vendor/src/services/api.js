@@ -1097,6 +1097,48 @@ export const apiService = {
         }
     },
 
+    getIMMSMAData: async (payload) => {
+        try {
+            const token = sessionStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch MA details via Proxy');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('IMMS Get MA Data Error:', error);
+            throw error;
+        }
+    },
+
+    getPoDateByPoNo: async (poNo) => {
+        try {
+            const token = sessionStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/Vendorsync/po-date?poNo=${encodeURIComponent(poNo)}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch PO Date');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Get PO Date Error:', error);
+            throw error;
+        }
+    },
+
     savePOData: async (payload) => {
         try {
             const response = await fetch(`${BASE_URL}/Vendorsync/save`, {
@@ -1111,6 +1153,24 @@ export const apiService = {
             return data;
         } catch (error) {
             console.error('Save PO Sync Error:', error);
+            throw error;
+        }
+    },
+
+    savePoMaData: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/Vendorsync/savePoMa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Save PO MA Sync Error:', error);
             throw error;
         }
     },

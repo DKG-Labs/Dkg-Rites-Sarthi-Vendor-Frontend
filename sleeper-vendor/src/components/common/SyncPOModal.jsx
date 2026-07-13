@@ -9,6 +9,14 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         poDate: '',
         vcode: vcode
     });
+    const [syncType, setSyncType] = useState('po');
+    const [formDataMa, setFormDataMa] = useState({
+        rly: '',
+        poNo: '',
+        maDate: '',
+        maNo: '',
+        vcode: vcode
+    });
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
     const [errorMsg, setErrorMsg] = useState('');
@@ -68,6 +76,45 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         return dateStr;
     };
 
+    const parseErrorMessage = (rawMsg) => {
+        if (!rawMsg) return 'Operation failed. Please try again.';
+        let friendlyMsg = rawMsg;
+        
+        try {
+            const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            const jsonStart = cleanMsg.indexOf('{');
+            const jsonEnd = cleanMsg.lastIndexOf('}');
+            if (jsonStart !== -1 && jsonEnd !== -1) {
+                const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
+                // Unescape strings like <EOL> if present
+                const fixedJsonStr = jsonStr.replace(/<EOL>/g, '').replace(/""/g, '"');
+                const parsed = JSON.parse(fixedJsonStr);
+                if (parsed && parsed.error) {
+                    return `CRIS ERROR: ${parsed.error}`;
+                } else if (parsed && parsed.message) {
+                    return `CRIS ERROR: ${parsed.message}`;
+                }
+            }
+        } catch (e) {
+            // ignore parse failure
+        }
+        
+        if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
+            friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
+        } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
+            friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
+        } else if (rawMsg.toLowerCase().includes('invalid ma request') || rawMsg.toLowerCase().includes('ma not found')) {
+            friendlyMsg = 'MA details are invalid or could not be found. Please check your MA Number, Date, and PO details.';
+        } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
+            friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
+        } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
+            friendlyMsg = 'Network error. Please check your internet connection.';
+        } else if (rawMsg.includes('PO Date not found in our system')) {
+            friendlyMsg = 'The PO Date for this PO Number could not be found in our system. Ensure the original PO is synced first.';
+        }
+        return friendlyMsg;
+    };
+
     const handleSync = async (e) => {
         if (e) e.preventDefault();
         setLoading(true);
@@ -92,41 +139,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         } catch (error) {
             setStatus('error');
             const rawMsg = error.message || '';
-            let friendlyMsg = 'Sync failed. Please verify your PO details are correct and RITES is the inspecting agency.';
-            
-            // Check if there is an embedded JSON error payload from CRIS
-            let hasCrisError = false;
-            try {
-                const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
-                const jsonStart = cleanMsg.indexOf('{');
-                const jsonEnd = cleanMsg.lastIndexOf('}');
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
-                    const parsed = JSON.parse(jsonStr);
-                    if (parsed && parsed.error) {
-                        friendlyMsg = `CRIS ERROR: ${parsed.error}`;
-                        hasCrisError = true;
-                    }
-                }
-            } catch (e) {
-                // ignore parse failure
-            }
-
-            if (!hasCrisError) {
-                if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
-                    friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
-                } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
-                    friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
-                } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
-                    friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
-                } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
-                    friendlyMsg = 'Network error. Please check your internet connection.';
-                } else if (rawMsg) {
-                    friendlyMsg = rawMsg;
-                }
-            }
-            
-            setErrorMsg(friendlyMsg);
+            setErrorMsg(parseErrorMessage(rawMsg));
         } finally {
             setLoading(false);
         }
@@ -137,30 +150,44 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         setStatus('loading');
         
         try {
-            // Map the PascalCase CRIS format to camelCase local backend format
-            const savePayload = {
-                poHdr: {
-                    ...fetchedData.PoHdr,
-                    ITEM_CAT_DESCR: manualCategory // use manual value if it was null
-                },
-                poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
-            };
-
-            const response = await apiService.savePOData(savePayload);
-            
-            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success')) {
-                setStatus('success');
-                setTimeout(() => {
-                    if (onSuccess) onSuccess(response);
-                    onClose();
-                    resetModal();
-                }, 2000);
+            if (syncType === 'ma') {
+                const response = await apiService.savePoMaData(fetchedData);
+                if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.status === 'OK' || response.data)) {
+                    setStatus('success');
+                    setTimeout(() => {
+                        if (onSuccess) onSuccess(response);
+                        onClose();
+                        resetModal();
+                    }, 2000);
+                } else {
+                    throw new Error(response.responseStatus?.message || response.message || 'Failed to save MA data to system.');
+                }
             } else {
-                throw new Error(response.responseStatus?.message || 'Failed to save PO data to system.');
+                // Map the PascalCase CRIS format to camelCase local backend format
+                const savePayload = {
+                    poHdr: {
+                        ...fetchedData.PoHdr,
+                        ITEM_CAT_DESCR: manualCategory // use manual value if it was null
+                    },
+                    poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
+                };
+
+                const response = await apiService.savePOData(savePayload);
+                
+                if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success')) {
+                    setStatus('success');
+                    setTimeout(() => {
+                        if (onSuccess) onSuccess(response);
+                        onClose();
+                        resetModal();
+                    }, 2000);
+                } else {
+                    throw new Error(response.responseStatus?.message || 'Failed to save PO data to system.');
+                }
             }
         } catch (error) {
             setStatus('error');
-            setErrorMsg(error.message);
+            setErrorMsg(parseErrorMessage(error.message));
         } finally {
             setLoading(false);
         }
@@ -171,7 +198,159 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         setFetchedData(null);
         setManualCategory('');
         setStatus('idle');
+        setSyncType('po');
+        setFormDataMa({
+            rly: '',
+            poNo: '',
+            maDate: '',
+            maNo: '',
+            vcode: vcode
+        });
     };
+
+    const handleMaInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormDataMa(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleMaSync = async (e) => {
+        if (e) e.preventDefault();
+        setLoading(true);
+        setStatus('loading');
+        setErrorMsg('');
+
+        try {
+            const finalVcode = formDataMa.vcode.startsWith(':') ? formDataMa.vcode : `:${formDataMa.vcode}`;
+            const maPayload = { ...formDataMa, maDate: formatDate(formDataMa.maDate), vcode: finalVcode };
+
+            // 1. Fetch MA Details
+            const maResult = await apiService.getIMMSMAData(maPayload);
+            if (!maResult || maResult.status !== 'OK' || !maResult.data) {
+                throw new Error(maResult?.error || maResult?.message || 'MA not found or invalid response.');
+            }
+
+            // 2. Fetch PO Date from our database
+            const poDateResult = await apiService.getPoDateByPoNo(maPayload.poNo);
+            if (!poDateResult || !poDateResult.poDate) {
+                throw new Error('PO Date not found in our system for the given PO Number.');
+            }
+
+            // 3. Fetch Amended PO Details
+            const amendedPayload = {
+                rly: maPayload.rly,
+                poNo: maPayload.poNo,
+                poDate: poDateResult.poDate,
+                vcode: finalVcode,
+                amended: "true"
+            };
+            const amendedResult = await apiService.getIMMSPOData(amendedPayload);
+            if (!amendedResult || amendedResult.status !== 'OK' || !amendedResult.data) {
+                throw new Error(amendedResult?.error || amendedResult?.message || 'Amended PO data not found or invalid response.');
+            }
+
+            // Combine into the required format
+            const combinedData = {
+                status: "OK",
+                message: "Success",
+                error: [],
+                timestamp: new Date().toISOString(),
+                data: {
+                    MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
+                    MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
+                    mmpPoHdr: amendedResult.data.mmpPoHdr,
+                    mmpPoItem: amendedResult.data.mmpPoItem
+                }
+            };
+
+            setFetchedData(combinedData);
+            setView('review');
+            setStatus('idle');
+            
+        } catch (error) {
+            setStatus('error');
+            setErrorMsg(parseErrorMessage(error.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const renderMaInputView = () => (
+        <form onSubmit={handleMaSync} style={styles.body}>
+            <div style={styles.grid2col}>
+                <div style={styles.formGroup}>
+                    <label style={styles.label}>Railway Code (Rly)</label>
+                    <div ref={dropdownRef} style={{ position: 'relative' }}>
+                        <div 
+                            onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
+                            style={{
+                                ...styles.input,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: railwayLoading ? 'not-allowed' : 'pointer',
+                                backgroundColor: railwayLoading ? '#f1f5f9' : '#fff'
+                            }}
+                        >
+                            <span style={{ color: !formDataMa.rly ? '#94a3b8' : '#1e293b' }}>
+                                {formDataMa.rly 
+                                    ? (railways.find(r => r.rlyCd === formDataMa.rly) ? `${formDataMa.rly}-${railways.find(r => r.rlyCd === formDataMa.rly).rlyShortName}` : formDataMa.rly)
+                                    : (railwayLoading ? 'Loading...' : '-- Select Railway --')
+                                }
+                            </span>
+                            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                        </div>
+                        
+                        {isDropdownOpen && (
+                            <div style={styles.dropdownList}>
+                                {railways.map(r => (
+                                    <div 
+                                        key={r.rlyCd}
+                                        onClick={() => {
+                                            handleMaInputChange({ target: { name: 'rly', value: r.rlyCd } });
+                                            setIsDropdownOpen(false);
+                                        }}
+                                        style={styles.dropdownOption}
+                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
+                                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                    >
+                                        {r.rlyCd}-{r.rlyShortName}
+                                    </div>
+                                ))}
+                                {railways.length === 0 && !railwayLoading && (
+                                    <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
+                                        No railways found
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div style={styles.formGroup}>
+                    <label style={styles.label}>PO Number (poNo)</label>
+                    <input name="poNo" value={formDataMa.poNo} onChange={handleMaInputChange} placeholder="Enter PO Number" style={styles.input} required />
+                </div>
+                <div style={styles.formGroup}>
+                    <label style={styles.label}>MA Date (maDate)</label>
+                    <input name="maDate" type="date" value={formDataMa.maDate} onChange={handleMaInputChange} style={styles.input} required />
+                </div>
+                <div style={styles.formGroup}>
+                    <label style={styles.label}>MA Number (maNo)</label>
+                    <input name="maNo" value={formDataMa.maNo} onChange={handleMaInputChange} placeholder="Enter MA Number" style={styles.input} required />
+                </div>
+                <div style={styles.formGroup}>
+                    <label style={styles.label}>Vendor Code (vcode)</label>
+                    <input value={formDataMa.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9'}} />
+                </div>
+            </div>
+            {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
+            <div style={styles.footer}>
+                <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
+                <button type="submit" disabled={loading} style={styles.syncBtn}>
+                    {loading ? 'Fetching...' : 'Fetch MA Details'}
+                </button>
+            </div>
+        </form>
+    );
 
     const renderInputView = () => (
         <form onSubmit={handleSync} style={styles.body}>
@@ -248,6 +427,37 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     );
 
     const renderReviewView = () => {
+        if (syncType === 'ma') {
+            const maHdr = fetchedData.data.MMP_POMA_HDR || {};
+            const maDtl = fetchedData.data.MMP_POMA_DTL || [];
+            return (
+                <div style={styles.body}>
+                    <div style={styles.summaryCard}>
+                        <p style={styles.summaryLine}><strong>PO No:</strong> {maHdr.PO_NO}</p>
+                        <p style={styles.summaryLine}><strong>MA No:</strong> {maHdr.MA_NO}</p>
+                        <p style={styles.summaryLine}><strong>Items Found:</strong> {maDtl.length}</p>
+                    </div>
+
+                    <div style={styles.successBanner}>
+                        ✨ <strong>Verified:</strong> MA Data successfully retrieved. You can proceed with saving.
+                    </div>
+
+                    {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
+                    
+                    <div style={styles.footer}>
+                        <button onClick={resetModal} style={styles.cancelBtn}>Back</button>
+                        <button 
+                            onClick={handleSave} 
+                            disabled={loading} 
+                            style={{...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)'}}
+                        >
+                            {loading ? 'Saving...' : 'Sync & Save MA'}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         const h = fetchedData.PoHdr;
         const d = fetchedData.PoDtl || [];
         
@@ -351,7 +561,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <div style={styles.headerTitle}>
                         <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
                         <div>
-                            <h3 style={styles.title}>{view === 'input' ? 'sync PO' : 'Verify PO Data'}</h3>
+                            {view === 'input' ? (
+                                <select 
+                                    value={syncType}
+                                    onChange={(e) => setSyncType(e.target.value)}
+                                    style={{ ...styles.title, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', appearance: 'auto', padding: '0', paddingRight: '15px' }}
+                                >
+                                    <option value="po">sync PO</option>
+                                    <option value="ma">ma sync</option>
+                                </select>
+                            ) : (
+                                <h3 style={styles.title}>Verify {syncType === 'po' ? 'PO' : 'MA'} Data</h3>
+                            )}
                             <p style={styles.subtitle}>
                                 {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
                             </p>
@@ -360,14 +581,14 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <button onClick={onClose} style={styles.closeBtn}>&times;</button>
                 </div>
 
-                {view === 'input' ? renderInputView() : renderReviewView()}
+                {view === 'input' ? (syncType === 'po' ? renderInputView() : renderMaInputView()) : renderReviewView()}
 
                 {status === 'success' && (
                     <div style={{...styles.overlay, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 1001}}>
                         <div style={{textAlign: 'center'}} className="fade-in">
                             <div style={{fontSize: '50px'}}>✅</div>
-                            <h3 style={{color: '#0f172a'}}>PO Saved Successfully!</h3>
-                            <p style={{color: '#64748b'}}>The PO has been synced to your dashboard.</p>
+                            <h3 style={{color: '#0f172a'}}>{syncType === 'po' ? 'PO' : 'MA'} Saved Successfully!</h3>
+                            <p style={{color: '#64748b'}}>The {syncType === 'po' ? 'PO' : 'MA'} has been synced to your dashboard.</p>
                         </div>
                     </div>
                 )}

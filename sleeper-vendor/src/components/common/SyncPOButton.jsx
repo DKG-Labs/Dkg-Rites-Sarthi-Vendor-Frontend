@@ -37,10 +37,10 @@ const SyncPOButton = ({ onSuccess, onError }) => {
             <button 
                 onClick={() => setIsModalOpen(true)} 
                 style={buttonStyle}
-                title="sync PO"
+                title="PO / MA sync"
             >
                 <span style={{ fontSize: '18px' }}>🔄</span>
-                <span style={{ whiteSpace: 'nowrap' }}>sync PO</span>
+                <span style={{ whiteSpace: 'nowrap' }}>PO / MA sync</span>
             </button>
 
             <SyncPOModal 

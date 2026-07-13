@@ -7,7 +7,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const userName = localStorage.getItem('userName');
     const vcode = vendorCode || userName || sessionStorage.getItem('vendorCode') || ":41647";
     
-    const syncType = 'PO DATA'; // PO DATA, POMA DATA, POCA DATA
+    const [syncType, setSyncType] = useState('PO DATA'); // PO DATA, POMA DATA, POCA DATA
     const [formData, setFormData] = useState({
         rly: '',
         poNo: '',
@@ -97,6 +97,42 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         return dateStr;
     };
 
+    const parseErrorMessage = (rawMsg) => {
+        if (!rawMsg) return 'Operation failed. Please try again.';
+        let friendlyMsg = rawMsg;
+        
+        try {
+            const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            const jsonStart = cleanMsg.indexOf('{');
+            const jsonEnd = cleanMsg.lastIndexOf('}');
+            if (jsonStart !== -1 && jsonEnd !== -1) {
+                const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
+                const fixedJsonStr = jsonStr.replace(/<EOL>/g, '').replace(/""/g, '"');
+                const parsed = JSON.parse(fixedJsonStr);
+                if (parsed && parsed.error) {
+                    return `CRIS ERROR: ${parsed.error}`;
+                } else if (parsed && parsed.message) {
+                    return `CRIS ERROR: ${parsed.message}`;
+                }
+            }
+        } catch (e) {}
+        
+        if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
+            friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
+        } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
+            friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
+        } else if (rawMsg.toLowerCase().includes('invalid ma request') || rawMsg.toLowerCase().includes('ma not found')) {
+            friendlyMsg = 'MA details are invalid or could not be found. Please check your MA Number, Date, and PO details.';
+        } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
+            friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
+        } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
+            friendlyMsg = 'Network error. Please check your internet connection.';
+        } else if (rawMsg.includes('PO Date not found in our system')) {
+            friendlyMsg = 'The PO Date for this PO Number could not be found in our system. Ensure the original PO is synced first.';
+        }
+        return friendlyMsg;
+    };
+
     const handleSync = async (e) => {
         if (e) e.preventDefault();
         if (hasDateErrors()) return; // Block submit if date validation fails
@@ -107,13 +143,66 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         try {
             const finalVcode = formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`;
             
+            if (syncType === 'POMA DATA') {
+                const maPayload = { 
+                    rly: formData.rly, 
+                    poNo: formData.poNo, 
+                    vcode: finalVcode, 
+                    maDate: formatDate(formData.maDate), 
+                    maNo: formData.maNo 
+                };
+
+                // 1. Fetch MA Details
+                const maResult = await immsService.getIMMSMAData(maPayload);
+                if (!maResult || maResult.status !== 'OK' || !maResult.data) {
+                    throw new Error(maResult?.error || maResult?.message || 'MA not found or invalid response.');
+                }
+
+                // 2. Fetch PO Date from our database
+                const poDateResult = await immsService.getPoDateByPoNo(maPayload.poNo);
+                if (!poDateResult || !poDateResult.poDate) {
+                    throw new Error('PO Date not found in our system for the given PO Number.');
+                }
+
+                // 3. Fetch Amended PO Details
+                const amendedPayload = {
+                    rly: maPayload.rly,
+                    poNo: maPayload.poNo,
+                    poDate: poDateResult.poDate,
+                    vcode: finalVcode,
+                    amended: "true"
+                };
+                const amendedResult = await immsService.getIMMSPOData(amendedPayload);
+                if (!amendedResult || amendedResult.status !== 'OK' || !amendedResult.data) {
+                    throw new Error(amendedResult?.error || amendedResult?.message || 'Amended PO data not found or invalid response.');
+                }
+
+                // Combine into the required format
+                const combinedData = {
+                    status: "OK",
+                    message: "Success",
+                    error: [],
+                    timestamp: new Date().toISOString(),
+                    data: {
+                        MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
+                        MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
+                        mmpPoHdr: amendedResult.data.mmpPoHdr,
+                        mmpPoItem: amendedResult.data.mmpPoItem
+                    }
+                };
+
+                setFetchedData(combinedData);
+                const header = maResult.data.MMP_POMA_HDR;
+                setManualCategory(header?.ITEM_CAT_DESCR || '');
+                setView('review');
+                setStatus('idle');
+                return;
+            }
+
             let payload = { rly: formData.rly, poNo: formData.poNo, vcode: finalVcode };
             
             if (syncType === 'PO DATA') {
                 payload.poDate = formatDate(formData.poDate);
-            } else if (syncType === 'POMA DATA') {
-                payload.maDate = formatDate(formData.maDate);
-                payload.maNo = formData.maNo;
             } else if (syncType === 'POCA DATA') {
                 payload.caDate = formatDate(formData.caDate);
                 payload.caNo = formData.caNo;
@@ -126,7 +215,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                 setFetchedData(result.data);
                 
                 // Determine manual category (existing logic)
-                const header = result.data.PoHdr || result.data.MMP_POMA_HDR || result.data.MMP_POCA_HDR || result.data.header;
+                const header = result.data.PoHdr || result.data.MMP_POCA_HDR || result.data.header;
                 setManualCategory(header?.ITEM_CAT_DESCR || '');
                 
                 setView('review');
@@ -136,42 +225,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             }
         } catch (error) {
             setStatus('error');
-            const rawMsg = error.message || '';
-            let friendlyMsg = 'Sync failed. Please verify your PO details are correct and RITES is the inspecting agency.';
-            
-            // Check if there is an embedded JSON error payload from CRIS
-            let hasCrisError = false;
-            try {
-                const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
-                const jsonStart = cleanMsg.indexOf('{');
-                const jsonEnd = cleanMsg.lastIndexOf('}');
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
-                    const parsed = JSON.parse(jsonStr);
-                    if (parsed && parsed.error) {
-                        friendlyMsg = `CRIS ERROR: ${parsed.error}`;
-                        hasCrisError = true;
-                    }
-                }
-            } catch (e) {
-                // ignore parse failure
-            }
-
-            if (!hasCrisError) {
-                if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
-                    friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
-                } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
-                    friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
-                } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
-                    friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
-                } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
-                    friendlyMsg = 'Network error. Please check your internet connection.';
-                } else if (rawMsg) {
-                    friendlyMsg = rawMsg;
-                }
-            }
-            
-            setErrorMsg(friendlyMsg);
+            setErrorMsg(parseErrorMessage(error.message));
         } finally {
             setLoading(false);
         }
@@ -195,11 +249,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                 };
                 response = await immsService.savePOToSarthi(savePayload);
             } else if (syncType === 'POMA DATA') {
-                const savePayload = {
-                    MMP_POMA_HDR: { ...fetchedData.MMP_POMA_HDR },
-                    MMP_POMA_DTL: fetchedData.MMP_POMA_DTL.map(item => ({ ...item }))
-                };
-                response = await immsService.savePoMaToSarthi(savePayload);
+                response = await immsService.savePoMaToSarthi(fetchedData);
             } else if (syncType === 'POCA DATA') {
                 const savePayload = {
                     MMP_POCA_HDR: { ...fetchedData.MMP_POCA_HDR || fetchedData.header },
@@ -220,7 +270,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             }
         } catch (error) {
             setStatus('error');
-            setErrorMsg(error.message);
+            setErrorMsg(parseErrorMessage(error.message));
         } finally {
             setLoading(false);
         }
@@ -382,11 +432,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             h = fetchedData.PoHdr;
             d = fetchedData.PoDtl || [];
         } else if (syncType === 'POMA DATA') {
-            h = fetchedData.MMP_POMA_HDR;
-            d = fetchedData.MMP_POMA_DTL || [];
+            h = fetchedData.data.MMP_POMA_HDR || {};
+            d = fetchedData.data.MMP_POMA_DTL || [];
         } else if (syncType === 'POCA DATA') {
-            h = fetchedData.MMP_POCA_HDR || fetchedData.header;
-            d = fetchedData.MMP_POCA_DTL || fetchedData.details || [];
+            h = fetchedData.data?.MMP_POCA_HDR || fetchedData.MMP_POCA_HDR || fetchedData.header || {};
+            d = fetchedData.data?.MMP_POCA_DTL || fetchedData.MMP_POCA_DTL || fetchedData.details || [];
         }
         
         // Get role from localStorage (it's stored as a JSON string array)
@@ -496,7 +546,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <div style={styles.headerTitle}>
                         <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
                         <div>
-                            <h3 style={styles.title}>{view === 'input' ? `sync ${syncType}` : `Verify ${syncType}`}</h3>
+                            {view === 'input' ? (
+                                <select 
+                                    value={syncType}
+                                    onChange={(e) => setSyncType(e.target.value)}
+                                    style={{ ...styles.title, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', appearance: 'auto', padding: '0', paddingRight: '15px' }}
+                                >
+                                    <option value="PO DATA">sync PO</option>
+                                    <option value="POMA DATA">ma sync</option>
+                                </select>
+                            ) : (
+                                <h3 style={styles.title}>Verify {syncType}</h3>
+                            )}
                             <p style={styles.subtitle}>
                                 {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
                             </p>
