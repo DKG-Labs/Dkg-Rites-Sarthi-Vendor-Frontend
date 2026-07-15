@@ -13,6 +13,20 @@ const PRODUCT_TYPES = [
     "10.00mm NCRGRSP"
 ];
 
+const NCRGRSP_DRAWINGS = [
+    "T-7014", "T-7014/1", "T-7014/2", "T-7015", "T-7016", "T-7017", "T-7018", "T-7019", "T-7020", "T-7021", 
+    "T-8886", "T-8887", "T-8888", "T-8889", "T-8890", "T-8891", "T-8892", "T-8893", "T-8894", "T-8895", "T-8896", 
+    "T-8906", "T-8907", "T-8908", "T-8909", "T-8910", "T-8911", "T-8912", "T-8913", "T-8914", "T-8914/1", "T-8915", 
+    "T-8915/1", "T-8916", "T-8917", "T-8918", "T-8919", "T-8920", "T-8921", "T-8927", "T-8954", "T-8955", "T-9824", 
+    "T-9825", "T-9826", "T-9827", "T-9837", "T-10031", "T-10093", "T-10095", "T-10096", "T-10097", "T-10098", 
+    "T-10114", "T-10114/1", "T-10114/2", "T-10115", "T-10116", "T-10117", "T-10118", "T-10119", "T-10120", "T-10121", 
+    "T-10122", "T-10123", "T-10124", "T-10125", "T-10126", "T-10127", "T-10128", "T-10129", "T-10130", "T-10153", 
+    "T-10154", "T-10155", "T-10156", "T-10157", "T-10160", "T-10161", "T-10162", "T-10163", "T-10164", "T-10200", 
+    "T-10202", "T-10250", "T-10251", "T-10252", "T-10253", "T-10254", "T-10255", "T-10256", "T-10257", "T-10258", 
+    "T-10259", "T-10260", "T-10261", "T-10262", "T-10263", "T-10264", "T-10265", "T-10266", "T-10267", "T-10268", 
+    "T-10269", "T-10270", "T-10271", "T-10272", "T-10273", "T-10274", "T-10275", "T-10276", "T-10335"
+];
+
 const DRAWING_NUMBERS = {
     "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
     "10.00mm GRSP": [], 
@@ -326,7 +340,8 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                 productType: '',
                 drawingNo: '',
                 mode: 'Nos',
-                batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
+                batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }],
+                ncrgrspBatches: [{ id: Date.now() + 2, batchNo: '', drawings: [{ id: Date.now() + 3, drawingNo: '', qty: '' }] }]
             }
         ]
     };
@@ -457,7 +472,8 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         fetchProductionLines();
     }, [plantId, propVendorCode]);
 
-    const isComposite = (type) => type?.includes('CGRSP') || type?.includes('NCRGRSP');
+    const isNCRGRSP = (type) => type?.includes('NCRGRSP');
+    const isComposite = (type) => type?.includes('CGRSP') && !type?.includes('NCRGRSP');
 
     const handleAddProductBlock = () => {
         setFormData(prev => ({
@@ -467,7 +483,8 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                 productType: '',
                 drawingNo: '',
                 mode: 'Nos',
-                batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }]
+                batches: [{ id: Date.now() + 1, batchNo: '', compoundABatchNo: '', compoundBBatchNo: '', initialWeight: '', finalWeight: '', qty: '' }],
+                ncrgrspBatches: [{ id: Date.now() + 2, batchNo: '', drawings: [{ id: Date.now() + 3, drawingNo: '', qty: '' }] }]
             }]
         }));
     };
@@ -519,11 +536,123 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         }));
     };
 
+    const handleAddNcrgrspBatch = (blockId) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { ...block, ncrgrspBatches: [...(block.ncrgrspBatches || []), { id: Date.now(), batchNo: '', drawings: [{ id: Date.now() + 1, drawingNo: '', qty: '' }] }] }
+                : block
+            )
+        }));
+    };
+
+    const handleRemoveNcrgrspBatch = (blockId, batchId) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { ...block, ncrgrspBatches: (block.ncrgrspBatches || []).filter(b => b.id !== batchId) }
+                : block
+            )
+        }));
+    };
+
+    const handleAddNcrgrspDrawing = (blockId, batchId) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { 
+                    ...block, 
+                    ncrgrspBatches: (block.ncrgrspBatches || []).map(batch => 
+                        batch.id === batchId 
+                        ? { ...batch, drawings: [...(batch.drawings || []), { id: Date.now(), drawingNo: '', qty: '' }] }
+                        : batch
+                    )
+                }
+                : block
+            )
+        }));
+    };
+
+    const handleRemoveNcrgrspDrawing = (blockId, batchId, drawingId) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { 
+                    ...block, 
+                    ncrgrspBatches: (block.ncrgrspBatches || []).map(batch => 
+                        batch.id === batchId 
+                        ? { ...batch, drawings: (batch.drawings || []).filter(d => d.id !== drawingId) }
+                        : batch
+                    )
+                }
+                : block
+            )
+        }));
+    };
+
+    const handleNcrgrspBatchChange = (blockId, batchId, value) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { 
+                    ...block, 
+                    ncrgrspBatches: (block.ncrgrspBatches || []).map(batch => 
+                        batch.id === batchId 
+                        ? { ...batch, batchNo: value }
+                        : batch
+                    )
+                }
+                : block
+            )
+        }));
+    };
+
+    const handleNcrgrspDrawingChange = (blockId, batchId, drawingId, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            productBlocks: prev.productBlocks.map(block => 
+                block.id === blockId 
+                ? { 
+                    ...block, 
+                    ncrgrspBatches: (block.ncrgrspBatches || []).map(batch => 
+                        batch.id === batchId 
+                        ? { 
+                            ...batch, 
+                            drawings: (batch.drawings || []).map(d => 
+                                d.id === drawingId 
+                                ? { ...d, [field]: value }
+                                : d
+                            ) 
+                        }
+                        : batch
+                    )
+                }
+                : block
+            )
+        }));
+    };
+
     const summary = useMemo(() => {
         const result = {};
         formData.productBlocks.forEach(block => {
             if (!block.productType) return;
-            const total = block.batches.reduce((sum, b) => sum + (parseInt(b.qty) || 0), 0);
+            
+            let total = 0;
+            if (isNCRGRSP(block.productType)) {
+                (block.ncrgrspBatches || []).forEach(batch => {
+                    (batch.drawings || []).forEach(d => {
+                        total += (parseInt(d.qty) || 0);
+                    });
+                });
+            } else {
+                total = block.batches.reduce((sum, b) => sum + (parseInt(b.qty) || 0), 0);
+            }
+
             if (result[block.productType]) {
                 result[block.productType].qty += total;
             } else {
@@ -573,26 +702,69 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
         setEditingId(decl.id);
         setCurrentEditingStatus(decl.status);
         setIsReadOnly(false);
+        
+        const consolidatedBlocks = [];
+        const ncrgrspBlocksMap = new Map();
+
+        (decl.products || []).forEach(p => {
+            if (isNCRGRSP(p.productType)) {
+                if (!ncrgrspBlocksMap.has(p.productType)) {
+                    ncrgrspBlocksMap.set(p.productType, {
+                        id: p.id || Date.now() + Math.random(),
+                        productType: p.productType,
+                        drawingNo: '',
+                        mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
+                        batches: [],
+                        ncrgrspBatches: []
+                    });
+                    consolidatedBlocks.push(ncrgrspBlocksMap.get(p.productType));
+                }
+                
+                const block = ncrgrspBlocksMap.get(p.productType);
+                
+                (p.batches || []).forEach(b => {
+                    let batchEntry = block.ncrgrspBatches.find(nb => nb.batchNo === b.batchNo);
+                    if (!batchEntry) {
+                        batchEntry = {
+                            id: b.id || Date.now() + Math.random(),
+                            batchNo: b.batchNo || '',
+                            drawings: []
+                        };
+                        block.ncrgrspBatches.push(batchEntry);
+                    }
+                    
+                    batchEntry.drawings.push({
+                        id: Date.now() + Math.random(),
+                        drawingNo: p.drawingNo || '',
+                        qty: b.quantity || ''
+                    });
+                });
+            } else {
+                consolidatedBlocks.push({
+                    id: p.id || Date.now() + Math.random(),
+                    productType: p.productType,
+                    drawingNo: p.drawingNo || '',
+                    mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
+                    batches: (p.batches || []).map(b => ({
+                        id: b.id || Date.now() + Math.random(),
+                        batchNo: b.batchNo || '',
+                        compoundABatchNo: b.compABatch || '',
+                        compoundBBatchNo: b.compBBatch || '',
+                        initialWeight: b.initialWt || '',
+                        finalWeight: b.finalWt || '',
+                        qty: b.quantity || ''
+                    })),
+                    ncrgrspBatches: [{ id: Date.now() + Math.random(), batchNo: '', drawings: [{ id: Date.now() + Math.random(), drawingNo: '', qty: '' }] }]
+                });
+            }
+        });
+
         setFormData({
             productionDate: decl.productionDate,
             shift: decl.shift,
             productionLine: decl.productionLine,
             poNo: decl.poNo || '',
-            productBlocks: (decl.products || []).map(p => ({
-                id: p.id,
-                productType: p.productType,
-                drawingNo: p.drawingNo || '',
-                mode: p.measurementMode === 'Pieces' ? 'Nos' : (p.measurementMode || 'Nos'),
-                batches: (p.batches || []).map(b => ({
-                    id: b.id,
-                    batchNo: b.batchNo || '',
-                    compoundABatchNo: b.compABatch || '',
-                    compoundBBatchNo: b.compBBatch || '',
-                    initialWeight: b.initialWt || '',
-                    finalWeight: b.finalWt || '',
-                    qty: b.quantity || ''
-                }))
-            }))
+            productBlocks: consolidatedBlocks.length > 0 ? consolidatedBlocks : initialFormState.productBlocks
         });
         setIsModalOpen(true);
     };
@@ -638,21 +810,53 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             let duplicateBatchFound = null;
 
             for (const block of formData.productBlocks) {
-                for (const batch of block.batches) {
-                    if (batch.batchNo) {
-                        const batchLower = batch.batchNo.toLowerCase();
-                        
-                        if (existingBatchesForDate.has(batchLower)) {
-                            duplicateBatchFound = batch.batchNo;
-                            break;
+                if (isNCRGRSP(block.productType)) {
+                    for (const batch of (block.ncrgrspBatches || [])) {
+                        if (batch.batchNo) {
+                            const batchLower = batch.batchNo.toLowerCase();
+                            
+                            if (existingBatchesForDate.has(batchLower)) {
+                                duplicateBatchFound = batch.batchNo;
+                                break;
+                            }
+                            
+                            if (formBatches.has(batchLower)) {
+                                showNotification(`Batch number "${batch.batchNo}" is entered multiple times in the form.`, 'error');
+                                setIsSaving(false);
+                                return;
+                            }
+                            formBatches.add(batchLower);
                         }
-                        
-                        if (formBatches.has(batchLower)) {
-                            showNotification(`Batch number "${batch.batchNo}" is entered multiple times in the form.`, 'error');
-                            setIsSaving(false);
-                            return;
+
+                        const selectedDrawings = new Set();
+                        for (const drawing of (batch.drawings || [])) {
+                            if (drawing.drawingNo) {
+                                if (selectedDrawings.has(drawing.drawingNo)) {
+                                    showNotification(`Drawing number "${drawing.drawingNo}" is selected multiple times in Batch "${batch.batchNo || 'Unnamed'}".`, 'error');
+                                    setIsSaving(false);
+                                    return;
+                                }
+                                selectedDrawings.add(drawing.drawingNo);
+                            }
                         }
-                        formBatches.add(batchLower);
+                    }
+                } else {
+                    for (const batch of block.batches) {
+                        if (batch.batchNo) {
+                            const batchLower = batch.batchNo.toLowerCase();
+                            
+                            if (existingBatchesForDate.has(batchLower)) {
+                                duplicateBatchFound = batch.batchNo;
+                                break;
+                            }
+                            
+                            if (formBatches.has(batchLower)) {
+                                showNotification(`Batch number "${batch.batchNo}" is entered multiple times in the form.`, 'error');
+                                setIsSaving(false);
+                                return;
+                            }
+                            formBatches.add(batchLower);
+                        }
                     }
                 }
                 if (duplicateBatchFound) break;
@@ -676,19 +880,48 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                 plantId: plant.plantId,
                 createdBy: user.userId,
                 updatedBy: user.userId,
-                products: formData.productBlocks.map(block => ({
-                    productType: block.productType,
-                    drawingNo: block.drawingNo,
-                    measurementMode: block.mode,
-                    batches: block.batches.map(batch => ({
-                        batchNo: batch.batchNo,
-                        compABatch: batch.compoundABatchNo,
-                        compBBatch: batch.compoundBBatchNo,
-                        initialWt: batch.initialWeight ? parseFloat(batch.initialWeight) : null,
-                        finalWt: batch.finalWeight ? parseFloat(batch.finalWeight) : null,
-                        quantity: parseInt(batch.qty) || 0
-                    }))
-                }))
+                products: formData.productBlocks.flatMap(block => {
+                    if (isNCRGRSP(block.productType)) {
+                        const drawingMap = new Map();
+                        (block.ncrgrspBatches || []).forEach(batch => {
+                            (batch.drawings || []).forEach(d => {
+                                if (!d.drawingNo) return;
+                                if (!drawingMap.has(d.drawingNo)) {
+                                    drawingMap.set(d.drawingNo, []);
+                                }
+                                drawingMap.get(d.drawingNo).push({
+                                    batchNo: batch.batchNo,
+                                    compABatch: '',
+                                    compBBatch: '',
+                                    initialWt: null,
+                                    finalWt: null,
+                                    quantity: parseInt(d.qty) || 0
+                                });
+                            });
+                        });
+                        
+                        return Array.from(drawingMap.entries()).map(([drawingNo, batches]) => ({
+                            productType: block.productType,
+                            drawingNo: drawingNo,
+                            measurementMode: block.mode,
+                            batches: batches
+                        }));
+                    } else {
+                        return [{
+                            productType: block.productType,
+                            drawingNo: block.drawingNo,
+                            measurementMode: block.mode,
+                            batches: block.batches.map(batch => ({
+                                batchNo: batch.batchNo,
+                                compABatch: batch.compoundABatchNo,
+                                compBBatch: batch.compoundBBatchNo,
+                                initialWt: batch.initialWeight ? parseFloat(batch.initialWeight) : null,
+                                finalWt: batch.finalWeight ? parseFloat(batch.finalWeight) : null,
+                                quantity: parseInt(batch.qty) || 0
+                            }))
+                        }];
+                    }
+                })
             };
 
             if (editingId) {
@@ -1105,7 +1338,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                         )}
                                         
                                         <div className="product-block-header">
-                                            <div className="form-grid" style={{ gridTemplateColumns: '2fr 2fr 1.5fr', gap: '24px', marginBottom: 0, flex: 1 }}>
+                                            <div className="form-grid" style={{ gridTemplateColumns: isNCRGRSP(block.productType) ? '1fr 1fr' : '2fr 2fr 1.5fr', gap: '24px', marginBottom: 0, flex: 1 }}>
                                                 <div className="form-group">
                                                     <label className="form-label">Product Type</label>
                                                     <select className="form-select" value={block.productType} onChange={(e) => {
@@ -1116,13 +1349,15 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                                         {PRODUCT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                                                     </select>
                                                 </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Drawing No</label>
-                                                    <select className="form-select" value={block.drawingNo} onChange={(e) => handleBlockChange(block.id, 'drawingNo', e.target.value)} disabled={isReadOnly || !block.productType}>
-                                                        <option value="">Select Drawing</option>
-                                                        {(DRAWING_NUMBERS[block.productType] || []).map(d => <option key={d} value={d}>{d}</option>)}
-                                                    </select>
-                                                </div>
+                                                {!isNCRGRSP(block.productType) && (
+                                                    <div className="form-group">
+                                                        <label className="form-label">Drawing No</label>
+                                                        <select className="form-select" value={block.drawingNo} onChange={(e) => handleBlockChange(block.id, 'drawingNo', e.target.value)} disabled={isReadOnly || !block.productType}>
+                                                            <option value="">Select Drawing</option>
+                                                            {(DRAWING_NUMBERS[block.productType] || []).map(d => <option key={d} value={d}>{d}</option>)}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <div className="form-group">
                                                     <label className="form-label">Measurement Mode</label>
                                                     <div style={{ 
@@ -1191,56 +1426,129 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
 
                                         {/* Batch Rows */}
                                         <div style={{ marginTop: '16px' }}>
-                                            {isComposite(block.productType) && !isReadOnly && (
-                                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary-color)' }}>
-                                                    ℹ️ <b>Note:</b> Compound A & B batches must map back to the batches logged during the mixing stage.
-                                                </div>
-                                            )}
-                                            {block.batches.map((batch) => (
-                                                <div key={batch.id} className="batch-row">
-                                                    {block.batches.length > 1 && !isReadOnly && (
-                                                        <button type="button" className="batch-row-remove" onClick={() => handleRemoveBatch(block.id, batch.id)}>×</button>
+                                            {isNCRGRSP(block.productType) ? (
+                                                <>
+                                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary-color)' }}>
+                                                        ℹ️ <b>Note:</b> Inventory will be generated automatically by combining Rail Pad Type + Drawing Number.
+                                                    </div>
+                                                    {(block.ncrgrspBatches || [{ id: Date.now(), batchNo: '', drawings: [{ id: Date.now() + 1, drawingNo: '', qty: '' }] }]).map((batch, batchIndex) => (
+                                                        <div key={batch.id} className="ncrgrsp-batch-container" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px', position: 'relative' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                                                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'var(--text-main)' }}>Batch #{batchIndex + 1}</h4>
+                                                                {(block.ncrgrspBatches || []).length > 1 && !isReadOnly && (
+                                                                    <button type="button" onClick={() => handleRemoveNcrgrspBatch(block.id, batch.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                                        Delete Batch
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <div className="form-group" style={{ maxWidth: '300px', marginBottom: '16px' }}>
+                                                                <label className="form-label">Batch Number</label>
+                                                                <input type="text" className="form-input" placeholder="Batch XXXX" value={batch.batchNo} onChange={(e) => handleNcrgrspBatchChange(block.id, batch.id, e.target.value)} required disabled={isReadOnly} />
+                                                            </div>
+                                                            
+                                                            {/* Drawings Table */}
+                                                            <div className="drawings-table-container">
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 40px', gap: '12px', marginBottom: '8px', padding: '0 8px' }}>
+                                                                    <label className="form-label" style={{ margin: 0 }}>Drawing Number</label>
+                                                                    <label className="form-label" style={{ margin: 0 }}>Qty ({block.mode})</label>
+                                                                    <div></div>
+                                                                </div>
+                                                                {(batch.drawings || []).map((drawing) => (
+                                                                    <div key={drawing.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 40px', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+                                                                        <div>
+                                                                            <SearchableSelect
+                                                                                value={drawing.drawingNo}
+                                                                                onChange={(val) => handleNcrgrspDrawingChange(block.id, batch.id, drawing.id, 'drawingNo', val)}
+                                                                                options={NCRGRSP_DRAWINGS
+                                                                                    .filter(d => d === drawing.drawingNo || !(batch.drawings || []).some(otherD => otherD.id !== drawing.id && otherD.drawingNo === d))
+                                                                                    .map(d => ({ value: d, label: d }))}
+                                                                                placeholder="Select Drawing"
+                                                                                disabled={isReadOnly}
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <input type="number" className="form-input" placeholder="0" value={drawing.qty} onChange={(e) => handleNcrgrspDrawingChange(block.id, batch.id, drawing.id, 'qty', e.target.value)} required disabled={isReadOnly} />
+                                                                        </div>
+                                                                        <div>
+                                                                            {(batch.drawings || []).length > 1 && !isReadOnly && (
+                                                                                <button type="button" onClick={() => handleRemoveNcrgrspDrawing(block.id, batch.id, drawing.id)} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                {!isReadOnly && (
+                                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                                                                        <button type="button" onClick={() => handleAddNcrgrspDrawing(block.id, batch.id)} style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                            + Add Drawing
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {!isReadOnly && (
+                                                        <button type="button" onClick={() => handleAddNcrgrspBatch(block.id)} className="btn-secondary" style={{ width: '100%', borderStyle: 'dashed', borderRadius: '8px', padding: '12px', fontWeight: '700' }}>
+                                                            + Add Batch
+                                                        </button>
                                                     )}
-                                                    
-                                                    {isComposite(block.productType) ? (
-                                                        <>
-                                                            <div className="form-group">
-                                                                <label className="form-label">Comp. A Batch</label>
-                                                                <input type="text" className="form-input" placeholder="A-XXXX" value={batch.compoundABatchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'compoundABatchNo', e.target.value)} required disabled={isReadOnly} />
-                                                            </div>
-                                                            <div className="form-group">
-                                                                <label className="form-label">Comp. B Batch</label>
-                                                                <input type="text" className="form-input" placeholder="B-XXXX" value={batch.compoundBBatchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'compoundBBatchNo', e.target.value)} required disabled={isReadOnly} />
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <div className="form-group">
-                                                            <label className="form-label">Batch No.</label>
-                                                            <input type="text" className="form-input" placeholder="Batch XXXX" value={batch.batchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'batchNo', e.target.value)} required disabled={isReadOnly} />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {isComposite(block.productType) && !isReadOnly && (
+                                                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary-color)' }}>
+                                                            ℹ️ <b>Note:</b> Compound A & B batches must map back to the batches logged during the mixing stage.
                                                         </div>
                                                     )}
+                                                    {block.batches.map((batch) => (
+                                                        <div key={batch.id} className="batch-row">
+                                                            {block.batches.length > 1 && !isReadOnly && (
+                                                                <button type="button" className="batch-row-remove" onClick={() => handleRemoveBatch(block.id, batch.id)}>×</button>
+                                                            )}
+                                                            
+                                                            {isComposite(block.productType) ? (
+                                                                <>
+                                                                    <div className="form-group">
+                                                                        <label className="form-label">Comp. A Batch</label>
+                                                                        <input type="text" className="form-input" placeholder="A-XXXX" value={batch.compoundABatchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'compoundABatchNo', e.target.value)} required disabled={isReadOnly} />
+                                                                    </div>
+                                                                    <div className="form-group">
+                                                                        <label className="form-label">Comp. B Batch</label>
+                                                                        <input type="text" className="form-input" placeholder="B-XXXX" value={batch.compoundBBatchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'compoundBBatchNo', e.target.value)} required disabled={isReadOnly} />
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <div className="form-group">
+                                                                    <label className="form-label">Batch No.</label>
+                                                                    <input type="text" className="form-input" placeholder="Batch XXXX" value={batch.batchNo} onChange={(e) => handleBatchChange(block.id, batch.id, 'batchNo', e.target.value)} required disabled={isReadOnly} />
+                                                                </div>
+                                                            )}
 
-                                                    <div className="form-group">
-                                                        <label className="form-label">Initial Wt (Kg)</label>
-                                                        <input type="number" step="0.01" className="form-input" placeholder="Optional" value={batch.initialWeight} onChange={(e) => handleBatchChange(block.id, batch.id, 'initialWeight', e.target.value)} disabled={isReadOnly} />
-                                                    </div>
+                                                            <div className="form-group">
+                                                                <label className="form-label">Initial Wt (Kg)</label>
+                                                                <input type="number" step="0.01" className="form-input" placeholder="Optional" value={batch.initialWeight} onChange={(e) => handleBatchChange(block.id, batch.id, 'initialWeight', e.target.value)} disabled={isReadOnly} />
+                                                            </div>
+                                                            
+                                                            <div className="form-group">
+                                                                <label className="form-label">Final Wt (Kg)</label>
+                                                                <input type="number" step="0.01" className="form-input" placeholder="Optional" value={batch.finalWeight} onChange={(e) => handleBatchChange(block.id, batch.id, 'finalWeight', e.target.value)} disabled={isReadOnly} />
+                                                            </div>
+                                                            
+                                                            <div className="form-group">
+                                                                <label className="form-label">Final Qty ({block.mode})</label>
+                                                                <input type="number" className="form-input" placeholder="0" value={batch.qty} onChange={(e) => handleBatchChange(block.id, batch.id, 'qty', e.target.value)} required disabled={isReadOnly} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                     
-                                                    <div className="form-group">
-                                                        <label className="form-label">Final Wt (Kg)</label>
-                                                        <input type="number" step="0.01" className="form-input" placeholder="Optional" value={batch.finalWeight} onChange={(e) => handleBatchChange(block.id, batch.id, 'finalWeight', e.target.value)} disabled={isReadOnly} />
-                                                    </div>
-                                                    
-                                                    <div className="form-group">
-                                                        <label className="form-label">Final Qty ({block.mode})</label>
-                                                        <input type="number" className="form-input" placeholder="0" value={batch.qty} onChange={(e) => handleBatchChange(block.id, batch.id, 'qty', e.target.value)} required disabled={isReadOnly} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            
-                                            {!isReadOnly && (
-                                                <button type="button" onClick={() => handleAddBatch(block.id)} style={{ background: 'transparent', border: '1px dashed var(--primary-color)', color: 'var(--primary-color)', padding: '8px 16px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '8px' }}>
-                                                    + Add Batch Row
-                                                </button>
+                                                    {!isReadOnly && (
+                                                        <button type="button" onClick={() => handleAddBatch(block.id)} style={{ background: 'transparent', border: '1px dashed var(--primary-color)', color: 'var(--primary-color)', padding: '8px 16px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '8px' }}>
+                                                            + Add Batch Row
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>
