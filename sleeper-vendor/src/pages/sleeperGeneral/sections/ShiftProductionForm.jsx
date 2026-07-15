@@ -253,7 +253,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         });
 
         const latestProfile = filtered.length > 0 ? filtered[filtered.length - 1] : null;
-        const totalUnits = latestProfile ? (parseInt(latestProfile.numberOfSheds) || 0) : 0;
+        const totalUnits = latestProfile ? (parseInt(latestProfile.numberOfSheds || latestProfile.shedLines) || 0) : 0;
         const prefix = plantType === 'Stress Bench' ? 'Shed' : 'Line';
 
         return Array.from({ length: totalUnits }).map((_, i) => ({

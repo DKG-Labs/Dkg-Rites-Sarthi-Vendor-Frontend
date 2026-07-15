@@ -72,6 +72,61 @@ export const immsService = {
     },
 
     /**
+     * Fetch MA Data from CRIS/IMMS via Sarthi Backend Proxy
+     */
+    getIMMSMAData: async (payload) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+
+            const response = await fetch(`${baseUrl}/Vendorsync/fetch-po`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to fetch MA details via Proxy');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('IMMS Fetch Error (MA):', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Fetch exact PO date from local database
+     */
+    getPoDateByPoNo: async (poNo) => {
+        try {
+            const baseUrl = getBaseUrl();
+            const token = localStorage.getItem('authToken');
+            
+            const response = await fetch(`${baseUrl}/Vendorsync/po-date?poNo=${poNo}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                return null;
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching PO Date:', error);
+            return null;
+        }
+    },
+
+    /**
      * Save fetched PO data to the local Sarthi backend
      */
     savePOToSarthi: async (payload) => {

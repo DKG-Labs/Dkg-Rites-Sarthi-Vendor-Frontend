@@ -4070,7 +4070,7 @@ const VendorDashboardPage = ({ onBack }) => {
                       }}
                     >
                       <span style={{ fontSize: '18px' }}>🔄</span>
-                      sync PO
+                      PO / MA sync
                     </button>
                   </div>
                 </div>
