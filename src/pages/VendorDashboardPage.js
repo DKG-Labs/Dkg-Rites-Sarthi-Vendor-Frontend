@@ -134,10 +134,6 @@ const VendorDashboardPage = ({ onBack }) => {
   // Expanded PO rows state
   const [expandedPORows, setExpandedPORows] = useState({});
 
-  // State for approved RM ICs per PO
-  const [approvedRMICsByPO, setApprovedRMICsByPO] = useState({});
-  // eslint-disable-next-line no-unused-vars
-  const [loadingRMICs, setLoadingRMICs] = useState({});
 
   // Expanded Inspection Call rows state (for Requested Calls tab)
   // eslint-disable-next-line no-unused-vars
@@ -171,6 +167,15 @@ const VendorDashboardPage = ({ onBack }) => {
   // Completed calls actions popup modal states
   const [isCompletedActionsModalOpen, setIsCompletedActionsModalOpen] = useState(false);
   const [selectedCompletedCallForActions, setSelectedCompletedCallForActions] = useState(null);
+
+  // States for Heat Details modal
+  const [isPoItemHeatDetailsModalOpen, setIsPoItemHeatDetailsModalOpen] = useState(false);
+  const [poItemHeatDetailsData, setPoItemHeatDetailsData] = useState([]);
+  const [selectedPoSrNoForHeatDetails, setSelectedPoSrNoForHeatDetails] = useState('');
+  const [isHeatDetailsModalOpen, setIsHeatDetailsModalOpen] = useState(false);
+  const [heatDetailsData, setHeatDetailsData] = useState([]);
+  const [isFetchingHeatDetails, setIsFetchingHeatDetails] = useState(false);
+
 
   // Payment filter state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
@@ -1075,36 +1080,6 @@ const VendorDashboardPage = ({ onBack }) => {
       [poId]: isExpanding
     }));
 
-    // Fetch approved RM ICs when expanding a PO
-    if (isExpanding) {
-      const po = poAssignedList.find(p => p.id === poId);
-      if (po && !approvedRMICsByPO[po.po_no]) {
-        setLoadingRMICs(prev => ({ ...prev, [po.po_no]: true }));
-        try {
-          const response = await inspectionCallService.getApprovedRMICsWithHeatDetails(po.po_no);
-          if (response.success) {
-            const data = Array.isArray(response.data) ? response.data : [];
-            setApprovedRMICsByPO(prev => ({
-              ...prev,
-              [po.po_no]: data
-            }));
-          } else {
-            setApprovedRMICsByPO(prev => ({
-              ...prev,
-              [po.po_no]: []
-            }));
-          }
-        } catch (error) {
-          console.error('Error fetching approved RM ICs:', error);
-          setApprovedRMICsByPO(prev => ({
-            ...prev,
-            [po.po_no]: []
-          }));
-        } finally {
-          setLoadingRMICs(prev => ({ ...prev, [po.po_no]: false }));
-        }
-      }
-    }
   };
 
   // ============ RAISE INSPECTION REQUEST HANDLERS ============
@@ -1999,6 +1974,118 @@ const VendorDashboardPage = ({ onBack }) => {
       showNotification(`Failed to download IC: ${error.message}`, 'error');
     } finally {
       setPdfGenerating(false);
+    }
+  };
+
+  const handleOpenPoItemHeatDetails = async (poSrNo) => {
+    setSelectedPoSrNoForHeatDetails(poSrNo);
+    setIsFetchingHeatDetails(true);
+    setPoItemHeatDetailsData([]);
+    setIsPoItemHeatDetailsModalOpen(true);
+    
+    try {
+      const response = await inspectionCallService.getHeatDetailsByPoSrNo(poSrNo);
+      if (response && response.success) {
+        const rawData = response.data || [];
+        const grouped = rawData.reduce((acc, curr) => {
+          const { callNo, heatNo, tcNo, offeredQty, acceptedQty, rejectedQty, weightAcceptedMt, weightRejectedMt } = curr;
+          const cNo = callNo || 'N/A';
+          const hNo = heatNo || 'N/A';
+          const key = cNo + '_' + hNo;
+          
+          if (!acc[key]) {
+            acc[key] = {
+              callNo: cNo,
+              heatNo: hNo,
+              tcNos: tcNo ? [tcNo] : [],
+              offeredQty: parseFloat(offeredQty || 0),
+              acceptedQty: parseFloat(acceptedQty || 0),
+              rejectedQty: parseFloat(rejectedQty || 0),
+              weightAcceptedMt: parseFloat(weightAcceptedMt || 0),
+              weightRejectedMt: parseFloat(weightRejectedMt || 0)
+            };
+          } else {
+            if (tcNo && !acc[key].tcNos.includes(tcNo)) {
+              acc[key].tcNos.push(tcNo);
+            }
+            acc[key].offeredQty += parseFloat(offeredQty || 0);
+          }
+          return acc;
+        }, {});
+        
+        const groupedArray = Object.values(grouped).map(item => ({
+          ...item,
+          tcNo: item.tcNos.length > 0 ? item.tcNos.join(', ') : '-'
+        }));
+        
+        // Sort by callNo descending
+        groupedArray.sort((a, b) => b.callNo.localeCompare(a.callNo));
+        
+        setPoItemHeatDetailsData(groupedArray);
+      } else {
+        showNotification('Failed to fetch heat details for this PO Item.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch heat details for this PO Item:', error);
+      showNotification('Error fetching heat details.', 'error');
+    } finally {
+      setIsFetchingHeatDetails(false);
+    }
+  };
+
+  const handleOpenHeatDetails = async (call) => {
+    if (!call?.call_no) {
+      showNotification('Call ID not found.', 'error');
+      return;
+    }
+    setIsFetchingHeatDetails(true);
+    setHeatDetailsData([]);
+    setIsHeatDetailsModalOpen(true);
+    
+    try {
+      const response = await inspectionCallService.getHeatDetails(call.call_no);
+      if (response && response.success) {
+        const rawData = response.data || [];
+        const grouped = rawData.reduce((acc, curr) => {
+          const { heatNo, tcNo, offeredQty, acceptedQty, rejectedQty, weightAcceptedMt, weightRejectedMt } = curr;
+          const hNo = heatNo || 'N/A';
+          if (!acc[hNo]) {
+            acc[hNo] = {
+              heatNo: hNo,
+              tcNos: tcNo ? [tcNo] : [],
+              offeredQty: parseFloat(offeredQty || 0),
+              acceptedQty: parseFloat(acceptedQty || 0),
+              rejectedQty: parseFloat(rejectedQty || 0),
+              weightAcceptedMt: parseFloat(weightAcceptedMt || 0),
+              weightRejectedMt: parseFloat(weightRejectedMt || 0)
+            };
+          } else {
+            if (tcNo && !acc[hNo].tcNos.includes(tcNo)) {
+              acc[hNo].tcNos.push(tcNo);
+            }
+            acc[hNo].offeredQty += parseFloat(offeredQty || 0);
+          }
+          return acc;
+        }, {});
+        
+        const groupedArray = Object.values(grouped).map(item => ({
+          ...item,
+          tcNo: item.tcNos.length > 0 ? item.tcNos.join(', ') : 'N/A',
+          offeredQty: Math.round(item.offeredQty * 1000) / 1000,
+          acceptedQty: Math.round(item.acceptedQty * 1000) / 1000,
+          rejectedQty: Math.round(item.rejectedQty * 1000) / 1000,
+          weightAcceptedMt: Math.round(item.weightAcceptedMt * 1000) / 1000,
+          weightRejectedMt: Math.round(item.weightRejectedMt * 1000) / 1000
+        }));
+        setHeatDetailsData(groupedArray);
+      } else {
+        showNotification('Failed to fetch heat details.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching heat details:', error);
+      showNotification('Error fetching heat details.', 'error');
+    } finally {
+      setIsFetchingHeatDetails(false);
     }
   };
 
@@ -3265,7 +3352,7 @@ const VendorDashboardPage = ({ onBack }) => {
       render: (value) => formatDate(value)
     },
     { key: 'zone_name', label: 'Zone Name', width: '120px' },
-    { key: 'description', label: 'Vendor Name', width: '220px' },
+    // { key: 'description', label: 'Vendor Name', width: '220px' },
     { key: 'quantity', label: 'Qty', width: '100px' },
     { key: 'unit', label: 'Unit', width: '80px' },
     // { key: 'location', label: 'Location' },
@@ -3281,9 +3368,9 @@ const VendorDashboardPage = ({ onBack }) => {
     { key: 'call_no', label: 'Call No.', width: '110px' },
     {
       key: 'poCombined',
-      label: 'PO/ Sr. No.',
+      label: 'PO No.',
       width: '190px',
-      render: (_, row) => `${row.rlyShortName} / ${row.po_no} / ${cleanSerialNo(row.poSerialNo)}`
+      render: (_, row) => `${row.rlyShortName || ''} / ${row.po_no || ''} / ${cleanSerialNo(row.poSerialNo)}`
     },
     {
       key: 'inspectionDetail',
@@ -3356,7 +3443,12 @@ const VendorDashboardPage = ({ onBack }) => {
 
   const completedColumns = [
     { key: 'call_no', label: 'Call No.', width: '110px' },
-    { key: 'po_no', label: 'PO No.', width: '150px' },
+    { 
+      key: 'poCombined', 
+      label: 'PO No.', 
+      width: '200px',
+      render: (_, row) => `${row.rlyShortName || ''} / ${row.po_no || ''} / ${cleanSerialNo(row.poSerialNo)}`
+    },
     {
       key: 'completion_date',
       label: 'Completion Date',
@@ -3581,7 +3673,7 @@ const VendorDashboardPage = ({ onBack }) => {
   const getSortedPOItems = (poId, items) => {
     if (!items || items.length === 0) return items;
 
-    const sortColumn = poItemsSortColumn[poId];
+    const sortColumn = poItemsSortColumn[poId] || 'po_serial_no';
     const sortDirection = poItemsSortDirection[poId] || 'asc';
 
     if (!sortColumn) return items;
@@ -4332,18 +4424,27 @@ const VendorDashboardPage = ({ onBack }) => {
                                                     </select> */}
 
                                                             {/* Raise Inspection Request Button */}
-                                                            <button
-                                                              className="btn btn-sm btn-primary"
-                                                              onClick={() => {
-                                                                const subPOData = selectedSubPO
-                                                                  ? approvedSubPOs.find(sp => sp.id === parseInt(selectedSubPO))
-                                                                  : null;
-                                                                handleOpenInspectionModal(po, item, subPOData);
-                                                              }}
-                                                              style={{ whiteSpace: 'nowrap' }}
-                                                            >
-                                                              Raise Inspection Request
-                                                            </button>
+                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                              <button
+                                                                className="btn btn-sm btn-primary"
+                                                                onClick={() => {
+                                                                  const subPOData = selectedSubPO
+                                                                    ? approvedSubPOs.find(sp => sp.id === parseInt(selectedSubPO))
+                                                                    : null;
+                                                                  handleOpenInspectionModal(po, item, subPOData);
+                                                                }}
+                                                                style={{ whiteSpace: 'nowrap' }}
+                                                              >
+                                                                Raise Inspection Request
+                                                              </button>
+                                                              <button
+                                                                className="btn btn-sm btn-secondary"
+                                                                onClick={() => handleOpenPoItemHeatDetails(item.po_serial_no)}
+                                                                style={{ whiteSpace: 'nowrap', backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
+                                                              >
+                                                                Heat Details
+                                                              </button>
+                                                            </div>
                                                           </div>
                                                         </td>
                                                       </tr>
@@ -6591,265 +6692,218 @@ const VendorDashboardPage = ({ onBack }) => {
         const call = selectedCompletedCallForActions;
         const matchingPO = findMatchingPO(call.po_no || call.poNo);
 
+        const ActionCard = ({ title, icon, onClick, colors }) => (
+          <button
+            onClick={onClick}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              padding: '24px 16px', background: `linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%)`,
+              border: `1px solid ${colors.border}`, borderRadius: '16px',
+              cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              flex: 1, minWidth: '100px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = `0 10px 25px -5px ${colors.shadow1}, 0 8px 10px -6px ${colors.shadow2}`;
+              e.currentTarget.style.background = `linear-gradient(135deg, ${colors.bg2} 0%, ${colors.border} 100%)`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.background = `linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%)`;
+            }}
+          >
+            <div style={{
+              background: 'white', padding: '12px', borderRadius: '50%',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', color: colors.iconColor,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {icon}
+            </div>
+            <span style={{ fontWeight: '700', color: colors.textColor, fontSize: '14px', textAlign: 'center' }}>
+              {title}
+            </span>
+          </button>
+        );
+
         return (
-          <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(4px)' }} onClick={() => {
+          <div className="modal-overlay" onClick={() => {
             setIsCompletedActionsModalOpen(false);
             setSelectedCompletedCallForActions(null);
-          }}>
-            <div className="modal actions-popup-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', borderRadius: '20px', border: '1px solid rgba(226, 232, 240, 0.8)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
-              <div className="modal-header" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', borderLeft: '4px solid #10b981' }}>
-                <div>
-                  <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '700', color: '#1e3a5f', margin: 0 }}>
-                    Completed Call Actions
-                  </h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                    Quick access and documentation for completed call {call.call_no}
-                  </p>
-                </div>
-                <button className="modal-close-btn" style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => {
-                  setIsCompletedActionsModalOpen(false);
-                  setSelectedCompletedCallForActions(null);
-                }}>
-                  <svg style={{ width: '12px', height: '12px', color: '#64748b' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
+          }} style={{ zIndex: 9999, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+              style={{ 
+                maxWidth: '960px', 
+                width: '95%', 
+                borderRadius: '16px', 
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                overflow: 'hidden',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              <div className="modal-header" style={{
+                padding: '20px 24px',
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#0ea5e9' }}>📋</span> Inspection Call Details - <span style={{ color: '#334155' }}>{call.call_no || call.callNumber}</span>
+                </h2>
+                <button 
+                  className="modal-close" 
+                  onClick={() => {
+                    setIsCompletedActionsModalOpen(false);
+                    setSelectedCompletedCallForActions(null);
+                  }}
+                  style={{
+                    background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%',
+                    width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', transition: 'all 0.2s ease', color: '#64748b', fontSize: '1.2rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fecaca'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                >×</button>
               </div>
-              <div className="modal-body" style={{ padding: '24px' }}>
-                {/* Details section */}
-                <div style={{
-                  background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+
+              <div className="modal-body" style={{ maxHeight: '80vh', overflowY: 'auto', padding: '32px 24px' }}>
+                <div style={{ 
+                  background: 'linear-gradient(to right, #ffffff, #f8fafc)', 
+                  padding: '20px', 
+                  borderRadius: '12px', 
                   border: '1px solid #e2e8f0',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  marginBottom: '24px',
+                  borderLeft: '4px solid #0ea5e9', 
+                  marginBottom: '32px',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                 }}>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '16px 20px'
-                  }}>
-                    {/* Call No */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
                     <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Call No
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.call_no}</span>
+                      <label style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '4px', display: 'block' }}>Call Number</label>
+                      <div style={{ fontWeight: '600', fontSize: '16px', color: '#0f172a' }}>{call.call_no || '-'}</div>
                     </div>
 
-                    {/* PO No */}
                     <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        PO No
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.po_no}</span>
+                      <label style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '4px', display: 'block' }}>PO Number</label>
+                      <div style={{ fontWeight: '600', fontSize: '16px', color: '#0f172a' }}>{call.po_no || '-'}</div>
                     </div>
-
-                    {/* Completion Date */}
                     <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Completion Date
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatDate(call.completion_date)}</span>
+                      <label style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '4px', display: 'block' }}>Completion Date</label>
+                      <div style={{ fontWeight: '600', fontSize: '16px', color: '#0f172a' }}>{formatDate(call.completion_date)}</div>
                     </div>
-
-                    {/* Status */}
                     <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Status
-                      </span>
-                      <div style={{ marginTop: '2px' }}>
-                        <StatusBadge status={call.workflowStatus} />
+                      <label style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '4px', display: 'block' }}>Status</label>
+                      <div style={{ display: 'inline-block', background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '20px', fontSize: '14px', fontWeight: '600' }}>
+                        {call.workflowStatus ? call.workflowStatus.replace(/_/g, ' ') : '-'}
                       </div>
                     </div>
-
-                    {/* Qty Offered */}
                     <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Qty Offered
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.quantity_offered}</span>
-                    </div>
-
-                    {/* Qty Accepted */}
-                    <div>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Qty Accepted
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{call.quantity_accepted}</span>
+                      <label style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '4px', display: 'block' }}>Qty Offered / Accepted</label>
+                      <div style={{ fontWeight: '600', fontSize: '16px', color: '#0f172a' }}>{call.quantity_offered || '-'} / {call.quantity_accepted || '-'}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions Section */}
-                <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#1e3a5f', marginBottom: '12px' }}>Available Actions</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-                    
-                    {/* Common PO Doc button for all status types */}
-                    <button
-                      className="btn btn-outline"
-                      onClick={() => {
-                        if (matchingPO && matchingPO.pdfPath) {
-                          downloadPoDoc(matchingPO.pdfPath, call.po_no);
-                        } else {
-                          showNotification('PO document not found for this call.', 'warning');
-                        }
-                      }}
-                      style={{
-                        padding: '10px 16px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                      PO Doc
-                    </button>
-
-                    {/* Status: INSPECTION_COMPLETE_CONFIRM or GENERATE_IC */}
-                    {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
-                      <>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => {
-                            setSelectedCallForAnnexure(call);
-                            setIsCompletedActionsModalOpen(false);
-                            setSelectedCompletedCallForActions(null);
-                          }}
-                          style={{
-                            padding: '10px 16px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Annexures
-                        </button>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => handleDownloadCallLetter(call)}
-                          style={{
-                            padding: '10px 16px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Call Letter
-                        </button>
-                      </>
-                    )}
-
-                    {/* Status: WITHDRAW */}
-                    {call.workflowStatus === 'WITHDRAW' && (
-                      <button
-                        className="btn btn-outline"
+                <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#3b82f6' }}>⚡</span> Actions & Documents
+                </h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
+                  <ActionCard 
+                    title="PO & MA"
+                    icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                    colors={{ bg1: '#faf5ff', bg2: '#f3e8ff', border: '#e9d5ff', iconColor: '#a855f7', textColor: '#9333ea', shadow1: 'rgba(168, 85, 247, 0.2)', shadow2: 'rgba(168, 85, 247, 0.1)' }}
+                    onClick={() => {
+                      if (matchingPO && matchingPO.pdfPath) {
+                        downloadPoDoc(matchingPO.pdfPath, call.po_no);
+                      } else {
+                        showNotification('PO document not found for this call.', 'warning');
+                      }
+                    }}
+                  />
+                  {call.stage === 'Raw Material' && (
+                    <ActionCard 
+                      title="Heat Details"
+                      icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>}
+                      colors={{ bg1: '#fffbeb', bg2: '#fef3c7', border: '#fde68a', iconColor: '#f59e0b', textColor: '#d97706', shadow1: 'rgba(245, 158, 11, 0.2)', shadow2: 'rgba(245, 158, 11, 0.1)' }}
+                      onClick={() => handleOpenHeatDetails(call)}
+                    />
+                  )}
+                  {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
+                    <>
+                      <ActionCard 
+                        title="Annexures"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
                         onClick={() => {
-                          setSelectedCallForActions(call);
-                          setIsActionsModalOpen(true);
+                          setSelectedCallForAnnexure(call);
                           setIsCompletedActionsModalOpen(false);
                           setSelectedCompletedCallForActions(null);
                         }}
-                        style={{
-                          padding: '10px 16px',
-                          fontSize: '13px',
-                          fontWeight: '650',
-                          borderRadius: '8px',
-                          cursor: 'pointer'
+                      />
+                      <ActionCard 
+                        title="Call Letter"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                        colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
+                        onClick={() => handleDownloadCallLetter(call)}
+                      />
+                    </>
+                  )}
+                  {call.workflowStatus === 'WITHDRAW' && (
+                    <ActionCard 
+                      title="Call Details"
+                      icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>}
+                      colors={{ bg1: '#fff1f2', bg2: '#ffe4e6', border: '#fecdd3', iconColor: '#f43f5e', textColor: '#e11d48', shadow1: 'rgba(244, 63, 94, 0.2)', shadow2: 'rgba(244, 63, 94, 0.1)' }}
+                      onClick={() => {
+                        setSelectedCallForActions(call);
+                        setIsActionsModalOpen(true);
+                        setIsCompletedActionsModalOpen(false);
+                        setSelectedCompletedCallForActions(null);
+                      }}
+                    />
+                  )}
+                  {call.workflowStatus === 'DSC_SIGN_IC' && (
+                    <>
+                      <ActionCard 
+                        title="Call Letter"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                        colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
+                        onClick={() => handleDownloadCallLetter(call)}
+                      />
+                      <ActionCard 
+                        title="IC"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#ecfdf5', bg2: '#d1fae5', border: '#a7f3d0', iconColor: '#10b981', textColor: '#059669', shadow1: 'rgba(16, 185, 129, 0.2)', shadow2: 'rgba(16, 185, 129, 0.1)' }}
+                        onClick={() => handleDownloadIC(call)}
+                      />
+                      <ActionCard 
+                        title="Annexure I"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
+                        onClick={() => {
+                          setSelectedCallForAnnexure(call);
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
                         }}
-                      >
-                        Call Details
-                      </button>
-                    )}
-
-                    {/* Status: DSC_SIGN_IC */}
-                    {call.workflowStatus === 'DSC_SIGN_IC' && (
-                      <>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => handleDownloadCallLetter(call)}
-                          style={{
-                            padding: '10px 16px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Call Letter
-                        </button>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => handleDownloadIC(call)}
-                          style={{
-                            padding: '10px 16px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          IC
-                        </button>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => {
-                            setSelectedCallForAnnexure(call);
-                            setIsCompletedActionsModalOpen(false);
-                            setSelectedCompletedCallForActions(null);
-                          }}
-                          style={{
-                            padding: '10px 16px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Annexure I
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      />
+                    </>
+                  )}
+                  <ActionCard 
+                    title="Download All"
+                    icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                    colors={{ bg1: '#f0fdf4', bg2: '#dcfce7', border: '#bbf7d0', iconColor: '#22c55e', textColor: '#16a34a', shadow1: 'rgba(34, 197, 94, 0.2)', shadow2: 'rgba(34, 197, 94, 0.1)' }}
+                    onClick={() => handleDownloadAllDocs(call)}
+                  />
                 </div>
-              </div>
-              
-              {/* Footer with Bulk Download */}
-              <div className="modal-footer" style={{ padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px' }}>
-                <button
-                  onClick={() => handleDownloadAllDocs(call)}
-                  style={{
-                    backgroundColor: '#10b981',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  Download Docs
-                </button>
               </div>
             </div>
           </div>
         );
       })()}
+
 
       {/* ============ WITHDRAW INSPECTION CALL MODAL ============ */}
       {isWithdrawModalOpen && selectedCallForWithdraw && (
@@ -7024,6 +7078,185 @@ const VendorDashboardPage = ({ onBack }) => {
           fetchPOAssignedData(); // Refresh the PO list
         }}
       />
+      {/* --- Heat Details Modal --- */}
+
+      {isPoItemHeatDetailsModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '16px',
+            width: '100%', maxWidth: '800px', maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{
+              padding: '20px 24px', borderBottom: '1px solid #e2e8f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: '#f8fafc', borderRadius: '16px 16px 0 0'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>PO Item Heat Details - {selectedPoSrNoForHeatDetails}</h3>
+              </div>
+              <button
+                onClick={() => setIsPoItemHeatDetailsModalOpen(false)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '8px', borderRadius: '50%', color: '#64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
+              >
+                <span style={{ fontSize: '20px', lineHeight: 1 }}>&times;</span>
+              </button>
+            </div>
+
+            <div style={{ padding: '24px', overflowY: 'auto' }}>
+              {isFetchingHeatDetails ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+                  Loading heat details...
+                </div>
+              ) : poItemHeatDetailsData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+                  No heat details found for this PO item.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <table className="table table-hover mb-0" style={{ backgroundColor: '#ffffff', margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', borderTop: 'none' }}>Call No</th>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', borderTop: 'none' }}>Heat No</th>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', borderTop: 'none' }}>TC No</th>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', borderTop: 'none' }}>Offered Qty (MT)</th>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', borderTop: 'none' }}>Accepted Qty (MT)</th>
+                        <th style={{ backgroundColor: '#f8fafc', color: '#475569', fontWeight: '600', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', borderTop: 'none' }}>Rejected Qty (MT)</th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ borderTop: 'none' }}>
+                      {poItemHeatDetailsData.map((item, index) => (
+                        <tr key={index}>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', whiteSpace: 'nowrap' }}>{item.callNo || '-'}</td>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>{item.heatNo || '-'}</td>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>{item.tcNo || '-'}</td>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', textAlign: 'right' }}>{item.offeredQty != null ? item.offeredQty.toFixed(4) : '0.0000'}</td>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#10b981', textAlign: 'right' }}>{item.weightAcceptedMt != null ? item.weightAcceptedMt.toFixed(4) : (item.acceptedQty != null ? item.acceptedQty.toFixed(4) : '0.0000')}</td>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#ef4444', textAlign: 'right' }}>{item.weightRejectedMt != null ? item.weightRejectedMt.toFixed(4) : (item.rejectedQty != null ? item.rejectedQty.toFixed(4) : '0.0000')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isHeatDetailsModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '16px',
+            width: '100%', maxWidth: '800px', maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{
+              padding: '20px 24px', borderBottom: '1px solid #e2e8f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: '#f8fafc', borderRadius: '16px 16px 0 0'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Heat Details</h3>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0' }}>Quantities and results for each heat number</p>
+              </div>
+              <button
+                onClick={() => setIsHeatDetailsModalOpen(false)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '8px', borderRadius: '50%', color: '#64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            <div style={{ padding: '24px', overflowY: 'auto' }}>
+              {isFetchingHeatDetails ? (
+                <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <p style={{ marginTop: '12px', color: '#64748b', fontSize: '14px' }}>Fetching heat details...</p>
+                </div>
+              ) : heatDetailsData.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <p style={{ color: '#64748b', fontSize: '15px', margin: 0 }}>No heat details found for this call.</p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                        <th style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Heat No.</th>
+                        <th style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>TC No.</th>
+                        <th style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Offered Qty(MT)</th>
+                        <th style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Accepted Qty(MT)</th>
+                        <th style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Rejected Qty(MT)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {heatDetailsData.map((item, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: '500' }}>{item.heatNo || 'N/A'}</td>
+                          <td style={{ padding: '12px 16px', color: '#475569' }}>{item.tcNo || 'N/A'}</td>
+                          <td style={{ padding: '12px 16px', color: '#475569' }}>{item.offeredQty || 0}</td>
+                          <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: '500' }}>{item.weightAcceptedMt || 0}</td>
+                          <td style={{ padding: '12px 16px', color: '#ef4444', fontWeight: '500' }}>{item.weightRejectedMt || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: '16px 24px', borderTop: '1px solid #e2e8f0',
+              backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'flex-end',
+              borderRadius: '0 0 16px 16px'
+            }}>
+              <button
+                onClick={() => setIsHeatDetailsModalOpen(false)}
+                style={{
+                  padding: '10px 20px', backgroundColor: '#e2e8f0', color: '#334155',
+                  border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600',
+                  cursor: 'pointer', transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cbd5e1'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

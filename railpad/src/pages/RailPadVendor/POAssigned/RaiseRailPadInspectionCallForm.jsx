@@ -174,7 +174,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     if (!grouped[dateStr]) {
                         grouped[dateStr] = [];
                     }
-                    const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo);
+                    const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo && eb.drawingNo === b.drawingNo);
                     if (existingBatch) {
                         existingBatch.acceptedQty += b.qtyAccepted;
                         existingBatch.quantity += b.qtyAccepted;
@@ -184,6 +184,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                             infoId: b.declarationBatchId || b.id,
                             batchNo: b.batchNo,
                             productType: railPadType,
+                            drawingNo: b.drawingNo,
                             acceptedQty: b.qtyAccepted,
                             quantity: b.qtyAccepted
                         });
@@ -237,6 +238,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 id: b.infoId || b.id,
                 batchNo: b.batchNo,
                 type: b.productType,
+                drawingNo: b.drawingNo,
                 qty: b.acceptedQty || b.quantity,
                 pending: b.acceptedQty || b.quantity
             }))
@@ -677,6 +679,9 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                                             </div>
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontSize: '10px', fontWeight: 800, color: isSelected ? '#fff' : '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Batch: {batch.batchNo}</div>
+                                                                                                {railPadType?.includes('NCRGRSP') && (
+                                                                                                    <div style={{ fontSize: '9px', color: isSelected ? '#bae6fd' : '#0284c7', fontWeight: 700 }}>Drawing No: {batch.drawingNo || 'N/A'}</div>
+                                                                                                )}
                                                                                                 <div style={{ fontSize: '8px', color: isSelected ? '#94a3b8' : '#64748b', fontWeight: 700 }}>
                                                                                                     Qty: {batch.qty.toLocaleString()}
                                                                                                 </div>
