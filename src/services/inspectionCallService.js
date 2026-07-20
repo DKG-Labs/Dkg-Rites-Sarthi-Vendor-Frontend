@@ -176,6 +176,24 @@ const inspectionCallService = {
   },
 
   /**
+   * Get heat details by PO Serial No
+   * @param {string} poSrNo - PO Serial Number
+   * @returns {Promise<Object>} - API response with heat details
+   */
+  getHeatDetailsByPoSrNo: async (poSrNo) => {
+    try {
+      // Need to prefix with /rm-inspection/ since that's what the backend endpoint uses
+      const response = await httpClient.get(
+        `/rm-inspection/heat-details/by-po-item?poSrNo=${encodeURIComponent(poSrNo)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('Error fetching heat details by PO Item:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get RM Inspection Call by IC Number
    * @param {string} icNumber - IC Number
    * @returns {Promise<Object>} - API response with RM IC details
@@ -1047,6 +1065,25 @@ const inspectionCallService = {
       throw error;
     }
   },
+
+  /**
+   * Get Heat Details by IC Number (for Vendor Dashboard Completed Calls Action modal)
+   * GET /api/rm-inspection/heat-details/{callNo}
+   * @param {string} icNumber - IC Number
+   * @returns {Promise<Object>} - API response
+   */
+  getHeatDetails: async (icNumber) => {
+    try {
+      console.log(`📋 Fetching Heat Details for IC: ${icNumber}`);
+      const response = await httpClient.get(
+        `/rm-inspection/heat-details/${encodeURIComponent(icNumber)}`
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching Heat Details:', error);
+      throw error;
+    }
+  }
 };
 
 export default inspectionCallService;

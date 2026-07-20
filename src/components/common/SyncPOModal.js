@@ -186,8 +186,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     data: {
                         MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
                         MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
-                        mmpPoHdr: amendedResult.data.mmpPoHdr,
-                        mmpPoItem: amendedResult.data.mmpPoItem
+                        PoHdr: amendedResult.data.PoHdr || amendedResult.data.mmpPoHdr,
+                        PoDtl: amendedResult.data.PoDtl || amendedResult.data.mmpPoItem
                     }
                 };
 
@@ -481,54 +481,56 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                     <p style={styles.summaryLine}><strong>No:</strong> {h.PO_NO || h.poNo}</p>
                     {syncType === 'POMA DATA' && <p style={styles.summaryLine}><strong>MA No:</strong> {h.MA_NO || h.maNo}</p>}
                     {syncType === 'POCA DATA' && <p style={styles.summaryLine}><strong>CA No:</strong> {h.CA_NO || h.caNo}</p>}
-                    <p style={styles.summaryLine}><strong>Category:</strong> {h.ITEM_CAT_DESCR || 'N/A'}</p>
+                    {syncType === 'PO DATA' && <p style={styles.summaryLine}><strong>Category:</strong> {h.ITEM_CAT_DESCR || 'N/A'}</p>}
                     <p style={styles.summaryLine}><strong>Items/Details:</strong> {d.length}</p>
                 </div>
 
-                {isMismatch ? (
-                    <div style={styles.errorBanner}>
-                        🚫 <strong>Access Denied:</strong> This record is categorized as "{currentCat}". 
-                        Since you are logged in as an <strong>{dashboardRole} Vendor</strong>, 
-                        you cannot sync this data.
-                    </div>
-                ) : (h.ITEM_CAT_DESCR || manualCategory) ? (
-                    <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> Valid {dashboardRole} record. You can proceed with saving.
-                    </div>
-                ) : (
-                    <div style={{...styles.formGroup, marginBottom: '20px'}}>
-                        <label style={styles.label}>Select Item Category</label>
-                        <select 
-                            value={manualCategory} 
-                            onChange={(e) => setManualCategory(e.target.value)}
-                            style={{
-                                ...styles.input, 
-                                height: '38px',
-                                borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                            }}
-                            required
-                        >
-                            <option value="" disabled>-- Select Category --</option>
-                            <option value="Elastic Rail Clips">Elastic Rail Clips</option>
-                            <option value="Rail Pads">Rail Pads</option>
-                            <option value="PSC Mainline Sleeper">PSC Mainline Sleeper</option>
-                        </select>
-                        <p style={{color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4'}}>
-                            * Category was missing. Please select to continue.
-                        </p>
-                    </div>
+                {syncType === 'PO DATA' && (
+                    isMismatch ? (
+                        <div style={styles.errorBanner}>
+                            🚫 <strong>Access Denied:</strong> This record is categorized as "{currentCat}". 
+                            Since you are logged in as an <strong>{dashboardRole} Vendor</strong>, 
+                            you cannot sync this data.
+                        </div>
+                    ) : (h.ITEM_CAT_DESCR || manualCategory) ? (
+                        <div style={styles.successBanner}>
+                            ✨ <strong>Verified:</strong> Valid {dashboardRole} record. You can proceed with saving.
+                        </div>
+                    ) : (
+                        <div style={{...styles.formGroup, marginBottom: '20px'}}>
+                            <label style={styles.label}>Select Item Category</label>
+                            <select 
+                                value={manualCategory} 
+                                onChange={(e) => setManualCategory(e.target.value)}
+                                style={{
+                                    ...styles.input, 
+                                    height: '38px',
+                                    borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}
+                                required
+                            >
+                                <option value="" disabled>-- Select Category --</option>
+                                <option value="Elastic Rail Clips">Elastic Rail Clips</option>
+                                <option value="Rail Pads">Rail Pads</option>
+                                <option value="PSC Mainline Sleeper">PSC Mainline Sleeper</option>
+                            </select>
+                            <p style={{color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4'}}>
+                                * Category was missing. Please select to continue.
+                            </p>
+                        </div>
+                    )
                 )}
 
                 {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
                 
                 <div style={styles.footer}>
                     <button onClick={resetModal} style={styles.cancelBtn}>Back</button>
-                    {!isMismatch && (
+                    {!(isMismatch && syncType === 'PO DATA') && (
                         <button 
                             onClick={handleSave} 
-                            disabled={loading || (isNullRequest && !manualCategory)} 
+                            disabled={loading || (isNullRequest && !manualCategory && syncType === 'PO DATA')} 
                             style={{...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)'}}
                         >
                             {loading ? 'Saving...' : 'Sync & Save PO'}
