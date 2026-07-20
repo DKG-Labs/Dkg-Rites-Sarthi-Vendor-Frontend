@@ -174,7 +174,7 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
 
     const content = (
         <>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* ── Scrollable Body ── */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#f8fafc' }}>
                     
