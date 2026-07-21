@@ -318,7 +318,29 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
   // If selectedItem carries prefilled data (e.g. in modify mode), spread it over the defaults.
   // This lets VendorDashboardPage pass all IC fields through selectedItem.
   if (selectedItem && selectedItem.type_of_call) {
-    return { ...defaults, ...selectedItem };
+    const initialState = { ...defaults, ...selectedItem };
+    
+    // In modify mode, the backend's maxQty/tcQtyRemaining for Raw Material already has the 
+    // original offered quantity deducted. We need to add it back for validation.
+    if (initialState.rm_heat_tc_mapping && Array.isArray(initialState.rm_heat_tc_mapping)) {
+        initialState.rm_heat_tc_mapping = initialState.rm_heat_tc_mapping.map(heat => {
+            if (heat.offeredQty) {
+                const offered = parseFloat(heat.offeredQty) || 0;
+                const currentMax = parseFloat(heat.maxQty) || parseFloat(heat.tcQtyRemaining) || 0;
+                const newMax = currentMax + offered;
+                const unit = heat.unit || (heat.tcQtyRemaining && heat.tcQtyRemaining.includes('MT') ? 'MT' : 'Nos');
+                
+                return {
+                    ...heat,
+                    maxQty: newMax,
+                    tcQtyRemaining: `${newMax} ${unit}`
+                };
+            }
+            return heat;
+        });
+    }
+    
+    return initialState;
   }
 
   return defaults;
@@ -447,6 +469,15 @@ export const RaiseInspectionCallForm = ({
             (1 + entry.rateOfGst / 100)
           ).toFixed(2);
 
+          let currentQtyLeft = parseFloat(entry.qtyLeftForInspection) || 0;
+          
+          if (isModifyMode && selectedItem && selectedItem.rm_heat_tc_mapping) {
+              const originalHeat = selectedItem.rm_heat_tc_mapping.find(h => h.heatNumber === heat.heatNumber && h.tcNumber === heat.tcNumber);
+              if (originalHeat && originalHeat.offeredQty) {
+                  currentQtyLeft += parseFloat(originalHeat.offeredQty) || 0;
+              }
+          }
+
           isUpdated = true;
           return {
             ...heat,
@@ -459,8 +490,8 @@ export const RaiseInspectionCallForm = ({
             subPoQty: `${entry.subPoQty} ${entry.unitOfMeasurement}`,
             subPoTotalValue: `₹${totalValue}`,
             tcQty: `${entry.tcQuantity} ${entry.unitOfMeasurement}`,
-            tcQtyRemaining: `${entry.qtyLeftForInspection} ${entry.unitOfMeasurement}`,
-            maxQty: entry.qtyLeftForInspection,
+            tcQtyRemaining: `${currentQtyLeft} ${entry.unitOfMeasurement}`,
+            maxQty: currentQtyLeft,
             unit: entry.unitOfMeasurement
           };
         }
