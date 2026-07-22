@@ -29,12 +29,12 @@ const poiMappingService = {
    */
   getUnitsByCompany: async (companyName) => {
     try {
-      // URL encode the company name to handle special characters
       const encodedCompanyName = encodeURIComponent(companyName);
-      const response = await httpClient.get(`/poiMapping/companies/${encodedCompanyName}/units`);
-      return response; // Return full response object with success and data
+      const response = await httpClient.get(`/poiMapping/companies/units?companyName=${encodedCompanyName}`);
+      
+      return response;
     } catch (error) {
-      console.error(`Error fetching units for company ${companyName}:`, error);
+      console.error('Error in getUnitsByCompany:', error);
       throw error;
     }
   },
@@ -47,13 +47,13 @@ const poiMappingService = {
    */
   getUnitDetails: async (companyName, unitName) => {
     try {
-      // URL encode both parameters to handle special characters
       const encodedCompanyName = encodeURIComponent(companyName);
       const encodedUnitName = encodeURIComponent(unitName);
       const response = await httpClient.get(
-        `/poiMapping/companies/${encodedCompanyName}/units/${encodedUnitName}`
+        `/poiMapping/companies/unit-details?companyName=${encodedCompanyName}&unitName=${encodedUnitName}`
       );
-      return response; // Return full response object with success and data
+      
+      return response;
     } catch (error) {
       console.error(`Error fetching unit details for ${companyName} - ${unitName}:`, error);
       throw error;
