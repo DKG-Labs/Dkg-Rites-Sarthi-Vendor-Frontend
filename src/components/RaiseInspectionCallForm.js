@@ -505,7 +505,7 @@ export const RaiseInspectionCallForm = ({
         rm_heat_tc_mapping: resolvedMapping
       }));
     }
-  }, [isModifyMode, inventoryEntries, formData.rm_heat_tc_mapping]);
+  }, [isModifyMode, inventoryEntries, formData.rm_heat_tc_mapping, selectedItem]);
 
   // Auto-fetch chemical analysis in modify mode if chemical fields are empty
   useEffect(() => {
