@@ -35,7 +35,7 @@ import {
   VENDOR_PRODUCT_TYPE,
   VENDOR_SUB_PO_LIST
 } from '../data/vendorMockData';
-import { formatDate } from '../utils/helpers';
+import { formatDate, getCallDateFromCallNo } from '../utils/helpers';
 import { generateCallLetterPDF } from '../utils/generateCallLetterPDF';
 import jsPDF from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -175,6 +175,7 @@ const VendorDashboardPage = ({ onBack }) => {
   const [isHeatDetailsModalOpen, setIsHeatDetailsModalOpen] = useState(false);
   const [heatDetailsData, setHeatDetailsData] = useState([]);
   const [isFetchingHeatDetails, setIsFetchingHeatDetails] = useState(false);
+  const [hoveredDisabledPoItemId, setHoveredDisabledPoItemId] = useState(null);
 
 
   // Payment filter state
@@ -352,7 +353,8 @@ const VendorDashboardPage = ({ onBack }) => {
           zone_name: item.rlyShortName || item.rly_short_name || item.rlyCd || 'N/A',
           quantity: item.qty || 0,
           unit: item.unit || '',
-          status: 'Fresh PO', // Backend doesn't return status, using default
+          case_no: item.caseNo || 'N/A',
+          status: 'Fresh PO',
           pdfPath: item.pdfPath || '',
           amendment_no: '',
           amendment_date: '',
@@ -569,7 +571,7 @@ const VendorDashboardPage = ({ onBack }) => {
           po_no: call.poNo || '',
           item_name: call.itemName || 'N/A',
           stage: call.typeOfCall || '',
-          call_date: call.desiredInspectionDate || '',
+          call_date: getCallDateFromCallNo(call.icNumber || call.call_no, call.createdAt || call.desiredInspectionDate || ''),
           quantity_offered: call.quantityOffered || 0,
           location: call.placeOfInspection || '',
           status: call.workflowStatus || call.jobStatus || 'Pending',
@@ -3357,10 +3359,10 @@ const VendorDashboardPage = ({ onBack }) => {
     { key: 'unit', label: 'Unit', width: '80px' },
     // { key: 'location', label: 'Location' },
     {
-      key: 'status',
-      label: 'Status',
+      key: 'case_no',
+      label: 'Case No.',
       width: '130px',
-      render: (value) => <StatusBadge status={value} />
+      render: (value) => <span style={{ fontWeight: '600', color: '#374151' }}>{value || 'N/A'}</span>
     }
   ];
 
@@ -3763,7 +3765,7 @@ const VendorDashboardPage = ({ onBack }) => {
   // Payment columns as per requirement
   const paymentColumns = [
     { key: 'call_no', label: 'Call No.' },
-    { key: 'call_date', label: 'Call Date', render: (v) => v ? formatDate(v) : '-' },
+    { key: 'call_date', label: 'Call Date', render: (v, row) => getCallDateFromCallNo(row?.call_no || row?.callNo, v) },
     { key: 'po_no', label: 'PO No.' },
     { key: 'po_item_no', label: 'Item No.' },
     { key: 'payment_reason', label: 'Reason' },
@@ -4370,12 +4372,6 @@ const VendorDashboardPage = ({ onBack }) => {
                                                 >
                                                   Delivery Period {poItemsSortColumn[po.id] === 'delivery_period' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
                                                 </th>
-                                                <th
-                                                  onClick={() => handlePOItemsSort(po.id, 'item_status')}
-                                                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                                                >
-                                                  Status {poItemsSortColumn[po.id] === 'item_status' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
-                                                </th>
                                                 <th>Action</th>
                                               </tr>
                                             </thead>
@@ -4390,6 +4386,10 @@ const VendorDashboardPage = ({ onBack }) => {
 
                                                   return sortedItems.map((item) => {
                                                     const selectedSubPO = '';
+                                                    const activeRole = localStorage.getItem('activeRole') || '';
+                                                    const isErcVendor = !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' || (po?.item_category && (po.item_category.toLowerCase().includes('elastic rail') || po.item_category.toUpperCase().includes('ERC')));
+                                                    const isCaseNoMissing = !po.case_no || po.case_no === 'N/A' || po.case_no.trim() === '' || po.case_no === '-';
+                                                    const shouldDisableRaiseCall = isErcVendor && isCaseNoMissing;
 
                                                     return (
                                                       <tr key={item.id}>
@@ -4399,52 +4399,72 @@ const VendorDashboardPage = ({ onBack }) => {
                                                         <td>{item.item_qty} {item.item_unit}</td>
                                                         <td>{formatDate(item.delivery_period)}</td>
                                                         <td>
-                                                          <StatusBadge status={item.item_status} />
-                                                        </td>
-                                                        <td>
-                                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                            {/* Sub PO Dropdown - Always show for all items */}
-                                                            {/* <select
-                                                      className="ric-form-select"
-                                                      value={selectedSubPO}
-                                                      onChange={(e) => {
-                                                        setSelectedSubPOsByItem(prev => ({
-                                                          ...prev,
-                                                          [item.id]: e.target.value
-                                                        }));
-                                                      }}
-                                                      style={{ fontSize: '12px', padding: '4px' }}
-                                                    >
-                                                      <option value="">Select Sub PO (Optional)</option>
-                                                      {approvedSubPOs.map(subPO => (
-                                                        <option key={subPO.id} value={subPO.id}>
-                                                          {subPO.sub_po_number} - {subPO.raw_material_name}
-                                                        </option>
-                                                      ))}
-                                                    </select> */}
-
-                                                            {/* Raise Inspection Request Button */}
-                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                            <div 
+                                                              onMouseEnter={() => setHoveredDisabledPoItemId(item.id)}
+                                                              onMouseLeave={() => setHoveredDisabledPoItemId(null)}
+                                                              onClick={() => {
+                                                                if (shouldDisableRaiseCall) {
+                                                                  alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                                                                }
+                                                              }}
+                                                              style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
+                                                            >
                                                               <button
                                                                 className="btn btn-sm btn-primary"
-                                                                onClick={() => {
+                                                                disabled={shouldDisableRaiseCall}
+                                                                title={shouldDisableRaiseCall ? "Case No. not found for this PO. Please contact RITES Admin." : ""}
+                                                                onClick={(e) => {
+                                                                  if (shouldDisableRaiseCall) {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                                                                    return;
+                                                                  }
                                                                   const subPOData = selectedSubPO
                                                                     ? approvedSubPOs.find(sp => sp.id === parseInt(selectedSubPO))
                                                                     : null;
                                                                   handleOpenInspectionModal(po, item, subPOData);
                                                                 }}
-                                                                style={{ whiteSpace: 'nowrap' }}
+                                                                style={{
+                                                                  whiteSpace: 'nowrap',
+                                                                  opacity: shouldDisableRaiseCall ? 0.5 : 1,
+                                                                  cursor: shouldDisableRaiseCall ? 'not-allowed' : 'pointer',
+                                                                  pointerEvents: 'auto'
+                                                                }}
                                                               >
                                                                 Raise Inspection Request
                                                               </button>
-                                                              <button
-                                                                className="btn btn-sm btn-secondary"
-                                                                onClick={() => handleOpenPoItemHeatDetails(item.po_serial_no)}
-                                                                style={{ whiteSpace: 'nowrap', backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
-                                                              >
-                                                                Heat Details
-                                                              </button>
+
+                                                              {shouldDisableRaiseCall && hoveredDisabledPoItemId === item.id && (
+                                                                <div style={{
+                                                                  position: 'absolute',
+                                                                  top: '100%',
+                                                                  left: '0',
+                                                                  zIndex: 1000,
+                                                                  whiteSpace: 'nowrap',
+                                                                  fontSize: '11px',
+                                                                  color: '#dc2626',
+                                                                  backgroundColor: '#fef2f2',
+                                                                  border: '1px solid #fecaca',
+                                                                  borderRadius: '6px',
+                                                                  padding: '6px 10px',
+                                                                  marginTop: '4px',
+                                                                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                                                  fontWeight: '500',
+                                                                  pointerEvents: 'none'
+                                                                }}>
+                                                                  ⚠️ Case No. not available for this PO. Inspection call disabled.
+                                                                </div>
+                                                              )}
                                                             </div>
+                                                            <button
+                                                              className="btn btn-sm btn-secondary"
+                                                              onClick={() => handleOpenPoItemHeatDetails(item.po_serial_no)}
+                                                              style={{ whiteSpace: 'nowrap', backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
+                                                            >
+                                                              Heat Details
+                                                            </button>
                                                           </div>
                                                         </td>
                                                       </tr>
@@ -4453,7 +4473,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                 })()
                                               ) : (
                                                 <tr>
-                                                  <td colSpan={7} style={{ textAlign: 'center', color: '#6b7280' }}>
+                                                  <td colSpan={6} style={{ textAlign: 'center', color: '#6b7280' }}>
                                                     No items found for this PO
                                                   </td>
                                                 </tr>

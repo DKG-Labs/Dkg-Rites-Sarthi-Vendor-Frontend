@@ -22,5 +22,30 @@ export const formatDate = (dateString) => {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}-${month}-${year}`;
+};
+
+/**
+ * Extracts and formats Call Date (DD-MM-YYYY) from Call No using MMDDYY nomenclature.
+ * Example: ER-0722260005 -> MMDDYY = 07 (July), 22 (Day), 26 (Year 2026) -> 22-07-2026
+ * Example: W/EP-0721260003/DKV -> MMDDYY = 07 (July), 21 (Day), 26 (Year 2026) -> 21-07-2026
+ */
+export const getCallDateFromCallNo = (callNo, fallbackDate) => {
+  if (callNo && typeof callNo === 'string') {
+    const match = callNo.match(/(?:[A-Z0-9/]+-)?(\d{2})(\d{2})(\d{2})\d*/);
+    if (match) {
+      const mm = parseInt(match[1], 10);
+      const dd = parseInt(match[2], 10);
+      const yy = parseInt(match[3], 10);
+
+      if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+        const fullYear = 2000 + yy;
+        const mmStr = String(mm).padStart(2, '0');
+        const ddStr = String(dd).padStart(2, '0');
+        return `${ddStr}-${mmStr}-${fullYear}`;
+      }
+    }
+  }
+
+  return fallbackDate ? formatDate(fallbackDate) : '-';
 };
