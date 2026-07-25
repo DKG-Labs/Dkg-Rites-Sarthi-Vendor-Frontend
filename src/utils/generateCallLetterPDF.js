@@ -52,7 +52,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
      */
     const drawRow = (label, value, opts = {}) => {
         const labelLines = doc.splitTextToSize(label, col1W - 4);
-        
+
         let valLinesCount = 1;
         const textVal = typeof value === 'object' && !Array.isArray(value) ? (value?.text || '') : val(value);
         if (textVal && !opts.valueFn) {
@@ -188,25 +188,81 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     y += 2;
 
     // FROM row
+    const vendorNameStr = call.vendorName || call.vendor?.name || '-';
     const fromValue = [
-        val(call.vendor?.name),
-        call.vendor?.location ? ` + ${call.vendor.location}` : '',
-        call.vendor?.address ? ` + ${call.vendor.address}` : ''
-    ].join('');
-    drawRow('From', fromValue, { rowH: 9 });
+        vendorNameStr !== '-' ? vendorNameStr : null,
+        call.vendor?.location ? ` + ${call.vendor.location}` : null,
+        call.vendor?.address ? ` + ${call.vendor.address}` : null
+    ].filter(Boolean).join('');
+    drawRow('From', fromValue || '-', { rowH: 9 });
 
     // DATE row
-    const callRaisedDate = call.submissionDateTime
-        ? new Date(call.submissionDateTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    const submissionDateStr = call.submissionDateTime || call.callDate || call.submissionDate || call.created_at || call.createdAt || call.desiredInspectionDate;
+    const callRaisedDate = submissionDateStr
+        ? new Date(submissionDateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : '-';
-    drawRow('Date', callRaisedDate, { rowH: 9 });
+    drawRow('Date', callRaisedDate !== 'Invalid Date' ? callRaisedDate : String(submissionDateStr).split('T')[0], { rowH: 9 });
 
     // TO row – multi-line needs extra height
-    const toValue = [
-        `SBU Head Designation`,
-        `RIO Name: ${val(call.rio)}`,
-        `RIO Address: ${val(call.rio)} Regional Inspection Office`
-    ].join('\n');
+    const getRioAddress = () => {
+        let rioName = call.rio;
+        switch (String(rioName).toUpperCase()) {
+            case 'ERIO':
+                return [
+                    '(SBU Head, ERIO)',
+                    'Eastern Region Inspection Office',
+                    'RITES LTD. (A Govt. of India Enterprise)',
+                    'OJAS BHAWAN, 7TH FLOOR, PLOT NO. DJ/20, STREET NO.326,',
+                    'ACTION AREA 1D, NEW TOWN, KOLKATA - 700 156',
+                    '033-22348912, sbu.einsp@rites.com'
+                ].join('\n');
+            case 'NRIO':
+                return [
+                    '(SBU Head/NRIO)',
+                    'NORTHERN REGION INSPECTION OFFICE',
+                    'RITES LTD. (A Govt. of India Enterprise)',
+                    '12TH FLOOR, CORE-2, SCOPE MINAR,',
+                    'LAXMI NAGAR, DELHI-110092',
+                    '011-22402502, sbu.ninsp@rites.com'
+                ].join('\n');
+            case 'WRIO':
+                return [
+                    '(SBU Head/WRIO)',
+                    'WESTERN REGION INSPECTION OFFICE',
+                    'RITES LTD. (A Govt. of India Enterprise)',
+                    '5TH FLOOR, REGENT CHAMBER, ABOVE STATUS',
+                    'RESTAURANT, NARIMAN POINT, MUMBAI -400021',
+                    '+91-22-68943400/68943445',
+                    'wrinspn@rites.com'
+                ].join('\n');
+            case 'CRIO':
+                return [
+                    '(SBU Head/CRIO)',
+                    'CENTRAL REGION INSPECTION OFFICE',
+                    '50, EXPANSION BUILDING, BHILAI STEEL PLANT AREA',
+                    'BHILAI -490001',
+                    '+91-788-2227304/2226457, +91-788-2227305',
+                    'crinspn@rites.com'
+                ].join('\n');
+            case 'SRIO':
+                return [
+                    '(SBU Head/SRIO)',
+                    'SOUTHERN REGION INSPECTION OFFICE',
+                    'RITES LTD. (A Govt. of India Enterprise)',
+                    'CTS BUILDING - 2ND FLOOR, BSNL COMPLEX, NO. 16,',
+                    'GREAMS ROAD CHENNAI-600006',
+                    '+91-44-28290356, 28292807, 28292817',
+                    '+91-44-28290359'
+                ].join('\n');
+            default:
+                return [
+                    `SBU Head Designation`,
+                    `RIO Name: ${val(rioName)}`,
+                    `RIO Address: ${val(rioName)} Regional Inspection Office`
+                ].join('\n');
+        }
+    };
+    const toValue = getRioAddress();
     drawRow('To', toValue);
 
     // ─── Body text block ─────────────────────────────────────────────
@@ -232,13 +288,27 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('Inspection Call Number', val(call.callNumber), { rowH: 9 });
 
     // IE (empty until verified)
-    const ieValue = call.assignedIeName
-        ? `${call.assignedIeName}${call.assignedIeMobile ? ' - ' + call.assignedIeMobile : ''}`
-        : 'Will remain empty till the call is verified by Call Desk';
+    const assignedIeStr = call.assignedIeName || call.ieName || call.assignedIE;
+    const isIeAssigned = assignedIeStr && assignedIeStr !== 'Not Assigned' && assignedIeStr !== '-';
+
+    const ieMobile = call.assignedIeMobile || call.ieMobile;
+    const ieValue = isIeAssigned
+        ? `${assignedIeStr}${ieMobile ? ' - ' + ieMobile : ''}`
+        : ' ';
     drawRow('IE', ieValue, { rowH: 9 });
 
     // Stage of Inspection
-    const stageDisplay = call.stage || call.productStage || 'Raw Material Inspection';
+    let stageDisplay = call.stage || call.productStage || call.typeOfCall || call.productType || '';
+    const icNoStr = val(call.callNumber || call.requestId || call.icNumber || call.callNo, '').toUpperCase();
+    if (icNoStr.startsWith('EP') || icNoStr.includes('-EP') || String(stageDisplay).toLowerCase().includes('process')) {
+        stageDisplay = 'Process Inspection';
+    } else if (icNoStr.startsWith('EF') || icNoStr.includes('-EF') || String(stageDisplay).toLowerCase().includes('final')) {
+        stageDisplay = 'Final Inspection';
+    } else if (icNoStr.startsWith('ER') || icNoStr.includes('-ER') || String(stageDisplay).toLowerCase().includes('raw')) {
+        stageDisplay = 'Raw Material Inspection';
+    } else if (!stageDisplay || stageDisplay === '-') {
+        stageDisplay = 'Raw Material Inspection';
+    }
     drawRow('Stage of Inspection', { text: stageDisplay, color: BLACK }, { rowH: 9 });
 
     checkPageBreak(50);
@@ -259,8 +329,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     }
     const poValue = [
         poBase,
-        call.poDate ? `Date of PO: ${call.poDate}` : '',
-        (call.itemDesc || call.itemDescription || call.itemCatDescr) ? `${call.itemDesc || call.itemDescription || call.itemCatDescr}` : ''
+        call.poDate ? `Date of PO: ${call.poDate}` : ''
     ].filter(Boolean).join('\n');
     drawRow('PO Number & Date', poValue);
 
@@ -340,7 +409,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawFullRow('Thanking you,', { rowH: 7 });
     drawFullRow('Yours Faithfully,', { rowH: 7 });
 
-    drawRow('Name', val(call.contactPersonName || call.vendor?.name), { rowH: 9 });
+    drawRow('Name', val(call.contactPersonName || call.vendor?.name || call.vendorName), { rowH: 9 });
     drawRow('Mobile', val(call.contactMobile || call.vendor?.contact), { rowH: 9 });
     drawRow('Vendor Email', val(call.contactEmail || call.vendor?.email), { rowH: 9 });
 
