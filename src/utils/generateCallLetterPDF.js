@@ -370,7 +370,18 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('Bill Paying Authority', formatTildeStr(call.billPayOffDesc || call.billPayingOfficer), { rowH: 9 });
     // Manufacturer — uses manufacturerName from CallLetterDetailsDto
     drawRow("Manufacturer's Name", val(call.manufacturerName || call.vendor?.name || call.manufacturerOfMaterial), { rowH: 9 });
-    drawRow('Place of Inspection', val(call.placeOfInspection), { rowH: 9 });
+    const formatPoi = (str) => {
+        if (!str) return '-';
+        const parts = str.split(',').map(s => s.trim());
+        const uniqueParts = [];
+        parts.forEach(p => {
+            if (p && !uniqueParts.includes(p)) {
+                uniqueParts.push(p);
+            }
+        });
+        return uniqueParts.join(', ');
+    };
+    drawRow('Place of Inspection', formatPoi(call.placeOfInspection), { rowH: 9 });
     drawRow('Offered Installment Number', val(call.submissionCount || '1'), { rowH: 9 });
 
     checkPageBreak(50);
