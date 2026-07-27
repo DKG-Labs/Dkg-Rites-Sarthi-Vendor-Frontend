@@ -9,6 +9,7 @@ import {
     Info, Search
 } from 'lucide-react';
 import { API_CONFIG } from '../../../services/config';
+import NCRGRSPFinalInspectionCall from './NCRGRSPFinalInspectionCall';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const RAIL_PAD_TYPES = [
@@ -78,56 +79,27 @@ const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
 const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall, isWrapped }) => {
-    // Form State
-    const [railPadType, setRailPadType] = useState('');
+    // ─── ALL STATE HOOKS (must all be declared before any conditional return) ─────
+    const defaultPadType = (srItem?.poDes?.includes('NCRGRSP') || srItem?.description?.includes('NCRGRSP')) ? '6.00mm NCRGRSP' : '';
+    const [railPadType, setRailPadType] = useState(defaultPadType);
     const [drawingNo, setDrawingNo] = useState('');
     const [selectedProcessIcs, setSelectedProcessIcs] = useState([]);
     const [processCalls, setProcessCalls] = useState([]);
     const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
-
     const uom = srItem?.unit || srItem?.uom || 'Nos.';
     const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
     const [totalQtyToOffer, setTotalQtyToOffer] = useState('');
     const [noOfLots, setNoOfLots] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Inventory State
     const [inventory, setInventory] = useState([]);
     const [loadingInventory, setLoadingInventory] = useState(false);
     const [notification, setNotification] = useState(null);
-
-    const showNotification = (message, type = 'success') => {
-        setNotification({ message, type });
-        if (type === 'success') {
-            setTimeout(() => {
-                setNotification(null);
-                onClose();
-            }, 3000);
-        } else {
-            setTimeout(() => setNotification(null), 5000);
-        }
-    };
-
-    // Dynamic Lots State
     const [lots, setLots] = useState([{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]);
-
-    // UI State
     const [expandedLots, setExpandedLots] = useState({ 0: true });
     const [expandedDates, setExpandedDates] = useState({});
-
-    // Partial Declaration UI State
     const [activePartialLotIdx, setActivePartialLotIdx] = useState(null);
 
-    // ─── Effects ──────────────────────────────────────────────────────────────
-    // Reset drawing no and process IC on railPadType change
-    const handleRailPadTypeChange = (val) => {
-        setRailPadType(val);
-        setDrawingNo('');
-        setSelectedProcessIcs([]);
-        setProcessCalls([]);
-        setInventory([]);
-    };
-
+    // ─── ALL EFFECTS (must all be declared before any conditional return) ─────
     // Fetch process calls matching railPadType and drawingNo
     useEffect(() => {
         const fetchProcessCalls = async () => {
@@ -137,8 +109,19 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
             try {
                 setLoadingProcessCalls(true);
-                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId);
-                setProcessCalls(data || []);
+                const poSrNo = srItem?.itemSrNo || srItem?.srNo || '';
+                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, poNo, poSrNo);
+                const sortedData = Array.isArray(data) ? [...data].sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.created_at || a.createdOn || 0);
+                    const dateB = new Date(b.createdAt || b.created_at || b.createdOn || 0);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateB.getTime() - dateA.getTime();
+                    }
+                    const callNoA = String(a.inspectionCallNo || a.callNo || a.id || '');
+                    const callNoB = String(b.inspectionCallNo || b.callNo || b.id || '');
+                    return callNoB.localeCompare(callNoA, undefined, { numeric: true, sensitivity: 'base' });
+                }) : [];
+                setProcessCalls(sortedData);
             } catch (error) {
                 console.error('Error fetching process calls:', error);
             } finally {
@@ -146,7 +129,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId]);
+    }, [railPadType, drawingNo, plantId, poNo, srItem?.itemSrNo, srItem?.srNo]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
@@ -205,6 +188,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
         };
         fetchProcessBatches();
     }, [selectedProcessIcs, railPadType]);
+
     useEffect(() => {
         const count = parseInt(noOfLots) || 0;
         if (count > 0) {
@@ -222,12 +206,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
         }
     }, [noOfLots]);
 
-    // ─── Computed Values & Validations ────────────────────────────────────────
-    const isNCRGRSP = railPadType.includes('NCRGRSP');
-    const lotLimit = isNCRGRSP ? 5000 : 10000;
-    const minLotsRequired = Math.ceil((parseInt(totalQtyToOffer) || 0) / lotLimit);
-    const lotCountError = noOfLots < minLotsRequired ? `Minimum ${minLotsRequired} lots required for this quantity (IRS T-55 Constraint).` : null;
-
+    // ─── useMemo HOOKS (must also be declared before any conditional return) ───
     const getLotSum = (lot) => Object.values(lot?.selectedBatches || {}).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
 
     const filteredInventory = useMemo(() => {
@@ -244,6 +223,51 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }))
         }));
     }, [inventory]);
+
+    // Reset drawing no and process IC on railPadType change
+    const handleRailPadTypeChange = (val) => {
+        setRailPadType(val);
+        setDrawingNo('');
+        setSelectedProcessIcs([]);
+        setProcessCalls([]);
+        setInventory([]);
+    };
+
+    // ─── NCRGRSP Early Exit ── placed AFTER ALL hooks (React Rules of Hooks) ──
+    if (railPadType.includes('NCRGRSP')) {
+        return (
+            <NCRGRSPFinalInspectionCall
+                srItem={srItem}
+                poNo={poNo}
+                plantId={plantId}
+                vendorCode={vendorCode}
+                onClose={onClose}
+                onSubmitInspectionCall={onSubmitInspectionCall}
+                initialRailPadType={railPadType || '6.00mm NCRGRSP'}
+                onRailPadTypeChange={handleRailPadTypeChange}
+            />
+        );
+    }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        if (type === 'success') {
+            setTimeout(() => {
+                setNotification(null);
+                onClose();
+            }, 3000);
+        } else {
+            setTimeout(() => setNotification(null), 5000);
+        }
+    };
+
+
+    // ─── Computed Values & Validations ────────────────────────────────────────
+    const isNCRGRSP = railPadType.includes('NCRGRSP');
+    const lotLimit = isNCRGRSP ? 5000 : 10000;
+    const minLotsRequired = Math.ceil((parseInt(totalQtyToOffer) || 0) / lotLimit);
+    const lotCountError = noOfLots < minLotsRequired ? `Minimum ${minLotsRequired} lots required for this quantity (IRS T-55 Constraint).` : null;
 
     const totalOfferedFromLots = lots.reduce((acc, lot) => acc + getLotSum(lot), 0);
     const totalMatchesOffered = totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0);
@@ -422,7 +446,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                             </div>
                             <div>
                                 <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SR. NO.</div>
-                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '12px' }}>{srItem?.itemSrNo || srItem?.srNo || '001'}</div>
+                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '12px' }}>{srItem?.itemSrNo || srItem?.srNo || '1'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL DATE</div>
@@ -851,7 +875,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                         </div>
                         <div style={{ color: '#fff', fontSize: '16px', fontWeight: 900, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Package size={18} />
-                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '001'}
+                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '1'}
                         </div>
                     </div>
                     <button onClick={onClose} style={{

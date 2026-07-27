@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RaiseRailPadCallWrapper from './RaiseRailPadCallWrapper';
 import poAssignedService from '../../../services/poAssignedService';
+import inspectionCallService from '../../../services/inspectionCallService';
 import SyncPOButton from '../../../components/common/SyncPOButton';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -327,9 +328,18 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
         setTimeout(() => setNotification(null), 5000);
     };
 
-    const onSubmitInspectionCall = (payload) => {
-        showNotification(`✅ Inspection Call Raised Successfully! Call No: ${payload.callNo || payload.callNo_}`, 'success');
-        fetchPoData();
+    const onSubmitInspectionCall = async (payload) => {
+        try {
+            const res = await inspectionCallService.create(payload);
+            const callNo = res?.callNo || res?.responseData?.callNo || res?.data?.callNo || 'RPF-SUCCESS';
+            showNotification(`✅ Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
+            fetchPoData();
+            return res;
+        } catch (err) {
+            console.error("Error creating inspection call:", err);
+            showNotification(err?.response?.data?.message || err?.message || 'Failed to raise inspection call', 'error');
+            throw err;
+        }
     };
 
     if (viewingPdfUrl) {
