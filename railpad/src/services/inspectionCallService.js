@@ -6,7 +6,11 @@ const BASE_URL = API_CONFIG.RAIL_INSPECTION_CALL;
 const inspectionCallService = {
     create: async (data) => {
         try {
-            const response = await axios.post(`${BASE_URL}/create`, data);
+            const response = await axios.post(`${BASE_URL}/create`, data, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             return response.data?.responseData;
         } catch (error) {
             console.error('Error creating inspection call:', error);
@@ -99,10 +103,10 @@ const inspectionCallService = {
             throw error;
         }
     },
-    getProcessCalls: async (railPadType, drawingNo, plantId) => {
+    getProcessCalls: async (railPadType, drawingNo, plantId, poNo, poSr) => {
         try {
             const response = await axios.get(`${BASE_URL}/process-calls`, {
-                params: { railPadType, drawingNo, plantId }
+                params: { railPadType, drawingNo, plantId, poNo, poSr }
             });
             return response.data?.responseData;
         } catch (error) {
