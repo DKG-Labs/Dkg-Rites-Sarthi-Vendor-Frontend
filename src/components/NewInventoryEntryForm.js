@@ -447,6 +447,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     });
 
     /* SECTION 3 VALIDATION (Heats) */
+    const heatNumbers = new Set();
     formData.heats.forEach((heat, index) => {
       const heatFields = [
         'heatNumber', 'tcQuantity', 'numberOfBundles',
@@ -459,6 +460,16 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
           newErrors[`heats_${index}_${field}`] = 'Required';
         }
       });
+
+      // Duplicate heat number check
+      if (heat.heatNumber) {
+        const normalizedHeatNo = heat.heatNumber.trim().toLowerCase();
+        if (heatNumbers.has(normalizedHeatNo)) {
+          newErrors[`heats_${index}_heatNumber`] = 'Duplicate Heat Number';
+        } else {
+          heatNumbers.add(normalizedHeatNo);
+        }
+      }
 
       // Numeric validations
       if (heat.tcQuantity && (isNaN(Number(heat.tcQuantity)) || Number(heat.tcQuantity) <= 0)) {
