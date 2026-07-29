@@ -131,6 +131,19 @@ const inspectionCallService = {
             console.error('Error fetching available final batches:', error);
             throw error;
         }
+    },
+    modifyCall: async (data) => {
+        try {
+            const response = await axios.put(`${BASE_URL}/modify`, data, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data?.responseData;
+        } catch (error) {
+            console.error('Error modifying inspection call:', error);
+            throw error;
+        }
     }
 };
 
