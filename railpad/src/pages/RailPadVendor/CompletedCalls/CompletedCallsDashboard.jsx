@@ -225,7 +225,9 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </div>
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
-                                        <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.poNo}</div>
+                                        <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
+                                            {call.scrCode || call.rlyCode || call.rlyShortName ? `${call.scrCode || call.rlyCode || call.rlyShortName} / ` : ''}{call.poNo}
+                                        </div>
                                         <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Vendor: {call.vendorCode}</div>
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
@@ -253,7 +255,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                             onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
                                             onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
                                         >
-                                            <Eye size={16} /> View Details
+                                            <Eye size={16} /> View Actions
                                         </button>
                                     </td>
                                 </tr>

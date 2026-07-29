@@ -28,7 +28,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
         if (plantId) {
             fetchCounts();
         }
-    }, [plantId]);
+    }, [plantId, selectedModule]);
 
     const fetchCounts = async () => {
         try {
