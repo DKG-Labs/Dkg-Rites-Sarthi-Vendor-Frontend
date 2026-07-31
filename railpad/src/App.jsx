@@ -72,6 +72,11 @@ const App = () => {
     localStorage.setItem('railpad_selectedPlantId', plant.plantId);
     localStorage.setItem('railpad_selectedPlantName', plant.plantName);
     setSelectedPlant(plant);
+    // Refresh vendorName from localStorage in case PlantSelectionModal saved a companyName
+    const savedVendorName = localStorage.getItem('railpad_vendorName');
+    if (savedVendorName) {
+      setVendorName(savedVendorName);
+    }
   };
 
   const renderContent = () => {

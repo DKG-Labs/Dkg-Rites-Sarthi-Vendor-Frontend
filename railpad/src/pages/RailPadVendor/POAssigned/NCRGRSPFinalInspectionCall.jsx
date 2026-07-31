@@ -883,12 +883,16 @@ const NCRGRSPFinalInspectionCall = ({
     }
     try {
       setIsSubmitting(true);
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = storedUser.id || storedUser.userId || localStorage.getItem('railpad_userId') || 195;
+
       const payload = {
         inspectionCallType: 'FINAL',
         productType: 'NCRGRSP',
         ncrgrspType,
         railPadType: selectedRailPadType || ncrgrspType || 'NCRGRSP',
-        createdBy: user?.id || JSON.parse(localStorage.getItem('user') || '{}')?.id || 134,
+        createdBy: userId,
+        updatedBy: userId,
         processInspectionCertNo: selectedProcessCertNos.join(','),
         processIcNo: selectedProcessCertNos.join(','),
         poNo: poNo || '60250003104659',

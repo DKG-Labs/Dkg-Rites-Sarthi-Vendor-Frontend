@@ -382,7 +382,10 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
             setDeclarations(actualData);
 
             // 2. Fetch pending transitions for workflow mapping
-            const transUrl = `${API_CONFIG.RAILPAD_WORKFLOW}/allPendingWorkflowTransition?roleName=Rail%20Vendor`;
+            let transUrl = `${API_CONFIG.RAILPAD_WORKFLOW}/allPendingWorkflowTransition?roleName=Rail%20Vendor`;
+            if (actualPlantId) {
+                transUrl += `&plantId=${encodeURIComponent(actualPlantId)}`;
+            }
             const transRes = await fetch(transUrl, {
                 headers: { 'Authorization': `Bearer ${user.token}` }
             });

@@ -4,6 +4,36 @@ import poAssignedService from '../../../services/poAssignedService';
 import inspectionCallService from '../../../services/inspectionCallService';
 import SyncPOButton from '../../../components/common/SyncPOButton';
 
+// ─── Date & SR Formatter Helpers ─────────────────────────────────────────────
+const formatDateDDMMYYYY = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const str = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const [year, month, day] = str.split('T')[0].split('-');
+        return `${day}-${month}-${year}`;
+    }
+    try {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+        }
+    } catch (e) {}
+    return str;
+};
+
+const getSrDisplay = (item, idx) => {
+    const raw = item.itemSrNo || item.srNo || (item.poSerialNo ? String(item.poSerialNo).split('/').pop() : '');
+    if (!raw) return String(idx + 1).padStart(3, '0');
+    const str = String(raw).trim();
+    if (/^\d+$/.test(str)) {
+        return str.padStart(3, '0');
+    }
+    return str;
+};
+
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
     const map = {
@@ -25,9 +55,10 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
+    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing;
 
     return (
         <>
@@ -37,13 +68,13 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 transition: 'background 0.15s'
             }}>
                 {/* SR No. */}
-                <td style={{ padding: '10px 12px', width: 55 }}>
+                <td style={{ padding: '10px 12px', width: 65 }}>
                     <div style={{
-                        width: 28, height: 28, borderRadius: '50%',
+                        minWidth: 32, height: 28, borderRadius: 14,
                         background: '#f0f9fa', border: '1.5px solid #a7d8dc',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 800, fontSize: 12, color: '#21808d'
-                    }}>{item.itemSrNo || item.srNo || (idx + 1)}</div>
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 800, fontSize: 11, color: '#21808d', padding: '0 6px'
+                    }}>{getSrDisplay(item, idx)}</div>
                 </td>
                 <td style={{ padding: '10px 12px', maxWidth: 260 }}>
                     <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 500, lineHeight: 1.4 }}>
@@ -87,22 +118,44 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 </td>
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <button
-                        disabled={item.due === 0}
-                        onClick={() => setShowForm(true)}
-                        style={{
-                            padding: '6px 13px', borderRadius: 20, fontSize: 11,
-                            fontWeight: 700, border: 'none', cursor: item.due === 0 ? 'not-allowed' : 'pointer',
-                            background: item.due === 0
-                                ? '#f1f5f9'
-                                : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                            color: item.due === 0 ? '#94a3b8' : '#fff',
-                            transition: 'all 0.2s', whiteSpace: 'nowrap',
-                            boxShadow: item.due === 0 ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
+                    <div
+                        title={isCaseNoMissing && item.due > 0 ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." : ""}
+                        onClick={() => {
+                            if (isCaseNoMissing && item.due > 0) {
+                                alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                            }
                         }}
+                        style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
                     >
-                        {item.due === 0 ? 'All Dispatched' : 'Raise Inspection Call'}
-                    </button>
+                        <button
+                            disabled={shouldDisableRaiseCall}
+                            onClick={(e) => {
+                                if (isCaseNoMissing) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    return;
+                                }
+                                setShowForm(true);
+                            }}
+                            style={{
+                                padding: '6px 13px', borderRadius: 20, fontSize: 11,
+                                fontWeight: 700, border: 'none', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'pointer',
+                                background: shouldDisableRaiseCall
+                                    ? '#f1f5f9'
+                                    : 'linear-gradient(135deg, #21808d, #0d3b3f)',
+                                color: shouldDisableRaiseCall ? '#94a3b8' : '#fff',
+                                transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                boxShadow: shouldDisableRaiseCall ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
+                            }}
+                        >
+                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : 'Raise Inspection Call')}
+                        </button>
+                        {isCaseNoMissing && item.due > 0 && (
+                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
+                                ⚠️ Case No. Missing
+                            </div>
+                        )}
+                    </div>
                 </td>
             </tr>
             {showForm && (
@@ -123,9 +176,22 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const items = po.poItem || po.srItems || [];
+    // Sort items numerically by SR No / poSerialNo
+    const items = [...(po.poItem || po.srItems || [])].sort((a, b) => {
+        const getNum = (obj) => {
+            const val = obj.itemSrNo || obj.srNo || obj.poSerialNo;
+            if (!val) return 0;
+            const str = String(val).trim();
+            const parts = str.split('/');
+            const lastPart = parts[parts.length - 1];
+            return parseInt(lastPart, 10) || 0;
+        };
+        return getNum(a) - getNum(b);
+    });
     const activeSrCount = items.filter(s => s.due > 0).length;
     const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
+    const caseNoValue = po.caseNo || po.case_no || '';
+    const isCaseNoMissing = !caseNoValue || caseNoValue === 'N/A' || caseNoValue.trim() === '' || caseNoValue === '-';
 
     return (
         <>
@@ -172,7 +238,9 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                     >
                         {po.poNo}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Dated: {po.poDate}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                        Dated: {formatDateDDMMYYYY(po.poDate)}
+                    </div>
                 </td>
                 {/* Purchasing Authority */}
                 <td style={{ padding: '16px 8px' }}>
@@ -181,6 +249,12 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                 {/* Item Category */}
                 <td style={{ padding: '16px 8px' }}>
                     <div style={{ fontSize: 12, color: '#334155' }}>{po.itemCategory || po.poDes || 'N/A'}</div>
+                </td>
+                {/* Case No. */}
+                <td style={{ padding: '16px 8px' }}>
+                    <div style={{ fontSize: 12, color: isCaseNoMissing ? '#dc2626' : '#334155', fontWeight: 700 }}>
+                        {caseNoValue || 'N/A'}
+                    </div>
                 </td>
                 {/* PO Quantity */}
                 <td style={{ padding: '16px 8px', textAlign: 'center' }}>
@@ -204,7 +278,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
             {/* Expanded Sub-Table */}
             {expanded && (
                 <tr style={{ borderBottom: isLast ? 'none' : '1px solid #e2e8f0' }}>
-                    <td colSpan={6} style={{ padding: 0 }}>
+                    <td colSpan={7} style={{ padding: 0 }}>
                         <div style={{
                             margin: '0 0 12px 44px',
                             border: '1.5px solid #a7d8dc',
@@ -256,6 +330,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                                                 idx={idx}
                                                 plantId={plantId}
                                                 vendorCode={vendorCode}
+                                                isCaseNoMissing={isCaseNoMissing}
                                             />
                                         ))}
                                     </tbody>
@@ -571,6 +646,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                 <th style={thStyle}>PO No. &amp; Date</th>
                                 <th style={thStyle}>Purchasing Authority</th>
                                 <th style={thStyle}>Item Category</th>
+                                <th style={thStyle}>Case No.</th>
                                 <th style={{ ...thStyle, textAlign: 'center' }}>PO Quantity</th>
                                 <th style={{ ...thStyle, textAlign: 'right' }}>Total PO Value</th>
                             </tr>
@@ -586,13 +662,14 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         </td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 150, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 180, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
+                                        <td style={{ padding: '20px 8px' }}><div style={{ width: 110, height: 12, background: '#f1f5f9', borderRadius: 4 }}></div></td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4, margin: '0 auto' }}></div></td>
                                         <td style={{ padding: '20px 8px' }}><div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4, marginLeft: 'auto' }}></div></td>
                                     </tr>
                                 ))
                             ) : paginated.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
                                         No POs found matching your search.
                                     </td>
