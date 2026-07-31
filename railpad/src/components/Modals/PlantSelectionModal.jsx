@@ -20,7 +20,11 @@ const PlantSelectionModal = ({ onSelect, vendorCode, initialVendorName }) => {
                 const response = await plantMappingService.getVendorPlants(vendorCode);
                 if (response && response.plants) {
                     setPlants(response.plants);
-                    if (response.companyName) setVendorName(response.companyName);
+                    if (response.companyName) {
+                        setVendorName(response.companyName);
+                        // Save to localStorage so App.jsx and header can use it as the vendor name
+                        localStorage.setItem('railpad_vendorName', response.companyName);
+                    }
                 }
             } catch (err) {
                 console.error('Modal Fetch Error:', err);
