@@ -142,13 +142,15 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                 lots: []
             };
 
-            const result = await inspectionCallService.create(payload);
-
+            let result;
             if (onSubmitInspectionCall) {
-                onSubmitInspectionCall({ ...payload, callNo: result });
+                result = await onSubmitInspectionCall(payload);
+            } else {
+                result = await inspectionCallService.create(payload);
             }
 
-            showNotification(`✅ Process Inspection Call raised successfully!\nCall No: ${result}`, 'success');
+            const callNo = result?.callNo || result?.responseData?.callNo || result?.data?.callNo || result;
+            showNotification(`✅ Process Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
         } catch (error) {
             console.error("[Submit Process Call] Error:", error);
             showNotification("❌ Failed to raise process inspection call.", 'error');

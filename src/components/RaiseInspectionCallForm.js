@@ -1094,9 +1094,10 @@ export const RaiseInspectionCallForm = ({
             // Try to fetch heat numbers from the first RM IC that has data for this lot
             let heatNumberFound = false;
 
+            const procCertificate = (formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) ? formData.final_process_ic_numbers[0] : '';
             for (const rmCertificate of formData.final_rm_ic_numbers) {
-              console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate);
-              const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate);
+              console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate, 'Process cert:', procCertificate);
+              const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
 
               if (response && response.data) {
                 const heatNumbers = Array.isArray(response.data) ? response.data : [];
@@ -1124,7 +1125,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchHeatNumbersForLots();
-  }, [formData.type_of_call, formData.final_lot_numbers, formData.final_rm_ic_numbers]);
+  }, [formData.type_of_call, formData.final_lot_numbers, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
 
   // Step 5: Sync final_lots_data and fetch acceptedProcessQty
   useEffect(() => {

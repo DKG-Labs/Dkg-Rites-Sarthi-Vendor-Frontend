@@ -676,11 +676,13 @@ const inspectionCallService = {
    * @param {string} rmCertificateNo - RM IC certificate number
    * @returns {Promise<Object>} - API response with list of heat numbers
    */
-  getHeatNumbersByLotNumber: async (lotNumber, rmCertificateNo) => {
+  getHeatNumbersByLotNumber: async (lotNumber, rmCertificateNo, processCertificateNo) => {
     try {
-      const response = await httpClient.get(
-        `/final-material/heat-numbers-by-lot?lotNumber=${encodeURIComponent(lotNumber)}&rmCertificateNo=${encodeURIComponent(rmCertificateNo)}`
-      );
+      let url = `/final-material/heat-numbers-by-lot?lotNumber=${encodeURIComponent(lotNumber || '')}&rmCertificateNo=${encodeURIComponent(rmCertificateNo || '')}`;
+      if (processCertificateNo) {
+        url += `&processCertificateNo=${encodeURIComponent(processCertificateNo)}`;
+      }
+      const response = await httpClient.get(url);
       return response;
     } catch (error) {
       console.error('Error fetching heat numbers by lot number:', error);
