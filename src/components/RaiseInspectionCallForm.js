@@ -1149,20 +1149,22 @@ export const RaiseInspectionCallForm = ({
           const existing = formData.final_lots_data.find(l => l.lotNumber === lotNumber);
           const heatNo = lotHeatMapping[lotNumber] || '';
 
-          let acceptedQtyProcess = 0;
+          let acceptedQtyProcess = existing?.acceptedQtyProcess || 0;
           let offeredEarlier = existing?.offeredEarlier || 0;
 
           // Fetch values if heatNo is available
           if (heatNo) {
             try {
-              // 1. Fetch acceptedQtyProcess across ALL selected Process IC requestIds
-              for (const requestId of requestIds) {
-                const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
-                if (acceptedRes && acceptedRes.success && acceptedRes.data !== undefined && acceptedRes.data !== null) {
-                  const val = parseInt(acceptedRes.data) || 0;
-                  if (val > 0) {
-                    acceptedQtyProcess = val;
-                    break;
+              // 1. Fetch acceptedQtyProcess across ALL selected Process IC requestIds if not already set on existing lot
+              if (!existing || !existing.acceptedQtyProcess || existing.lotNumber !== lotNumber || existing.heatNo !== heatNo) {
+                for (const requestId of requestIds) {
+                  const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
+                  if (acceptedRes && acceptedRes.success && acceptedRes.data !== undefined && acceptedRes.data !== null) {
+                    const val = parseInt(acceptedRes.data) || 0;
+                    if (val > 0) {
+                      acceptedQtyProcess = val;
+                      break;
+                    }
                   }
                 }
               }
