@@ -1081,6 +1081,7 @@ export const RaiseInspectionCallForm = ({
   }, [formData.type_of_call, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
 
   // Step 4: Fetch heat numbers for each selected lot
+  // Step 4: Fetch heat numbers for each selected lot
   useEffect(() => {
     const fetchHeatNumbersForLots = async () => {
       if (formData.type_of_call === 'Final' &&
@@ -1088,26 +1089,30 @@ export const RaiseInspectionCallForm = ({
         formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
         try {
           const newLotHeatMapping = {};
+          const processCerts = (formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0)
+            ? formData.final_process_ic_numbers
+            : [''];
 
-          // Fetch heat numbers for each lot with each selected RM IC (MULTI-SELECT)
+          // Fetch heat numbers for each lot with each selected RM IC and Process IC (MULTI-SELECT)
           for (const lotNumber of formData.final_lot_numbers) {
-            // Try to fetch heat numbers from the first RM IC that has data for this lot
             let heatNumberFound = false;
 
-            const procCertificate = (formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) ? formData.final_process_ic_numbers[0] : '';
-            for (const rmCertificate of formData.final_rm_ic_numbers) {
-              console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate, 'Process cert:', procCertificate);
-              const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
+            for (const procCertificate of processCerts) {
+              for (const rmCertificate of formData.final_rm_ic_numbers) {
+                console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate, 'Process cert:', procCertificate);
+                const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
 
-              if (response && response.data) {
-                const heatNumbers = Array.isArray(response.data) ? response.data : [];
-                if (heatNumbers.length > 0) {
-                  newLotHeatMapping[lotNumber] = heatNumbers[0]; // Take first heat number
-                  console.log(`✅ Heat number for lot ${lotNumber}:`, newLotHeatMapping[lotNumber]);
-                  heatNumberFound = true;
-                  break; // Found heat number, move to next lot
+                if (response && response.data) {
+                  const heatNumbers = Array.isArray(response.data) ? response.data : [];
+                  if (heatNumbers.length > 0) {
+                    newLotHeatMapping[lotNumber] = heatNumbers[0]; // Take first heat number
+                    console.log(`✅ Heat number for lot ${lotNumber}:`, newLotHeatMapping[lotNumber]);
+                    heatNumberFound = true;
+                    break; // Found heat number with this RM & Process IC
+                  }
                 }
               }
+              if (heatNumberFound) break; // Found heat number, move to next lot
             }
 
             if (!heatNumberFound) {
@@ -1134,26 +1139,31 @@ export const RaiseInspectionCallForm = ({
         formData.final_lot_numbers && formData.final_lot_numbers.length > 0 &&
         formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
 
-        // Extract Request ID from the first Process IC number
-        const processCert = formData.final_process_ic_numbers[0];
-        const callNoMatch = processCert.match(/[^/]+\/([^/]+)\//);
-        const requestId = callNoMatch ? callNoMatch[1] : processCert;
+        // Extract Request IDs from ALL selected Process IC numbers
+        const requestIds = formData.final_process_ic_numbers.map(procCert => {
+          const callNoMatch = procCert.match(/[^/]+\/([^/]+)\//);
+          return callNoMatch ? callNoMatch[1] : procCert;
+        });
 
         const updatedLotsData = await Promise.all(formData.final_lot_numbers.map(async (lotNumber) => {
           const existing = formData.final_lots_data.find(l => l.lotNumber === lotNumber);
           const heatNo = lotHeatMapping[lotNumber] || '';
 
-          let acceptedQtyProcess = existing?.acceptedQtyProcess || 0;
+          let acceptedQtyProcess = 0;
           let offeredEarlier = existing?.offeredEarlier || 0;
 
           // Fetch values if heatNo is available
           if (heatNo) {
             try {
-              // 1. Fetch acceptedQtyProcess
-              if (requestId && (!existing || existing.lotNumber !== lotNumber || existing.heatNo !== heatNo)) {
+              // 1. Fetch acceptedQtyProcess across ALL selected Process IC requestIds
+              for (const requestId of requestIds) {
                 const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
-                if (acceptedRes && acceptedRes.success) {
-                  acceptedQtyProcess = acceptedRes.data || 0;
+                if (acceptedRes && acceptedRes.success && acceptedRes.data !== undefined && acceptedRes.data !== null) {
+                  const val = parseInt(acceptedRes.data) || 0;
+                  if (val > 0) {
+                    acceptedQtyProcess = val;
+                    break;
+                  }
                 }
               }
 
