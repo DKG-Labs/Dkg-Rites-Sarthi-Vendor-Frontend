@@ -63,7 +63,7 @@ const PlantDeclarationDashboard = ({ plantId }) => {
         { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details', underDevelopment: true },
         { id: 'product-recipe', title: 'Product Recipe', subtitle: 'Chemical composition', underDevelopment: true },
         { id: 'approved-ash', title: 'Approved Ash & S.G.', subtitle: 'Baseline parameters', underDevelopment: true },
-        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits', underDevelopment: true }
+        { id: 'approved-qap', title: 'Approved QAP Values', subtitle: 'Mixing & moulding limits' }
     ];
 
     const renderContent = () => {
