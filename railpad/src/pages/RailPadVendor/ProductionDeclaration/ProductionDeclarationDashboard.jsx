@@ -1361,71 +1361,8 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                                         </select>
                                                     </div>
                                                 )}
-                                                <div className="form-group">
-                                                    <label className="form-label">Measurement Mode</label>
-                                                    <div style={{ 
-                                                        display: 'flex', 
-                                                        alignItems: 'center', 
-                                                        gap: '24px', 
-                                                        height: '40px',
-                                                        boxSizing: 'border-box'
-                                                    }}>
-                                                        <label style={{ 
-                                                            display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            gap: '8px', 
-                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                            fontSize: 'var(--fs-md)',
-                                                            color: 'var(--text-main)',
-                                                            fontWeight: block.mode !== 'Sets' ? '600' : 'normal',
-                                                            margin: 0
-                                                        }}>
-                                                            <input 
-                                                                type="radio" 
-                                                                name={`measurementMode-${block.id}`} 
-                                                                value="Nos" 
-                                                                checked={block.mode !== 'Sets'} 
-                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Nos')} 
-                                                                disabled={isReadOnly}
-                                                                style={{ 
-                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                                    width: '16px',
-                                                                    height: '16px',
-                                                                    accentColor: 'var(--primary-color)'
-                                                                }}
-                                                            />
-                                                            Nos
-                                                        </label>
-                                                        <label style={{ 
-                                                            display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            gap: '8px', 
-                                                            cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                            fontSize: 'var(--fs-md)',
-                                                            color: 'var(--text-main)',
-                                                            fontWeight: block.mode === 'Sets' ? '600' : 'normal',
-                                                            margin: 0
-                                                        }}>
-                                                            <input 
-                                                                type="radio" 
-                                                                name={`measurementMode-${block.id}`} 
-                                                                value="Sets" 
-                                                                checked={block.mode === 'Sets'} 
-                                                                onChange={() => handleBlockChange(block.id, 'mode', 'Sets')} 
-                                                                disabled={isReadOnly}
-                                                                style={{ 
-                                                                    cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                                    width: '16px',
-                                                                    height: '16px',
-                                                                    accentColor: 'var(--primary-color)'
-                                                                }}
-                                                            />
-                                                            Sets
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                             </div>
+                                         </div>
 
                                         {/* Batch Rows */}
                                         <div style={{ marginTop: '16px' }}>
