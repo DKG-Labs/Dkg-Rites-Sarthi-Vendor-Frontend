@@ -153,7 +153,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         mixDesign: 'M60',
         timeLbc: getCurrentTime(),
         remarks: '',
-        mouldSequence: 'Preset — A, B, C, D, E, F, G, Z (default)'
+        mouldSequence: ''
     });
 
     const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
@@ -445,7 +445,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     };
 
     const getSleeperLetter = (index, totalCount) => {
-        const sequence = formHeader.mouldSequence || 'Preset — A, B, C, D, E, F, G, Z (default)';
+        const sequence = formHeader.mouldSequence || 'Preset — A, B, C, D, E, F, G, Z';
         
         if (sequence === 'Numeric — 1, 2, 3, 4...') {
             return (index + 1).toString(); // 1, 2, 3, 4...
@@ -455,7 +455,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             if (index < 5) return String.fromCharCode(65 + index); // A-E
             return String.fromCharCode(86 + (index - 5)); // V-Z
         } else {
-            // Default: 'Preset — A, B, C, D, E, F, G, Z (default)'
+            // Default: 'Preset — A, B, C, D, E, F, G, Z'
             if (Number(totalCount) === 10) {
                 if (index < 5) return String.fromCharCode(65 + index); // A-E
                 return String.fromCharCode(86 + (index - 5)); // V-Z
@@ -557,7 +557,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 mixDesign: initialData.mixDesignReference || 'M60',
                 timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                 remarks: initialData.remarks || '',
-                mouldSequence: initialData.mouldSequence || 'Preset — A, B, C, D, E, F, G, Z (default)'
+                mouldSequence: initialData.mouldSequence || ''
             });
 
             // Map chambers for Stress Bench with deduplication
@@ -1064,7 +1064,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             }
 
             if (row.sleeperCategory !== 'Turnout') {
-                const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z (default)';
+                if (!formHeader.mouldSequence) return alert(`Row ${displayIndex}: Please select a Mould Sequence in Section 1 before adding rows.`);
+                const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z';
                 if (is8MouldSequence && parseInt(row.mouldsPerBench) !== 8) {
                     return alert(`Row ${displayIndex}: The selected Mould Sequence can only be used when exactly 8 Moulds/Bench is selected.`);
                 }
@@ -1249,7 +1250,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             }
 
             if (row.sleeperCategory !== 'Turnout') {
-                const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z (default)';
+                if (!formHeader.mouldSequence) return alert(`Row ${displayIndex}: Please select a Mould Sequence in Section 1 before adding rows.`);
+                const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z';
                 if (is8MouldSequence && parseInt(row.mouldsPerGang) !== 8) {
                     return alert(`Row ${displayIndex}: The selected Mould Sequence can only be used when exactly 8 Moulds/Gang is selected.`);
                 }
@@ -1810,7 +1812,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     value={formHeader.mouldSequence}
                                     onChange={(e) => setFormHeader({ ...formHeader, mouldSequence: e.target.value })}
                                 >
-                                    <option value="Preset — A, B, C, D, E, F, G, Z (default)">Preset — A, B, C, D, E, F, G, Z (default)</option>
+                                    <option value="" disabled>Select Sequence</option>
+                                    <option value="Preset — A, B, C, D, E, F, G, Z">Preset — A, B, C, D, E, F, G, Z</option>
                                     <option value="Preset — A, B, C, D, E, F, G, H">Preset — A, B, C, D, E, F, G, H</option>
                                     <option value="Numeric — 1, 2, 3, 4...">Numeric — 1, 2, 3, 4...</option>
                                     <option value="Preset — A, B, C, D, E, V, W, X, Y, Z">Preset — A, B, C, D, E, V, W, X, Y, Z</option>
