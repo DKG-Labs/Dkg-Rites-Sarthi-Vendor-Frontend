@@ -206,7 +206,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                 }}
             >
                 {/* Expand toggle */}
-                <td style={{ padding: '16px 14px', width: 44 }}>
+                <td style={{ padding: '16px 14px', width: 44, verticalAlign: 'top' }}>
                     <div style={{
                         width: 28, height: 28, borderRadius: 8,
                         background: expanded ? '#21808d' : '#f1f5f9',
@@ -220,7 +220,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                     </div>
                 </td>
                 {/* PO No. & Date */}
-                <td style={{ padding: '16px 8px' }}>
+                <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                     <div 
                         onClick={(e) => {
                             if (po.pdfPath) {
@@ -249,28 +249,28 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                     </div>
                 </td>
                 {/* Purchasing Authority */}
-                <td style={{ padding: '16px 8px' }}>
+                <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>{po.rlyShortName || po.purchasingAuthority || 'N/A'}</div>
                 </td>
                 {/* Item Category */}
-                <td style={{ padding: '16px 8px' }}>
+                <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 12, color: '#334155' }}>{po.itemCategory || po.poDes || 'N/A'}</div>
                 </td>
                 {/* Case No. */}
-                <td style={{ padding: '16px 8px' }}>
+                <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 12, color: isCaseNoMissing ? '#dc2626' : '#334155', fontWeight: 700 }}>
                         {caseNoValue || 'N/A'}
                     </div>
                 </td>
                 {/* PO Quantity */}
-                <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
                         {(totalPoQty || 0).toLocaleString()}
                     </div>
                     <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{po.unit || po.uom || 'Nos.'}</div>
                 </td>
                 {/* Total Value */}
-                <td style={{ padding: '16px 8px', textAlign: 'right' }}>
+                <td style={{ padding: '16px 8px', textAlign: 'right', verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
                         ₹{((po.totalValue || 0) / 100000).toFixed(2)}L
                     </div>
@@ -279,7 +279,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                     </div>
                 </td>
                 {/* Status */}
-                <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                <td style={{ padding: '16px 8px', textAlign: 'center', verticalAlign: 'top' }}>
                     <StatusBadge status={po.status || 'Active'} />
                     {activeSrCount > 0 && (
                         <div style={{ fontSize: 10, color: '#21808d', fontWeight: 600, marginTop: 4 }}>
@@ -467,6 +467,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                                 <th style={thStyle}>PO No. &amp; Date</th>
                                 <th style={thStyle}>Purchasing Authority</th>
                                 <th style={thStyle}>Item Category</th>
+                                <th style={thStyle}>Case No.</th>
                                 <th style={{ ...thStyle, textAlign: 'center' }}>PO Quantity</th>
                                 <th style={{ ...thStyle, textAlign: 'right' }}>Total PO Value</th>
                                 <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
@@ -475,13 +476,13 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                    <td colSpan={8} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         Loading PO Data...
                                     </td>
                                 </tr>
                             ) : paginated.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
+                                    <td colSpan={8} style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
                                         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
                                         No POs found matching your search.
                                     </td>

@@ -838,6 +838,19 @@ export const apiService = {
         }
     },
 
+    getDistinctSleeperTypes: async (userId) => {
+        try {
+            const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/distinct-sleeper-types?userId=${encodeURIComponent(finalUserId)}`);
+            if (!response.ok) throw new Error('Failed to fetch distinct sleeper types');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
     getVendorPOs: async (vendorCode) => {
         try {
             const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
