@@ -30,7 +30,21 @@ const EditableSleeperTags = ({ sleepers, onChange, isReadOnly }) => {
     };
 
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <div 
+            className="sleeper-tags-scroll-container"
+            style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '6px',
+                maxHeight: '90px',
+                overflowY: 'auto',
+                padding: '6px',
+                alignContent: 'flex-start',
+                borderRadius: '8px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0'
+            }}
+        >
             {sleepers.map((sleeper, idx) => (
                 <div key={idx} style={{
                     display: 'inline-flex',
@@ -117,7 +131,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const generateSleepers = (benchName, sequenceType, count) => {
         let sleepers = [];
-        if (sequenceType.includes('A, B, C, D, E, F, G, Z')) {
+        if (sequenceType === 'Custom Sequence' || sequenceType?.startsWith('Custom')) {
+            const customArr = (formHeader.customSequence || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            for (let i = 0; i < count; i++) {
+                const letter = customArr.length > 0 ? customArr[i % customArr.length] : (i + 1).toString();
+                sleepers.push(`${benchName}${letter}`);
+            }
+        } else if (sequenceType.includes('A, B, C, D, E, F, G, Z')) {
             const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'Z'];
             for (let i = 0; i < count && i < letters.length; i++) {
                 sleepers.push(`${benchName}${letters[i]}`);
@@ -153,7 +176,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         mixDesign: 'M60',
         timeLbc: getCurrentTime(),
         remarks: '',
-        mouldSequence: ''
+        mouldSequence: '',
+        customSequence: ''
     });
 
     const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
@@ -162,6 +186,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const getInitialStressBenchForm = () => ({
         id: Date.now() + Math.random(),
         chamberNo: '',
+        timeLbc: getCurrentTime()?.substring(0, 5) || '12:00',
         entryMode: 'single',
         fromNo: '',
         toNo: '',
@@ -188,6 +213,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const [stressBenchForms, setStressBenchForms] = useState([getInitialStressBenchForm()]);
     const [longLineForms, setLongLineForms] = useState([getInitialLongLineForm()]);
+
+    useEffect(() => {
+        if (formHeader.mouldSequence === 'Custom Sequence' || formHeader.mouldSequence?.startsWith('Custom')) {
+            const customItems = (formHeader.customSequence || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (customItems.length > 0) {
+                setStressBenchForms(prev => prev.map(row => ({ ...row, mouldsPerBench: customItems.length })));
+                setLongLineForms(prev => prev.map(row => ({ ...row, mouldsPerGang: customItems.length })));
+            }
+        }
+    }, [formHeader.mouldSequence, formHeader.customSequence]);
 
     const updateStressBenchRow = (index, field, value) => {
         setStressBenchForms(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row));
@@ -447,7 +482,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const getSleeperLetter = (index, totalCount) => {
         const sequence = formHeader.mouldSequence || 'Preset — A, B, C, D, E, F, G, Z';
         
-        if (sequence === 'Numeric — 1, 2, 3, 4...') {
+        if (sequence === 'Custom Sequence' || sequence.startsWith('Custom')) {
+            const customArr = (formHeader.customSequence || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            if (customArr.length > 0) {
+                return customArr[index % customArr.length];
+            }
+            return String.fromCharCode(65 + index);
+        } else if (sequence === 'Numeric — 1, 2, 3, 4...') {
             return (index + 1).toString(); // 1, 2, 3, 4...
         } else if (sequence === 'Preset — A, B, C, D, E, F, G, H') {
             return String.fromCharCode(65 + index); // A, B, C, D, E, F, G, H
@@ -548,6 +592,21 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
             // Map header
             const [d, m, y] = (initialData.castingDate || '').split('/');
+            let initialMouldSeq = initialData.mouldSequence || '';
+            let initialCustomSeq = '';
+
+            if (initialMouldSeq.startsWith('Custom')) {
+                if (initialMouldSeq.includes('—')) {
+                    initialCustomSeq = initialMouldSeq.split('—')[1]?.trim() || '';
+                } else if (initialMouldSeq.includes(':')) {
+                    initialCustomSeq = initialMouldSeq.split(':')[1]?.trim() || '';
+                } else if (initialMouldSeq.includes('(')) {
+                    const match = initialMouldSeq.match(/\(([^)]+)\)/);
+                    initialCustomSeq = match ? match[1].trim() : '';
+                }
+                initialMouldSeq = 'Custom Sequence';
+            }
+
             setFormHeader({
                 unit: initialData.productionUnit || '',
                 shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Twin',
@@ -557,7 +616,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 mixDesign: initialData.mixDesignReference || 'M60',
                 timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                 remarks: initialData.remarks || '',
-                mouldSequence: initialData.mouldSequence || ''
+                mouldSequence: initialMouldSeq,
+                customSequence: initialCustomSeq
             });
 
             // Map chambers for Stress Bench with deduplication
@@ -577,16 +637,24 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         );
                         const category = isPnC ? 'Turnout' : 'Mainline';
                         const sleepersList = g.sleepers || g.sleeperList?.map(s => s.sleeperNo) || [];
+                        let benchLabel = g.benchNo?.toString() || '';
+                        if (sleepersList.length > 0) {
+                            const match = sleepersList[0].match(/^([A-Za-z]+)/);
+                            if (match) {
+                                benchLabel = match[1];
+                            }
+                        }
 
                         mappedEntries.push({
                             id: Date.now() + Math.random(), // Unique ID for form state
                             chamberNo: c.chamberNo,
+                            timeLbc: (c.lbcTime || initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                             chamberId: c.id, // Store original chamber ID
                             groupId: g.id,   // Store original benchGroup ID
                             entryMode: g.mode?.toLowerCase() || 'single', 
                             fromNo: g.benchFrom?.toString() || '',
                             toNo: g.benchTo?.toString() || '',
-                            singleNo: g.benchNo?.toString() || '',
+                            singleNo: benchLabel,
                             sleeperType: g.sleeperType || '',
                             sleeperCategory: category,
                             sleepers: sleepersList,
@@ -1065,6 +1133,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
             if (row.sleeperCategory !== 'Turnout') {
                 if (!formHeader.mouldSequence) return alert(`Row ${displayIndex}: Please select a Mould Sequence in Section 1 before adding rows.`);
+                if (formHeader.mouldSequence === 'Custom Sequence' || formHeader.mouldSequence.startsWith('Custom')) {
+                    if (!formHeader.customSequence || !formHeader.customSequence.trim()) {
+                        return alert(`Row ${displayIndex}: Please declare the custom sequence nomenclature in Section 1 (e.g. A, X, C, V).`);
+                    }
+                    const customItems = formHeader.customSequence.split(',').map(s => s.trim()).filter(Boolean);
+                    const customCount = customItems.length;
+                    if (customCount > 0 && parseInt(row.mouldsPerBench) !== customCount) {
+                        return alert(`Row ${displayIndex}: The declared Custom Sequence has ${customCount} items (${customItems.join(', ')}). Moulds/Bench must be exactly ${customCount}.`);
+                    }
+                }
                 const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z';
                 if (is8MouldSequence && parseInt(row.mouldsPerBench) !== 8) {
                     return alert(`Row ${displayIndex}: The selected Mould Sequence can only be used when exactly 8 Moulds/Bench is selected.`);
@@ -1251,6 +1329,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
             if (row.sleeperCategory !== 'Turnout') {
                 if (!formHeader.mouldSequence) return alert(`Row ${displayIndex}: Please select a Mould Sequence in Section 1 before adding rows.`);
+                if (formHeader.mouldSequence === 'Custom Sequence' || formHeader.mouldSequence.startsWith('Custom')) {
+                    if (!formHeader.customSequence || !formHeader.customSequence.trim()) {
+                        return alert(`Row ${displayIndex}: Please declare the custom sequence nomenclature in Section 1 (e.g. A, X, C, V).`);
+                    }
+                    const customItems = formHeader.customSequence.split(',').map(s => s.trim()).filter(Boolean);
+                    const customCount = customItems.length;
+                    if (customCount > 0 && parseInt(row.mouldsPerGang) !== customCount) {
+                        return alert(`Row ${displayIndex}: The declared Custom Sequence has ${customCount} items (${customItems.join(', ')}). Moulds/Gang must be exactly ${customCount}.`);
+                    }
+                }
                 const is8MouldSequence = formHeader.mouldSequence === 'Preset — A, B, C, D, E, F, G, Z';
                 if (is8MouldSequence && parseInt(row.mouldsPerGang) !== 8) {
                     return alert(`Row ${displayIndex}: The selected Mould Sequence can only be used when exactly 8 Moulds/Gang is selected.`);
@@ -1674,6 +1762,21 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     input[type="date"]::-webkit-calendar-picker-indicator:hover {
                         opacity: 1;
                     }
+                    .sleeper-tags-scroll-container::-webkit-scrollbar {
+                        width: 5px;
+                        height: 5px;
+                    }
+                    .sleeper-tags-scroll-container::-webkit-scrollbar-track {
+                        background: #f1f5f9;
+                        border-radius: 4px;
+                    }
+                    .sleeper-tags-scroll-container::-webkit-scrollbar-thumb {
+                        background: #cbd5e1;
+                        border-radius: 4px;
+                    }
+                    .sleeper-tags-scroll-container::-webkit-scrollbar-thumb:hover {
+                        background: #94a3b8;
+                    }
                 `}
             </style>
 
@@ -1781,30 +1884,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Time of LBC (24h)</label>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <CustomDropdown
-                                            disabled={isReadOnly}
-                                            value={(formHeader.timeLbc || '00:00').split(':')[0]}
-                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${val}:${(formHeader.timeLbc || '00:00').split(':')[1]}` })}
-                                            options={Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))}
-                                            placeholder="HH"
-                                        />
-                                    </div>
-                                    <span style={{ fontWeight: 'bold', color: '#475569' }}>:</span>
-                                    <div style={{ flex: 1 }}>
-                                        <CustomDropdown
-                                            disabled={isReadOnly}
-                                            value={(formHeader.timeLbc || '00:00').split(':')[1]}
-                                            onChange={(val) => setFormHeader({ ...formHeader, timeLbc: `${(formHeader.timeLbc || '00:00').split(':')[0]}:${val}` })}
-                                            options={Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))}
-                                            placeholder="MM"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
                                 <label style={labelStyle}>Mould Sequence</label>
                                 <select
                                     disabled={isReadOnly}
@@ -1817,8 +1896,25 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     <option value="Preset — A, B, C, D, E, F, G, H">Preset — A, B, C, D, E, F, G, H</option>
                                     <option value="Numeric — 1, 2, 3, 4...">Numeric — 1, 2, 3, 4...</option>
                                     <option value="Preset — A, B, C, D, E, V, W, X, Y, Z">Preset — A, B, C, D, E, V, W, X, Y, Z</option>
+                                    <option value="Custom Sequence">Custom Sequence</option>
                                 </select>
                             </div>
+                            {(formHeader.mouldSequence === 'Custom Sequence' || formHeader.mouldSequence?.startsWith('Custom')) && (
+                                <div>
+                                    <label style={labelStyle}>Declare Custom Nomenclature</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. A, X, C, V"
+                                        value={formHeader.customSequence || ''}
+                                        onChange={(e) => setFormHeader({ ...formHeader, customSequence: e.target.value })}
+                                        disabled={isReadOnly}
+                                        style={inputStyle}
+                                    />
+                                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                                        Enter comma-separated letters/symbols (e.g. A, X, C, V)
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1848,7 +1944,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             )}
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1fr 1fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr 1fr 1fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
                                             <div>
                                                 <label style={labelStyle}>Chamber No.</label>
                                                 <input
@@ -1860,6 +1956,30 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     style={{ ...inputStyle, background: 'white' }}
                                                     placeholder="No."
                                                 />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Time of LBC (24h)</label>
+                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <CustomDropdown
+                                                            disabled={isReadOnly}
+                                                            value={(row.timeLbc || '12:00').split(':')[0]}
+                                                            onChange={(val) => updateStressBenchRow(rowIndex, 'timeLbc', `${val}:${(row.timeLbc || '12:00').split(':')[1]}`)}
+                                                            options={Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))}
+                                                            placeholder="HH"
+                                                        />
+                                                    </div>
+                                                    <span style={{ fontWeight: 'bold', color: '#475569' }}>:</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <CustomDropdown
+                                                            disabled={isReadOnly}
+                                                            value={(row.timeLbc || '12:00').split(':')[1]}
+                                                            onChange={(val) => updateStressBenchRow(rowIndex, 'timeLbc', `${(row.timeLbc || '12:00').split(':')[0]}:${val}`)}
+                                                            options={Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))}
+                                                            placeholder="MM"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label style={labelStyle}>Bench No.</label>
@@ -2171,7 +2291,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '100px' }}>Category</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Drawing No.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '250px' }}>SLEEPER NUMBERS</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '90px' }}>Moulds/B.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Total Sleepers</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '90px' }}>Total RMT</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '80px' }}>Action</th>
@@ -2201,7 +2320,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                                     }}
                                                                 />
                                                             </td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerBench}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
@@ -2571,7 +2689,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '120px' }}>Category</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px' }}>Drawing No.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'left', padding: '12px 8px', width: '250px' }}>SLEEPER NUMBERS</th>
-                                                    <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '110px' }}>Moulds/G.</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '130px' }}>Total Sleepers</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '110px' }}>Total RMT</th>
                                                     <th style={{ ...labelStyle, display: 'table-cell', marginBottom: 0, textAlign: 'center', padding: '12px 8px', width: '100px' }}>Action</th>
@@ -2603,7 +2720,6 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                                     }}
                                                                 />
                                                             </td>
-                                                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.sleeperCategory === 'Turnout' ? '—' : entry.mouldsPerGang}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: '700', color: '#42818c' }}>{totalSleepers}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center', color: '#1e293b' }}>{entry.totalRmt || '—'}</td>
                                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
@@ -2734,6 +2850,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         return alert('Batch Number is required. Please fill it in Section 1.');
                                     }
 
+                                    if (!formHeader.mouldSequence) {
+                                        return alert('Mould Sequence is required. Please select a sequence in Section 1.');
+                                    }
+
+                                    if (formHeader.mouldSequence === 'Custom Sequence' && (!formHeader.customSequence || !formHeader.customSequence.trim())) {
+                                        return alert('Please declare the custom sequence nomenclature in Section 1 (e.g. A, X, C, V).');
+                                    }
+
                                     if (calculateTotalCast() === 0) {
                                         return alert('Please add at least one valid entry.');
                                     }
@@ -2750,6 +2874,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         batchNumber: formHeader.batchNo.toString(),
                                         mixDesignReference: formHeader.mixDesign,
                                         lbcTime: formHeader.timeLbc?.substring(0, 5),
+                                        mouldSequence: formHeader.mouldSequence === 'Custom Sequence' ? `Custom — ${formHeader.customSequence.trim()}` : formHeader.mouldSequence,
                                         totalCastedSleepers: calculateTotalCast(),
                                         totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
                                         totalRft: calculateTotalRFT(),
@@ -2763,7 +2888,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         chambers: plantType === 'Stress Bench' ? chambers
                                             .map(chamber => ({
                                                 id: chamber.id || 0,
-                                                chamberNo: parseInt(chamber.chamberNo) || 0,
+                                                chamberNo: parseInt(chamber.chamberNo) || chamber.chamberNo?.toString() || 0,
+                                                lbcTime: chamber.benchGroups?.[0]?.timeLbc || formHeader.timeLbc || '12:00',
                                                 benchGroups: chamber.benchGroups
                                                     .flatMap(group => {
                                                         let benchList = [];
@@ -2800,7 +2926,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             
                                                             return {
                                                                 id: group.id || 0,
-                                                                benchNo: parseInt(bench) || 0,
+                                                                benchNo: bench.toString(),
                                                                 sleeperType: group.sleeperType,
                                                                 mouldPerBench: parseInt(group.mouldsPerBench) || 0,
                                                                 rft: rftToUse,
@@ -2817,7 +2943,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 const mode = entry.entryMode.toUpperCase();
                                                 const gangFrom = entry.entryMode === 'range' ? parseInt(entry.fromNo) : null;
                                                 const gangTo = entry.entryMode === 'range' ? parseInt(entry.toNo) : null;
-                                                const gangNo = entry.entryMode === 'single' ? parseInt(entry.singleNo) : null;
+                                                const gangNo = entry.entryMode === 'single' ? entry.singleNo?.toString() : null;
                                                 const mouldsPerGang = parseInt(entry.mouldsPerGang) || 0;
 
                                                 const isTurnout = entry.sleeperCategory === 'Turnout';
