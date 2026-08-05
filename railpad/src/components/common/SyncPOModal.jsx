@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import poAssignedService from '../../services/poAssignedService';
 
 const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, plantId }) => {
+    const [syncType, setSyncType] = useState('PO DATA'); // PO DATA, POMA DATA
     const [formData, setFormData] = useState({
         rly: '',
         poNo: '',
         poDate: '',
+        maNo: '',
+        maDate: '',
         vcode: ''
     });
 
@@ -35,6 +38,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             setFormData(prev => ({ ...prev, vcode }));
         }
     }, [isOpen, propVendorCode, plantId]);
+
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
     const [errorMsg, setErrorMsg] = useState('');
@@ -101,8 +105,62 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
         try {
             const finalVcode = formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`;
-            const payload = { ...formData, poDate: formatDate(formData.poDate), vcode: finalVcode };
 
+            if (syncType === 'POMA DATA') {
+                const maPayload = {
+                    rly: formData.rly,
+                    poNo: formData.poNo,
+                    vcode: finalVcode,
+                    maDate: formatDate(formData.maDate),
+                    maNo: formData.maNo
+                };
+
+                // 1. Fetch MA Details
+                const maResult = await poAssignedService.getIMMSMAData(maPayload);
+                if (!maResult || maResult.status !== 'OK' || !maResult.data) {
+                    throw new Error(maResult?.error || maResult?.message || 'MA not found or invalid response.');
+                }
+
+                // 2. Fetch PO Date from our database
+                const poDateResult = await poAssignedService.getPoDateByPoNo(maPayload.poNo);
+                if (!poDateResult || !poDateResult.poDate) {
+                    throw new Error('PO Date not found in our system for the given PO Number. Ensure the original PO is synced first.');
+                }
+
+                // 3. Fetch Amended PO Details
+                const amendedPayload = {
+                    rly: maPayload.rly,
+                    poNo: maPayload.poNo,
+                    poDate: poDateResult.poDate,
+                    vcode: finalVcode,
+                    amended: "true"
+                };
+                const amendedResult = await poAssignedService.getIMMSPOData(amendedPayload);
+                if (!amendedResult || amendedResult.status !== 'OK' || !amendedResult.data) {
+                    throw new Error(amendedResult?.error || amendedResult?.message || 'Amended PO data not found or invalid response.');
+                }
+
+                const combinedData = {
+                    status: "OK",
+                    message: "Success",
+                    error: [],
+                    timestamp: new Date().toISOString(),
+                    data: {
+                        MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
+                        MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
+                        PoHdr: amendedResult.data.PoHdr || amendedResult.data.mmpPoHdr,
+                        PoDtl: amendedResult.data.PoDtl || amendedResult.data.mmpPoItem
+                    }
+                };
+
+                setFetchedData(combinedData);
+                setManualCategory(maResult.data.MMP_POMA_HDR?.ITEM_CAT_DESCR || '');
+                setView('review');
+                setStatus('idle');
+                return;
+            }
+
+            const payload = { ...formData, poDate: formatDate(formData.poDate), vcode: finalVcode };
             const result = await poAssignedService.getIMMSPOData(payload);
             
             if (result && result.status === 'OK' && result.data) {
@@ -132,7 +190,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         hasCrisError = true;
                     }
                 }
-            } catch (e) {
+            } catch {
                 // ignore parse failure
             }
 
@@ -141,6 +199,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
                 } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
                     friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
+                } else if (rawMsg.toLowerCase().includes('invalid ma request') || rawMsg.toLowerCase().includes('ma not found')) {
+                    friendlyMsg = 'MA details are invalid or could not be found. Please check your MA Number, Date, and PO details.';
                 } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
                     friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
                 } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
@@ -161,17 +221,21 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
         setStatus('loading');
         
         try {
-            const savePayload = {
-                poHdr: {
-                    ...fetchedData.PoHdr,
-                    ITEM_CAT_DESCR: manualCategory
-                },
-                poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
-            };
-
-            const response = await poAssignedService.savePOData(savePayload);
+            let response;
+            if (syncType === 'POMA DATA') {
+                response = await poAssignedService.savePoMaData(fetchedData);
+            } else {
+                const savePayload = {
+                    poHdr: {
+                        ...fetchedData.PoHdr,
+                        ITEM_CAT_DESCR: manualCategory
+                    },
+                    poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
+                };
+                response = await poAssignedService.savePOData(savePayload);
+            }
             
-            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success')) {
+            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.status === 'OK')) {
                 setStatus('success');
                 setTimeout(() => {
                     if (onSuccess) onSuccess(response);
@@ -179,7 +243,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     resetModal();
                 }, 2000);
             } else {
-                throw new Error(response.responseStatus?.message || 'Failed to save PO data to system.');
+                throw new Error(response.responseStatus?.message || response.message || 'Failed to save data to system.');
             }
         } catch (error) {
             setStatus('error');
@@ -198,6 +262,30 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
     const renderInputView = () => (
         <form onSubmit={handleSync} style={styles.body}>
+            {/* Segmented Control Switcher */}
+            <div style={styles.tabContainer}>
+                <button
+                    type="button"
+                    onClick={() => { setSyncType('PO DATA'); setErrorMsg(''); }}
+                    style={{
+                        ...styles.tabButton,
+                        ...(syncType === 'PO DATA' ? styles.tabButtonActive : {})
+                    }}
+                >
+                    <span style={{ fontSize: '14px' }}>📦</span> Sync PO
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { setSyncType('POMA DATA'); setErrorMsg(''); }}
+                    style={{
+                        ...styles.tabButton,
+                        ...(syncType === 'POMA DATA' ? styles.tabButtonActive : {})
+                    }}
+                >
+                    <span style={{ fontSize: '14px' }}>📝</span> MA Sync
+                </button>
+            </div>
+
             <div style={styles.grid2col}>
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Railway Code (Rly)</label>
@@ -210,16 +298,16 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 cursor: railwayLoading ? 'not-allowed' : 'pointer',
-                                backgroundColor: railwayLoading ? '#f1f5f9' : '#fff'
+                                backgroundColor: railwayLoading ? '#f8fafc' : '#fff'
                             }}
                         >
-                            <span style={{ color: !formData.rly ? '#94a3b8' : '#1e293b' }}>
+                            <span style={{ color: !formData.rly ? '#94a3b8' : '#0f172a', fontWeight: formData.rly ? '600' : '400' }}>
                                 {formData.rly 
                                     ? (railways.find(r => r.rlyCd === formData.rly) ? `${formData.rly}-${railways.find(r => r.rlyCd === formData.rly).rlyShortName}` : formData.rly)
-                                    : (railwayLoading ? 'Loading...' : '-- Select Railway --')
+                                    : (railwayLoading ? 'Loading Railways...' : '-- Select Railway --')
                                 }
                             </span>
-                            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                            <span style={{ fontSize: '10px', color: '#64748b', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
                         </div>
                         
                         {isDropdownOpen && (
@@ -232,10 +320,10 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                             setIsDropdownOpen(false);
                                         }}
                                         style={styles.dropdownOption}
-                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
+                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#e0f2fe'}
                                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                                     >
-                                        {r.rlyCd}-{r.rlyShortName}
+                                        <strong>{r.rlyCd}</strong> - {r.rlyShortName}
                                     </div>
                                 ))}
                                 {railways.length === 0 && !railwayLoading && (
@@ -247,33 +335,57 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         )}
                     </div>
                 </div>
+
                 <div style={styles.formGroup}>
                     <label style={styles.label}>PO Number</label>
-                    <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="Enter PO Number" style={styles.input} required />
+                    <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="e.g. 63245440201377" style={styles.input} required />
                 </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>PO Date</label>
-                    <input name="poDate" type="date" value={formData.poDate} onChange={handleInputChange} style={styles.input} required />
-                </div>
+
+                {syncType === 'PO DATA' && (
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>PO Date</label>
+                        <input name="poDate" type="date" value={formData.poDate} onChange={handleInputChange} style={styles.input} required />
+                    </div>
+                )}
+
+                {syncType === 'POMA DATA' && (
+                    <>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>MA Number</label>
+                            <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. MA01" style={styles.input} required />
+                        </div>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>MA Date</label>
+                            <input name="maDate" type="date" value={formData.maDate} onChange={handleInputChange} style={styles.input} required />
+                        </div>
+                    </>
+                )}
+
                 <div style={styles.formGroup}>
                     <label style={styles.label}>Vendor Code</label>
-                    <input value={formData.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9'}} />
+                    <input value={formData.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600'}} />
                 </div>
             </div>
             {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
             <div style={styles.footer}>
                 <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
                 <button type="submit" disabled={loading} style={styles.syncBtn}>
-                    {loading ? 'Fetching...' : 'Fetch PO Details'}
+                    {loading ? 'Fetching...' : `Fetch ${syncType === 'POMA DATA' ? 'MA' : 'PO'} Details`}
                 </button>
             </div>
         </form>
     );
 
     const renderReviewView = () => {
-        const h = fetchedData.PoHdr;
-        const d = fetchedData.PoDtl || [];
-        
+        let h, d;
+        if (syncType === 'PO DATA') {
+            h = fetchedData.PoHdr || {};
+            d = fetchedData.PoDtl || [];
+        } else if (syncType === 'POMA DATA') {
+            h = fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || {};
+            d = fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || [];
+        }
+
         const allowedCategory = "Rail Pads";
         const dashboardRole = "Rail Pad";
         
@@ -287,13 +399,14 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             <div style={styles.body}>
                 <div style={styles.summaryCard}>
                     <p style={styles.summaryLine}><strong>PO No:</strong> {h.PO_NO}</p>
+                    {syncType === 'POMA DATA' && <p style={styles.summaryLine}><strong>MA No:</strong> {h.MA_NO || formData.maNo}</p>}
                     <p style={styles.summaryLine}><strong>Current Category:</strong> {currentCat || 'NULL (Not Found)'}</p>
                     <p style={styles.summaryLine}><strong>Items Found:</strong> {d.length}</p>
                 </div>
 
                 {isMismatch ? (
                     <div style={styles.errorBanner}>
-                        🚫 <strong>Access Denied:</strong> This PO is categorized as "{currentCat}". 
+                        🚫 <strong>Access Denied:</strong> This {syncType === 'POMA DATA' ? 'MA' : 'PO'} is categorized as "{currentCat}". 
                         Since you are in the <strong>{dashboardRole} Dashboard</strong>, 
                         you cannot sync this data.
                     </div>
@@ -306,7 +419,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             style={{
                                 ...styles.input, 
                                 height: '38px',
-                                borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
+                                borderColor: !manualCategory ? '#ef4444' : '#cbd5e1',
                                 cursor: 'pointer',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                             }}
@@ -323,7 +436,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     </div>
                 ) : (
                     <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} PO. You can proceed with saving.
+                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} {syncType === 'POMA DATA' ? 'MA' : 'PO'}. You can proceed with saving.
                     </div>
                 )}
 
@@ -337,7 +450,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             disabled={loading || (isNullRequest && !manualCategory)} 
                             style={{...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)'}}
                         >
-                            {loading ? 'Saving...' : 'Sync & Save PO'}
+                            {loading ? 'Saving...' : `Sync & Save ${syncType === 'POMA DATA' ? 'MA' : 'PO'}`}
                         </button>
                     )}
                 </div>
@@ -350,11 +463,15 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             <div style={styles.modal}>
                 <div style={styles.header}>
                     <div style={styles.headerTitle}>
-                        <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
+                        <div style={styles.headerIconBadge}>
+                            {view === 'input' ? '🔄' : '📄'}
+                        </div>
                         <div>
-                            <h3 style={styles.title}>{view === 'input' ? 'Sync PO' : 'Verify PO Data'}</h3>
+                            <h3 style={styles.title}>
+                                {view === 'input' ? 'CRIS / IMMS Portal Sync' : `Verify ${syncType === 'POMA DATA' ? 'MA Data' : 'PO Data'}`}
+                            </h3>
                             <p style={styles.subtitle}>
-                                {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
+                                {view === 'input' ? 'Fetch & verify Purchase Orders & Modification Advices' : 'Validate category before saving to system'}
                             </p>
                         </div>
                     </div>
@@ -364,11 +481,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 {view === 'input' ? renderInputView() : renderReviewView()}
 
                 {status === 'success' && (
-                    <div style={{...styles.overlay, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 1001}}>
+                    <div style={{...styles.overlay, backgroundColor: 'rgba(255,255,255,0.85)', zIndex: 1001}}>
                         <div style={{textAlign: 'center'}}>
-                            <div style={{fontSize: '50px'}}>✅</div>
-                            <h3 style={{color: '#0f172a'}}>PO Saved Successfully!</h3>
-                            <p style={{color: '#64748b'}}>The PO has been synced to your dashboard.</p>
+                            <div style={{fontSize: '52px', marginBottom: '8px'}}>✅</div>
+                            <h3 style={{color: '#0f172a', margin: '0 0 6px 0', fontSize: '20px', fontWeight: '700'}}>
+                                {syncType === 'POMA DATA' ? 'MA' : 'PO'} Saved Successfully!
+                            </h3>
+                            <p style={{color: '#64748b', margin: 0, fontSize: '13px'}}>The data has been synced to your dashboard.</p>
                         </div>
                     </div>
                 )}
@@ -385,170 +504,215 @@ const styles = {
         right: 0,
         bottom: 0,
         backgroundColor: 'rgba(15, 23, 42, 0.6)',
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000
     },
     modal: {
-        backgroundColor: '#fff',
-        width: '420px',
+        backgroundColor: '#ffffff',
+        width: '440px',
         maxWidth: '95vw',
-        borderRadius: '16px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        borderRadius: '20px',
+        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
         overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
+        border: '1px solid #e2e8f0'
     },
     header: {
-        padding: '12px 16px',
-        borderBottom: '1px solid #f1f5f9',
+        padding: '18px 22px',
+        backgroundColor: '#f8fafc',
+        borderBottom: '1px solid #e2e8f0',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
+        alignItems: 'center'
     },
     headerTitle: {
         display: 'flex',
-        gap: '8px',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: '12px'
     },
-    headerIcon: {
-        fontSize: '16px',
-        background: '#fff',
-        padding: '5px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    headerIconBadge: {
+        width: '40px',
+        height: '40px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '20px',
+        boxShadow: '0 4px 10px rgba(2, 132, 199, 0.25)',
+        color: '#ffffff'
     },
     title: {
         margin: 0,
-        fontSize: '14px',
-        fontWeight: '800',
-        color: '#0f172a'
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#0f172a',
+        letterSpacing: '-0.2px'
     },
     subtitle: {
-        margin: '1px 0 0',
-        fontSize: '10px',
+        margin: '2px 0 0 0',
+        fontSize: '12px',
         color: '#64748b'
     },
     closeBtn: {
-        background: 'none',
+        background: '#f1f5f9',
         border: 'none',
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
         fontSize: '18px',
-        color: '#94a3b8',
+        color: '#64748b',
         cursor: 'pointer',
-        padding: 0
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.2s'
     },
     body: {
-        padding: '16px 20px'
+        padding: '22px'
     },
-    grid2col: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '8px 12px'
-    },
-    formGroup: {
-        marginBottom: 0
-    },
-    label: {
-        display: 'block',
-        fontSize: '11px',
-        fontWeight: '600',
-        color: '#475569',
-        marginBottom: '3px'
-    },
-    input: {
-        width: '100%',
-        height: '32px',
-        padding: '0 8px',
-        borderRadius: '7px',
-        border: '1.5px solid #e2e8f0',
-        fontSize: '12px',
-        color: '#1e293b',
-        outline: 'none',
-        boxSizing: 'border-box'
-    },
-    footer: {
-        marginTop: '20px',
+    tabContainer: {
         display: 'flex',
-        gap: '8px'
+        backgroundColor: '#f1f5f9',
+        borderRadius: '12px',
+        padding: '4px',
+        marginBottom: '20px',
+        gap: '4px',
+        border: '1px solid #e2e8f0'
     },
-    cancelBtn: {
+    tabButton: {
         flex: 1,
-        height: '38px',
-        borderRadius: '10px',
-        border: '1.5px solid #e2e8f0',
-        backgroundColor: '#fff',
+        padding: '9px 14px',
+        borderRadius: '9px',
+        border: 'none',
+        backgroundColor: 'transparent',
         color: '#64748b',
         fontSize: '13px',
-        fontWeight: '700',
-        cursor: 'pointer'
-    },
-    syncBtn: {
-        flex: 2,
-        height: '38px',
-        borderRadius: '10px',
-        border: 'none',
-        backgroundColor: '#21808d',
-        backgroundImage: 'linear-gradient(135deg, #21808d, #0d3b3f)',
-        color: '#fff',
-        fontSize: '13px',
-        fontWeight: '700',
+        fontWeight: '600',
         cursor: 'pointer',
-        boxShadow: '0 4px 6px -1px rgba(33, 128, 141, 0.3)'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        transition: 'all 0.2s ease'
     },
-    errorBanner: {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fee2e2',
-        color: '#b91c1c',
-        fontSize: '12px',
-        fontWeight: '600',
-        marginTop: '12px'
+    tabButtonActive: {
+        backgroundColor: '#0284c7',
+        backgroundImage: 'linear-gradient(135deg, #0284c7, #0369a1)',
+        color: '#ffffff',
+        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
     },
-    successBanner: {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #dcfce7',
-        color: '#15803d',
-        fontSize: '12px',
-        fontWeight: '600',
-        marginTop: '12px'
+    grid2col: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '14px'
     },
-    summaryCard: {
-        backgroundColor: '#f8fafc',
-        borderRadius: '12px',
-        padding: '16px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '20px'
+    formGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '5px'
     },
-    summaryLine: {
-        margin: '4px 0',
-        fontSize: '13px',
-        color: '#1e293b'
+    label: {
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#475569',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+    },
+    input: {
+        padding: '10px 14px',
+        borderRadius: '10px',
+        border: '1px solid #cbd5e1',
+        fontSize: '14px',
+        color: '#0f172a',
+        outline: 'none',
+        transition: 'all 0.2s',
+        boxSizing: 'border-box',
+        width: '100%',
+        backgroundColor: '#ffffff'
     },
     dropdownList: {
         position: 'absolute',
         top: '100%',
         left: 0,
         right: 0,
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        zIndex: 10,
-        marginTop: '4px',
-        maxHeight: '200px',
-        overflowY: 'auto'
+        marginTop: '6px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: '12px',
+        maxHeight: '180px',
+        overflowY: 'auto',
+        zIndex: 20,
+        boxShadow: '0 12px 24px -4px rgba(15, 23, 42, 0.15)'
     },
     dropdownOption: {
-        padding: '8px 12px',
-        fontSize: '12px',
+        padding: '10px 14px',
+        fontSize: '13px',
+        cursor: 'pointer',
         color: '#1e293b',
-        cursor: 'pointer'
+        transition: 'background-color 0.15s'
+    },
+    summaryCard: {
+        backgroundColor: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '14px 16px',
+        marginBottom: '16px'
+    },
+    summaryLine: {
+        margin: '5px 0',
+        fontSize: '13px',
+        color: '#334155'
+    },
+    errorBanner: {
+        backgroundColor: '#fef2f2',
+        border: '1px solid #fecaca',
+        color: '#991b1b',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        marginBottom: '16px'
+    },
+    successBanner: {
+        backgroundColor: '#f0fdf4',
+        border: '1px solid #bbf7d0',
+        color: '#166534',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        marginBottom: '16px'
+    },
+    footer: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '10px',
+        marginTop: '18px'
+    },
+    cancelBtn: {
+        padding: '10px 18px',
+        borderRadius: '10px',
+        border: '1px solid #cbd5e1',
+        backgroundColor: '#ffffff',
+        color: '#475569',
+        fontWeight: '600',
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+    },
+    syncBtn: {
+        padding: '10px 22px',
+        borderRadius: '10px',
+        border: 'none',
+        backgroundColor: '#0284c7',
+        backgroundImage: 'linear-gradient(135deg, #0284c7, #0369a1)',
+        color: '#ffffff',
+        fontWeight: '600',
+        fontSize: '13px',
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+        transition: 'all 0.2s'
     }
 };
 

@@ -106,6 +106,81 @@ const poAssignedService = {
     }
   },
 
+  getIMMSMAData: async (payload) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to fetch MA details via Proxy');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('IMMS Get MA Data Error:', error);
+      throw error;
+    }
+  },
+
+  getPoDateByPoNo: async (poNo) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/po-date?poNo=${encodeURIComponent(poNo)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching PO Date:', error);
+      return null;
+    }
+  },
+
+  savePoMaData: async (payload) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/savePoMa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Save PO MA Error:', error);
+      throw error;
+    }
+  },
+
+  savePoCaData: async (payload) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/Vendorsync/savePoCa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Save PO CA Error:', error);
+      throw error;
+    }
+  },
+
   getRlyList: async () => {
     try {
       const token = sessionStorage.getItem('token');
