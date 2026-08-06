@@ -2,63 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../../services/api';
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_BATCHES = {
-    'RT8746': [
-        {
-            batchNo: '2025/A/14',
-            castDate: '2026-01-12',
-            totalCasted: 120,
-            castedAsType: 'RT8746',
-            previouslyOffered: 30,
-            goodSleepers: 108,
-            badSleepers: 12,
-            // Good sleeper IDs
-            goodSleeperIds: Array.from({ length: 108 }, (_, i) => `2025/A/14/G${i + 1}`),
-            // Bad sleeper IDs
-            badSleeperIds: Array.from({ length: 12 }, (_, i) => `2025/A/14/B${i + 1}`),
-        },
-        {
-            batchNo: '2025/B/22',
-            castDate: '2026-01-18',
-            totalCasted: 200,
-            castedAsType: 'RT8746',
-            previouslyOffered: 50,
-            goodSleepers: 185,
-            badSleepers: 15,
-            goodSleeperIds: Array.from({ length: 185 }, (_, i) => `2025/B/22/G${i + 1}`),
-            badSleeperIds: Array.from({ length: 15 }, (_, i) => `2025/B/22/B${i + 1}`),
-        },
-        {
-            batchNo: '2025/C/07',
-            castDate: '2026-01-25',
-            totalCasted: 150,
-            castedAsType: 'RT8746',
-            previouslyOffered: 10,
-            goodSleepers: 143,
-            badSleepers: 7,
-            goodSleeperIds: Array.from({ length: 143 }, (_, i) => `2025/C/07/G${i + 1}`),
-            badSleeperIds: Array.from({ length: 7 }, (_, i) => `2025/C/07/B${i + 1}`),
-        },
-    ],
-    'RT-8521': [
-        {
-            batchNo: '2025/D/03',
-            castDate: '2026-01-10',
-            totalCasted: 90,
-            castedAsType: 'RT-8521',
-            previouslyOffered: 5,
-            goodSleepers: 88,
-            badSleepers: 2,
-            goodSleeperIds: Array.from({ length: 88 }, (_, i) => `2025/D/03/G${i + 1}`),
-            badSleeperIds: Array.from({ length: 2 }, (_, i) => `2025/D/03/B${i + 1}`),
-        },
-    ],
-    'RT-8746 (PnC)': []
-};
-
-const SLEEPER_TYPES = ['RT-8746', 'RT-2496'];
-
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 const SectionHeader = ({ label, step, color = '#21808d' }) => (
     <div style={{
@@ -97,12 +40,35 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const callDate = new Date().toLocaleDateString('en-IN');
 
     // Section B state
-    const [sleeperType, setSleeperType] = useState(SLEEPER_TYPES[0]);
+    const [sleeperTypes, setSleeperTypes] = useState([]);
+    const [isLoadingTypes, setIsLoadingTypes] = useState(true);
+    const [sleeperType, setSleeperType] = useState('');
     const [batches, setBatches] = useState([]);
     const [isLoadingBatches, setIsLoadingBatches] = useState(false);
     const [batchSelections, setBatchSelections] = useState({}); // { batchNo: { goodSelected: Set<id>, badIncluded: boolean } }
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedBatch, setExpandedBatch] = useState(null);
+
+    // Fetch distinct sleeper types dynamically on mount
+    useEffect(() => {
+        const fetchSleeperTypes = async () => {
+            setIsLoadingTypes(true);
+            try {
+                const vendorCode = sessionStorage.getItem('vendorCode') || '';
+                const types = await apiService.getDistinctSleeperTypes(vendorCode);
+                setSleeperTypes(types);
+                if (types.length > 0) {
+                    setSleeperType(types[0]);
+                }
+            } catch (err) {
+                console.error('Failed to fetch sleeper types', err);
+                setSleeperTypes([]);
+            } finally {
+                setIsLoadingTypes(false);
+            }
+        };
+        fetchSleeperTypes();
+    }, []);
 
     useEffect(() => {
         if (!sleeperType) {
@@ -320,26 +286,50 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     }}>
                         <SectionHeader step="B" label="Sleeper Type & Granular Batch Selection" color="#7c3aed" />
 
-                        {/* Sleeper Type — Hardcoded to RT-8746 */}
+                        {/* Sleeper Type — Dynamic from backend */}
                         <div style={{ marginBottom: 18 }}>
                             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Sleeper Type <span style={{ color: '#dc2626' }}>*</span>
                             </label>
-                            <select
-                                value={sleeperType}
-                                onChange={(e) => setSleeperType(e.target.value)}
-                                style={{
-                                    width: '100%', maxWidth: 280, height: 42, padding: '0 14px',
-                                    border: '1.5px solid #21808d', borderRadius: 8,
-                                    fontSize: 14, fontWeight: 700, color: '#0f172a',
-                                    background: '#f0f9fa', cursor: 'pointer',
-                                    outline: 'none', appearance: 'auto'
-                                }}
-                            >
-                                {SLEEPER_TYPES.map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
+                            {isLoadingTypes ? (
+                                <div style={{
+                                    width: '100%', maxWidth: 280, height: 42,
+                                    display: 'flex', alignItems: 'center', padding: '0 14px',
+                                    border: '1.5px solid #cbd5e1', borderRadius: 8,
+                                    fontSize: 13, color: '#94a3b8', background: '#f8fafc'
+                                }}>
+                                    Loading sleeper types...
+                                </div>
+                            ) : sleeperTypes.length === 0 ? (
+                                <div style={{
+                                    width: '100%', maxWidth: 280, height: 42,
+                                    display: 'flex', alignItems: 'center', padding: '0 14px',
+                                    border: '1.5px dashed #fca5a5', borderRadius: 8,
+                                    fontSize: 13, color: '#dc2626', background: '#fef2f2'
+                                }}>
+                                    No sleeper types found
+                                </div>
+                            ) : (
+                                <select
+                                    value={sleeperType}
+                                    onChange={(e) => {
+                                        setSleeperType(e.target.value);
+                                        setBatchSelections({});
+                                        setExpandedBatch(null);
+                                    }}
+                                    style={{
+                                        width: '100%', maxWidth: 280, height: 42, padding: '0 14px',
+                                        border: '1.5px solid #21808d', borderRadius: 8,
+                                        fontSize: 14, fontWeight: 700, color: '#0f172a',
+                                        background: '#f0f9fa', cursor: 'pointer',
+                                        outline: 'none', appearance: 'auto'
+                                    }}
+                                >
+                                    {sleeperTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
 
                         {sleeperType && (

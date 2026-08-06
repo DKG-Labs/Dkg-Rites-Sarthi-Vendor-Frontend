@@ -197,6 +197,44 @@ const poAssignedService = {
       console.error('API Error (getRlyList):', error);
       return [];
     }
+  },
+
+  getIbsCaseNo: async (payload) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/ibs/get-case-no`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      return data.responseData || data;
+    } catch (error) {
+      console.error('Error fetching IBS Case Number:', error);
+      throw error;
+    }
+  },
+
+  saveIbsCaseNo: async (payload) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/ibs/save-case-no`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      return data.responseData || data;
+    } catch (error) {
+      console.error('Error saving IBS Case Number:', error);
+      throw error;
+    }
   }
 };
 

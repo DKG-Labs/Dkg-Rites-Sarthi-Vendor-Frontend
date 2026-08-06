@@ -838,6 +838,19 @@ export const apiService = {
         }
     },
 
+    getDistinctSleeperTypes: async (userId) => {
+        try {
+            const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/distinct-sleeper-types?userId=${encodeURIComponent(finalUserId)}`);
+            if (!response.ok) throw new Error('Failed to fetch distinct sleeper types');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
     getVendorPOs: async (vendorCode) => {
         try {
             const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
@@ -1264,4 +1277,59 @@ export const apiService = {
         }
     },
 
+    getPoAssigned: async (vendorCode, vendorType = 'PSC Mainline Sleeper') => {
+        try {
+            if (!vendorCode) throw new Error('Vendor code is required');
+            const endpoint = `${BASE_URL}/vendor/po-data?vendorCode=${encodeURIComponent(vendorCode)}&vendorType=${encodeURIComponent(vendorType)}`;
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token') || localStorage.getItem('token')}`
+                }
+            });
+            if (!response.ok) throw new Error('Failed to fetch PO data');
+            const data = await response.json();
+            return data.responseData || data;
+        } catch (error) {
+            console.error('Error fetching PO data:', error);
+            throw error;
+        }
+    },
+
+    getIbsCaseNo: async (payload) => {
+        try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/ibs/get-case-no`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            return data.responseData || data;
+        } catch (error) {
+            console.error('Error fetching IBS Case Number:', error);
+            throw error;
+        }
+    },
+
+    saveIbsCaseNo: async (payload) => {
+        try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/ibs/save-case-no`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            return data.responseData || data;
+        } catch (error) {
+            console.error('Error saving IBS Case Number:', error);
+            throw error;
+        }
+    }
 };
