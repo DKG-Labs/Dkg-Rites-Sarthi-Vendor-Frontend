@@ -123,7 +123,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
         try {
             const finalVcode = formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`;
-            const payload = { ...formData, poDate: formatDate(formData.poDate), vcode: finalVcode };
+            const payload = syncType === 'ma' ? {
+                rly: formData.rly,
+                poNo: formData.poNo,
+                maNo: formData.maNo,
+                maDate: formatDate(formData.maDate),
+                vcode: finalVcode
+            } : {
+                rly: formData.rly,
+                poNo: formData.poNo,
+                poDate: formatDate(formData.poDate),
+                vcode: finalVcode
+            };
 
             console.log('Fetching IMMS Data...', payload);
             const result = await apiService.getIMMSPOData(payload);
