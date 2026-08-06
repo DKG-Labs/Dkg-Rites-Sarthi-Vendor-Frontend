@@ -1,22 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../../services/api';
 
-const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
-    const vcode = sessionStorage.getItem('vendorCode') || ":41647";
+const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, plantId }) => {
+    const [syncType, setSyncType] = useState('PO DATA'); // PO DATA, POMA DATA, IBS_CASE_NO
     const [formData, setFormData] = useState({
         rly: '',
         poNo: '',
         poDate: '',
-        vcode: vcode
-    });
-    const [syncType, setSyncType] = useState('po');
-    const [formDataMa, setFormDataMa] = useState({
-        rly: '',
-        poNo: '',
-        maDate: '',
         maNo: '',
-        vcode: vcode
+        maDate: '',
+        vcode: ''
     });
+
+    const [vendorPos, setVendorPos] = useState([]);
+    const [poLoading, setPoLoading] = useState(false);
+    const [selectedPoId, setSelectedPoId] = useState('');
+    const [ibsResult, setIbsResult] = useState(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            let vcode = propVendorCode || 
+                         localStorage.getItem('sleeper_vendorCode') || 
+                         localStorage.getItem('vendorCode') || 
+                         sessionStorage.getItem('vendorCode') || 
+                         sessionStorage.getItem('vcode') || ":41647";
+            
+            if (!vcode && plantId && plantId.includes(':')) {
+                const parts = plantId.split('/');
+                const colonPart = parts.find(p => p.includes(':'));
+                if (colonPart) vcode = colonPart;
+            }
+            
+            setFormData(prev => ({ ...prev, vcode }));
+        }
+    }, [isOpen, propVendorCode, plantId]);
+
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
     const [errorMsg, setErrorMsg] = useState('');
@@ -28,10 +46,16 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
+    const [isPoDropdownOpen, setIsPoDropdownOpen] = useState(false);
+    const poDropdownRef = useRef(null);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsDropdownOpen(false);
+            }
+            if (poDropdownRef.current && !poDropdownRef.current.contains(event.target)) {
+                setIsPoDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -43,7 +67,6 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
             setRailwayLoading(true);
             try {
                 const list = await apiService.getRlyList();
-                // Sort railways numerically by their code (e.g., 01-CR before 16-WCR)
                 const sorted = [...list].sort((a, b) => 
                     String(a.rlyCd).localeCompare(String(b.rlyCd), undefined, { numeric: true })
                 );
@@ -76,43 +99,32 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
         return dateStr;
     };
 
-    const parseErrorMessage = (rawMsg) => {
-        if (!rawMsg) return 'Operation failed. Please try again.';
-        let friendlyMsg = rawMsg;
-        
+    const fetchVendorPos = async (vcode) => {
+        const cleanVcode = vcode || formData.vcode;
+        if (!cleanVcode) return;
+        setPoLoading(true);
         try {
-            const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
-            const jsonStart = cleanMsg.indexOf('{');
-            const jsonEnd = cleanMsg.lastIndexOf('}');
-            if (jsonStart !== -1 && jsonEnd !== -1) {
-                const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
-                // Unescape strings like <EOL> if present
-                const fixedJsonStr = jsonStr.replace(/<EOL>/g, '').replace(/""/g, '"');
-                const parsed = JSON.parse(fixedJsonStr);
-                if (parsed && parsed.error) {
-                    return `CRIS ERROR: ${parsed.error}`;
-                } else if (parsed && parsed.message) {
-                    return `CRIS ERROR: ${parsed.message}`;
-                }
-            }
-        } catch (e) {
-            // ignore parse failure
+            const data = await apiService.getPoAssigned(cleanVcode, 'PSC Mainline Sleeper');
+            const list = Array.isArray(data) ? data : (data.responseData || []);
+            setVendorPos(list);
+        } catch (err) {
+            console.error('Failed to fetch vendor POs:', err);
+        } finally {
+            setPoLoading(false);
         }
-        
-        if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
-            friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
-        } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
-            friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
-        } else if (rawMsg.toLowerCase().includes('invalid ma request') || rawMsg.toLowerCase().includes('ma not found')) {
-            friendlyMsg = 'MA details are invalid or could not be found. Please check your MA Number, Date, and PO details.';
-        } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
-            friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
-        } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
-            friendlyMsg = 'Network error. Please check your internet connection.';
-        } else if (rawMsg.includes('PO Date not found in our system')) {
-            friendlyMsg = 'The PO Date for this PO Number could not be found in our system. Ensure the original PO is synced first.';
+    };
+
+    const handlePoSelectForIbs = (poId) => {
+        setSelectedPoId(poId);
+        const poObj = vendorPos.find(p => String(p.id || p.poNo) === String(poId));
+        if (poObj) {
+            setFormData(prev => ({
+                ...prev,
+                poNo: poObj.poNo || poObj.po_no || '',
+                poDate: poObj.poDate || poObj.po_dt || '',
+                rly: poObj.rlyCd || poObj.rly_cd || poObj.rly || ''
+            }));
         }
-        return friendlyMsg;
     };
 
     const handleSync = async (e) => {
@@ -123,82 +135,188 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
         try {
             const finalVcode = formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`;
-            const payload = syncType === 'ma' ? {
-                rly: formData.rly,
-                poNo: formData.poNo,
-                maNo: formData.maNo,
-                maDate: formatDate(formData.maDate),
-                vcode: finalVcode
-            } : {
-                rly: formData.rly,
-                poNo: formData.poNo,
-                poDate: formatDate(formData.poDate),
-                vcode: finalVcode
-            };
 
-            console.log('Fetching IMMS Data...', payload);
-            const result = await apiService.getIMMSPOData(payload);
-            
-            if (result && result.status === 'OK' && result.data) {
-                setFetchedData(result.data);
-                setManualCategory(result.data.PoHdr?.ITEM_CAT_DESCR || '');
-                setView('review');
-                setStatus('idle');
-            } else {
-                throw new Error(result.error || result.message || 'PO not found or invalid response.');
+            if (syncType === 'IBS_CASE_NO') {
+                const poObj = vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId)) || {};
+                const ibsPayload = {
+                    POKEY: poObj.po_key || poObj.poKey || poObj.pokey || poObj.poNo || formData.poNo,
+                    PO_NO: poObj.poNo || poObj.po_no || formData.poNo,
+                    PO_DT: poObj.poDate || poObj.po_dt || formData.poDate,
+                    RLY_CD: poObj.rlyCd || poObj.rly_cd || formData.rly
+                };
+
+                const res = await apiService.getIbsCaseNo(ibsPayload);
+                const data = res?.data || res;
+
+                if (data && (data.caseNo || data.CASE_NO)) {
+                    setIbsResult(data);
+                    setView('review');
+                    setStatus('idle');
+                } else {
+                    setErrorMsg(data?.message || 'Case Number not found for the specified PO details.');
+                    setStatus('error');
+                }
+                return;
             }
-        } catch (error) {
+
+            let immsToken = sessionStorage.getItem('imms_token') || localStorage.getItem('imms_token');
+            if (!immsToken) {
+                if (apiService.authenticateIMMS) {
+                    immsToken = await apiService.authenticateIMMS();
+                }
+            }
+
+            if (syncType === 'POMA DATA') {
+                const formattedMaDate = formatDate(formData.maDate);
+                let poDateFormatted = '';
+                
+                try {
+                    const poDateRes = await apiService.getPoDateByPoNo(formData.poNo);
+                    if (poDateRes) {
+                        poDateFormatted = formatDate(poDateRes);
+                    }
+                } catch (err) {
+                    console.log('PO Date lookup failed, fallback to prompt/manual');
+                }
+
+                if (!poDateFormatted) {
+                    poDateFormatted = formatDate(formData.poDate);
+                }
+
+                if (!poDateFormatted) {
+                    const userInput = prompt("PO Date is required for MA Sync (dd/mm/yyyy or yyyy-mm-dd):");
+                    if (!userInput) {
+                        setLoading(false);
+                        setStatus('idle');
+                        setErrorMsg('PO Date is required to fetch MA details');
+                        return;
+                    }
+                    poDateFormatted = formatDate(userInput);
+                }
+
+                const maPayload = {
+                    rly: formData.rly,
+                    poNo: formData.poNo,
+                    poDate: poDateFormatted,
+                    vcode: finalVcode,
+                    maNo: formData.maNo,
+                    maDate: formattedMaDate,
+                    amended: "true"
+                };
+
+                const res = await apiService.getIMMSMAData ? apiService.getIMMSMAData(maPayload) : apiService.getIMMSPOData(maPayload);
+                
+                if (res && res.status === 'Success' && res.data) {
+                    setFetchedData(res);
+                    setView('review');
+                    setStatus('idle');
+                } else {
+                    setErrorMsg(res.message || 'Failed to fetch MA details from CRIS/IMMS.');
+                    setStatus('error');
+                }
+
+            } else {
+                const formattedPoDate = formatDate(formData.poDate);
+                const payload = {
+                    rly: formData.rly,
+                    poNo: formData.poNo,
+                    poDate: formattedPoDate,
+                    vcode: finalVcode
+                };
+
+                const res = await apiService.getIMMSPOData(payload);
+                if (res && res.status === 'Success' && res.data) {
+                    setFetchedData(res);
+                    setView('review');
+                    setStatus('idle');
+                } else {
+                    setErrorMsg(res.message || 'Failed to fetch PO details from CRIS/IMMS.');
+                    setStatus('error');
+                }
+            }
+        } catch (err) {
+            setErrorMsg(err.message || 'An error occurred during proxy sync.');
             setStatus('error');
-            const rawMsg = error.message || '';
-            setErrorMsg(parseErrorMessage(rawMsg));
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async () => {
+        if (syncType === 'IBS_CASE_NO') {
+            if (!ibsResult || (!ibsResult.caseNo && !ibsResult.CASE_NO)) {
+                setErrorMsg('No valid IBS Case Number to save.');
+                return;
+            }
+            setLoading(true);
+            try {
+                const poObj = vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId)) || {};
+                const savePayload = {
+                    poNo: poObj.poNo || poObj.po_no || formData.poNo,
+                    poKey: poObj.po_key || poObj.poKey || poObj.pokey || formData.poNo,
+                    caseNo: ibsResult.caseNo || ibsResult.CASE_NO,
+                    caseStatus: ibsResult.caseStatus || ibsResult.STATUS || 'AVAILABLE'
+                };
+                await apiService.saveIbsCaseNo(savePayload);
+                setStatus('success');
+                if (onSuccess) onSuccess();
+            } catch (err) {
+                setErrorMsg(err.message || 'Failed to save IBS Case Number to PO Header.');
+                setStatus('error');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         setLoading(true);
-        setStatus('loading');
-        
         try {
-            if (syncType === 'ma') {
-                const response = await apiService.savePoMaData(fetchedData);
-                if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.status === 'OK' || response.data)) {
+            if (syncType === 'POMA DATA') {
+                const saveMaPayload = {
+                    ...fetchedData,
+                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`
+                };
+                const res = await apiService.savePoMaData(saveMaPayload);
+                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200')) {
                     setStatus('success');
-                    setTimeout(() => {
-                        if (onSuccess) onSuccess(response);
-                        onClose();
-                        resetModal();
-                    }, 2000);
+                    if (onSuccess) onSuccess();
                 } else {
-                    throw new Error(response.responseStatus?.message || response.message || 'Failed to save MA data to system.');
+                    setErrorMsg(res.message || 'Failed to save MA data');
+                    setStatus('error');
                 }
             } else {
-                // Map the PascalCase CRIS format to camelCase local backend format
+                let categoryToSave = fetchedData.PoHdr?.ITEM_CAT_DESCR;
+                if (!categoryToSave) {
+                    categoryToSave = manualCategory;
+                }
+
+                if (!categoryToSave) {
+                    setErrorMsg('Item category is required to save.');
+                    setLoading(false);
+                    return;
+                }
+
                 const savePayload = {
-                    poHdr: {
+                    ...fetchedData,
+                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`,
+                    PoHdr: {
                         ...fetchedData.PoHdr,
-                        ITEM_CAT_DESCR: manualCategory // use manual value if it was null
-                    },
-                    poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
+                        ITEM_CAT_DESCR: categoryToSave
+                    }
                 };
 
-                const response = await apiService.savePOData(savePayload);
-                
-                if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success')) {
+                const res = await apiService.savePOData ? apiService.savePOData(savePayload) : apiService.savePOToSarthi(savePayload);
+                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200')) {
                     setStatus('success');
-                    setTimeout(() => {
-                        if (onSuccess) onSuccess(response);
-                        onClose();
-                        resetModal();
-                    }, 2000);
+                    if (onSuccess) onSuccess();
                 } else {
-                    throw new Error(response.responseStatus?.message || 'Failed to save PO data to system.');
+                    setErrorMsg(res.message || 'Failed to save PO data');
+                    setStatus('error');
                 }
             }
-        } catch (error) {
+        } catch (err) {
+            setErrorMsg(err.message || 'An error occurred while saving.');
             setStatus('error');
-            setErrorMsg(parseErrorMessage(error.message));
         } finally {
             setLoading(false);
         }
@@ -207,328 +325,396 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
     const resetModal = () => {
         setView('input');
         setFetchedData(null);
-        setManualCategory('');
         setStatus('idle');
-        setSyncType('po');
-        setFormDataMa({
-            rly: '',
-            poNo: '',
-            maDate: '',
-            maNo: '',
-            vcode: vcode
-        });
-    };
-
-    const handleMaInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormDataMa(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleMaSync = async (e) => {
-        if (e) e.preventDefault();
-        setLoading(true);
-        setStatus('loading');
         setErrorMsg('');
-
-        try {
-            const finalVcode = formDataMa.vcode.startsWith(':') ? formDataMa.vcode : `:${formDataMa.vcode}`;
-            const maPayload = { ...formDataMa, maDate: formatDate(formDataMa.maDate), vcode: finalVcode };
-
-            // 1. Fetch MA Details
-            const maResult = await apiService.getIMMSMAData(maPayload);
-            if (!maResult || maResult.status !== 'OK' || !maResult.data) {
-                throw new Error(maResult?.error || maResult?.message || 'MA not found or invalid response.');
-            }
-
-            // 2. Fetch PO Date from our database
-            const poDateResult = await apiService.getPoDateByPoNo(maPayload.poNo);
-            if (!poDateResult || !poDateResult.poDate) {
-                throw new Error('PO Date not found in our system for the given PO Number.');
-            }
-
-            // 3. Fetch Amended PO Details
-            const amendedPayload = {
-                rly: maPayload.rly,
-                poNo: maPayload.poNo,
-                poDate: poDateResult.poDate,
-                vcode: finalVcode,
-                amended: "true"
-            };
-            const amendedResult = await apiService.getIMMSPOData(amendedPayload);
-            if (!amendedResult || amendedResult.status !== 'OK' || !amendedResult.data) {
-                throw new Error(amendedResult?.error || amendedResult?.message || 'Amended PO data not found or invalid response.');
-            }
-
-            // Combine into the required format
-            const combinedData = {
-                status: "OK",
-                message: "Success",
-                error: [],
-                timestamp: new Date().toISOString(),
-                data: {
-                    MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
-                    MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
-                    mmpPoHdr: amendedResult.data.mmpPoHdr,
-                    mmpPoItem: amendedResult.data.mmpPoItem
-                }
-            };
-
-            setFetchedData(combinedData);
-            setView('review');
-            setStatus('idle');
-            
-        } catch (error) {
-            setStatus('error');
-            setErrorMsg(parseErrorMessage(error.message));
-        } finally {
-            setLoading(false);
-        }
+        setSelectedPoId('');
+        setIbsResult(null);
     };
 
-    const renderMaInputView = () => (
-        <form onSubmit={handleMaSync} style={styles.body}>
-            <div style={styles.grid2col}>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>Railway Code (Rly)</label>
-                    <div ref={dropdownRef} style={{ position: 'relative' }}>
-                        <div 
-                            onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
-                            style={{
-                                ...styles.input,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: railwayLoading ? 'not-allowed' : 'pointer',
-                                backgroundColor: railwayLoading ? '#f1f5f9' : '#fff'
-                            }}
-                        >
-                            <span style={{ color: !formDataMa.rly ? '#94a3b8' : '#1e293b' }}>
-                                {formDataMa.rly 
-                                    ? (railways.find(r => r.rlyCd === formDataMa.rly) ? `${formDataMa.rly}-${railways.find(r => r.rlyCd === formDataMa.rly).rlyShortName}` : formDataMa.rly)
-                                    : (railwayLoading ? 'Loading...' : '-- Select Railway --')
-                                }
-                            </span>
-                            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
-                        </div>
-                        
-                        {isDropdownOpen && (
-                            <div style={styles.dropdownList}>
-                                {railways.map(r => (
-                                    <div 
-                                        key={r.rlyCd}
-                                        onClick={() => {
-                                            handleMaInputChange({ target: { name: 'rly', value: r.rlyCd } });
-                                            setIsDropdownOpen(false);
-                                        }}
-                                        style={styles.dropdownOption}
-                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
-                                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                                    >
-                                        {r.rlyCd}-{r.rlyShortName}
-                                    </div>
-                                ))}
-                                {railways.length === 0 && !railwayLoading && (
-                                    <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
-                                        No railways found
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>PO Number (poNo)</label>
-                    <input name="poNo" value={formDataMa.poNo} onChange={handleMaInputChange} placeholder="Enter PO Number" style={styles.input} required />
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>MA Date (maDate)</label>
-                    <input name="maDate" type="date" value={formDataMa.maDate} onChange={handleMaInputChange} style={styles.input} required />
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>MA Number (maNo)</label>
-                    <input name="maNo" value={formDataMa.maNo} onChange={handleMaInputChange} placeholder="Enter MA Number" style={styles.input} required />
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>Vendor Code (vcode)</label>
-                    <input value={formDataMa.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9'}} />
-                </div>
-            </div>
-            {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
-            <div style={styles.footer}>
-                <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
-                <button type="submit" disabled={loading} style={styles.syncBtn}>
-                    {loading ? 'Fetching...' : 'Fetch MA Details'}
-                </button>
-            </div>
-        </form>
-    );
+    const renderInputView = () => {
+        const availableVendorPos = vendorPos.filter(po => {
+            const caseNo = po.caseNo || po.case_no || po.caseNumber || po.CASE_NO;
+            return !caseNo || String(caseNo).trim() === '' || String(caseNo).trim().toUpperCase() === 'N/A' || String(caseNo).trim().toLowerCase() === 'null';
+        });
 
-    const renderInputView = () => (
-        <form onSubmit={handleSync} style={styles.body}>
-            <div style={styles.grid2col}>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>Railway Code (Rly)</label>
-                    <div ref={dropdownRef} style={{ position: 'relative' }}>
-                        <div 
-                            onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
-                            style={{
-                                ...styles.input,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: railwayLoading ? 'not-allowed' : 'pointer',
-                                backgroundColor: railwayLoading ? '#f1f5f9' : '#fff'
-                            }}
-                        >
-                            <span style={{ color: !formData.rly ? '#94a3b8' : '#1e293b' }}>
-                                {formData.rly 
-                                    ? (railways.find(r => r.rlyCd === formData.rly) ? `${formData.rly}-${railways.find(r => r.rlyCd === formData.rly).rlyShortName}` : formData.rly)
-                                    : (railwayLoading ? 'Loading...' : '-- Select Railway --')
-                                }
-                            </span>
-                            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
-                        </div>
-                        
-                        {isDropdownOpen && (
-                            <div style={styles.dropdownList}>
-                                {railways.map(r => (
-                                    <div 
-                                        key={r.rlyCd}
-                                        onClick={() => {
-                                            handleInputChange({ target: { name: 'rly', value: r.rlyCd } });
-                                            setIsDropdownOpen(false);
-                                        }}
-                                        style={styles.dropdownOption}
-                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
-                                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                                    >
-                                        {r.rlyCd}-{r.rlyShortName}
+        return (
+            <form onSubmit={handleSync} style={{ ...styles.body, paddingBottom: (isPoDropdownOpen || isDropdownOpen) ? '140px' : '24px' }}>
+                {/* Segmented Control Switcher */}
+                <div style={styles.tabContainer}>
+                    <button
+                        type="button"
+                        onClick={() => { setSyncType('PO DATA'); setErrorMsg(''); }}
+                        style={{
+                            ...styles.tabButton,
+                            ...(syncType === 'PO DATA' ? styles.tabButtonActive : {})
+                        }}
+                    >
+                        <span style={{ fontSize: '15px' }}>📦</span> PO Sync
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setSyncType('POMA DATA'); setErrorMsg(''); }}
+                        style={{
+                            ...styles.tabButton,
+                            ...(syncType === 'POMA DATA' ? styles.tabButtonActive : {})
+                        }}
+                    >
+                        <span style={{ fontSize: '15px' }}>📝</span> MA Sync
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSyncType('IBS_CASE_NO');
+                            setErrorMsg('');
+                            fetchVendorPos(formData.vcode);
+                        }}
+                        style={{
+                            ...styles.tabButton,
+                            ...(syncType === 'IBS_CASE_NO' ? styles.tabButtonActive : {})
+                        }}
+                    >
+                        <span style={{ fontSize: '15px' }}>🔢</span> IBS Case No
+                    </button>
+                </div>
+
+                {syncType === 'IBS_CASE_NO' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Select Purchase Order (PO)</label>
+                            <div ref={poDropdownRef} style={{ position: 'relative' }}>
+                                <div 
+                                    onClick={() => !poLoading && availableVendorPos.length > 0 && setIsPoDropdownOpen(!isPoDropdownOpen)}
+                                    style={{
+                                        ...styles.input,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: (poLoading || availableVendorPos.length === 0) ? 'not-allowed' : 'pointer',
+                                        backgroundColor: (poLoading || availableVendorPos.length === 0) ? '#f8fafc' : '#ffffff',
+                                        height: '46px',
+                                        borderColor: isPoDropdownOpen ? '#0284c7' : '#cbd5e1',
+                                        boxShadow: isPoDropdownOpen ? '0 0 0 3px rgba(2, 132, 199, 0.15)' : 'none'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                        <span style={{ fontSize: '16px' }}>📦</span>
+                                        {selectedPoId ? (
+                                            <span style={{ color: '#0f172a', fontWeight: '700', fontSize: '13px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                PO No: <span style={{ color: '#0284c7' }}>{formData.poNo}</span> | Rly: {formData.rly || 'N/A'} | Date: {formData.poDate || 'N/A'}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: availableVendorPos.length === 0 ? '#94a3b8' : '#64748b', fontSize: '13px', fontWeight: '500' }}>
+                                                {poLoading 
+                                                    ? 'Loading Vendor POs...' 
+                                                    : (availableVendorPos.length === 0 
+                                                        ? 'No pending POs (All POs have Case Numbers)' 
+                                                        : '-- Select PO to Fetch Case Number --')
+                                                }
+                                            </span>
+                                        )}
                                     </div>
-                                ))}
-                                {railways.length === 0 && !railwayLoading && (
-                                    <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
-                                        No railways found
+                                    <span style={{ fontSize: '11px', color: '#64748b', transform: isPoDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>▼</span>
+                                </div>
+
+                                {isPoDropdownOpen && availableVendorPos.length > 0 && (
+                                    <div style={styles.poDropdownList}>
+                                        {availableVendorPos.map((po, index) => {
+                                            const poIdVal = po.id || po.poNo;
+                                            const poNoVal = po.poNo || po.po_no || '';
+                                            const rlyVal = po.rlyCd || po.rly_cd || po.rlyShortName || po.rly || 'N/A';
+                                            const dateVal = po.poDate || po.po_dt || 'N/A';
+                                            const isSelected = String(poIdVal) === String(selectedPoId);
+
+                                            return (
+                                                <div 
+                                                    key={poIdVal || index}
+                                                    onClick={() => {
+                                                        handlePoSelectForIbs(poIdVal);
+                                                        setIsPoDropdownOpen(false);
+                                                    }}
+                                                    style={{
+                                                        ...styles.poDropdownOption,
+                                                        backgroundColor: isSelected ? '#f0f9ff' : 'transparent',
+                                                        borderLeft: isSelected ? '4px solid #0284c7' : '4px solid transparent'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                        <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>
+                                                            PO No: <span style={{ color: '#0284c7' }}>{poNoVal}</span>
+                                                        </span>
+                                                        <span style={{ 
+                                                            backgroundColor: '#e0f2fe', 
+                                                            color: '#0369a1', 
+                                                            fontSize: '11px', 
+                                                            fontWeight: '700', 
+                                                            padding: '2px 8px', 
+                                                            borderRadius: '6px' 
+                                                        }}>
+                                                            RLY {rlyVal}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#64748b' }}>
+                                                        <span>PO Key: {po.po_key || po.poKey || po.pokey || poNoVal}</span>
+                                                        <span>📅 {dateVal}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {selectedPoId && (
+                            <div style={styles.poSummaryCard}>
+                                <div style={styles.poSummaryGrid}>
+                                    <div style={styles.poSummaryItem}>
+                                        <span style={styles.poSummaryLabel}>PO Key</span>
+                                        <span style={styles.poSummaryValue}>
+                                            {vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.po_key || 
+                                             vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.poKey || 
+                                             vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.pokey || selectedPoId}
+                                        </span>
+                                    </div>
+                                    <div style={styles.poSummaryItem}>
+                                        <span style={styles.poSummaryLabel}>PO Number</span>
+                                        <span style={styles.poSummaryValue}>{formData.poNo || 'N/A'}</span>
+                                    </div>
+                                    <div style={styles.poSummaryItem}>
+                                        <span style={styles.poSummaryLabel}>PO Date</span>
+                                        <span style={styles.poSummaryValue}>{formData.poDate || 'N/A'}</span>
+                                    </div>
+                                    <div style={styles.poSummaryItem}>
+                                        <span style={styles.poSummaryLabel}>Railway Code</span>
+                                        <span style={styles.poSummaryValue}>{formData.rly || 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
+                ) : (
+                    <div style={styles.formGrid}>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Railway Code (Rly)</label>
+                            <div ref={dropdownRef} style={{ position: 'relative' }}>
+                                <div 
+                                    onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
+                                    style={{
+                                        ...styles.input,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: railwayLoading ? 'not-allowed' : 'pointer',
+                                        backgroundColor: railwayLoading ? '#f8fafc' : '#fff'
+                                    }}
+                                >
+                                    <span style={{ color: !formData.rly ? '#94a3b8' : '#0f172a', fontWeight: formData.rly ? '600' : '400', fontSize: '13px' }}>
+                                        {formData.rly 
+                                            ? (railways.find(r => r.rlyCd === formData.rly) ? `${formData.rly} - ${railways.find(r => r.rlyCd === formData.rly).rlyShortName}` : formData.rly)
+                                            : (railwayLoading ? 'Loading Railways...' : '-- Select Railway --')
+                                        }
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: '#64748b', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                                </div>
+                                
+                                {isDropdownOpen && (
+                                    <div style={styles.dropdownList}>
+                                        {railways.map(r => (
+                                            <div 
+                                                key={r.rlyCd}
+                                                onClick={() => {
+                                                    handleInputChange({ target: { name: 'rly', value: r.rlyCd } });
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                style={styles.dropdownOption}
+                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f9ff'}
+                                                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                            >
+                                                <strong style={{ color: '#0284c7' }}>{r.rlyCd}</strong> - {r.rlyShortName}
+                                            </div>
+                                        ))}
+                                        {railways.length === 0 && !railwayLoading && (
+                                            <div style={{ ...styles.dropdownOption, color: '#94a3b8', cursor: 'default' }}>
+                                                No railways found
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>PO Number</label>
+                            <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="e.g. 63245440201377" style={styles.input} required />
+                        </div>
+
+                        {syncType === 'PO DATA' && (
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>PO Date</label>
+                                <input name="poDate" type="date" value={formData.poDate} onChange={handleInputChange} style={styles.input} required />
+                            </div>
+                        )}
+
+                        {syncType === 'POMA DATA' && (
+                            <>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.label}>MA Number</label>
+                                    <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. MA01" style={styles.input} required />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.label}>MA Date</label>
+                                    <input name="maDate" type="date" value={formData.maDate} onChange={handleInputChange} style={styles.input} required />
+                                </div>
+                            </>
+                        )}
+
+                        <div style={{
+                            ...styles.formGroup,
+                            ...(syncType === 'POMA DATA' ? { gridColumn: 'span 2' } : {})
+                        }}>
+                            <label style={styles.label}>Vendor Code</label>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input value={formData.vcode} readOnly style={{ ...styles.input, backgroundColor: '#f1f5f9', color: '#475569', fontWeight: '600', paddingLeft: '32px' }} />
+                                <span style={{ position: 'absolute', left: '10px', fontSize: '13px', color: '#94a3b8' }}>🔒</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
+                <div style={styles.footer}>
+                    <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
+                    <button type="submit" disabled={loading || (syncType === 'IBS_CASE_NO' && !selectedPoId)} style={styles.syncBtn}>
+                        {loading ? 'Fetching Details...' : (syncType === 'IBS_CASE_NO' ? 'Fetch IBS Case Number' : `Fetch ${syncType === 'POMA DATA' ? 'MA' : 'PO'} Details`)}
+                    </button>
                 </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>PO Number (poNo)</label>
-                    <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="Enter PO Number" style={styles.input} required />
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>PO Date (poDate)</label>
-                    <input name="poDate" type="date" value={formData.poDate} onChange={handleInputChange} style={styles.input} required />
-                </div>
-                <div style={styles.formGroup}>
-                    <label style={styles.label}>Vendor Code (vcode)</label>
-                    <input value={formData.vcode} readOnly style={{...styles.input, backgroundColor: '#f1f5f9'}} />
-                </div>
-            </div>
-            {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
-            <div style={styles.footer}>
-                <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
-                <button type="submit" disabled={loading} style={styles.syncBtn}>
-                    {loading ? 'Fetching...' : 'Fetch PO Details'}
-                </button>
-            </div>
-        </form>
-    );
+            </form>
+        );
+    };
 
     const renderReviewView = () => {
-        if (syncType === 'ma') {
-            const maHdr = fetchedData.data.MMP_POMA_HDR || {};
-            const maDtl = fetchedData.data.MMP_POMA_DTL || [];
+        if (syncType === 'IBS_CASE_NO' && ibsResult) {
             return (
                 <div style={styles.body}>
-                    <div style={styles.summaryCard}>
-                        <p style={styles.summaryLine}><strong>PO No:</strong> {maHdr.PO_NO}</p>
-                        <p style={styles.summaryLine}><strong>MA No:</strong> {maHdr.MA_NO}</p>
-                        <p style={styles.summaryLine}><strong>Items Found:</strong> {maDtl.length}</p>
+                    <div style={styles.heroCaseCard}>
+                        <div style={styles.heroCaseHeader}>
+                            <span style={styles.heroCaseLabel}>IBS CASE NUMBER</span>
+                            <span style={styles.statusBadge}>
+                                {ibsResult.STATUS || ibsResult.status || 'AVAILABLE'}
+                            </span>
+                        </div>
+                        <div style={styles.heroCaseNumber}>
+                            {ibsResult.CASE_NO || ibsResult.caseNo || 'N/A'}
+                        </div>
                     </div>
 
-                    <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> MA Data successfully retrieved. You can proceed with saving.
+                    <div style={styles.reviewGridCard}>
+                        <div style={styles.reviewGridItem}>
+                            <span style={styles.reviewGridLabel}>PO Number</span>
+                            <span style={styles.reviewGridValue}>{ibsResult.PO_NO || formData.poNo}</span>
+                        </div>
+                        <div style={styles.reviewGridItem}>
+                            <span style={styles.reviewGridLabel}>PO Key</span>
+                            <span style={styles.reviewGridValue}>{ibsResult.POKEY || 'N/A'}</span>
+                        </div>
+                        <div style={styles.reviewGridItem}>
+                            <span style={styles.reviewGridLabel}>PO Date</span>
+                            <span style={styles.reviewGridValue}>{ibsResult.PO_DT || formData.poDate}</span>
+                        </div>
+                        <div style={styles.reviewGridItem}>
+                            <span style={styles.reviewGridLabel}>Railway Code</span>
+                            <span style={styles.reviewGridValue}>{ibsResult.RLY_CD || formData.rly}</span>
+                        </div>
                     </div>
 
                     {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
-                    
+
                     <div style={styles.footer}>
                         <button onClick={resetModal} style={styles.cancelBtn}>Back</button>
                         <button 
                             onClick={handleSave} 
                             disabled={loading} 
-                            style={{...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)'}}
+                            style={{ ...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
                         >
-                            {loading ? 'Saving...' : 'Sync & Save MA'}
+                            {loading ? 'Saving...' : 'Save Case Number to PO'}
                         </button>
                     </div>
                 </div>
             );
         }
 
-        const h = fetchedData.PoHdr;
-        const d = fetchedData.PoDtl || [];
-        
-        // Get role from localStorage (it's stored as a JSON string array)
-        let userRoles = [];
-        try {
-            const storedRoles = localStorage.getItem('roleName');
-            userRoles = storedRoles ? JSON.parse(storedRoles) : [];
-        } catch (e) {
-            userRoles = [localStorage.getItem('roleName')];
+        let h = {};
+        let d = [];
+
+        if (fetchedData) {
+            h = fetchedData.PoHdr || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || {};
+            d = fetchedData.PoDtl || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || [];
         }
 
-        const activeRole = localStorage.getItem('activeRole');
-
-        // Determine if current user is a Sleeper user
-        let isSleeperUser = (activeRole === 'Sleeper Vendor' || activeRole === 'SLEEPER_VENDOR') ||
-                            (Array.isArray(userRoles) && userRoles.some(r => r === 'Sleeper Vendor' || r === 'SLEEPER_VENDOR'));
-        
-        // Fallback: If no explicit role data found in localStorage, 
-        // we assume Sleeper Vendor context since we are in the sleeper-vendor project/dashboard.
-        if (!isSleeperUser && activeRole !== 'Vendor' && activeRole !== 'Rail Vendor') {
-            isSleeperUser = true;
-        }
-        
-        const dashboardRole = isSleeperUser ? "Sleeper" : "ERC";
-        const allowedCategory = isSleeperUser ? "PSC Mainline Sleeper" : "Elastic Rail Clips";
+        const allowedCategory = "PSC Mainline Sleeper";
+        const dashboardRole = "Sleeper";
         
         const currentCat = h.ITEM_CAT_DESCR;
         const isNullRequest = !currentCat;
         
-        // Exact match for the category string
         const isMatch = currentCat === allowedCategory;
         const isMismatch = currentCat && !isMatch;
 
         return (
             <div style={styles.body}>
-                <div style={styles.summaryCard}>
-                    <p style={styles.summaryLine}><strong>PO No:</strong> {h.PO_NO}</p>
-                    <p style={styles.summaryLine}><strong>Current Category:</strong> {currentCat || 'NULL (Not Found)'}</p>
-                    <p style={styles.summaryLine}><strong>Items Found:</strong> {d.length}</p>
+                <div style={styles.reviewGridCard}>
+                    <div style={styles.reviewGridItem}>
+                        <span style={styles.reviewGridLabel}>PO Number</span>
+                        <span style={styles.reviewGridValue}>{h.PO_NO}</span>
+                    </div>
+                    {syncType === 'POMA DATA' && (
+                        <div style={styles.reviewGridItem}>
+                            <span style={styles.reviewGridLabel}>MA Number</span>
+                            <span style={styles.reviewGridValue}>{h.MA_NO || formData.maNo}</span>
+                        </div>
+                    )}
+                    <div style={styles.reviewGridItem}>
+                        <span style={styles.reviewGridLabel}>PO Date</span>
+                        <span style={styles.reviewGridValue}>{h.PO_DT || formData.poDate}</span>
+                    </div>
+                    <div style={styles.reviewGridItem}>
+                        <span style={styles.reviewGridLabel}>Items Count</span>
+                        <span style={styles.reviewGridValue}>{d.length} Items</span>
+                    </div>
+                    <div style={{ ...styles.reviewGridItem, gridColumn: 'span 2' }}>
+                        <span style={styles.reviewGridLabel}>Detected Category</span>
+                        <span style={{ 
+                            ...styles.reviewGridValue, 
+                            color: isMatch ? '#059669' : (isMismatch ? '#dc2626' : '#d97706'),
+                            fontWeight: '700'
+                        }}>
+                            {currentCat ? currentCat : '⚠️ Missing Category'}
+                        </span>
+                    </div>
                 </div>
 
                 {isMismatch ? (
                     <div style={styles.errorBanner}>
-                        🚫 <strong>Access Denied:</strong> This PO is categorized as "{currentCat}". 
-                        Since you are logged in as a <strong>{dashboardRole} Vendor</strong>, 
-                        you cannot sync this data.
+                        🚫 <strong>Category Mismatch:</strong> This PO belongs to "{currentCat}". You cannot save it under {dashboardRole}.
                     </div>
                 ) : isNullRequest ? (
-                    <div style={{...styles.formGroup, marginBottom: '20px'}}>
-                        <label style={styles.label}>Select Item Category</label>
+                    <div style={styles.warningBanner}>
+                        <label style={{ ...styles.label, color: '#92400e', marginBottom: '4px', display: 'block' }}>Select Mandatory Category:</label>
                         <select 
                             value={manualCategory} 
                             onChange={(e) => setManualCategory(e.target.value)}
                             style={{
                                 ...styles.input, 
-                                height: '38px', // Increased height for better interaction
-                                borderColor: !manualCategory ? '#ef4444' : '#e2e8f0',
+                                height: '42px',
+                                borderColor: !manualCategory ? '#ef4444' : '#cbd5e1',
                                 cursor: 'pointer',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                fontWeight: '600'
                             }}
                             required
                         >
@@ -537,13 +723,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                             <option value="Rail Pads">Rail Pads</option>
                             <option value="PSC Mainline Sleeper">PSC Mainline Sleeper</option>
                         </select>
-                        <p style={{color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4'}}>
-                            * Category was missing in IMMS. Please select the appropriate category to continue.
+                        <p style={{ color: '#64748b', fontSize: '11px', marginTop: '6px', lineHeight: '1.4' }}>
+                            * Category was missing in IMMS. Please select "{allowedCategory}" to continue.
                         </p>
                     </div>
                 ) : (
                     <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} PO. You can proceed with saving.
+                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} {syncType === 'POMA DATA' ? 'MA' : 'PO'}. You can proceed with saving.
                     </div>
                 )}
 
@@ -555,9 +741,9 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
                         <button 
                             onClick={handleSave} 
                             disabled={loading || (isNullRequest && !manualCategory)} 
-                            style={{...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)'}}
+                            style={{ ...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
                         >
-                            {loading ? 'Saving...' : 'Sync & Save PO'}
+                            {loading ? 'Saving...' : `Sync & Save ${syncType === 'POMA DATA' ? 'MA' : 'PO'}`}
                         </button>
                     )}
                 </div>
@@ -567,39 +753,36 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess }) => {
 
     return (
         <div style={styles.overlay}>
-            <div style={styles.modal} className="fade-in">
+            <div style={styles.modal}>
                 <div style={styles.header}>
                     <div style={styles.headerTitle}>
-                        <span style={styles.headerIcon}>{view === 'input' ? '🔄' : '📄'}</span>
+                        <div style={styles.headerIconBadge}>
+                            {view === 'input' ? '🔄' : '📄'}
+                        </div>
                         <div>
-                            {view === 'input' ? (
-                                <select 
-                                    value={syncType}
-                                    onChange={(e) => setSyncType(e.target.value)}
-                                    style={{ ...styles.title, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', appearance: 'auto', padding: '0', paddingRight: '15px' }}
-                                >
-                                    <option value="po">sync PO</option>
-                                    <option value="ma">ma sync</option>
-                                </select>
-                            ) : (
-                                <h3 style={styles.title}>Verify {syncType === 'po' ? 'PO' : 'MA'} Data</h3>
-                            )}
+                            <h3 style={styles.title}>
+                                {view === 'input' ? 'CRIS / IMMS Portal Sync' : `Verify ${syncType === 'POMA DATA' ? 'MA Data' : (syncType === 'IBS_CASE_NO' ? 'IBS Case Data' : 'PO Data')}`}
+                            </h3>
                             <p style={styles.subtitle}>
-                                {view === 'input' ? 'Connect to CRIS/IMMS portal' : 'Validate category before saving to system'}
+                                {view === 'input' ? 'Fetch & verify Purchase Orders, MAs, and Case Numbers' : 'Validate details before saving to system'}
                             </p>
                         </div>
                     </div>
                     <button onClick={onClose} style={styles.closeBtn}>&times;</button>
                 </div>
 
-                {view === 'input' ? (syncType === 'po' ? renderInputView() : renderMaInputView()) : renderReviewView()}
+                {view === 'input' ? renderInputView() : renderReviewView()}
 
                 {status === 'success' && (
-                    <div style={{...styles.overlay, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 1001}}>
-                        <div style={{textAlign: 'center'}} className="fade-in">
-                            <div style={{fontSize: '50px'}}>✅</div>
-                            <h3 style={{color: '#0f172a'}}>{syncType === 'po' ? 'PO' : 'MA'} Saved Successfully!</h3>
-                            <p style={{color: '#64748b'}}>The {syncType === 'po' ? 'PO' : 'MA'} has been synced to your dashboard.</p>
+                    <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }}>
+                        <div style={styles.successModalCard}>
+                            <div style={styles.successIconBadge}>✅</div>
+                            <h3 style={{ color: '#0f172a', margin: '0 0 6px 0', fontSize: '20px', fontWeight: '700' }}>
+                                {syncType === 'IBS_CASE_NO' ? 'IBS Case Number Saved Successfully!' : (syncType === 'POMA DATA' ? 'MA Saved Successfully!' : 'PO Saved Successfully!')}
+                            </h3>
+                            <p style={{ color: '#64748b', margin: 0, fontSize: '13px' }}>
+                                {syncType === 'IBS_CASE_NO' ? 'The IBS Case Number has been saved to PO Header.' : 'The data has been synced to your dashboard.'}
+                            </p>
                         </div>
                     </div>
                 )}
@@ -615,192 +798,348 @@ const styles = {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.6)',
-        backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
-        animation: 'fadeIn 0.3s ease'
+        zIndex: 1000
     },
     modal: {
-        backgroundColor: '#fff',
-        width: '420px',
+        backgroundColor: '#ffffff',
+        width: '490px',
         maxWidth: '95vw',
         maxHeight: '90vh',
-        borderRadius: '16px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '24px',
+        boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.2)',
+        border: '1px solid #e2e8f0',
+        transition: 'all 0.3s ease',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        position: 'relative'
     },
     header: {
-        padding: '12px 16px',
-        borderBottom: '1px solid #f1f5f9',
+        padding: '20px 24px',
+        backgroundColor: '#f8fafc',
+        borderBottom: '1px solid #e2e8f0',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
+        alignItems: 'center',
+        borderTopLeftRadius: '24px',
+        borderTopRightRadius: '24px',
+        flexShrink: 0
     },
     headerTitle: {
         display: 'flex',
-        gap: '8px',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: '14px'
     },
-    headerIcon: {
-        fontSize: '16px',
-        background: '#fff',
-        padding: '5px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    headerIconBadge: {
+        width: '40px',
+        height: '40px',
+        borderRadius: '12px',
+        backgroundColor: '#0284c7',
+        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '22px',
+        boxShadow: '0 6px 16px rgba(2, 132, 199, 0.28)',
+        color: '#ffffff'
     },
     title: {
         margin: 0,
-        fontSize: '14px',
-        fontWeight: '800',
-        color: '#0f172a'
+        fontSize: '17px',
+        fontWeight: '700',
+        color: '#0f172a',
+        letterSpacing: '-0.3px'
     },
     subtitle: {
-        margin: '1px 0 0',
-        fontSize: '10px',
+        margin: '3px 0 0 0',
+        fontSize: '12px',
         color: '#64748b'
     },
     closeBtn: {
-        background: 'none',
-        border: 'none',
+        background: '#f1f5f9',
+        border: '1px solid #e2e8f0',
+        width: '34px',
+        height: '34px',
+        borderRadius: '50%',
         fontSize: '18px',
-        color: '#94a3b8',
+        color: '#64748b',
         cursor: 'pointer',
-        padding: 0
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.2s ease'
     },
     body: {
-        padding: '16px 20px',
-        flex: 1
+        padding: '24px',
+        overflowY: 'auto',
+        maxHeight: 'calc(90vh - 85px)'
     },
-    grid2col: {
+    tabContainer: {
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '8px 12px'
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        backgroundColor: '#f1f5f9',
+        borderRadius: '14px',
+        padding: '5px',
+        marginBottom: '22px',
+        gap: '4px',
+        border: '1px solid #e2e8f0'
     },
-    formGroup: {
-        marginBottom: 0
-    },
-    label: {
-        display: 'block',
-        fontSize: '11px',
-        fontWeight: '600',
-        color: '#475569',
-        marginBottom: '3px'
-    },
-    input: {
-        width: '100%',
-        height: '32px',
-        padding: '0 8px',
-        borderRadius: '7px',
-        border: '1.5px solid #e2e8f0',
-        fontSize: '12px',
-        color: '#1e293b',
-        transition: 'all 0.2s',
-        outline: 'none',
-        boxSizing: 'border-box'
-    },
-    footer: {
-        marginTop: '20px',
-        display: 'flex',
-        gap: '8px'
-    },
-    cancelBtn: {
-        flex: 1,
-        height: '38px',
-        borderRadius: '10px',
-        border: '1.5px solid #e2e8f0',
-        backgroundColor: '#fff',
-        color: '#64748b',
-        fontSize: '13px',
-        fontWeight: '700',
-        cursor: 'pointer',
-        transition: 'all 0.2s'
-    },
-    syncBtn: {
-        flex: 2,
-        height: '38px',
+    tabButton: {
+        padding: '10px 8px',
         borderRadius: '10px',
         border: 'none',
-        backgroundColor: '#4f46e5',
-        backgroundImage: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-        color: '#fff',
+        backgroundColor: 'transparent',
+        color: '#64748b',
         fontSize: '13px',
-        fontWeight: '700',
+        fontWeight: '600',
         cursor: 'pointer',
-        boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.3)',
-        transition: 'all 0.2s'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        whiteSpace: 'nowrap',
+        transition: 'all 0.2s ease'
     },
-    errorBanner: {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fee2e2',
-        color: '#b91c1c',
-        fontSize: '12px',
-        fontWeight: '600',
-        marginTop: '12px'
+    tabButtonActive: {
+        backgroundColor: '#0284c7',
+        backgroundImage: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+        color: '#ffffff',
+        boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)'
     },
-    successBanner: {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #dcfce7',
-        color: '#15803d',
-        fontSize: '12px',
-        fontWeight: '600',
-        marginTop: '12px'
+    formGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '16px'
     },
-    summaryCard: {
-        backgroundColor: '#f8fafc',
+    formGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px'
+    },
+    label: {
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#475569',
+        textTransform: 'uppercase',
+        letterSpacing: '0.6px'
+    },
+    input: {
+        padding: '10px 14px',
         borderRadius: '12px',
-        padding: '16px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '20px'
-    },
-    summaryLine: {
-        margin: '4px 0',
+        border: '1px solid #cbd5e1',
         fontSize: '13px',
-        color: '#1e293b'
-    },
-    warningBanner: {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        backgroundColor: '#fffbeb',
-        border: '1px solid #fef3c7',
-        color: '#92400e',
-        fontSize: '12px',
-        fontWeight: '500',
-        marginTop: '12px',
-        lineHeight: '1.4'
+        color: '#0f172a',
+        outline: 'none',
+        transition: 'all 0.2s ease',
+        boxSizing: 'border-box',
+        width: '100%',
+        backgroundColor: '#ffffff'
     },
     dropdownList: {
         position: 'absolute',
         top: '100%',
         left: 0,
         right: 0,
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        border: '1px solid #e2e8f0',
-        zIndex: 10,
-        marginTop: '4px',
-        maxHeight: '200px',
+        marginTop: '6px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: '14px',
+        maxHeight: '170px',
         overflowY: 'auto',
-        animation: 'fadeIn 0.2s ease'
+        zIndex: 50,
+        boxShadow: '0 16px 32px -6px rgba(15, 23, 42, 0.18)'
     },
     dropdownOption: {
-        padding: '8px 12px',
-        fontSize: '12px',
-        color: '#1e293b',
+        padding: '10px 14px',
+        fontSize: '13px',
         cursor: 'pointer',
-        transition: 'background-color 0.2s'
+        color: '#1e293b',
+        transition: 'background-color 0.15s'
+    },
+    poDropdownList: {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        marginTop: '6px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: '16px',
+        maxHeight: '170px',
+        overflowY: 'auto',
+        zIndex: 50,
+        boxShadow: '0 20px 40px -8px rgba(15, 23, 42, 0.22)',
+        padding: '6px'
+    },
+    poDropdownOption: {
+        padding: '10px 14px',
+        borderRadius: '10px',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        marginBottom: '4px'
+    },
+    poSummaryCard: {
+        backgroundColor: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '14px',
+        padding: '14px 16px'
+    },
+    poSummaryGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '10px'
+    },
+    poSummaryItem: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px'
+    },
+    poSummaryLabel: {
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#64748b',
+        textTransform: 'uppercase'
+    },
+    poSummaryValue: {
+        fontSize: '13px',
+        fontWeight: '600',
+        color: '#0f172a'
+    },
+    heroCaseCard: {
+        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+        borderRadius: '16px',
+        padding: '18px 20px',
+        color: '#ffffff',
+        boxShadow: '0 8px 20px rgba(2, 132, 199, 0.25)',
+        marginBottom: '16px'
+    },
+    heroCaseHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '6px'
+    },
+    heroCaseLabel: {
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '1px',
+        color: '#bae6fd',
+        textTransform: 'uppercase'
+    },
+    statusBadge: {
+        backgroundColor: '#10b981',
+        color: '#ffffff',
+        fontSize: '11px',
+        fontWeight: '700',
+        padding: '3px 10px',
+        borderRadius: '20px',
+        letterSpacing: '0.5px'
+    },
+    heroCaseNumber: {
+        fontSize: '26px',
+        fontWeight: '800',
+        letterSpacing: '1px',
+        fontFamily: 'monospace'
+    },
+    reviewGridCard: {
+        backgroundColor: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '16px',
+        padding: '16px',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '12px',
+        marginBottom: '16px'
+    },
+    reviewGridItem: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '3px'
+    },
+    reviewGridLabel: {
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#64748b',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+    },
+    reviewGridValue: {
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#0f172a'
+    },
+    errorBanner: {
+        backgroundColor: '#fef2f2',
+        border: '1px solid #fecaca',
+        color: '#991b1b',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        fontSize: '13px',
+        lineHeight: '1.4',
+        marginBottom: '16px'
+    },
+    warningBanner: {
+        backgroundColor: '#fffbeb',
+        border: '1px solid #fde68a',
+        padding: '14px 16px',
+        borderRadius: '12px',
+        marginBottom: '16px'
+    },
+    successBanner: {
+        backgroundColor: '#f0fdf4',
+        border: '1px solid #bbf7d0',
+        color: '#166534',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        fontSize: '13px',
+        lineHeight: '1.4',
+        marginBottom: '16px'
+    },
+    footer: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '12px',
+        marginTop: '20px'
+    },
+    cancelBtn: {
+        padding: '11px 20px',
+        borderRadius: '12px',
+        border: '1px solid #cbd5e1',
+        backgroundColor: '#ffffff',
+        color: '#475569',
+        fontWeight: '600',
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease'
+    },
+    syncBtn: {
+        padding: '11px 24px',
+        borderRadius: '12px',
+        border: 'none',
+        backgroundColor: '#0284c7',
+        backgroundImage: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+        color: '#ffffff',
+        fontWeight: '600',
+        fontSize: '13px',
+        cursor: 'pointer',
+        boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+        transition: 'all 0.2s ease'
+    },
+    successModalCard: {
+        backgroundColor: '#ffffff',
+        padding: '32px 28px',
+        borderRadius: '20px',
+        textAlign: 'center',
+        width: '360px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)'
+    },
+    successIconBadge: {
+        fontSize: '48px',
+        marginBottom: '12px'
     }
 };
 
