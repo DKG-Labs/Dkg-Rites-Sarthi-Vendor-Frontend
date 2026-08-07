@@ -42,8 +42,8 @@ const PlantDeclarationDashboard = () => {
 
     const tabs = [
         { id: 'plant-profile', title: 'Plant Profile', subtitle: 'General information' },
-        { id: 'bench-mould', title: 'Bench / Mould Master', subtitle: 'Asset declaration' },
-        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details' },
+        { id: 'bench-mould', title: 'Bench / Mould Master', subtitle: 'Asset declaration', hidden: true },
+        { id: 'raw-material', title: 'Raw Material Source', subtitle: 'Supplier details', underDevelopment: true },
         { id: 'mix-design', title: 'Mix Design', subtitle: 'Concrete specifications' }
     ];
 
@@ -76,7 +76,7 @@ const PlantDeclarationDashboard = () => {
                 gap: '20px',
                 marginBottom: '32px'
             }}>
-                {tabs.map(tab => (
+                {tabs.filter(tab => !tab.hidden).map(tab => (
                     <div
                         key={tab.id}
                         className={`ie-tab-card ${selectedTab === tab.id ? 'active' : ''}`}
@@ -107,6 +107,27 @@ const PlantDeclarationDashboard = () => {
                             {tab.title}
                         </span>
                         <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{tab.subtitle}</span>
+                        {tab.underDevelopment && (
+                            <span style={{
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                borderRadius: '4px',
+                                fontSize: '8.5px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                marginTop: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                lineHeight: '1'
+                            }}>
+                                <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#b45309' }}></span>
+                                Under Development
+                            </span>
+                        )}
                     </div>
                 ))}
             </div>
