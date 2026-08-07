@@ -129,7 +129,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 ...prev,
                 poNo: poObj.poNo || poObj.po_no || '',
                 poDate: poObj.poDate || poObj.po_dt || '',
-                rly: poObj.rlyCd || poObj.rly_cd || poObj.rly || ''
+                rly: poObj.rlyShortName || poObj.rly_shrt_name || poObj.rlyCd || poObj.rly_cd || poObj.rly || ''
             }));
         }
     };
@@ -149,7 +149,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     POKEY: poObj.po_key || poObj.poKey || poObj.pokey || poObj.poNo || formData.poNo,
                     PO_NO: poObj.poNo || poObj.po_no || formData.poNo,
                     PO_DT: poObj.poDate || poObj.po_dt || formData.poDate,
-                    RLY_CD: poObj.rlyCd || poObj.rly_cd || formData.rly
+                    RLY_CD: poObj.rlyShortName || poObj.rly_shrt_name || poObj.rlyCd || poObj.rly_cd || formData.rly
                 };
 
                 const res = await poAssignedService.getIbsCaseNo(ibsPayload);
