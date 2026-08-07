@@ -3819,9 +3819,17 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Inventory Entries Columns - List of Entries from Inventory Management System
   const inventoryColumns = [
-    { key: 'rawMaterial', label: 'Raw Material' },
-    { key: 'supplierName', label: 'Supplier' },
-    { key: 'gradeSpecification', label: 'Grade/Spec' },
+    { 
+      key: 'rawMaterial', 
+      label: 'Raw Material',
+      render: (value, row) => row.gradeSpecification ? row.gradeSpecification : value
+    },
+    { 
+      key: 'supplierName', 
+      label: 'Supplier',
+      width: '180px',
+      whiteSpace: 'normal'
+    },
     { key: 'heatNumber', label: 'Heat/Batch/Lot No.' },
     {
       key: 'tcDetails',
@@ -3993,7 +4001,7 @@ const VendorDashboardPage = ({ onBack }) => {
       )}
 
       {/* Premium Header Card */}
-      <div className="vendor-header-card">
+      {/* <div className="vendor-header-card">
         <div className="vendor-header-left">
           <div className="vendor-title-section-new">
             <h1 className="vendor-page-title-new">
@@ -4001,14 +4009,14 @@ const VendorDashboardPage = ({ onBack }) => {
             </h1>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Primary Tabs - Overview Stats in a Box */}
       <div className="primary-tabs-wrapper">
-        <div className="primary-tabs-header">
+        {/* <div className="primary-tabs-header">
           <h3 className="primary-tabs-title">Quick Overview</h3>
           <span className="primary-tabs-subtitle">Monitor your POs and inspection calls at a glance</span>
-        </div>
+        </div> */}
         <Tabs tabs={primaryTabs} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 

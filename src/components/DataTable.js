@@ -109,8 +109,9 @@ const DataTable = ({ columns, data, onRowClick, actions, selectable, selectedRow
                   style={{
                     width: col.width || undefined,
                     minWidth: col.width || undefined,
+                    maxWidth: col.maxWidth || undefined,
                     verticalAlign: 'middle',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: col.whiteSpace || 'nowrap'
                   }}
                 >
                   {col.label} {sortColumn === col.key && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -138,8 +139,9 @@ const DataTable = ({ columns, data, onRowClick, actions, selectable, selectedRow
                     style={{
                       width: col.width || undefined,
                       minWidth: col.width || undefined,
+                      maxWidth: col.maxWidth || undefined,
                       verticalAlign: 'middle',
-                      whiteSpace: 'nowrap'
+                      whiteSpace: col.whiteSpace || 'nowrap'
                     }}
                   >
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
