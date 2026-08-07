@@ -16,7 +16,7 @@ const Header = ({
   };
 
   const isVendor = activeRole?.includes('Vendor') || (user?.roleName && (Array.isArray(user.roleName) ? user.roleName.some(r => r.includes('Vendor')) : user.roleName.includes('Vendor')));
-  
+
   let displayName = 'Inspection Engineer';
   let displayRole = activeRole || 'Inspection Engineer';
   if (isVendor) {
@@ -57,7 +57,7 @@ const Header = ({
       {/* RIGHT */}
       <div className="header-right">
         {/* Sidebar Toggle */}
-        
+
 
 
         {/* User */}
