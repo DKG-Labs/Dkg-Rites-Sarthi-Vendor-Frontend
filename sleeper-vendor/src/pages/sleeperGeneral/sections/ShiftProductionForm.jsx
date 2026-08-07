@@ -2941,9 +2941,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         gangs: plantType === 'Long Line' ? longLineEntries
                                             .map(entry => {
                                                 const mode = entry.entryMode.toUpperCase();
-                                                const gangFrom = entry.entryMode === 'range' ? parseInt(entry.fromNo) : null;
-                                                const gangTo = entry.entryMode === 'range' ? parseInt(entry.toNo) : null;
-                                                const gangNo = entry.entryMode === 'single' ? entry.singleNo?.toString() : null;
+                                                const gangFrom = entry.entryMode === 'range' ? (entry.fromNo != null ? entry.fromNo.toString() : null) : null;
+                                                const gangTo = entry.entryMode === 'range' ? (entry.toNo != null ? entry.toNo.toString() : null) : null;
+                                                const gangNo = entry.entryMode === 'single' ? (entry.singleNo != null ? entry.singleNo.toString() : null) : null;
                                                 const mouldsPerGang = parseInt(entry.mouldsPerGang) || 0;
 
                                                 const isTurnout = entry.sleeperCategory === 'Turnout';
