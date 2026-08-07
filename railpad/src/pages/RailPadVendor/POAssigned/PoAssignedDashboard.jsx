@@ -54,11 +54,105 @@ const StatusBadge = ({ status }) => {
     );
 };
 
+// ─── DP Date Status Helper ───────────────────────────────────────────────────
+const checkDpDateStatus = (item) => {
+    const dpStr = item.deliveryDate || item.delivery_date || item.deliveryPeriod;
+    const extDpStr = item.extendedDeliveryDate || item.extended_delivery_date;
+
+    const hasExtDp = Boolean(
+        extDpStr && 
+        String(extDpStr).trim() !== '' && 
+        String(extDpStr).trim().toUpperCase() !== 'N/A' && 
+        String(extDpStr).trim().toLowerCase() !== 'null'
+    );
+    const hasDp = Boolean(
+        dpStr && 
+        String(dpStr).trim() !== '' && 
+        String(dpStr).trim().toUpperCase() !== 'N/A' && 
+        String(dpStr).trim().toLowerCase() !== 'null'
+    );
+
+    const targetStr = hasExtDp ? extDpStr : (hasDp ? dpStr : null);
+    
+    if (!targetStr) {
+        return {
+            isDisabled: false,
+            dpDisplay: '—',
+            reason: '',
+            targetStr: null,
+            hasExtDp: false,
+            hasDp: false
+        };
+    }
+
+    let isDisabled = false;
+    let reason = '';
+
+    try {
+        const targetDate = new Date(targetStr);
+        if (!isNaN(targetDate.getTime())) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const targetDay = new Date(targetDate);
+            targetDay.setHours(0, 0, 0, 0);
+
+            // Rule:
+            // if Ext DP Date not here and DP Date > Todays Date (or expired / past today)
+            // if Ext DP Date is there and EXP DP Date > Toda'ys Date (or expired / past today)
+            if (targetDay < today || targetDay > today) {
+                isDisabled = true;
+                if (targetDay < today) {
+                    reason = hasExtDp 
+                        ? `Ext. DP Date Expired (${formatDateDDMMYYYY(extDpStr)})` 
+                        : `DP Date Expired (${formatDateDDMMYYYY(dpStr)})`;
+                } else {
+                    reason = hasExtDp 
+                        ? `Ext. DP Date Exceeds Today (${formatDateDDMMYYYY(extDpStr)})` 
+                        : `DP Date Exceeds Today (${formatDateDDMMYYYY(dpStr)})`;
+                }
+            }
+        }
+    } catch (e) {}
+
+    const formattedDp = formatDateDDMMYYYY(dpStr);
+    const formattedExtDp = hasExtDp ? formatDateDDMMYYYY(extDpStr) : null;
+
+    let dpDisplay = '—';
+    if (hasDp && hasExtDp) {
+        dpDisplay = (
+            <div style={{ fontSize: 11, lineHeight: 1.3 }}>
+                <span style={{ color: '#475569', display: 'block' }}>DP: {formattedDp}</span>
+                <span style={{ color: '#0284c7', fontWeight: 700, display: 'block' }}>Ext: {formattedExtDp}</span>
+            </div>
+        );
+    } else if (hasExtDp) {
+        dpDisplay = (
+            <span style={{ color: '#0284c7', fontWeight: 700, fontSize: 11 }}>Ext: {formattedExtDp}</span>
+        );
+    } else if (hasDp) {
+        dpDisplay = (
+            <span style={{ color: '#334155', fontWeight: 600, fontSize: 11 }}>{formattedDp}</span>
+        );
+    }
+
+    return {
+        isDisabled,
+        reason,
+        dpDisplay,
+        hasExtDp,
+        hasDp,
+        formattedDp,
+        formattedExtDp
+    };
+};
+
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
 const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
-    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing;
+    const dpInfo = checkDpDateStatus(item);
+    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing || dpInfo.isDisabled;
 
     return (
         <>
@@ -116,13 +210,23 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                         {(item.due || 0).toLocaleString()}
                     </span>
                 </td>
+                {/* DP Date / Ext DP Date */}
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    {dpInfo.dpDisplay}
+                </td>
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <div
-                        title={isCaseNoMissing && item.due > 0 ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." : ""}
+                        title={
+                            isCaseNoMissing && item.due > 0 
+                                ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." 
+                                : (dpInfo.isDisabled && item.due > 0 ? dpInfo.reason : "")
+                        }
                         onClick={() => {
                             if (isCaseNoMissing && item.due > 0) {
                                 alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                            } else if (dpInfo.isDisabled && item.due > 0) {
+                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason}\n\nPlease contact RITES Administrator to extend the DP Date.`);
                             }
                         }}
                         style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
@@ -130,7 +234,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                         <button
                             disabled={shouldDisableRaiseCall}
                             onClick={(e) => {
-                                if (isCaseNoMissing) {
+                                if (isCaseNoMissing || dpInfo.isDisabled) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     return;
@@ -148,11 +252,16 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                                 boxShadow: shouldDisableRaiseCall ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                             }}
                         >
-                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : 'Raise Inspection Call')}
+                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : (dpInfo.isDisabled ? 'Raise Call (Disabled)' : 'Raise Inspection Call'))}
                         </button>
                         {isCaseNoMissing && item.due > 0 && (
                             <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
                                 ⚠️ Case No. Missing
+                            </div>
+                        )}
+                        {!isCaseNoMissing && dpInfo.isDisabled && item.due > 0 && (
+                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                ⚠️ DP Date Issue
                             </div>
                         )}
                     </div>
@@ -278,7 +387,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
             {/* Expanded Sub-Table */}
             {expanded && (
                 <tr style={{ borderBottom: isLast ? 'none' : '1px solid #e2e8f0' }}>
-                    <td colSpan={7} style={{ padding: 0 }}>
+                    <td colSpan={8} style={{ padding: 0 }}>
                         <div style={{
                             margin: '0 0 12px 44px',
                             border: '1.5px solid #a7d8dc',
@@ -306,7 +415,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
 
                             {/* Inner scrollable table */}
                             <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 850 }}>
                                     <thead>
                                         <tr style={{ background: '#fdf8e6' }}>
                                             <th style={thStyle}>SR.</th>
@@ -316,6 +425,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#7c3aed' }}>Offered Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#16a34a' }}>Accepted Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Qty Due</th>
+                                            <th style={{ ...thStyle, textAlign: 'center', color: '#0369a1' }}>DP Date / Ext DP Date</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
                                         </tr>
                                     </thead>
