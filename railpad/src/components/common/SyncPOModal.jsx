@@ -176,172 +176,158 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     poNo: formData.poNo,
                     vcode: finalVcode,
                     maDate: formatDate(formData.maDate),
-                    maNo: formData.maNo
-                };
-
-                // 1. Fetch MA Details
-                const maResult = await poAssignedService.getIMMSMAData(maPayload);
-                if (!maResult || maResult.status !== 'OK' || !maResult.data) {
-                    throw new Error(maResult?.error || maResult?.message || 'MA not found or invalid response.');
-                }
-
-                // 2. Fetch PO Date from our database
-                const poDateResult = await poAssignedService.getPoDateByPoNo(maPayload.poNo);
-                if (!poDateResult || !poDateResult.poDate) {
-                    throw new Error('PO Date not found in our system for the given PO Number. Ensure the original PO is synced first.');
-                }
-
-                // 3. Fetch Amended PO Details
-                const amendedPayload = {
-                    rly: maPayload.rly,
-                    poNo: maPayload.poNo,
-                    poDate: poDateResult.poDate,
-                    vcode: finalVcode,
+                    maNo: formData.maNo,
                     amended: "true"
                 };
-                const amendedResult = await poAssignedService.getIMMSPOData(amendedPayload);
-                if (!amendedResult || amendedResult.status !== 'OK' || !amendedResult.data) {
-                    throw new Error(amendedResult?.error || amendedResult?.message || 'Amended PO data not found or invalid response.');
+
+                const res = await poAssignedService.getIMMSMAData(maPayload);
+                
+                const hasData = res && (
+                    res.PoHdr || 
+                    res.data?.MMP_POMA_HDR || 
+                    res.MMP_POMA_HDR || 
+                    res.data?.MMP_PO_HDR || 
+                    res.MMP_PO_HDR || 
+                    res.data?.PoHdr ||
+                    (res.status === 'Success' && (res.data || res.PoDtl || res.MMP_POMA_DTL || res.MMP_PO_DTL)) ||
+                    (res.status === 200 && res.data)
+                );
+
+                if (hasData) {
+                    setFetchedData(res);
+                    setView('review');
+                    setStatus('idle');
+                } else {
+                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' ? 'No MA records found in IMMS for the specified details.' : 'Failed to fetch MA details from CRIS/IMMS.'));
+                    setStatus('error');
                 }
 
-                const combinedData = {
-                    status: "OK",
-                    message: "Success",
-                    error: [],
-                    timestamp: new Date().toISOString(),
-                    data: {
-                        MMP_POMA_HDR: maResult.data.MMP_POMA_HDR,
-                        MMP_POMA_DTL: maResult.data.MMP_POMA_DTL,
-                        PoHdr: amendedResult.data.PoHdr || amendedResult.data.mmpPoHdr,
-                        PoDtl: amendedResult.data.PoDtl || amendedResult.data.mmpPoItem
-                    }
+            } else {
+                const formattedPoDate = formatDate(formData.poDate);
+                const payload = {
+                    rly: formData.rly,
+                    poNo: formData.poNo,
+                    poDate: formattedPoDate,
+                    vcode: finalVcode
                 };
 
-                setFetchedData(combinedData);
-                setManualCategory(maResult.data.MMP_POMA_HDR?.ITEM_CAT_DESCR || '');
-                setView('review');
-                setStatus('idle');
-                return;
-            }
+                const res = await poAssignedService.getIMMSPOData(payload);
+                const hasData = res && (
+                    res.PoHdr || 
+                    res.data?.MMP_PO_HDR || 
+                    res.MMP_PO_HDR || 
+                    res.data?.PoHdr ||
+                    (res.status === 'Success' && (res.data || res.PoDtl || res.MMP_PO_DTL)) ||
+                    (res.status === 200 && res.data)
+                );
 
-            const payload = { 
-                rly: formData.rly, 
-                poNo: formData.poNo, 
-                poDate: formatDate(formData.poDate), 
-                vcode: finalVcode 
-            };
-            const result = await poAssignedService.getIMMSPOData(payload);
-            
-            if (result && result.status === 'OK' && result.data) {
-                setFetchedData(result.data);
-                setManualCategory(result.data.PoHdr?.ITEM_CAT_DESCR || '');
-                setView('review');
-                setStatus('idle');
-            } else {
-                throw new Error(result.error || result.message || 'PO not found or invalid response.');
+                if (hasData) {
+                    setFetchedData(res);
+                    setView('review');
+                    setStatus('idle');
+                } else {
+                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' ? 'No PO records found in IMMS for the specified details.' : 'Failed to fetch PO details from CRIS/IMMS.'));
+                    setStatus('error');
+                }
             }
-        } catch (error) {
+        } catch (err) {
+            setErrorMsg(err.message || 'An error occurred during proxy sync.');
             setStatus('error');
-            const rawMsg = error.message || '';
-            let friendlyMsg = 'Sync failed. Please verify your PO details are correct and RITES is the inspecting agency.';
-            
-            let hasCrisError = false;
-            try {
-                const cleanMsg = rawMsg.replace(/\\"/g, '"').replace(/\\n/g, '\n');
-                const jsonStart = cleanMsg.indexOf('{');
-                const jsonEnd = cleanMsg.lastIndexOf('}');
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    const jsonStr = cleanMsg.substring(jsonStart, jsonEnd + 1);
-                    const parsed = JSON.parse(jsonStr);
-                    if (parsed && parsed.error) {
-                        friendlyMsg = `CRIS ERROR: ${parsed.error}`;
-                        hasCrisError = true;
-                    }
-                }
-            } catch {
-                // ignore parse failure
-            }
-
-            if (!hasCrisError) {
-                if (rawMsg.toLowerCase().includes('insp agency is not rites') || rawMsg.toLowerCase().includes('rites as per po record')) {
-                    friendlyMsg = 'This purchase order cannot be synced because the Inspecting Agency is not set to RITES. Sarthi only supports syncing POs officially designated for RITES inspection.';
-                } else if (syncType === 'POMA DATA' && (rawMsg.toLowerCase().includes('invalid ma request') || rawMsg.toLowerCase().includes('ma not found'))) {
-                    friendlyMsg = 'MA details are invalid or could not be found. Please check your MA Number, Date, and PO details.';
-                } else if (rawMsg.toLowerCase().includes('invalid po request') || rawMsg.toLowerCase().includes('invalid po') || rawMsg.toLowerCase().includes('po not found')) {
-                    friendlyMsg = 'PO details are invalid or could not be found. Please check your PO Number, Date, and Railway Code.';
-                } else if (rawMsg.toLowerCase().includes('expectation failed') || rawMsg.toLowerCase().includes('417') || rawMsg.toLowerCase().includes('connection failed') || rawMsg.toLowerCase().includes('timeout')) {
-                    friendlyMsg = 'CRIS Railway Server is currently unresponsive. Please try again in a few minutes.';
-                } else if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
-                    friendlyMsg = 'Network error. Please check your internet connection.';
-                } else if (rawMsg) {
-                    friendlyMsg = rawMsg;
-                }
-            }
-            
-            setErrorMsg(friendlyMsg);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async () => {
-        setLoading(true);
-        setStatus('loading');
-        
-        try {
-            let response;
-            if (syncType === 'IBS_CASE_NO') {
-                const caseNo = ibsResult?.CASE_NO || ibsResult?.caseNo;
-                const caseStatus = ibsResult?.STATUS || ibsResult?.status || 'AVAILABLE';
-                const poNo = ibsResult?.PO_NO || formData.poNo;
-                const poKey = ibsResult?.POKEY || formData.poNo;
+        if (syncType === 'IBS_CASE_NO') {
+            if (!ibsResult || (!ibsResult.caseNo && !ibsResult.CASE_NO)) {
+                setErrorMsg('No valid IBS Case Number to save.');
+                return;
+            }
+            setLoading(true);
+            try {
+                const poObj = vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId)) || {};
+                const savePayload = {
+                    poNo: poObj.poNo || poObj.po_no || formData.poNo,
+                    poKey: poObj.po_key || poObj.poKey || poObj.pokey || formData.poNo,
+                    caseNo: ibsResult.caseNo || ibsResult.CASE_NO,
+                    caseStatus: ibsResult.caseStatus || ibsResult.STATUS || 'AVAILABLE'
+                };
+                await poAssignedService.saveIbsCaseNo(savePayload);
+                setStatus('success');
+                if (onSuccess) onSuccess();
+            } catch (err) {
+                setErrorMsg(err.message || 'Failed to save IBS Case Number to PO Header.');
+                setStatus('error');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
 
-                response = await poAssignedService.saveIbsCaseNo({
-                    poNo,
-                    poKey,
-                    caseNo,
-                    caseStatus
-                });
-            } else if (syncType === 'POMA DATA') {
+        setLoading(true);
+        try {
+            if (syncType === 'POMA DATA') {
+                const h = fetchedData.PoHdr || fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || {};
+                const d = fetchedData.PoDtl || fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || [];
+
+                const saveMaPayload = {
+                    ...fetchedData,
+                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`,
+                    PoHdr: h,
+                    PoDtl: d,
+                    MMP_POMA_HDR: h,
+                    MMP_POMA_DTL: d
+                };
+                const res = await (poAssignedService.savePoMaData ? poAssignedService.savePoMaData(saveMaPayload) : poAssignedService.savePOData(saveMaPayload));
+                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200' || res.status === 'SAVED')) {
+                    setStatus('success');
+                    if (onSuccess) onSuccess();
+                } else {
+                    setErrorMsg(res?.message || 'Failed to save MA data');
+                    setStatus('error');
+                }
+            } else {
+                const h = fetchedData.PoHdr || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || fetchedData.data?.PoHdr || {};
+                const d = fetchedData.PoDtl || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || fetchedData.data?.PoDtl || [];
+
+                let categoryToSave = h.ITEM_CAT_DESCR;
+                if (!categoryToSave) {
+                    categoryToSave = manualCategory;
+                }
+
+                if (!categoryToSave) {
+                    setErrorMsg('Item category is required to save.');
+                    setLoading(false);
+                    return;
+                }
+
+                const updatedHeader = {
+                    ...h,
+                    ITEM_CAT_DESCR: categoryToSave
+                };
+
                 const savePayload = {
                     ...fetchedData,
-                    data: {
-                        ...fetchedData?.data,
-                        MMP_POMA_HDR: {
-                            ...fetchedData?.data?.MMP_POMA_HDR,
-                            ITEM_CAT_DESCR: manualCategory || fetchedData?.data?.MMP_POMA_HDR?.ITEM_CAT_DESCR
-                        },
-                        PoHdr: {
-                            ...fetchedData?.data?.PoHdr,
-                            ITEM_CAT_DESCR: manualCategory || fetchedData?.data?.PoHdr?.ITEM_CAT_DESCR
-                        }
-                    }
+                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`,
+                    PoHdr: updatedHeader,
+                    PoDtl: d,
+                    MMP_PO_HDR: updatedHeader,
+                    MMP_PO_DTL: d
                 };
-                response = await poAssignedService.savePoMaData(savePayload);
-            } else {
-                const savePayload = {
-                    poHdr: {
-                        ...fetchedData.PoHdr,
-                        ITEM_CAT_DESCR: manualCategory || fetchedData.PoHdr?.ITEM_CAT_DESCR
-                    },
-                    poDtl: fetchedData.PoDtl.map(item => ({ ...item }))
-                };
-                response = await poAssignedService.savePOData(savePayload);
+
+                const res = await poAssignedService.savePOData(savePayload);
+                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200' || res.status === 'SAVED')) {
+                    setStatus('success');
+                    if (onSuccess) onSuccess();
+                } else {
+                    setErrorMsg(res?.message || 'Failed to save PO data');
+                    setStatus('error');
+                }
             }
-            
-            if (response && (response.responseStatus?.statusCode === 0 || response.status === 'success' || response.status === 'OK' || response.caseNo)) {
-                setStatus('success');
-                setTimeout(() => {
-                    if (onSuccess) onSuccess(response);
-                    onClose();
-                    resetModal();
-                }, 2000);
-            } else {
-                throw new Error(response.responseStatus?.message || response.message || 'Failed to save data to system.');
-            }
-        } catch (error) {
+        } catch (err) {
+            setErrorMsg(err.message || 'An error occurred while saving.');
             setStatus('error');
-            setErrorMsg(error.message);
         } finally {
             setLoading(false);
         }
@@ -693,11 +679,12 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
         const allowedCategory = "Rail Pads";
         const dashboardRole = "Rail Pad";
         
+        const isMaSync = syncType === 'POMA DATA';
         const currentCat = h.ITEM_CAT_DESCR;
-        const isNullRequest = !currentCat;
+        const isNullRequest = !isMaSync && !currentCat;
         
-        const isMatch = currentCat === allowedCategory;
-        const isMismatch = currentCat && !isMatch;
+        const isMatch = isMaSync || currentCat === allowedCategory;
+        const isMismatch = !isMaSync && currentCat && !isMatch;
 
         return (
             <div style={styles.body}>
@@ -706,22 +693,32 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         <span style={styles.reviewGridLabel}>PO Number</span>
                         <span style={styles.reviewGridValue}>{h.PO_NO}</span>
                     </div>
-                    {syncType === 'POMA DATA' && (
+                    {isMaSync && (
                         <div style={styles.reviewGridItem}>
                             <span style={styles.reviewGridLabel}>MA Number</span>
                             <span style={styles.reviewGridValue}>{h.MA_NO || formData.maNo}</span>
                         </div>
                     )}
                     <div style={styles.reviewGridItem}>
-                        <span style={styles.reviewGridLabel}>Current Category</span>
-                        <span style={{ ...styles.reviewGridValue, color: currentCat ? '#0284c7' : '#ef4444' }}>
-                            {currentCat || 'NULL (Not Found)'}
-                        </span>
+                        <span style={styles.reviewGridLabel}>{isMaSync ? 'MA Date' : 'PO Date'}</span>
+                        <span style={styles.reviewGridValue}>{isMaSync ? (h.MA_DT || formData.maDate || h.PO_DT || formData.poDate) : (h.PO_DT || formData.poDate)}</span>
                     </div>
                     <div style={styles.reviewGridItem}>
-                        <span style={styles.reviewGridLabel}>Items Found</span>
+                        <span style={styles.reviewGridLabel}>Items Count</span>
                         <span style={styles.reviewGridValue}>{d.length} Items</span>
                     </div>
+                    {!isMaSync && (
+                        <div style={{ ...styles.reviewGridItem, gridColumn: 'span 2' }}>
+                            <span style={styles.reviewGridLabel}>Detected Category</span>
+                            <span style={{ 
+                                ...styles.reviewGridValue, 
+                                color: isMatch ? '#059669' : (isMismatch ? '#dc2626' : '#d97706'),
+                                fontWeight: '700'
+                            }}>
+                                {currentCat ? currentCat : '⚠️ Missing Category'}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {isMismatch ? (
@@ -757,7 +754,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     </div>
                 ) : (
                     <div style={styles.successBanner}>
-                        ✨ <strong>Verified:</strong> This is a valid {dashboardRole} {syncType === 'POMA DATA' ? 'MA' : 'PO'}. You can proceed with saving.
+                        ✨ <strong>Verified:</strong> {isMaSync ? 'MA amendment details are verified and ready.' : `This is a valid ${dashboardRole} PO.`} You can proceed with saving.
                     </div>
                 )}
 
@@ -771,7 +768,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             disabled={loading || (isNullRequest && !manualCategory)} 
                             style={{ ...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
                         >
-                            {loading ? 'Saving...' : `Sync & Save ${syncType === 'POMA DATA' ? 'MA' : 'PO'}`}
+                            {loading ? 'Saving...' : `Sync & Save ${isMaSync ? 'MA' : 'PO'}`}
                         </button>
                     )}
                 </div>
