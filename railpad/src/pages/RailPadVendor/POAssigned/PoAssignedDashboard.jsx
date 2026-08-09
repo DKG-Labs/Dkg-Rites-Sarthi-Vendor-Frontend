@@ -5,12 +5,55 @@ import inspectionCallService from '../../../services/inspectionCallService';
 import SyncPOButton from '../../../components/common/SyncPOButton';
 
 // ─── Date & SR Formatter Helpers ─────────────────────────────────────────────
+const parseDateToDateObject = (dateStr) => {
+    if (!dateStr) return null;
+    const str = String(dateStr).trim();
+    if (!str || str.toLowerCase() === 'null' || str.toUpperCase() === 'N/A') return null;
+
+    // Format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD HH:mm:ss
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const [year, month, day] = str.split('T')[0].split(' ')[0].split('-');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    // Format: DD/MM/YYYY or DD/MM/YYYY HH:mm
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('/');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    // Format: DD-MM-YYYY
+    if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('-');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    return null;
+};
+
 const formatDateDDMMYYYY = (dateStr) => {
     if (!dateStr) return 'N/A';
     const str = String(dateStr).trim();
+    if (!str || str.toLowerCase() === 'null' || str.toUpperCase() === 'N/A') return 'N/A';
     if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-        const [year, month, day] = str.split('T')[0].split('-');
+        const [year, month, day] = str.split('T')[0].split(' ')[0].split('-');
         return `${day}-${month}-${year}`;
+    }
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('/');
+        return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
+    }
+    if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('-');
+        return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
     }
     try {
         const d = new Date(str);
@@ -89,28 +132,20 @@ const checkDpDateStatus = (item) => {
     let reason = '';
 
     try {
-        const targetDate = new Date(targetStr);
-        if (!isNaN(targetDate.getTime())) {
+        const targetDay = parseDateToDateObject(targetStr);
+        if (targetDay) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
-            const targetDay = new Date(targetDate);
             targetDay.setHours(0, 0, 0, 0);
 
             // Rule:
-            // if Ext DP Date not here and DP Date > Todays Date (or expired / past today)
-            // if Ext DP Date is there and EXP DP Date > Toda'ys Date (or expired / past today)
-            if (targetDay < today || targetDay > today) {
+            // If DP Date >= Current Date (today) -> Vendor CAN raise call (isDisabled = false)
+            // If DP Date < Current Date (today)  -> Vendor CANNOT raise call (isDisabled = true)
+            if (targetDay < today) {
                 isDisabled = true;
-                if (targetDay < today) {
-                    reason = hasExtDp 
-                        ? `Ext. DP Date Expired (${formatDateDDMMYYYY(extDpStr)})` 
-                        : `DP Date Expired (${formatDateDDMMYYYY(dpStr)})`;
-                } else {
-                    reason = hasExtDp 
-                        ? `Ext. DP Date Exceeds Today (${formatDateDDMMYYYY(extDpStr)})` 
-                        : `DP Date Exceeds Today (${formatDateDDMMYYYY(dpStr)})`;
-                }
+                reason = hasExtDp 
+                    ? `Ext. DP Date Expired (${formatDateDDMMYYYY(extDpStr)})` 
+                    : `DP Date Expired (${formatDateDDMMYYYY(dpStr)})`;
             }
         }
     } catch (e) {}
