@@ -292,28 +292,41 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
         setLoading(true);
         try {
             if (syncType === 'POMA DATA') {
-                const h = fetchedData.PoHdr || fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || {};
-                const d = fetchedData.PoDtl || fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || [];
+                const h = fetchedData.PoHdr || fetchedData.data?.PoHdr || fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || {};
+                const d = fetchedData.PoDtl || fetchedData.data?.PoDtl || fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || [];
 
                 const saveMaPayload = {
-                    ...fetchedData,
-                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`,
-                    PoHdr: h,
-                    PoDtl: d,
-                    MMP_POMA_HDR: h,
-                    MMP_POMA_DTL: d
+                    status: fetchedData?.status || 'OK',
+                    message: fetchedData?.message || 'Success',
+                    error: fetchedData?.error || [],
+                    timestamp: fetchedData?.timestamp || '',
+                    data: {
+                        MMP_POMA_HDR: fetchedData?.data?.MMP_POMA_HDR || fetchedData?.MMP_POMA_HDR || h,
+                        MMP_POMA_DTL: fetchedData?.data?.MMP_POMA_DTL || fetchedData?.MMP_POMA_DTL || d,
+                        PoHdr: fetchedData?.data?.PoHdr || fetchedData?.PoHdr || h,
+                        PoDtl: fetchedData?.data?.PoDtl || fetchedData?.PoDtl || d
+                    }
                 };
                 const res = await (immsService.savePoMaToSarthi ? immsService.savePoMaToSarthi(saveMaPayload) : immsService.savePOToSarthi(saveMaPayload));
-                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200' || res.status === 'SAVED')) {
+                const isSuccess = res && (
+                    res.status === 'Success' || 
+                    res.status === 200 || 
+                    res.status === 'SAVED' || 
+                    res.responseStatus?.statusCode === 0 || 
+                    res.responseStatus?.statusCode === 200 || 
+                    res.responseStatus?.statusCode === '0' || 
+                    res.responseStatus?.statusCode === '200'
+                );
+                if (isSuccess) {
                     setStatus('success');
                     if (onSuccess) onSuccess();
                 } else {
-                    setErrorMsg(res?.message || 'Failed to save MA data');
+                    setErrorMsg(res?.responseStatus?.message || res?.message || 'Failed to save MA data');
                     setStatus('error');
                 }
             } else {
-                const h = fetchedData.PoHdr || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || fetchedData.data?.PoHdr || {};
-                const d = fetchedData.PoDtl || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || fetchedData.data?.PoDtl || [];
+                const h = fetchedData.PoHdr || fetchedData.data?.PoHdr || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || {};
+                const d = fetchedData.PoDtl || fetchedData.data?.PoDtl || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || [];
 
                 let categoryToSave = h.ITEM_CAT_DESCR;
                 if (!categoryToSave) {
@@ -332,20 +345,27 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 };
 
                 const savePayload = {
-                    ...fetchedData,
-                    vcode: formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`,
+                    poHdr: updatedHeader,
+                    poDtl: d,
                     PoHdr: updatedHeader,
-                    PoDtl: d,
-                    MMP_PO_HDR: updatedHeader,
-                    MMP_PO_DTL: d
+                    PoDtl: d
                 };
 
                 const res = await immsService.savePOToSarthi(savePayload);
-                if (res && (res.status === 'Success' || res.status === 200 || res.responseStatus?.statusCode === '200' || res.status === 'SAVED')) {
+                const isSuccess = res && (
+                    res.status === 'Success' || 
+                    res.status === 200 || 
+                    res.status === 'SAVED' || 
+                    res.responseStatus?.statusCode === 0 || 
+                    res.responseStatus?.statusCode === 200 || 
+                    res.responseStatus?.statusCode === '0' || 
+                    res.responseStatus?.statusCode === '200'
+                );
+                if (isSuccess) {
                     setStatus('success');
                     if (onSuccess) onSuccess();
                 } else {
-                    setErrorMsg(res?.message || 'Failed to save PO data');
+                    setErrorMsg(res?.responseStatus?.message || res?.message || 'Failed to save PO data');
                     setStatus('error');
                 }
             }
@@ -706,7 +726,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 <div style={styles.reviewGridCard}>
                     <div style={styles.reviewGridItem}>
                         <span style={styles.reviewGridLabel}>PO Number</span>
-                        <span style={styles.reviewGridValue}>{h.PO_NO}</span>
+                        <span style={styles.reviewGridValue}>{h.PO_NO || formData.poNo}</span>
                     </div>
                     {isMaSync && (
                         <div style={styles.reviewGridItem}>
@@ -812,15 +832,33 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 {view === 'input' ? renderInputView() : renderReviewView()}
 
                 {status === 'success' && (
-                    <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }}>
-                        <div style={styles.successModalCard}>
+                    <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }} onClick={onClose}>
+                        <div style={{ ...styles.successModalCard, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                                onClick={onClose} 
+                                style={{ ...styles.closeBtn, position: 'absolute', top: '16px', right: '16px' }}
+                            >
+                                &times;
+                            </button>
                             <div style={styles.successIconBadge}>✅</div>
                             <h3 style={{ color: '#0f172a', margin: '0 0 6px 0', fontSize: '20px', fontWeight: '700' }}>
                                 {syncType === 'IBS_CASE_NO' ? 'IBS Case Number Saved Successfully!' : (syncType === 'POMA DATA' ? 'MA Saved Successfully!' : 'PO Saved Successfully!')}
                             </h3>
-                            <p style={{ color: '#64748b', margin: 0, fontSize: '13px' }}>
+                            <p style={{ color: '#64748b', margin: '0 0 20px 0', fontSize: '13px' }}>
                                 {syncType === 'IBS_CASE_NO' ? 'The IBS Case Number has been saved to PO Header.' : 'The data has been synced to your dashboard.'}
                             </p>
+                            <button 
+                                onClick={onClose} 
+                                style={{ 
+                                    ...styles.syncBtn, 
+                                    width: '100%', 
+                                    backgroundColor: '#10b981', 
+                                    backgroundImage: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                                }}
+                            >
+                                Done
+                            </button>
                         </div>
                     </div>
                 )}
