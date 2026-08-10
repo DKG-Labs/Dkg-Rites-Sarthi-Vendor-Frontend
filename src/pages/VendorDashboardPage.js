@@ -104,9 +104,11 @@ const VendorDashboardPage = ({ onBack }) => {
     return localStorage.getItem('vendorActiveTab') || 'po-assigned';
   });
   const [viewingPdfUrl, setViewingPdfUrl] = useState(null);
+  const [viewingPo, setViewingPo] = useState(null);
 
   useEffect(() => {
     setViewingPdfUrl(null);
+    setViewingPo(null);
     localStorage.setItem('vendorActiveTab', activeTab);
   }, [activeTab]);
 
@@ -367,6 +369,7 @@ const VendorDashboardPage = ({ onBack }) => {
             po_serial_no: poItem.poSerialNo || '',
             consignee: poItem.conigness || '',
             delivery_period: poItem.deliveryPeriod || '',
+            extended_delivery_period: poItem.extendedDeliveryPeriod || '',
             item_code: '',
             unit_price: 0,
             total_price: 0
@@ -3327,7 +3330,10 @@ const VendorDashboardPage = ({ onBack }) => {
         if (po.pdfPath) {
           return (
             <button
-              onClick={() => setViewingPdfUrl(po.pdfPath)}
+              onClick={() => {
+                setViewingPdfUrl(po.pdfPath);
+                setViewingPo(po);
+              }}
               style={{
                 background: 'none',
                 border: 'none',
@@ -3390,7 +3396,10 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'quantity_offered',
       label: 'Qty Offered',
       width: '120px',
-      render: (val, row) => `${val} ${row.uom || ''}`
+      render: (val, row) => {
+        const uom = (!row.uom || row.uom === 'N/A') ? 'Nos.' : row.uom;
+        return `${val} ${uom}`.trim();
+      }
     },
     {
       key: 'status',
@@ -4035,7 +4044,10 @@ const VendorDashboardPage = ({ onBack }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <button
                     className="btn btn-secondary"
-                    onClick={() => setViewingPdfUrl(null)}
+                    onClick={() => {
+                      setViewingPdfUrl(null);
+                      setViewingPo(null);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -4090,6 +4102,28 @@ const VendorDashboardPage = ({ onBack }) => {
                         <polyline points="10 9 9 9 8 9"></polyline>
                       </svg>
                     </div>
+                    {viewingPo && (
+                      <div style={{
+                        width: '100%',
+                        padding: '16px',
+                        marginBottom: '24px',
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>PO No: {viewingPo.po_no || 'N/A'}</span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#334155', backgroundColor: '#e2e8f0', padding: '2px 8px', borderRadius: '4px' }}>Railway: {viewingPo.zone_name || 'N/A'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', color: '#475569', fontWeight: '500' }}>
+                          Date: {viewingPo.po_date ? formatDate(viewingPo.po_date) : 'N/A'}
+                        </div>
+                      </div>
+                    )}
                     <h3 style={{ fontSize: '1.4rem', fontWeight: '700', color: '#1e3a8a', marginBottom: '12px' }}>
                       Indian Railways Portal (IREPS) Document
                     </h3>
@@ -4378,7 +4412,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                   onClick={() => handlePOItemsSort(po.id, 'delivery_period')}
                                                   style={{ cursor: 'pointer', userSelect: 'none' }}
                                                 >
-                                                  Delivery Period {poItemsSortColumn[po.id] === 'delivery_period' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
+                                                  Original DP Date / Extended DP Date {poItemsSortColumn[po.id] === 'delivery_period' && (poItemsSortDirection[po.id] === 'asc' ? '↑' : '↓')}
                                                 </th>
                                                 <th>Action</th>
                                               </tr>
@@ -4405,7 +4439,11 @@ const VendorDashboardPage = ({ onBack }) => {
                                                         <td>{item.po_serial_no}</td>
                                                         <td>{item.consignee}</td>
                                                         <td>{item.item_qty} {item.item_unit}</td>
-                                                        <td>{formatDate(item.delivery_period)}</td>
+                                                        <td>
+                                                          {item.extended_delivery_period 
+                                                            ? `ODP: ${formatDate(item.delivery_period).replace(/-/g, '.')} / EDP: ${formatDate(item.extended_delivery_period).replace(/-/g, '.')}` 
+                                                            : formatDate(item.delivery_period).replace(/-/g, '.')}
+                                                        </td>
                                                         <td>
                                                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                             <div 
