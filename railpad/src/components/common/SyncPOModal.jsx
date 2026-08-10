@@ -17,8 +17,23 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
     const [selectedPoId, setSelectedPoId] = useState('');
     const [ibsResult, setIbsResult] = useState(null);
 
+    const resetModal = () => {
+        setView('input');
+        setFetchedData(null);
+        setStatus('idle');
+        setErrorMsg('');
+        setSelectedPoId('');
+        setIbsResult(null);
+    };
+
+    const handleClose = () => {
+        resetModal();
+        if (onClose) onClose();
+    };
+
     useEffect(() => {
         if (isOpen) {
+            resetModal();
             let vcode = propVendorCode || 
                          localStorage.getItem('railpad_vendorCode') || 
                          localStorage.getItem('vendorCode') || 
@@ -39,6 +54,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             }
             
             setFormData(prev => ({ ...prev, vcode }));
+        } else {
+            resetModal();
         }
     }, [isOpen, propVendorCode, plantId]);
 
@@ -351,16 +368,6 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
         } finally {
             setLoading(false);
         }
-    };
-
-    const resetModal = () => {
-        setView('input');
-        setFetchedData(null);
-        setManualCategory('');
-        setStatus('idle');
-        setErrorMsg('');
-        setSelectedPoId('');
-        setIbsResult(null);
     };
 
     const renderInputView = () => {
@@ -813,16 +820,16 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} style={styles.closeBtn}>&times;</button>
+                    <button onClick={handleClose} style={styles.closeBtn}>&times;</button>
                 </div>
 
                 {view === 'input' ? renderInputView() : renderReviewView()}
 
                 {status === 'success' && (
-                    <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }} onClick={onClose}>
+                    <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }} onClick={handleClose}>
                         <div style={{ ...styles.successModalCard, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
                             <button 
-                                onClick={onClose} 
+                                onClick={handleClose} 
                                 style={{ ...styles.closeBtn, position: 'absolute', top: '16px', right: '16px' }}
                             >
                                 &times;
@@ -835,7 +842,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                 {syncType === 'IBS_CASE_NO' ? 'The IBS Case Number has been saved to PO Header.' : 'The data has been synced to your dashboard.'}
                             </p>
                             <button 
-                                onClick={onClose} 
+                                onClick={handleClose} 
                                 style={{ 
                                     ...styles.syncBtn, 
                                     width: '100%', 
