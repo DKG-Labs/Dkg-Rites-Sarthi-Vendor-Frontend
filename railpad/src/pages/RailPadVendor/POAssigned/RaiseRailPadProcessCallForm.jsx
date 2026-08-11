@@ -20,7 +20,7 @@ const DRAWING_MAPPING = {
     "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
     "10.00mm GRSP": [], 
     "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
-    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8747"],
+    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8747", "RDSO/T-8998"],
     "6.00mm NCRGRSP": ["1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
     "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
 };
