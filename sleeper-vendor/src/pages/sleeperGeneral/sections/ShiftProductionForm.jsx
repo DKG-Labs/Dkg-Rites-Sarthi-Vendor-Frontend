@@ -129,6 +129,37 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         return now.toTimeString().split(' ')[0].substring(0, 5);
     };
 
+    const getTodayDateString = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const getYesterdayDateString = () => {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const isAfterMidnightHours = () => {
+        const hour = new Date().getHours();
+        return hour >= 0 && hour < 8; // 00:00 to 07:59 AM
+    };
+
+    const getDefaultDateAndShift = () => {
+        if (isAfterMidnightHours()) {
+            return { date: getYesterdayDateString(), shift: 'ShiftC' };
+        }
+        return { date: getTodayDateString(), shift: 'ShiftA' };
+    };
+
+    const defaultInit = getDefaultDateAndShift();
+
     const generateSleepers = (benchName, sequenceType, count) => {
         let sleepers = [];
         if (sequenceType === 'Custom Sequence' || sequenceType?.startsWith('Custom')) {
@@ -170,8 +201,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     const [formHeader, setFormHeader] = useState({
         unit: '',
         shedType: 'Twin',
-        date: new Date().toISOString().split('T')[0],
-        shift: 'Day',
+        date: defaultInit.date,
+        shift: defaultInit.shift,
         batchNo: '',
         mixDesign: 'M60',
         timeLbc: getCurrentTime(),
@@ -200,6 +231,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const getInitialLongLineForm = () => ({
         id: Date.now() + Math.random(),
+        timeLbc: getCurrentTime()?.substring(0, 5) || '12:00',
         entryMode: 'single',
         fromNo: '',
         toNo: '',
@@ -259,6 +291,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 const lastRow = prev[prev.length - 1];
                 return [...prev, {
                     ...getInitialLongLineForm(),
+                    timeLbc: lastRow.timeLbc,
                     sleeperCategory: lastRow.sleeperCategory,
                     sleeperType: lastRow.sleeperType,
                     mouldsPerGang: lastRow.mouldsPerGang,
@@ -499,7 +532,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     // Sleeper layout config per Turnout drawing
     const turnoutSleeperConfig = {
         '1 in 12 PnC: RT-4218':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
-        '1 in 12 PnC: RT-9790':  { approach: ['70S', '70-4A', '70-3A', '70-2AS', '70-1AS'],  turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
+        '1 in 12 PnC: RT-9790':  { approach: ['60S', '60-4A', '60-3A', '60-2AS', '60-1AS'],  turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 8.5 PnC: RT-4865': { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 54 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
         '1 in 8.5 PnC: RT-9841': { approach: ['90S', '90-4A', '90-3A', '90-2AS'],             turnout: Array.from({ length: 83 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E','4E'] },
         '1 in 8.5 DS: RT-6068':  { approach: ['60S', '1AS', '2AS', '3A', '4A'],             turnout: Array.from({ length: 22 },  (_, i) => (i + 1).toString()), exit: ['1E', '2E', '3E', '4E'] },
@@ -662,8 +695,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             setFormHeader({
                 unit: initialData.productionUnit || '',
                 shedType: initialData.plantType === 'LONG_LINE' ? 'Long Line' : 'Twin',
-                date: (y && m && d) ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0],
-                shift: initialData.shift || 'Day',
+                date: (y && m && d) ? `${y}-${m}-${d}` : defaultInit.date,
+                shift: initialData.shift || defaultInit.shift,
                 batchNo: initialData.batchNumber || '',
                 mixDesign: initialData.mixDesignReference || 'M60',
                 timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
@@ -744,6 +777,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     mappedEntries.push({
                         id: Date.now() + gIdx,
                         originalId: g.id, // Store original gang ID
+                        timeLbc: (g.lbcTime || initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                         entryMode: g.mode?.toLowerCase() || 'range',
                         fromNo: g.gangFrom?.toString() || '',
                         toNo: g.gangTo?.toString() || '',
@@ -793,11 +827,13 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 acc[chamberNo] = {
                     id: entry.chamberId || 0, // Use stored chamberId or 0
                     chamberNo: chamberNo,
+                    lbcTime: entry.timeLbc || formHeader.timeLbc || '12:00',
                     benchGroups: []
                 };
             }
             acc[chamberNo].benchGroups.push({
                 id: entry.groupId || 0, // Use stored groupId or 0
+                timeLbc: entry.timeLbc || formHeader.timeLbc || '12:00',
                 entryMode: entry.entryMode,
                 benches: entry.entryMode === 'single' ? [entry.singleNo] : [], 
                 fromNo: entry.fromNo,
@@ -1891,7 +1927,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 <label style={labelStyle}>Date of Casting</label>
                                 <input
                                     type="date"
-                                    max={new Date().toISOString().split('T')[0]}
+                                    max={getTodayDateString()}
                                     value={formHeader.date}
                                     onChange={(e) => setFormHeader({ ...formHeader, date: e.target.value })}
                                     disabled={isReadOnly}
@@ -1904,7 +1940,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     disabled={isReadOnly}
                                     style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.shift}
-                                    onChange={(e) => setFormHeader({ ...formHeader, shift: e.target.value })}
+                                    onChange={(e) => {
+                                        const newShift = e.target.value;
+                                        let newDate = formHeader.date;
+                                        if (newShift === 'ShiftC' || newShift === 'Night') {
+                                            if (isAfterMidnightHours() || formHeader.date === getTodayDateString()) {
+                                                newDate = getYesterdayDateString();
+                                            }
+                                        } else if (formHeader.date === getYesterdayDateString()) {
+                                            newDate = getTodayDateString();
+                                        }
+                                        setFormHeader({ ...formHeader, shift: newShift, date: newDate });
+                                    }}
                                 >
                                     <option value="Day">Day</option>
                                     <option value="Night">Night</option>
@@ -2436,7 +2483,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             )}
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1.2fr 1.5fr 1fr 0.8fr 0.9fr', gap: '12px', alignItems: 'end' }}>
                                             <div>
                                                 <label style={labelStyle}>Gang No.</label>
                                                 <input
@@ -2469,6 +2516,30 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     style={{ ...inputStyle, background: 'white' }}
                                                     placeholder="e.g. 12, 13"
                                                 />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Time of LBC (24h)</label>
+                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <CustomDropdown
+                                                            disabled={isReadOnly}
+                                                            value={(row.timeLbc || '12:00').split(':')[0]}
+                                                            onChange={(val) => updateLongLineRow(rowIndex, 'timeLbc', `${val}:${(row.timeLbc || '12:00').split(':')[1]}`)}
+                                                            options={Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))}
+                                                            placeholder="HH"
+                                                        />
+                                                    </div>
+                                                    <span style={{ fontWeight: 'bold', color: '#475569' }}>:</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <CustomDropdown
+                                                            disabled={isReadOnly}
+                                                            value={(row.timeLbc || '12:00').split(':')[1]}
+                                                            onChange={(val) => updateLongLineRow(rowIndex, 'timeLbc', `${(row.timeLbc || '12:00').split(':')[0]}:${val}`)}
+                                                            options={Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))}
+                                                            placeholder="MM"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
                                                 <label style={labelStyle}>Sleeper Category</label>
@@ -2916,8 +2987,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         return alert('Please add at least one valid entry.');
                                     }
 
-                                    // Formatting the DTO for the backend
                                     const isUpdate = !!(initialData?.id && !isNaN(initialData.id));
+                                    const lbcTimeToUse = (plantType === 'Stress Bench' 
+                                        ? (stressBenchEntries[0]?.timeLbc || chambers[0]?.lbcTime) 
+                                        : (longLineEntries[0]?.timeLbc)) || formHeader.timeLbc?.substring(0, 5);
+
                                     const pdDto = {
                                         ...(isUpdate ? initialData : {}),
                                         ...(isUpdate ? { id: initialData.id } : {}),
@@ -2927,7 +3001,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         shift: formHeader.shift,
                                         batchNumber: formHeader.batchNo.toString(),
                                         mixDesignReference: formHeader.mixDesign,
-                                        lbcTime: formHeader.timeLbc?.substring(0, 5),
+                                        lbcTime: lbcTimeToUse,
                                         mouldSequence: formHeader.mouldSequence === 'Custom Sequence' ? `Custom — ${formHeader.customSequence.trim()}` : formHeader.mouldSequence,
                                         totalCastedSleepers: calculateTotalCast(),
                                         totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
@@ -2943,7 +3017,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                             .map(chamber => ({
                                                 id: chamber.id || 0,
                                                 chamberNo: parseInt(chamber.chamberNo) || chamber.chamberNo?.toString() || 0,
-                                                lbcTime: chamber.benchGroups?.[0]?.timeLbc || formHeader.timeLbc || '12:00',
+                                                lbcTime: chamber.lbcTime || chamber.benchGroups?.[0]?.timeLbc || formHeader.timeLbc || '12:00',
                                                 benchGroups: chamber.benchGroups
                                                     .flatMap(group => {
                                                         let benchList = [];
@@ -3029,6 +3103,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     gangFrom,
                                                     gangTo,
                                                     gangNo,
+                                                    lbcTime: entry.timeLbc || formHeader.timeLbc || '12:00',
                                                     sleeperType: entry.sleeperType,
                                                     mouldsPerGang,
                                                     sleeperCategory: entry.sleeperCategory || 'Mainline',
