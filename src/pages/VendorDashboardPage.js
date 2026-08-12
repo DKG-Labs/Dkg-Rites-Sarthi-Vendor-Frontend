@@ -621,6 +621,7 @@ const VendorDashboardPage = ({ onBack }) => {
         // workflowStatus === 'WITHDRAW', 'INSPECTION_COMPLETE_CONFIRM', 'DSC_SIGN_IC', or 'GENERATE_IC' -> Completed
         const active = transformedCalls.filter(call =>
           call.workflowStatus !== 'WITHDRAW' &&
+          call.workflowStatus !== 'CANCELLED' &&
           call.workflowStatus !== 'INSPECTION_COMPLETE_CONFIRM' &&
           call.workflowStatus !== 'DSC_SIGN_IC' &&
           call.workflowStatus !== 'GENERATE_IC'
@@ -628,6 +629,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
         const completed = transformedCalls.filter(call =>
           call.workflowStatus === 'WITHDRAW' ||
+          call.workflowStatus === 'CANCELLED' ||
           call.workflowStatus === 'INSPECTION_COMPLETE_CONFIRM' ||
           call.workflowStatus === 'DSC_SIGN_IC' ||
           call.workflowStatus === 'GENERATE_IC'
