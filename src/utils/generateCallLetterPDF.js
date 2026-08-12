@@ -300,11 +300,11 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     // Stage of Inspection
     let stageDisplay = call.stage || call.productStage || call.typeOfCall || call.productType || '';
     const icNoStr = val(call.callNumber || call.requestId || call.icNumber || call.callNo, '').toUpperCase();
-    if (icNoStr.startsWith('EP') || icNoStr.includes('-EP') || String(stageDisplay).toLowerCase().includes('process')) {
+    if (icNoStr.startsWith('EP') || icNoStr.startsWith('RPP') || icNoStr.includes('-EP') || String(stageDisplay).toLowerCase().includes('process')) {
         stageDisplay = 'Process Inspection';
-    } else if (icNoStr.startsWith('EF') || icNoStr.includes('-EF') || String(stageDisplay).toLowerCase().includes('final')) {
+    } else if (icNoStr.startsWith('EF') || icNoStr.startsWith('RPF') || icNoStr.startsWith('RFF') || icNoStr.includes('-EF') || String(stageDisplay).toLowerCase().includes('final')) {
         stageDisplay = 'Final Inspection';
-    } else if (icNoStr.startsWith('ER') || icNoStr.includes('-ER') || String(stageDisplay).toLowerCase().includes('raw')) {
+    } else if (icNoStr.startsWith('ER') || icNoStr.startsWith('RMC') || icNoStr.includes('-ER') || String(stageDisplay).toLowerCase().includes('raw')) {
         stageDisplay = 'Raw Material Inspection';
     } else if (!stageDisplay || stageDisplay === '-') {
         stageDisplay = 'Raw Material Inspection';
