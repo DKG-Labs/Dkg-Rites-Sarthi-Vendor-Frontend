@@ -198,6 +198,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         return sleepers;
     };
 
+    const [poOptions, setPoOptions] = useState([]);
+
+    const formatDateDisplay = (dateStr) => {
+        if (!dateStr) return '';
+        const str = String(dateStr).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+            const [y, m, d] = str.split('T')[0].split('-');
+            return `${d}-${m}-${y}`;
+        }
+        return str;
+    };
+
     const [formHeader, setFormHeader] = useState({
         unit: '',
         shedType: 'Twin',
@@ -208,7 +220,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         timeLbc: getCurrentTime(),
         remarks: '',
         mouldSequence: '',
-        customSequence: ''
+        customSequence: '',
+        poNo: ''
     });
 
     const [chambers, setChambers] = useState([]); // Will be derived from stressBenchEntries
@@ -345,6 +358,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
         fetchUnits();
     }, []);
+
+    useEffect(() => {
+        const fetchPOs = async () => {
+            try {
+                const data = await apiService.getVendorPOs(vendorCode);
+                setPoOptions(data || []);
+            } catch (err) {
+                console.error('Failed to fetch POs for vendor:', err);
+            }
+        };
+        fetchPOs();
+    }, [vendorCode]);
 
     useEffect(() => {
         const fetchMasterData = async () => {
@@ -702,7 +727,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                 timeLbc: (initialData.lbcTime || getCurrentTime())?.substring(0, 5),
                 remarks: initialData.remarks || '',
                 mouldSequence: initialMouldSeq,
-                customSequence: initialCustomSeq
+                customSequence: initialCustomSeq,
+                poNo: initialData.poNo || initialData.poNumber || ''
             });
 
             // Map chambers for Stress Bench with deduplication
@@ -2016,6 +2042,31 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                     </span>
                                 </div>
                             )}
+                            <div>
+                                <label style={labelStyle}>PO no. &amp; Date</label>
+                                <select
+                                    disabled={isReadOnly}
+                                    style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
+                                    value={formHeader.poNo || ''}
+                                    onChange={(e) => setFormHeader({ ...formHeader, poNo: e.target.value })}
+                                >
+                                    <option value="">Select PO No. &amp; Date</option>
+                                    {formHeader.poNo && !poOptions.some(p => (p.poNo || p.po_no) === formHeader.poNo) && (
+                                        <option value={formHeader.poNo}>{formHeader.poNo}</option>
+                                    )}
+                                    {poOptions.map((po, idx) => {
+                                        const poNumber = po.poNo || po.po_no || '';
+                                        const rawDate = po.poDate || po.po_date || '';
+                                        const formattedDate = formatDateDisplay(rawDate);
+                                        const displayText = formattedDate ? `${poNumber} (Dated: ${formattedDate})` : poNumber;
+                                        return (
+                                            <option key={po.poKey || poNumber || idx} value={poNumber}>
+                                                {displayText}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -3002,6 +3053,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         batchNumber: formHeader.batchNo.toString(),
                                         mixDesignReference: formHeader.mixDesign,
                                         lbcTime: lbcTimeToUse,
+                                        poNo: formHeader.poNo || '',
                                         mouldSequence: formHeader.mouldSequence === 'Custom Sequence' ? `Custom — ${formHeader.customSequence.trim()}` : formHeader.mouldSequence,
                                         totalCastedSleepers: calculateTotalCast(),
                                         totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
