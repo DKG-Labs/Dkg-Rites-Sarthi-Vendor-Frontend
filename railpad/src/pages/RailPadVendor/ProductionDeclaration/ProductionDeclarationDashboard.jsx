@@ -14,6 +14,7 @@ const PRODUCT_TYPES = [
 ];
 
 const NCRGRSP_DRAWINGS = [
+    "T-6154",
     "T-7014", "T-7014/1", "T-7014/2", "T-7015", "T-7016", "T-7017", "T-7018", "T-7019", "T-7020", "T-7021", 
     "T-8886", "T-8887", "T-8888", "T-8889", "T-8890", "T-8891", "T-8892", "T-8893", "T-8894", "T-8895", "T-8896", 
     "T-8906", "T-8907", "T-8908", "T-8909", "T-8910", "T-8911", "T-8912", "T-8913", "T-8914", "T-8914/1", "T-8915", 
@@ -32,8 +33,8 @@ const DRAWING_NUMBERS = {
     "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
     "10.00mm GRSP": [], 
     "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
-    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8747", "RDSO/T-8998"],
-    "6.00mm NCRGRSP": ["1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
+    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8694", "RDSO/T-8747", "RDSO/T-8998"],
+    "6.00mm NCRGRSP": ["1 in 12 RDSO/T-6154", "RDSO/T-6154", "1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
     "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
 };
 

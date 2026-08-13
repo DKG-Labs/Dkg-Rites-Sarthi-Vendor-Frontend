@@ -115,10 +115,20 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
     const formatDate = (dateStr) => {
         if (!dateStr) return "";
+        if (typeof dateStr === 'object') {
+            dateStr = dateStr.poDate || dateStr.date || dateStr.maDate || dateStr.PO_DT || "";
+        }
+        if (typeof dateStr !== 'string') return "";
+        dateStr = dateStr.trim();
         if (dateStr.includes('/')) return dateStr;
         const parts = dateStr.split('-');
         if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            if (parts[0].length === 4) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            if (parts[2].length === 4) {
+                return `${parts[0]}/${parts[1]}/${parts[2]}`;
+            }
         }
         return dateStr;
     };
@@ -188,26 +198,62 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             }
 
             if (syncType === 'POMA DATA') {
+                const formattedMaDate = formatDate(formData.maDate);
+                let poDateFormatted = '';
+                
+                // 1. Check if poDate is in formData
+                if (formData.poDate) {
+                    poDateFormatted = formatDate(formData.poDate);
+                }
+
+                // 2. Check if poDate is in vendorPos list
+                if (!poDateFormatted && vendorPos && vendorPos.length > 0) {
+                    const matchedPo = vendorPos.find(p => String(p.poNo || p.po_no) === String(formData.poNo));
+                    if (matchedPo && (matchedPo.poDate || matchedPo.po_dt)) {
+                        poDateFormatted = formatDate(matchedPo.poDate || matchedPo.po_dt);
+                    }
+                }
+
+                // 3. Automatically fetch PO date from response of /Vendorsync/po-date?poNo=...
+                if (!poDateFormatted) {
+                    try {
+                        const poDateRes = await poAssignedService.getPoDateByPoNo(formData.poNo);
+                        const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                        if (rawPoDate) {
+                            poDateFormatted = formatDate(rawPoDate);
+                        }
+                    } catch (err) {
+                        console.log('PO Date lookup from API failed:', err);
+                    }
+                }
+
                 const maPayload = {
                     rly: formData.rly,
                     poNo: formData.poNo,
                     vcode: finalVcode,
-                    maDate: formatDate(formData.maDate),
+                    maDate: formattedMaDate,
                     maNo: formData.maNo,
                     amended: "true"
                 };
+
+                if (poDateFormatted) {
+                    maPayload.poDate = poDateFormatted;
+                }
 
                 const res = await poAssignedService.getIMMSMAData(maPayload);
                 
                 const hasData = res && (
                     res.PoHdr || 
+                    res.data?.PoHdr || 
                     res.data?.MMP_POMA_HDR || 
                     res.MMP_POMA_HDR || 
                     res.data?.MMP_PO_HDR || 
                     res.MMP_PO_HDR || 
-                    res.data?.PoHdr ||
-                    (res.status === 'Success' && (res.data || res.PoDtl || res.MMP_POMA_DTL || res.MMP_PO_DTL)) ||
-                    (res.status === 200 && res.data)
+                    (res.data?.PoDtl && res.data.PoDtl.length > 0) ||
+                    (res.PoDtl && res.PoDtl.length > 0) ||
+                    (res.data?.MMP_POMA_DTL && res.data.MMP_POMA_DTL.length > 0) ||
+                    (res.data?.MMP_PO_DTL && res.data.MMP_PO_DTL.length > 0) ||
+                    ((res.status === 'Success' || res.status === 'OK' || res.status === 200 || res.message === 'Success') && (res.data || res.PoDtl))
                 );
 
                 if (hasData) {
@@ -215,7 +261,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     setView('review');
                     setStatus('idle');
                 } else {
-                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' ? 'No MA records found in IMMS for the specified details.' : 'Failed to fetch MA details from CRIS/IMMS.'));
+                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' || res?.status === 'OK' ? 'No MA records found in IMMS for the specified details.' : 'Failed to fetch MA details from CRIS/IMMS.'));
                     setStatus('error');
                 }
 
@@ -231,11 +277,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 const res = await poAssignedService.getIMMSPOData(payload);
                 const hasData = res && (
                     res.PoHdr || 
+                    res.data?.PoHdr || 
                     res.data?.MMP_PO_HDR || 
                     res.MMP_PO_HDR || 
-                    res.data?.PoHdr ||
-                    (res.status === 'Success' && (res.data || res.PoDtl || res.MMP_PO_DTL)) ||
-                    (res.status === 200 && res.data)
+                    (res.data?.PoDtl && res.data.PoDtl.length > 0) ||
+                    (res.PoDtl && res.PoDtl.length > 0) ||
+                    (res.data?.MMP_PO_DTL && res.data.MMP_PO_DTL.length > 0) ||
+                    ((res.status === 'Success' || res.status === 'OK' || res.status === 200 || res.message === 'Success') && (res.data || res.PoDtl))
                 );
 
                 if (hasData) {
@@ -243,7 +291,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     setView('review');
                     setStatus('idle');
                 } else {
-                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' ? 'No PO records found in IMMS for the specified details.' : 'Failed to fetch PO details from CRIS/IMMS.'));
+                    setErrorMsg(res?.message && res.message !== 'Success' ? res.message : (res?.status === 'Success' || res?.status === 'OK' ? 'No PO records found in IMMS for the specified details.' : 'Failed to fetch PO details from CRIS/IMMS.'));
                     setStatus('error');
                 }
             }
