@@ -540,6 +540,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             'RT-8678',
             'RT-8679',
             'RT-8680',
+            'RT-8971 to 8978 (Set)',
             'RT-8971',
             'RT-8972',
             'RT-8973',
@@ -2011,14 +2012,16 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Mould Sequence</label>
+                                <label style={labelStyle}>
+                                    Mould Sequence { (plantType === 'Stress Bench' ? stressBenchForms : longLineForms).some(r => r.sleeperCategory === 'Turnout') ? <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '400' }}>(Optional for Turnout)</span> : '' }
+                                </label>
                                 <select
                                     disabled={isReadOnly}
                                     style={{ ...inputStyle, background: 'white', cursor: isReadOnly ? 'default' : 'pointer' }}
                                     value={formHeader.mouldSequence}
                                     onChange={(e) => setFormHeader({ ...formHeader, mouldSequence: e.target.value })}
                                 >
-                                    <option value="" disabled>Select Sequence</option>
+                                    <option value="">{ (plantType === 'Stress Bench' ? stressBenchForms : longLineForms).some(r => r.sleeperCategory === 'Turnout') ? 'Select Sequence (Optional)' : 'Select Sequence' }</option>
                                     <option value="Preset — A, B, C, D, E, F, G, Z">Preset — A, B, C, D, E, F, G, Z</option>
                                     <option value="Preset — A, B, C, D, E, F, G, H">Preset — A, B, C, D, E, F, G, H</option>
                                     <option value="Numeric — 1, 2, 3, 4...">Numeric — 1, 2, 3, 4...</option>
@@ -3026,12 +3029,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         return alert('Batch Number is required. Please fill it in Section 1.');
                                     }
 
-                                    if (!formHeader.mouldSequence) {
-                                        return alert('Mould Sequence is required. Please select a sequence in Section 1.');
-                                    }
+                                    const activeForms = plantType === 'Stress Bench' ? stressBenchForms : longLineForms;
+                                    const activeEntries = plantType === 'Stress Bench' ? stressBenchEntries : longLineEntries;
+                                    const isTurnoutForm = activeForms.some(r => r.sleeperCategory === 'Turnout') || activeEntries.some(e => e.sleeperCategory === 'Turnout');
 
-                                    if (formHeader.mouldSequence === 'Custom Sequence' && (!formHeader.customSequence || !formHeader.customSequence.trim())) {
-                                        return alert('Please declare the custom sequence nomenclature in Section 1 (e.g. A, X, C, V).');
+                                    if (!isTurnoutForm) {
+                                        if (!formHeader.mouldSequence) {
+                                            return alert('Mould Sequence is required. Please select a sequence in Section 1.');
+                                        }
+
+                                        if (formHeader.mouldSequence === 'Custom Sequence' && (!formHeader.customSequence || !formHeader.customSequence.trim())) {
+                                            return alert('Please declare the custom sequence nomenclature in Section 1 (e.g. A, X, C, V).');
+                                        }
                                     }
 
                                     if (calculateTotalCast() === 0) {
@@ -3054,7 +3063,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         mixDesignReference: formHeader.mixDesign,
                                         lbcTime: lbcTimeToUse,
                                         poNo: formHeader.poNo || '',
-                                        mouldSequence: formHeader.mouldSequence === 'Custom Sequence' ? `Custom — ${formHeader.customSequence.trim()}` : formHeader.mouldSequence,
+                                        mouldSequence: formHeader.mouldSequence === 'Custom Sequence' ? `Custom — ${formHeader.customSequence.trim()}` : (formHeader.mouldSequence || (isTurnoutForm ? 'N/A' : '')),
                                         totalCastedSleepers: calculateTotalCast(),
                                         totalSleeperTypes: Object.keys(getProductionBreakdown()).length,
                                         totalRft: calculateTotalRFT(),
