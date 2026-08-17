@@ -53,13 +53,7 @@ const NAME_OPTIONS = {
   ]
 };
 
-// Accreditation Agency options
-const ACCREDITATION_AGENCIES = [
-  { value: '', label: 'Select Accreditation Agency' },
-  { value: 'NABL', label: 'NABL' },
-  { value: 'NPL', label: 'NPL' },
-  { value: 'Other', label: 'Other' }
-];
+
 
 // Used For options (Inspection Stages)
 const USED_FOR_OPTIONS = [
