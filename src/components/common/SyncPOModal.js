@@ -314,9 +314,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     caseNo: ibsResult.caseNo || ibsResult.CASE_NO,
                     caseStatus: ibsResult.caseStatus || ibsResult.STATUS || 'AVAILABLE'
                 };
-                await immsService.saveIbsCaseNo(savePayload);
+                const res = await immsService.saveIbsCaseNo(savePayload);
                 setStatus('success');
-                if (onSuccess) onSuccess();
+                if (onSuccess) {
+                    try { onSuccess(res); } catch (cbErr) { console.error('Error in onSuccess callback:', cbErr); }
+                }
             } catch (err) {
                 setErrorMsg(err.message || 'Failed to save IBS Case Number to PO Header.');
                 setStatus('error');
@@ -356,7 +358,9 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 );
                 if (isSuccess) {
                     setStatus('success');
-                    if (onSuccess) onSuccess();
+                    if (onSuccess) {
+                        try { onSuccess(res); } catch (cbErr) { console.error('Error in onSuccess callback:', cbErr); }
+                    }
                 } else {
                     setErrorMsg(res?.responseStatus?.message || res?.message || 'Failed to save MA data');
                     setStatus('error');
@@ -400,7 +404,9 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 );
                 if (isSuccess) {
                     setStatus('success');
-                    if (onSuccess) onSuccess();
+                    if (onSuccess) {
+                        try { onSuccess(res); } catch (cbErr) { console.error('Error in onSuccess callback:', cbErr); }
+                    }
                 } else {
                     setErrorMsg(res?.responseStatus?.message || res?.message || 'Failed to save PO data');
                     setStatus('error');

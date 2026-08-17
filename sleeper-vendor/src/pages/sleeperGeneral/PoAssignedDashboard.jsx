@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import RaiseInspectionCallForm from './RaiseInspectionCallForm';
 import { apiService } from '../../services/api';
 import SyncPOButton from '../../components/common/SyncPOButton';
@@ -374,20 +374,21 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
     const [poDataList, setPoDataList] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    useEffect(() => {
-        const fetchPos = async () => {
-            setLoading(true);
-            try {
-                const data = await apiService.getVendorPOs();
-                setPoDataList(data);
-            } catch(e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchPos();
+    const fetchPos = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await apiService.getVendorPOs();
+            setPoDataList(data || []);
+        } catch(e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchPos();
+    }, [fetchPos]);
 
 
 
@@ -411,8 +412,13 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
                 <SyncPOButton 
                     poList={poDataList} 
-                    onSuccess={(res) => alert(`Successfully synced ${res.successCount} of ${res.totalCount} POs`)}
-                    onError={(err) => alert('Sync failed: ' + err.message)}
+                    onSuccess={(res) => {
+                        fetchPos();
+                        if (res && typeof res === 'object' && 'successCount' in res && 'totalCount' in res) {
+                            alert(`Successfully synced ${res.successCount} of ${res.totalCount} POs`);
+                        }
+                    }}
+                    onError={(err) => alert('Sync failed: ' + (err?.message || err))}
                 />
             </div>
 
