@@ -1672,23 +1672,36 @@ export const RaiseInspectionCallForm = ({
               const heatNumbers = heatResponse.data;
               console.log(`  ✅ Got ${heatNumbers.length} heat numbers for RM IC: ${rmIcNumber}`);
 
+              const currentVendorCode = localStorage.getItem('vendorCode') || localStorage.getItem('userName') || '';
+
               // Step 3: For each heat number, fetch the summary data concurrently
               const heatSummaryPromises = heatNumbers.map(async (heat) => {
                 try {
                   const heatNo = heat.heatNumber;
-                  console.log(`    🔥 Fetching summary for Heat: ${heatNo}, PO: ${poNo}`);
+                  console.log(`    🔥 Fetching summary for Heat: ${heatNo}, PO: ${poNo}, RM Call: ${callNo}, Vendor: ${currentVendorCode}`);
 
-                  const summaryResponse = await inspectionCallService.getHeatSummaryData(heatNo, poNo);
+                  const summaryResponse = await inspectionCallService.getHeatSummaryData(heatNo, poNo, callNo, currentVendorCode);
 
                   if (summaryResponse && summaryResponse.data) {
                     const heatData = summaryResponse.data;
 
-                    // Get offeredEarlier from API response (now calculated by backend)
+                    // Get offeredEarlier from API response (calculated by backend strictly for this vendor/PO)
                     const offeredEarlier = heatData.offeredEarlier || 0;
                     console.log(`    📊 Offered Earlier for ${heatNo}: ${offeredEarlier}`);
 
+                    // Use the accepted MT strictly from this specific RM IC record
+                    const acceptedMt = (heat.weightAcceptedMt !== undefined && heat.weightAcceptedMt !== null && heat.weightAcceptedMt > 0)
+                      ? heat.weightAcceptedMt
+                      : (heatData.weightAcceptedMt || 0);
+
+                    // Compute Max ERC strictly from this RM IC's accepted MT
+                    const ercDivisor = (formData.product_model && formData.product_model.toUpperCase().includes('MK-III')) ? 0.928426 : 1.133;
+                    const maxErc = (heatData.rmAcceptedQty && heatData.rmAcceptedQty > 0)
+                      ? heatData.rmAcceptedQty
+                      : (acceptedMt > 0 ? Math.round((acceptedMt * 1000) / ercDivisor) : 0);
+
                     // Calculate Future Balance = Max ERC - Offered Earlier
-                    const futureBalance = (heatData.rmAcceptedQty || 0) - offeredEarlier;
+                    const futureBalance = maxErc - offeredEarlier;
 
                     // Determine status based on future balance
                     let status = 'Good';
@@ -1700,8 +1713,8 @@ export const RaiseInspectionCallForm = ({
 
                     return {
                       heatNo: heatData.heatNo || heatNo,
-                      acceptedMt: heatData.weightAcceptedMt || 0,
-                      maxErc: heatData.rmAcceptedQty || 0,
+                      acceptedMt: acceptedMt,
+                      maxErc: maxErc,
                       manufactured: heatData.manufaturedQty || 0,
                       offeredEarlier: offeredEarlier,
                       offeredNow: 0, // Will be updated when user enters lot details

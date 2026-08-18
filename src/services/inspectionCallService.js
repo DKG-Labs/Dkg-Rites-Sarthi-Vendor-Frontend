@@ -762,13 +762,20 @@ const inspectionCallService = {
    * @param {string} poNo - PO number
    * @returns {Promise<Object>} - API response with heat summary data
    */
-  getHeatSummaryData: async (heatNo, poNo) => {
+  getHeatSummaryData: async (heatNo, poNo, callNo = '', vendorCode = '') => {
     try {
-      console.log(`📊 Fetching heat summary for Heat: ${heatNo}, PO: ${poNo}`);
+      console.log(`📊 Fetching heat summary for Heat: ${heatNo}, PO: ${poNo}, CallNo: ${callNo}, Vendor: ${vendorCode}`);
 
-      const response = await httpClient.get(
-        `/processIe/getManufaturedQtyOfPo/${heatNo}/${poNo}`
-      );
+      const params = new URLSearchParams();
+      if (callNo) params.append('callNo', callNo);
+      if (vendorCode) params.append('vendorCode', vendorCode);
+
+      const queryString = params.toString();
+      const url = queryString 
+        ? `/processIe/getManufaturedQtyOfPo/${encodeURIComponent(heatNo)}/${encodeURIComponent(poNo)}?${queryString}`
+        : `/processIe/getManufaturedQtyOfPo/${encodeURIComponent(heatNo)}/${encodeURIComponent(poNo)}`;
+
+      const response = await httpClient.get(url);
       return response;
     } catch (error) {
       console.error('Error fetching heat summary data:', error);
