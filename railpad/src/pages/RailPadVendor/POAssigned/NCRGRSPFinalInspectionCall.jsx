@@ -282,6 +282,8 @@ const RAIL_PAD_TYPES = [
 const DEFAULT_PROCESS_CERTIFICATES = [];
 const DEFAULT_BATCH_INVENTORY = {};
 
+const normalizeDwg = (dwg) => (dwg || '').replace(/^(RDSO\/|RDSO-)/i, '').trim().toUpperCase();
+
 // ─── Main NCRGRSP Component ───────────────────────────────────────────────────
 const NCRGRSPFinalInspectionCall = ({
   srItem,
@@ -302,8 +304,8 @@ const NCRGRSPFinalInspectionCall = ({
   const [isCertDropdownOpen, setIsCertDropdownOpen] = useState(false);
   const certDropdownRef = useRef(null);
 
-  const [noOfSets, setNoOfSets] = useState(18);
-  const [noOfLots, setNoOfLots] = useState(2);
+  const [noOfSets, setNoOfSets] = useState(0);
+  const [noOfLots, setNoOfLots] = useState(0);
   const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -469,69 +471,31 @@ const NCRGRSPFinalInspectionCall = ({
   const [lots, setLots] = useState([]);
   const [expandedLots, setExpandedLots] = useState({ 0: true, 1: true, 2: true });
 
-  // Initialize or adjust lots structure when noOfLots or batchInventory changes
+  // Initialize or adjust lots structure when noOfLots changes
   useEffect(() => {
-    const count = Math.max(1, parseInt(noOfLots) || 1);
+    const count = parseInt(noOfLots) || 0;
     setLots(prevLots => {
       const newLots = [...prevLots];
+      if (count === 0) return [];
       if (count > newLots.length) {
         for (let i = newLots.length; i < count; i++) {
-          const batchNo = String(batchInventory[i % batchInventory.length]?.batchNo || `B00${i + 1}`);
-          const availDrawings = getDrawingsForBatch(batchNo);
-          const initialRows = (availDrawings && availDrawings.length > 0)
-            ? availDrawings.map((d, dIdx) => ({
-                id: `row-${i + 1}-${dIdx + 1}`,
-                batchNo: batchNo,
-                drawingNo: d.drawingNo,
-                qtyToUse: 0
-              }))
-            : [{
-                id: `row-${i + 1}-1`,
-                batchNo: batchNo,
-                drawingNo: requiredDrawingsList[0]?.drawingNo || '',
-                qtyToUse: 0
-              }];
-
           newLots.push({
             stableId: `lot_stable_${i + 1}`,
             lotId: `Lot ${i + 1}`,
+            lotName: `Lot ${i + 1}`,
             lotIndex: i,
-            rows: initialRows
+            rows: [
+              {
+                id: `row-${i + 1}-1`,
+                batchNo: '',
+                drawingNo: '',
+                qtyToUse: 0
+              }
+            ]
           });
         }
       } else if (newLots.length > count) {
         return newLots.slice(0, count);
-      } else if (newLots.length > 0 && batchInventory.length > 0) {
-        const validBatchNos = batchInventory.map(b => String(b.batchNo));
-        return newLots.map((lot, lIdx) => {
-          let updatedRows = [...lot.rows];
-          let batchChanged = false;
-
-          updatedRows = updatedRows.map(r => {
-            if (!validBatchNos.includes(String(r.batchNo))) {
-              batchChanged = true;
-              return { ...r, batchNo: validBatchNos[0], qtyToUse: 0 };
-            }
-            return r;
-          });
-
-          if (batchChanged || (updatedRows.length === 1 && (updatedRows[0].qtyToUse === 0 || !updatedRows[0].qtyToUse))) {
-            const currentBatch = String(updatedRows[0].batchNo);
-            const availDrawings = getDrawingsForBatch(currentBatch);
-            if (availDrawings && availDrawings.length > 0) {
-              return {
-                ...lot,
-                rows: availDrawings.map((d, dIdx) => ({
-                  id: `row-${lIdx + 1}-${dIdx + 1}`,
-                  batchNo: currentBatch,
-                  drawingNo: d.drawingNo,
-                  qtyToUse: 0
-                }))
-              };
-            }
-          }
-          return { ...lot, rows: updatedRows };
-        });
       }
       return newLots;
     });
@@ -543,7 +507,7 @@ const NCRGRSPFinalInspectionCall = ({
       }
       return exp;
     });
-  }, [noOfLots, batchInventory]);
+  }, [noOfLots]);
 
   // Handle Lot Name change
   const handleLotNameChange = (lotIdx, newName) => {
@@ -566,42 +530,18 @@ const NCRGRSPFinalInspectionCall = ({
     }));
   };
 
-  // Add a new row to a specific lot: adds unadded drawings for batches in this lot
+  // Add a new row to a specific lot
   const handleAddRow = (lotIdx) => {
     setLots(prev => {
       const updated = [...prev];
       const targetLot = { ...updated[lotIdx] };
-
-      let chosenBatch = null;
-      let unaddedDrawings = [];
-
-      for (const b of batchInventory) {
-        const bNo = String(b.batchNo);
-        const availDrawings = getDrawingsForBatch(bNo);
-        const existingInLot = targetLot.rows
-          .filter(r => String(r.batchNo) === bNo)
-          .map(r => r.drawingNo);
-
-        const missing = availDrawings.filter(d => !existingInLot.includes(d.drawingNo));
-        if (missing.length > 0) {
-          chosenBatch = bNo;
-          unaddedDrawings = missing;
-          break;
-        }
-      }
-
-      if (!chosenBatch) {
-        return prev;
-      }
-
-      const addedRows = unaddedDrawings.map((d, dIdx) => ({
-        id: `row-${lotIdx + 1}-${Date.now()}-${dIdx + 1}`,
-        batchNo: chosenBatch,
-        drawingNo: d.drawingNo,
+      const newRow = {
+        id: `row-${lotIdx + 1}-${Date.now()}`,
+        batchNo: '',
+        drawingNo: '',
         qtyToUse: 0
-      }));
-
-      targetLot.rows = [...targetLot.rows, ...addedRows];
+      };
+      targetLot.rows = [...(targetLot.rows || []), newRow];
       updated[lotIdx] = targetLot;
       return updated;
     });
@@ -619,46 +559,22 @@ const NCRGRSPFinalInspectionCall = ({
     });
   };
 
-  // Handle Batch change in a lot row: creates rows only for unadded drawings in that batch
+  // Handle Batch change in a lot row: resets drawing and qty for that row
   const handleRowBatchChange = (lotIdx, rowId, newBatchNo) => {
     setLots(prev => {
       const updated = [...prev];
       const targetLot = { ...updated[lotIdx] };
-      const availDrawings = getDrawingsForBatch(newBatchNo);
-
-      const existingInLot = targetLot.rows
-        .filter(r => r.id !== rowId && String(r.batchNo) === String(newBatchNo))
-        .map(r => r.drawingNo);
-
-      const unaddedDrawings = availDrawings.filter(d => !existingInLot.includes(d.drawingNo));
-
-      const newRows = [];
-      targetLot.rows.forEach(r => {
+      targetLot.rows = (targetLot.rows || []).map(r => {
         if (r.id === rowId) {
-          if (unaddedDrawings && unaddedDrawings.length > 0) {
-            unaddedDrawings.forEach((d, idx) => {
-              newRows.push({
-                id: idx === 0 ? r.id : `${r.id}_${idx}_${Date.now()}`,
-                batchNo: newBatchNo,
-                drawingNo: d.drawingNo,
-                qtyToUse: 0
-              });
-            });
-          } else {
-            const fallbackDrawing = availDrawings[0]?.drawingNo || requiredDrawingsList[0]?.drawingNo || '';
-            newRows.push({
-              ...r,
-              batchNo: newBatchNo,
-              drawingNo: fallbackDrawing,
-              qtyToUse: 0
-            });
-          }
-        } else {
-          newRows.push(r);
+          return {
+            ...r,
+            batchNo: newBatchNo,
+            drawingNo: '',
+            qtyToUse: 0
+          };
         }
+        return r;
       });
-
-      targetLot.rows = newRows;
       updated[lotIdx] = targetLot;
       return updated;
     });
@@ -740,12 +656,12 @@ const NCRGRSPFinalInspectionCall = ({
 
     const getInventoryForDrawing = (dwgNo) => {
       if (inventoryMap[dwgNo] !== undefined) return inventoryMap[dwgNo];
-      const cleanTarget = (dwgNo || '').replace(/^RDSO\//, '').trim();
+      const normTarget = normalizeDwg(dwgNo);
       let matchSum = 0;
       let found = false;
       Object.entries(inventoryMap).forEach(([k, q]) => {
-        const cleanK = (k || '').replace(/^RDSO\//, '').trim();
-        if (cleanK === cleanTarget || cleanTarget.startsWith(cleanK) || cleanK.startsWith(cleanTarget)) {
+        const normK = normalizeDwg(k);
+        if (normK === normTarget) {
           matchSum += q;
           found = true;
         }
@@ -778,30 +694,32 @@ const NCRGRSPFinalInspectionCall = ({
 
   // Helper: get drawings available in a specific batch
   const getDrawingsForBatch = (batchNo) => {
+    if (!batchNo) return [];
     const batchObj = batchInventory.find(b => String(b.batchNo) === String(batchNo));
     if (batchObj && batchObj.drawings) {
       const batchDrawingNos = Object.keys(batchObj.drawings);
       const filtered = requiredDrawingsList.filter(d => {
-        const cleanReq = d.drawingNo.replace(/^RDSO\//, '').trim();
+        const normReq = normalizeDwg(d.drawingNo);
         return batchDrawingNos.some(bNo => {
-          const cleanB = bNo.replace(/^RDSO\//, '').trim();
-          return cleanB === cleanReq || cleanReq.startsWith(cleanB) || cleanB.startsWith(cleanReq);
+          const normB = normalizeDwg(bNo);
+          return normB === normReq;
         });
       });
       if (filtered.length > 0) return filtered;
     }
-    return requiredDrawingsList;
+    return [];
   };
 
   // Helper: get available inventory for a specific batch and drawing
   const getBatchDrawingAvailableQty = (batchNo, drawingNo) => {
+    if (!batchNo || !drawingNo) return 0;
     const batchObj = batchInventory.find(b => String(b.batchNo) === String(batchNo));
     if (!batchObj || !batchObj.drawings) return 0;
     if (batchObj.drawings[drawingNo] !== undefined) return batchObj.drawings[drawingNo];
-    const cleanTarget = (drawingNo || '').replace(/^RDSO\//, '').trim();
+    const normTarget = normalizeDwg(drawingNo);
     for (const [k, q] of Object.entries(batchObj.drawings)) {
-      const cleanK = (k || '').replace(/^RDSO\//, '').trim();
-      if (cleanK === cleanTarget || cleanTarget.startsWith(cleanK) || cleanK.startsWith(cleanTarget)) {
+      const normK = normalizeDwg(k);
+      if (normK === normTarget) {
         return q;
       }
     }
@@ -813,6 +731,8 @@ const NCRGRSPFinalInspectionCall = ({
     if (totalRequiredQty > 0) {
       const minLots = Math.max(1, Math.ceil(totalRequiredQty / 5000));
       setNoOfLots(minLots);
+    } else {
+      setNoOfLots(0);
     }
   }, [totalRequiredQty]);
 
@@ -1180,9 +1100,13 @@ const NCRGRSPFinalInspectionCall = ({
                 <label style={labelStyle}>No. of Sets to be Offered <span style={{ color: '#ff4d4f' }}>*</span></label>
                 <input
                   type="number"
-                  min="1"
-                  value={noOfSets}
-                  onChange={e => setNoOfSets(Math.max(1, parseInt(e.target.value) || 0))}
+                  min="0"
+                  placeholder="Enter No. of Sets"
+                  value={noOfSets === 0 ? '' : noOfSets}
+                  onChange={e => {
+                    const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                    setNoOfSets(val);
+                  }}
                   style={inputStyle}
                 />
               </div>
@@ -1192,10 +1116,14 @@ const NCRGRSPFinalInspectionCall = ({
                 <label style={labelStyle}>No. of Lots <span style={{ color: '#ff4d4f' }}>*</span></label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   max="10"
-                  value={noOfLots}
-                  onChange={e => setNoOfLots(Math.max(1, parseInt(e.target.value) || 0))}
+                  placeholder="Enter No. of Lots"
+                  value={noOfLots === 0 ? '' : noOfLots}
+                  onChange={e => {
+                    const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                    setNoOfLots(val);
+                  }}
                   style={inputStyle}
                 />
               </div>
@@ -1394,6 +1322,7 @@ const NCRGRSPFinalInspectionCall = ({
                                         onChange={e => handleRowBatchChange(lotIdx, row.id, e.target.value)}
                                         style={{ ...selectStyle, padding: '4px 8px', height: 32 }}
                                       >
+                                        <option value="" disabled>Select Batch No</option>
                                         {batchInventory.map(b => (
                                           <option key={b.batchNo} value={b.batchNo}>{b.batchNo}</option>
                                         ))}
@@ -1406,17 +1335,19 @@ const NCRGRSPFinalInspectionCall = ({
                                         value={row.drawingNo}
                                         onChange={e => handleRowDrawingChange(lotIdx, row.id, e.target.value)}
                                         style={{ ...selectStyle, padding: '4px 8px', height: 32, fontWeight: 700, color: '#1677ff' }}
+                                        disabled={!row.batchNo}
                                       >
-                                          {availDrawings.map((d, dIdx) => {
-                                            const isAlreadyUsedInLot = (lot.rows || []).some(
-                                              r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === d.drawingNo
-                                            );
-                                            return (
-                                              <option key={`${d.drawingNo}_${dIdx}`} value={d.drawingNo} disabled={isAlreadyUsedInLot}>
-                                                {d.drawingNo} {isAlreadyUsedInLot ? '(Already Added)' : ''}
-                                              </option>
-                                            );
-                                          })}
+                                        <option value="" disabled>{row.batchNo ? 'Select Drawing No' : 'Select Batch First'}</option>
+                                        {availDrawings.map((d, dIdx) => {
+                                          const isAlreadyUsedInLot = (lot.rows || []).some(
+                                            r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === d.drawingNo
+                                          );
+                                          return (
+                                            <option key={`${d.drawingNo}_${dIdx}`} value={d.drawingNo} disabled={isAlreadyUsedInLot}>
+                                              {d.drawingNo} {isAlreadyUsedInLot ? '(Already Added)' : ''}
+                                            </option>
+                                          );
+                                        })}
                                       </select>
                                     </td>
 
