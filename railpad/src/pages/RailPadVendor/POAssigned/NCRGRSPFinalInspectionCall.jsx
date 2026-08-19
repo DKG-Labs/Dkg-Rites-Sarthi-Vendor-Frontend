@@ -852,7 +852,7 @@ const NCRGRSPFinalInspectionCall = ({
       };
 
       console.log('Submitting NCRGRSP Final Inspection Call payload:', payload);
-      
+
       let res;
       if (onSubmitInspectionCall) {
         res = await onSubmitInspectionCall(payload);
@@ -910,7 +910,7 @@ const NCRGRSPFinalInspectionCall = ({
       {/* Main Form Scroll Container */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
+
           {/* ========================================================================= */}
           {/* SECTION A – CALL HEADER & PO INFORMATION */}
           {/* ========================================================================= */}
@@ -1060,7 +1060,7 @@ const NCRGRSPFinalInspectionCall = ({
                       <input
                         type="checkbox"
                         checked={selectedProcessCertNos.length === processCertOptions.length}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         style={{ cursor: 'pointer' }}
                       />
                       <span>Select All ({processCertOptions.length})</span>
@@ -1084,7 +1084,7 @@ const NCRGRSPFinalInspectionCall = ({
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}}
+                            onChange={() => { }}
                             style={{ cursor: 'pointer' }}
                           />
                           <span>{cert}</span>
@@ -1314,7 +1314,7 @@ const NCRGRSPFinalInspectionCall = ({
                                 return (
                                   <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                     <td style={tdStyle}>{rIdx + 1}</td>
-                                    
+
                                     {/* Batch Select */}
                                     <td style={tdStyle}>
                                       <select
