@@ -264,7 +264,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RDSO/T-10129', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-10130', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-10131', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10031', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' }
+    // { drawingNo: 'RDSO/T-10031', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' }
   ]
 };
 
@@ -726,15 +726,16 @@ const NCRGRSPFinalInspectionCall = ({
     return 0;
   };
 
-  // Auto-calculate required lots whenever totalRequiredQty changes based on 5000 max capacity per lot
+  // Auto-calculate required lots whenever totalRequiredQty or totalOfferedQty changes based on 5000 max capacity per lot
   useEffect(() => {
-    if (totalRequiredQty > 0) {
-      const minLots = Math.max(1, Math.ceil(totalRequiredQty / 5000));
-      setNoOfLots(minLots);
+    const qtyToCount = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
+    if (qtyToCount > 0) {
+      const minLots = Math.max(1, Math.ceil(qtyToCount / 5000));
+      setNoOfLots(prev => Math.max(prev || 0, minLots));
     } else {
       setNoOfLots(0);
     }
-  }, [totalRequiredQty]);
+  }, [totalRequiredQty, totalOfferedQty]);
 
   // ── Validation Rules ──
   const validationResult = useMemo(() => {
@@ -744,9 +745,10 @@ const NCRGRSPFinalInspectionCall = ({
     if (!noOfLots || noOfLots <= 0) errors.push('Number of lots must be greater than 0.');
 
     // Check minimum lots required for total quantity (Max 5,000 Nos. per Lot)
-    const minLotsRequired = Math.max(1, Math.ceil(totalRequiredQty / 5000));
+    const effectiveTotalQty = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
+    const minLotsRequired = Math.max(1, Math.ceil(effectiveTotalQty / 5000));
     if (noOfLots < minLotsRequired) {
-      errors.push(`For total required quantity of ${totalRequiredQty.toLocaleString()} Nos., minimum ${minLotsRequired} lot(s) are required (max 5,000 Nos. per lot).`);
+      errors.push(`For total quantity of ${effectiveTotalQty.toLocaleString()} Nos., minimum ${minLotsRequired} lot(s) are required (max 5,000 Nos. per lot).`);
     }
 
     // Check if any single lot exceeds 5,000 Nos.
@@ -759,29 +761,32 @@ const NCRGRSPFinalInspectionCall = ({
       // Prevent duplicate (batchNo + drawingNo) combinations in the same lot
       const seenCombos = new Set();
       (lot.rows || []).forEach(r => {
-        const comboKey = `${r.batchNo}___${r.drawingNo}`;
-        if (seenCombos.has(comboKey)) {
-          errors.push(`${lot.lotName || lot.lotId}: Duplicate entry for Batch ${r.batchNo} and Drawing ${r.drawingNo} is not allowed.`);
+        if (r.batchNo && r.drawingNo) {
+          const comboKey = `${r.batchNo}___${r.drawingNo}`;
+          if (seenCombos.has(comboKey)) {
+            errors.push(`${lot.lotName || lot.lotId}: Duplicate entry for Batch ${r.batchNo} and Drawing ${r.drawingNo} is not allowed.`);
+          }
+          seenCombos.add(comboKey);
         }
-        seenCombos.add(comboKey);
       });
     });
 
-    // Check if any drawing is not fully allocated or exceeded
+    // Check if any drawing is under-allocated (less than required quantity)
+    // Vendor can submit when offered qty is equal to or exceeds required qty
     drawingSummaryData.forEach(dwg => {
       if (dwg.offeredQty < dwg.requiredQty) {
         errors.push(`Drawing ${dwg.drawingNo}: Allocated ${dwg.offeredQty} of ${dwg.requiredQty} required.`);
-      } else if (dwg.offeredQty > dwg.requiredQty) {
-        errors.push(`Drawing ${dwg.drawingNo}: Allocated ${dwg.offeredQty} exceeds ${dwg.requiredQty} required.`);
       }
     });
 
     // Check if any row qtyToUse exceeds availableQty for that batch & drawing
     lots.forEach(lot => {
       (lot.rows || []).forEach((r, rIdx) => {
-        const avail = getBatchDrawingAvailableQty(r.batchNo, r.drawingNo);
-        if (r.qtyToUse > avail) {
-          errors.push(`${lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds Available Qty (${avail}).`);
+        if (r.batchNo && r.drawingNo) {
+          const avail = getBatchDrawingAvailableQty(r.batchNo, r.drawingNo);
+          if (r.qtyToUse > avail) {
+            errors.push(`${lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds Available Qty (${avail}).`);
+          }
         }
       });
     });
@@ -790,7 +795,7 @@ const NCRGRSPFinalInspectionCall = ({
       isValid: errors.length === 0,
       errors
     };
-  }, [selectedProcessCertNos, noOfSets, noOfLots, totalRequiredQty, drawingSummaryData, lots]);
+  }, [selectedProcessCertNos, noOfSets, noOfLots, totalRequiredQty, totalOfferedQty, drawingSummaryData, lots]);
 
   // ── Submit Handler ──
   const handleSubmitCall = async () => {
@@ -1159,7 +1164,13 @@ const NCRGRSPFinalInspectionCall = ({
                 <span style={{ background: '#e6f4ff', color: '#0958d9', padding: '4px 12px', borderRadius: 20, border: '1px solid #91caff' }}>
                   Total Required Qty: <strong>{totalRequiredQty.toLocaleString()}</strong>
                 </span>
-                <span style={{ background: totalOfferedQty === totalRequiredQty ? '#f6ffed' : '#fff7e6', color: totalOfferedQty === totalRequiredQty ? '#389e0d' : '#d46b08', padding: '4px 12px', borderRadius: 20, border: totalOfferedQty === totalRequiredQty ? '1px solid #b7eb8f' : '1px solid #ffd591' }}>
+                <span style={{
+                  background: totalOfferedQty >= totalRequiredQty ? '#f6ffed' : '#fff7e6',
+                  color: totalOfferedQty >= totalRequiredQty ? '#389e0d' : '#d46b08',
+                  padding: '4px 12px',
+                  borderRadius: 20,
+                  border: totalOfferedQty >= totalRequiredQty ? '1px solid #b7eb8f' : '1px solid #ffd591'
+                }}>
                   Total Qty to be Offered: <strong>{totalOfferedQty.toLocaleString()}</strong>
                 </span>
               </div>
@@ -1186,7 +1197,7 @@ const NCRGRSPFinalInspectionCall = ({
                       <td style={{ ...tdStyle, fontWeight: 700, color: '#1677ff' }}>{row.drawingNo}</td>
                       <td style={tdStyle}>{row.qtyPerSet}</td>
                       <td style={{ ...tdStyle, fontWeight: 700 }}>{row.requiredQty.toLocaleString()}</td>
-                      <td style={{ ...tdStyle, fontWeight: 800, color: row.isComplete ? '#389e0d' : row.isExceeded ? '#cf1322' : '#0958d9' }}>
+                      <td style={{ ...tdStyle, fontWeight: 800, color: (row.isComplete || row.isExceeded) ? '#389e0d' : '#0958d9' }}>
                         {row.offeredQty.toLocaleString()}
                       </td>
                       <td style={{ ...tdStyle, color: '#64748b' }}>{row.availableInventory.toLocaleString()}</td>
@@ -1202,10 +1213,10 @@ const NCRGRSPFinalInspectionCall = ({
                         ) : row.isExceeded ? (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
-                            background: '#fff2f0', color: '#ff4d4f', border: '1px solid #ffccc7',
+                            background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f',
                             padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800
                           }}>
-                            <AlertCircle size={13} /> Exceeded by {row.offeredQty - row.requiredQty}
+                            <CheckCircle2 size={13} /> Exceeded by {(row.offeredQty - row.requiredQty).toLocaleString()}
                           </span>
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>

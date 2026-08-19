@@ -144,6 +144,26 @@ const inspectionCallService = {
             console.error('Error modifying inspection call:', error);
             throw error;
         }
+    },
+    getCallLetterDetails: async (requestId) => {
+        try {
+            const response = await axios.get(`${API_CONFIG.RAIL_INSPECTION_CALL.replace('/rail-inspection-call', '')}/call-letter/details`, {
+                params: { requestId }
+            });
+            return response.data?.responseData;
+        } catch (error) {
+            console.error('Error fetching call letter details:', error);
+            return null;
+        }
+    },
+    getSummary: async (callNo) => {
+        try {
+            const response = await axios.get(`${BASE_URL}/summary/${callNo}`);
+            return response.data?.responseData;
+        } catch (error) {
+            console.error('Error fetching call summary:', error);
+            return null;
+        }
     }
 };
 

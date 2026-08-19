@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import inspectionCallService from '../../../services/inspectionCallService';
+import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
 import { 
     Search, FileText, Calendar, Package, Eye, 
     ChevronRight, Loader2, AlertCircle, CheckCircle2,
@@ -177,9 +178,46 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
         setTimeout(() => setToast(null), 4000);
     };
 
-    const handleDownloadCallLetter = (call) => {
-        if (!call) return;
-        showToast('success', `Generating Call Letter for Call No: ${call.callNo || call.call_no}`);
+    const handleDownloadCallLetter = async (call) => {
+        const target = call || controlPanelCall || selectedCall;
+        if (!target) return;
+        const callNo = target.callNo || target.call_no;
+        if (!callNo) {
+            showToast('error', 'Call number not found. Cannot generate PDF.');
+            return;
+        }
+
+        try {
+            showToast('info', `Fetching call details & generating PDF for Call No: ${callNo}...`);
+            
+            // 1. Fetch enriched details from backend API (same as ERC / Sleeper)
+            let details = null;
+            try {
+                details = await inspectionCallService.getCallLetterDetails(callNo);
+            } catch (e) {
+                console.warn('Could not fetch call letter details from backend:', e);
+            }
+
+            // 2. Merge call data (same structure as ERC / VendorDashboardPage)
+            const enrichedCall = {
+                ...target,
+                ...(details || {}),
+                callNumber: callNo,
+                call_no: callNo
+            };
+
+            // 3. Generate PDF doc
+            const doc = await generateRailpadCallLetterPDF(enrichedCall, false);
+
+            // 4. Clean & reliable download via jsPDF
+            const filename = `Call_Letter_${String(callNo).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
+            doc.save(filename);
+
+            showToast('success', `Call Letter PDF saved successfully!`);
+        } catch (err) {
+            console.error("Error generating Call Letter PDF:", err);
+            showToast('error', "Failed to generate Call Letter PDF.");
+        }
     };
 
     const handleModifyCall = async (call) => {
