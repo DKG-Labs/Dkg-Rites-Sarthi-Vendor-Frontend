@@ -105,8 +105,44 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     let itemDescStr = merged.itemDesc || merged.itemDescription || (merged.drawingNo ? `COMPOSITE GROOVED RUBBER SOLE PLATES 10 MM THICK FOR WIDER PSC SLEEPERS TO USE WITH 60KG (UIC) & 52KG RAILS TO RDSO DRG NO ${merged.drawingNo}, WITH LATEST ALTERATION IF ANY, SPECIFICATION: IRS T 55-2025 WITH LATEST ALTERATIONS.` : '');
 
     const consigneeVal = merged.consigneeDetail || merged.consignee || '';
-    const qtyOrder = merged.poSrQty || merged.poQty || merged.orderQty || merged.totalQty || merged.qtyOnOrder || '';
-    const qtyOffered = merged.totalOfferedQty || merged.totalQty || merged.qtyOffered || merged.quantityNowOffered || '';
+
+    // Determine UOM and Quantities:
+    // Process Call (RPP) -> always "Nos."
+    // Final Call (RPF) -> UOM from PO Item (e.g. "Set", "Sets", "Nos.") and Set quantities if offered in sets
+    const isProcessCall = (merged.callType || '').toUpperCase() === 'PROCESS' || String(callNo || '').startsWith('RPP-');
+    let effectiveUom = 'Nos.';
+    let effectiveOfferedQty = merged.totalOfferedQty || merged.totalQty || merged.qtyOffered || merged.quantityNowOffered || '';
+    let effectiveOrderQty = merged.poSrQty || merged.poQty || merged.orderQty || merged.qtyOnOrder || merged.totalQty || '';
+
+    if (isProcessCall) {
+        effectiveUom = 'Nos.';
+        effectiveOfferedQty = merged.totalQty || merged.totalOfferedQty || merged.qtyOffered || '';
+    } else {
+        const rawUom = merged.uom || merged.poUom || '';
+        if (rawUom) {
+            effectiveUom = rawUom.trim();
+        } else if (merged.noOfSets && Number(merged.noOfSets) > 0) {
+            effectiveUom = 'Set';
+        } else {
+            effectiveUom = 'Nos.';
+        }
+
+        // For NCRGRSP or calls with sets, if UoM is 'Set' / 'Sets' (or noOfSets is present during raising call)
+        if (effectiveUom.toUpperCase().includes('SET')) {
+            if (merged.noOfSets && Number(merged.noOfSets) > 0) {
+                effectiveOfferedQty = merged.noOfSets;
+            } else if (merged.totalSets && Number(merged.totalSets) > 0) {
+                effectiveOfferedQty = merged.totalSets;
+            }
+        }
+    }
+
+    const formatQtyWithUom = (q) => {
+        if (!q && q !== 0) return '-';
+        const num = Number(q);
+        return isNaN(num) ? `${q} ${effectiveUom}` : `${num.toLocaleString()} ${effectiveUom}`;
+    };
+
     const dpPeriod = merged.deliveryDate || merged.origDp || merged.dpDate || merged.extDp || '';
     const billPayOfficer = merged.billPayOffDesc || merged.billPayingOfficer || merged.billPayingAuthority || '';
 
@@ -119,9 +155,9 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
             String(idx + 1),
             lot.consignee || consigneeVal,
             lot.description || itemDescStr,
-            String(lot.orderQty || lot.totalQty || qtyOrder),
+            formatQtyWithUom(lot.orderQty || lot.totalQty || effectiveOrderQty),
             String(lot.passedQty || '&'),
-            String(lot.offeredQty || qtyOffered),
+            formatQtyWithUom(lot.offeredQty || (effectiveUom.toUpperCase().includes('SET') && lot.noOfSets ? lot.noOfSets : lot.offeredQty) || effectiveOfferedQty),
             lot.deliveryPeriod || dpPeriod,
             lot.bpo || billPayOfficer,
             ''
@@ -132,9 +168,9 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
                 '1',
                 consigneeVal,
                 itemDescStr,
-                String(qtyOrder),
+                formatQtyWithUom(effectiveOrderQty),
                 '&',
-                String(qtyOffered),
+                formatQtyWithUom(effectiveOfferedQty),
                 dpPeriod,
                 billPayOfficer,
                 ''

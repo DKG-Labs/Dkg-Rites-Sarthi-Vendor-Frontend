@@ -187,7 +187,6 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
-    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing || dpInfo.isDisabled;
 
     return (
         <>
@@ -251,55 +250,19 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 </td>
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <div
-                        title={
-                            isCaseNoMissing && item.due > 0 
-                                ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." 
-                                : (dpInfo.isDisabled && item.due > 0 ? dpInfo.reason : "")
-                        }
-                        onClick={() => {
-                            if (isCaseNoMissing && item.due > 0) {
-                                alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
-                            } else if (dpInfo.isDisabled && item.due > 0) {
-                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason}\n\nPlease contact RITES Administrator to extend the DP Date.`);
-                            }
+                    <button
+                        onClick={() => setShowForm(true)}
+                        style={{
+                            padding: '6px 13px', borderRadius: 20, fontSize: 11,
+                            fontWeight: 700, border: 'none', cursor: 'pointer',
+                            background: 'linear-gradient(135deg, #21808d, #0d3b3f)',
+                            color: '#fff',
+                            transition: 'all 0.2s', whiteSpace: 'nowrap',
+                            boxShadow: '0 2px 8px rgba(33,128,141,0.3)'
                         }}
-                        style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
                     >
-                        <button
-                            disabled={shouldDisableRaiseCall}
-                            onClick={(e) => {
-                                if (isCaseNoMissing || dpInfo.isDisabled) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    return;
-                                }
-                                setShowForm(true);
-                            }}
-                            style={{
-                                padding: '6px 13px', borderRadius: 20, fontSize: 11,
-                                fontWeight: 700, border: 'none', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'pointer',
-                                background: shouldDisableRaiseCall
-                                    ? '#f1f5f9'
-                                    : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                                color: shouldDisableRaiseCall ? '#94a3b8' : '#fff',
-                                transition: 'all 0.2s', whiteSpace: 'nowrap',
-                                boxShadow: shouldDisableRaiseCall ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
-                            }}
-                        >
-                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : (dpInfo.isDisabled ? 'Raise Call (Disabled)' : 'Raise Inspection Call'))}
-                        </button>
-                        {isCaseNoMissing && item.due > 0 && (
-                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
-                                ⚠️ Case No. Missing
-                            </div>
-                        )}
-                        {!isCaseNoMissing && dpInfo.isDisabled && item.due > 0 && (
-                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                ⚠️ DP Date Issue
-                            </div>
-                        )}
-                    </div>
+                        Raise Inspection Call
+                    </button>
                 </td>
             </tr>
             {showForm && (

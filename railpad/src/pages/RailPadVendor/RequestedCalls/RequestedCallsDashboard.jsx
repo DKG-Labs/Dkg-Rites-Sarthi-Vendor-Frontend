@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import inspectionCallService from '../../../services/inspectionCallService';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
+import NCRGRSPFinalInspectionCall from '../POAssigned/NCRGRSPFinalInspectionCall';
 import { 
     Search, FileText, Calendar, Package, Eye, 
     ChevronRight, Loader2, AlertCircle, CheckCircle2,
@@ -10,17 +11,24 @@ import {
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 
 const formatPoSrNo = (call) => {
-    if (!call) return 'N/A';
+    if (!call) return '-';
     const rly = call.scrCode || call.rlyCode || call.rlyShortName;
-    let po = call.poNo || '';
-    let sr = call.poSr || call.poSerialNo || '';
+    let po = String(call.poNo || call.po_no || '').trim();
+    let sr = String(call.poSr || call.po_sr || call.poSerialNo || '').trim();
     if (sr && sr.includes('/')) {
         sr = sr.split('/').pop().trim();
     }
     
     let fullPoSr = po;
-    if (sr && !po.endsWith('/' + sr) && !po.endsWith(sr)) {
-        fullPoSr = `${po} / ${sr}`;
+    if (sr && sr !== 'null' && sr !== 'undefined' && sr !== '') {
+        if (!po.includes('/')) {
+            fullPoSr = `${po}/${sr}`;
+        } else {
+            const parts = po.split('/');
+            if (parts.length === 1 || !parts[1] || parts[1] !== sr) {
+                fullPoSr = `${parts[0]}/${sr}`;
+            }
+        }
     }
     
     return rly ? `${rly} / ${fullPoSr}` : fullPoSr;
@@ -218,6 +226,27 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             console.error("Error generating Call Letter PDF:", err);
             showToast('error', "Failed to generate Call Letter PDF.");
         }
+    };
+
+    const handleOpenFullDetails = async (call) => {
+        let target = call || controlPanelCall || selectedCall;
+        if (!target) return;
+
+        // Fetch full call details if lots array is missing/empty
+        if ((!target.lots || target.lots.length === 0) && (target.id || target.callNo)) {
+            try {
+                const fullCall = target.id ? await inspectionCallService.getById(target.id) : await inspectionCallService.getByCallNo(target.callNo);
+                if (fullCall) {
+                    target = fullCall;
+                    setSelectedCall(fullCall);
+                    setControlPanelCall(fullCall);
+                }
+            } catch (err) {
+                console.error("Error fetching full call details for view:", err);
+            }
+        }
+        setIsControlPanelOpen(false);
+        setIsViewingFullDetails(true);
     };
 
     const handleModifyCall = async (call) => {
@@ -497,9 +526,8 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
                                         <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
-                                            {call.scrCode || call.rlyCode || call.rlyShortName ? `${call.scrCode || call.rlyCode || call.rlyShortName} / ` : ''}{call.poNo}
+                                            {formatPoSrNo(call)}
                                         </div>
-                                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Vendor: {call.vendorCode}</div>
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
                                         <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
@@ -739,10 +767,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                     {/* Operations Grid */}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                                         {/* Operation 1: View Details */}
-                                        <button onClick={() => {
-                                            setIsControlPanelOpen(false);
-                                            setIsViewingFullDetails(true);
-                                        }} style={{
+                                        <button onClick={() => handleOpenFullDetails(controlPanelCall)} style={{
                                             display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
                                             background: '#ffffff', border: '1.5px solid #e2e8f0', borderLeft: '4px solid #3b82f6',
                                             borderRadius: '16px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
@@ -816,29 +841,51 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             {isViewingFullDetails && selectedCall && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(6px)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)',
                     zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px'
                 }} onClick={() => setIsViewingFullDetails(false)}>
                     <div style={{
-                        background: '#ffffff', borderRadius: '24px', maxWidth: '960px', width: '100%',
-                        maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
-                        position: 'relative', border: '1px solid #e2e8f0', padding: '0px'
+                        background: '#ffffff',
+                        borderRadius: '20px',
+                        maxWidth: (selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? '1200px' : '960px',
+                        width: '100%',
+                        maxHeight: '94vh',
+                        overflow: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+                        position: 'relative',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }} onClick={(e) => e.stopPropagation()}>
-                        <CallDetailsView 
-                            call={selectedCall} 
-                            transitionHistory={transitionHistory}
-                            loadingHistory={loadingHistory}
-                            processCallDetails={processCallDetails}
-                            loadingDetails={loadingDetails}
-                            onBack={() => setIsViewingFullDetails(false)} 
-                        />
+                        {(selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? (
+                            <NCRGRSPFinalInspectionCall
+                                isReadOnly={true}
+                                callData={selectedCall}
+                                poNo={selectedCall.poNo}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                plantId={selectedCall.plantId || plantId}
+                                vendorCode={selectedCall.vendorCode || vendorCode}
+                                onClose={() => setIsViewingFullDetails(false)}
+                            />
+                        ) : (
+                            <div style={{ maxHeight: '92vh', overflowY: 'auto' }}>
+                                <CallDetailsView 
+                                    call={selectedCall} 
+                                    transitionHistory={transitionHistory}
+                                    loadingHistory={loadingHistory}
+                                    processCallDetails={processCallDetails}
+                                    loadingDetails={loadingDetails}
+                                    onBack={() => setIsViewingFullDetails(false)} 
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* ============ INTERACTIVE MODIFY CALL MODAL ============ */}
-            {isModifyModalOpen && (
+            {isModifyModalOpen && selectedCall && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)',
@@ -846,35 +893,69 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     padding: '20px'
                 }} onClick={() => setIsModifyModalOpen(false)}>
                     <div style={{
-                        background: '#ffffff', borderRadius: '24px', maxWidth: '900px', width: '100%',
-                        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+                        background: '#ffffff',
+                        borderRadius: '20px',
+                        maxWidth: (selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? '1200px' : '900px',
+                        width: '100%',
+                        maxHeight: '94vh',
+                        display: 'flex',
+                        flexDirection: 'column',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
-                        position: 'relative', border: '1px solid #e2e8f0', overflow: 'hidden'
+                        position: 'relative',
+                        border: '1px solid #e2e8f0',
+                        overflow: 'hidden'
                     }} onClick={(e) => e.stopPropagation()}>
-                        
-                        {/* Header Banner - Fixed Top */}
-                        <div style={{
-                            background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                            padding: '24px 32px', color: '#fff',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            flexShrink: 0
-                        }}>
-                            <div>
-                                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, marginBottom: '4px' }}>
-                                    MODIFY {modifyForm.callType === 'FINAL' ? 'FINAL' : 'PROCESS'} INSPECTION CALL
+                        {(selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? (
+                            <NCRGRSPFinalInspectionCall
+                                isReadOnly={false}
+                                isModifyMode={true}
+                                callData={selectedCall}
+                                poNo={selectedCall.poNo}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                plantId={selectedCall.plantId || plantId}
+                                vendorCode={selectedCall.vendorCode || vendorCode}
+                                onSubmitInspectionCall={async (payload) => {
+                                    try {
+                                        showToast('info', `Saving modifications for Call No: ${payload.callNo}...`);
+                                        const res = await inspectionCallService.modifyCall(payload);
+                                        showToast('success', `Inspection Call ${payload.callNo} modified successfully!`);
+                                        setIsModifyModalOpen(false);
+                                        fetchCalls();
+                                        return res;
+                                    } catch (err) {
+                                        console.error("Error saving NCRGRSP modification:", err);
+                                        const msg = err?.response?.data?.responseStatus?.message || err?.response?.data?.message || err?.message || 'Failed to modify inspection call.';
+                                        showToast('error', msg);
+                                        throw err;
+                                    }
+                                }}
+                                onClose={() => setIsModifyModalOpen(false)}
+                            />
+                        ) : (
+                            <>
+                                {/* Header Banner - Fixed Top */}
+                                <div style={{
+                                    background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
+                                    padding: '24px 32px', color: '#fff',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, marginBottom: '4px' }}>
+                                            MODIFY {modifyForm.callType === 'FINAL' ? 'FINAL' : 'PROCESS'} INSPECTION CALL
+                                        </div>
+                                        <h2 style={{ fontSize: '22px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+                                            <Edit size={20} /> {modifyForm.callNo}
+                                        </h2>
+                                    </div>
+                                    <button onClick={() => setIsModifyModalOpen(false)} style={{
+                                        background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%',
+                                        width: '36px', height: '36px', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', cursor: 'pointer', color: '#ffffff'
+                                    }}>
+                                        <X size={20} />
+                                    </button>
                                 </div>
-                                <h2 style={{ fontSize: '22px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
-                                    <Edit size={20} /> {modifyForm.callNo}
-                                </h2>
-                            </div>
-                            <button onClick={() => setIsModifyModalOpen(false)} style={{
-                                background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%',
-                                width: '36px', height: '36px', display: 'flex', alignItems: 'center',
-                                justifyContent: 'center', cursor: 'pointer', color: '#ffffff'
-                            }}>
-                                <X size={20} />
-                            </button>
-                        </div>
 
                         <form onSubmit={handleSaveModification} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
                             {/* Scrollable Form Content */}
@@ -1106,6 +1187,8 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                 </div>
                             </div>
                         </form>
+                    </>
+                )}
                     </div>
                 </div>
             )}
@@ -1313,10 +1396,14 @@ const CallDetailsView = ({ call, transitionHistory, processCallDetails, loadingD
             }}>
                 <div>
                     <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, marginBottom: '4px' }}>
-                        {isProcess ? 'RAISE PROCESS INSPECTION CALL' : 'RAISE FINAL INSPECTION CALL'}
+                        {isProcess ? 'VIEW PROCESS INSPECTION CALL (READ-ONLY)' : 'VIEW FINAL INSPECTION CALL (READ-ONLY)'}
                     </div>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
-                        <Package size={22} /> {formatPoSrNo(call)}
+                    <h2 style={{ fontSize: '22px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+                        <Package size={22} />
+                        <span>CALL NO: <span style={{ color: '#fef08a' }}>{call.callNo || call.call_no || 'N/A'}</span></span>
+                        <span style={{ fontSize: '15px', fontWeight: 700, opacity: 0.85, marginLeft: '8px' }}>
+                            — {formatPoSrNo(call)}
+                        </span>
                     </h2>
                 </div>
                 <button onClick={onBack} style={{
