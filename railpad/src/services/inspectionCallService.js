@@ -123,9 +123,10 @@ const inspectionCallService = {
             throw error;
         }
     },
-    getAvailableFinalBatches: async (callNo) => {
+    getAvailableFinalBatches: async (callNo, excludeCallNo = '') => {
         try {
-            const response = await axios.get(`${BASE_URL}/process/available-final-batches/${callNo}`);
+            const params = excludeCallNo ? { excludeCallNo } : {};
+            const response = await axios.get(`${BASE_URL}/process/available-final-batches/${callNo}`, { params });
             return response.data?.responseData;
         } catch (error) {
             console.error('Error fetching available final batches:', error);
@@ -175,6 +176,19 @@ const inspectionCallService = {
             return response.data?.responseData;
         } catch (error) {
             console.error('Error fetching call summary:', error);
+            return null;
+        }
+    },
+    getSignedCertificate: async (icNumber) => {
+        try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const response = await axios.get(`${API_BASE_URL}/certificate-storage/view`, {
+                params: { icNumber },
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            return response.data;
+        } catch (error) {
+            console.warn(`No signed certificate in Azure for ${icNumber}:`, error?.response?.status || error.message);
             return null;
         }
     }
