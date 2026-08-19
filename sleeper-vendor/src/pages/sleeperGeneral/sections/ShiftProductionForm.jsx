@@ -1617,18 +1617,27 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     };
 
     // Custom dropdown — uses a portal so it escapes overflow:hidden parents
-    const CustomDropdown = ({ value, onChange, options, disabled, placeholder, bold }) => {
+    const CustomDropdown = ({ value, onChange, options, disabled, placeholder, bold, searchable = true }) => {
         const [open, setOpen] = React.useState(false);
+        const [searchTerm, setSearchTerm] = React.useState('');
         const [rect, setRect] = React.useState(null);
         const triggerRef = React.useRef(null);
+        const searchInputRef = React.useRef(null);
 
         const openDropdown = () => {
             if (disabled) return;
             if (!open && triggerRef.current) {
                 setRect(triggerRef.current.getBoundingClientRect());
+                setSearchTerm('');
             }
             setOpen(prev => !prev);
         };
+
+        React.useEffect(() => {
+            if (open && searchInputRef.current) {
+                setTimeout(() => searchInputRef.current?.focus(), 50);
+            }
+        }, [open]);
 
         React.useEffect(() => {
             if (!open) return;
@@ -1653,6 +1662,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
         const displayLabel = value || placeholder || 'Select';
 
+        const filteredOptions = searchable && searchTerm.trim() !== ''
+            ? options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase().trim()))
+            : options;
+
         const dropdownList = open && rect && ReactDOM.createPortal(
             <div
                 id="custom-dropdown-portal"
@@ -1660,52 +1673,82 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                     position: 'fixed',
                     top: rect.bottom + 4,
                     left: rect.left,
-                    width: rect.width,
+                    width: Math.max(rect.width, 240),
                     zIndex: 999999,
                     background: 'white',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #cbd5e1',
                     borderRadius: '10px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                    maxHeight: '260px',
-                    overflowY: 'auto'
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
+                    maxHeight: '280px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
                 }}
             >
-                {placeholder && (
-                    <div
-                        onMouseDown={(e) => { e.preventDefault(); onChange(''); setOpen(false); }}
-                        style={{
-                            padding: '10px 16px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            borderBottom: '1px solid #f1f5f9',
-                            background: !value ? '#1a69d8' : 'white',
-                            color: !value ? 'white' : '#94a3b8',
-                            borderRadius: '10px 10px 0 0'
-                        }}
-                    >
-                        {placeholder}
+                {searchable && options.length > 3 && (
+                    <div style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="🔍 Search Drawing No. / option..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: '100%',
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px',
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                            }}
+                        />
                     </div>
                 )}
-                {options.map((opt, idx) => (
-                    <div
-                        key={opt}
-                        onMouseDown={(e) => { e.preventDefault(); onChange(opt); setOpen(false); }}
-                        style={{
-                            padding: '10px 16px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            background: value === opt ? '#1a69d8' : 'white',
-                            color: value === opt ? 'white' : '#1e293b',
-                            borderRadius: idx === options.length - 1 ? '0 0 10px 10px' : '0',
-                            transition: 'background 0.15s'
-                        }}
-                        onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = '#f1f5f9'; }}
-                        onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = 'white'; }}
-                    >
-                        {opt}
-                    </div>
-                ))}
+                <div style={{ overflowY: 'auto', flex: 1, maxHeight: '220px' }}>
+                    {placeholder && (
+                        <div
+                            onMouseDown={(e) => { e.preventDefault(); onChange(''); setOpen(false); }}
+                            style={{
+                                padding: '10px 16px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                borderBottom: '1px solid #f1f5f9',
+                                background: !value ? '#1a69d8' : 'white',
+                                color: !value ? 'white' : '#94a3b8'
+                            }}
+                        >
+                            {placeholder}
+                        </div>
+                    )}
+                    {filteredOptions.length === 0 ? (
+                        <div style={{ padding: '12px 16px', fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>
+                            No options found
+                        </div>
+                    ) : (
+                        filteredOptions.map((opt, idx) => (
+                            <div
+                                key={opt}
+                                onMouseDown={(e) => { e.preventDefault(); onChange(opt); setOpen(false); }}
+                                style={{
+                                    padding: '10px 16px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    background: value === opt ? '#1a69d8' : 'white',
+                                    color: value === opt ? 'white' : '#1e293b',
+                                    transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = '#f1f5f9'; }}
+                                onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = 'white'; }}
+                            >
+                                {opt}
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>,
             document.body
         );
@@ -3112,6 +3155,10 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                             finalSleepers = finalSleepers || [];
 
                                                             const originalSleeperList = (isOriginalBench && !isTurnout) ? group._originalSleeperList : null;
+                                                            const validSet = new Set(finalSleepers);
+                                                            const filteredSleeperList = (originalSleeperList && Array.isArray(originalSleeperList))
+                                                                ? originalSleeperList.filter(s => validSet.has(s.sleeperNo))
+                                                                : finalSleepers.map(s => ({ id: 0, sleeperNo: s }));
                                                             
                                                             return {
                                                                 id: group.id || 0,
@@ -3122,7 +3169,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                                 sleeperCategory: group.sleeperCategory || 'Mainline',
                                                                 totalSleepers: finalSleepers.length,
                                                                 sleepers: finalSleepers,
-                                                                sleeperList: originalSleeperList || finalSleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                                sleeperList: filteredSleeperList
                                                             };
                                                         });
                                                     })
@@ -3158,6 +3205,11 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                 sleepers = sleepers || [];
                                                 const explicitRft = entry.totalRmt ? parseFloat(entry.totalRmt) : 0;
 
+                                                const validSetLong = new Set(sleepers);
+                                                const filteredLongSleeperList = (entry._originalSleeperList && !isTurnout && Array.isArray(entry._originalSleeperList))
+                                                    ? entry._originalSleeperList.filter(s => validSetLong.has(s.sleeperNo))
+                                                    : sleepers.map(s => ({ id: 0, sleeperNo: s }));
+
                                                 return {
                                                     id: entry.originalId || 0,
                                                     mode,
@@ -3171,7 +3223,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                                     totalSleepers: sleepers.length,
                                                     rft: explicitRft,
                                                     sleepers,
-                                                    sleeperList: (entry._originalSleeperList && !isTurnout) ? entry._originalSleeperList : sleepers.map(s => ({ id: 0, sleeperNo: s }))
+                                                    sleeperList: filteredLongSleeperList
                                                 };
                                             }) : []
                                     };
