@@ -145,6 +145,19 @@ const inspectionCallService = {
             throw error;
         }
     },
+    withdrawCall: async (data) => {
+        try {
+            const response = await axios.post(`${BASE_URL}/withdraw`, data, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data?.responseData;
+        } catch (error) {
+            console.error('Error withdrawing inspection call:', error);
+            throw error;
+        }
+    },
     getCallLetterDetails: async (requestId) => {
         try {
             const response = await axios.get(`${API_CONFIG.RAIL_INSPECTION_CALL.replace('/rail-inspection-call', '')}/call-letter/details`, {

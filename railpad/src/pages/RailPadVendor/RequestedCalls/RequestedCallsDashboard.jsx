@@ -291,16 +291,33 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const handleWithdrawSubmit = async () => {
         if (!withdrawRemarks.trim()) return;
+        const targetCall = controlPanelCall;
+        const callNo = targetCall?.callNo || targetCall?.call_no;
+        if (!callNo) {
+            showToast('error', 'Call number not found.');
+            return;
+        }
+
         try {
             setWithdrawing(true);
-            // Submit withdrawal call
-            alert(`Call ${controlPanelCall?.callNo} withdrawal request submitted successfully.`);
+            const payload = {
+                workflowTransitionId: targetCall?.workflowTransitionId || targetCall?.workflow_transition_id,
+                requestId: callNo,
+                callNo: callNo,
+                withdrawnBy: vendorCode || 'Vendor',
+                actionBy: vendorCode || 'Vendor',
+                remarks: withdrawRemarks.trim()
+            };
+            await inspectionCallService.withdrawCall(payload);
+            showToast('success', `Inspection call ${callNo} has been withdrawn successfully.`);
             setIsWithdrawModalOpen(false);
             setIsControlPanelOpen(false);
             setWithdrawRemarks('');
             fetchCalls();
         } catch (err) {
             console.error("Error withdrawing call:", err);
+            const errMsg = err?.response?.data?.responseStatus?.message || err?.message || 'Failed to withdraw inspection call.';
+            showToast('error', errMsg);
         } finally {
             setWithdrawing(false);
         }
@@ -661,7 +678,16 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                                     <User size={12} /> IE ASSIGNED
                                                 </div>
                                                 <div style={{ fontWeight: 800, fontSize: '15px', color: '#059669' }}>
-                                                    {(transitionHistory || []).slice().reverse().find(t => t.assignedToUserName)?.assignedToUserName || controlPanelCall.ieAssignedName || 'IE Not Assigned'}
+                                                    {(() => {
+                                                        const hasVerified = (transitionHistory || []).some(t => {
+                                                            const act = (t.action || '').toUpperCase();
+                                                            const st = (t.status || '').toUpperCase();
+                                                            return act.includes('VERIFY') || act.includes('SCHEDULE') || act.includes('INITIATE') || act.includes('ISSUE') || act.includes('COMPLET')
+                                                                || st.includes('VERIFY') || st.includes('REGISTERED') || st.includes('SCHEDULE') || st.includes('INITIATE') || st.includes('ISSUE') || st.includes('COMPLET');
+                                                        });
+                                                        if (!hasVerified) return 'No ie assigned';
+                                                        return controlPanelCall.ieAssignedName || (transitionHistory || []).slice().reverse().find(t => t.assignedToUserName)?.assignedToUserName || 'No ie assigned';
+                                                    })()}
                                                 </div>
                                             </div>
 
@@ -1267,7 +1293,15 @@ const StatBox = ({ label, value, highlight, color, suffix }) => (
 
 const CallDetailsView = ({ call, transitionHistory, processCallDetails, loadingDetails, onBack }) => {
     const isProcess = call.callType === 'PROCESS';
-    const assignedIeName = (transitionHistory || []).slice().reverse().find(t => t.assignedToUserName)?.assignedToUserName || call.ieAssignedName || 'IE Not Assigned';
+    const hasVerified = (transitionHistory || []).some(t => {
+        const act = (t.action || '').toUpperCase();
+        const st = (t.status || '').toUpperCase();
+        return act.includes('VERIFY') || act.includes('SCHEDULE') || act.includes('INITIATE') || act.includes('ISSUE') || act.includes('COMPLET')
+            || st.includes('VERIFY') || st.includes('REGISTERED') || st.includes('SCHEDULE') || st.includes('INITIATE') || st.includes('ISSUE') || st.includes('COMPLET');
+    });
+    const assignedIeName = hasVerified 
+        ? (call.ieAssignedName || (transitionHistory || []).slice().reverse().find(t => t.assignedToUserName)?.assignedToUserName || 'No ie assigned')
+        : 'No ie assigned';
 
     return (
         <div style={{ background: '#fff', borderRadius: '24px', overflow: 'hidden' }}>
