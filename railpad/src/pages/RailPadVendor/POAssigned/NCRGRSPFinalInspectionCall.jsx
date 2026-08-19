@@ -264,7 +264,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RDSO/T-10129', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-10130', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-10131', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10031', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' }
+    // { drawingNo: 'RDSO/T-10031', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' }
   ]
 };
 
