@@ -490,6 +490,11 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
       newErrors.tcNumber = errors.tcNumber;
     }
 
+    /* TC File Upload Validation */
+    if (!tcFileName && !tcFileBase64 && !editData?.tcFilePath) {
+      newErrors.tcFile = 'TC Document PDF is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -619,6 +624,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     reader.onload = () => {
       setTcFileBase64(reader.result);
       setTcFileName(file.name);
+      setErrors(prev => ({ ...prev, tcFile: '' }));
       setNotification({ message: `File "${file.name}" selected.`, type: 'success' });
     };
     reader.onerror = () => setNotification({ message: 'Failed to read file.', type: 'error' });
@@ -723,11 +729,11 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
             <div className="tc-repeat-row full-width">
               {/* TC Document Upload */}
               <div className="form-group">
-                <label style={{ fontWeight: 600 }}>Upload TC Document</label>
+                <label style={{ fontWeight: 600 }}>Upload TC Document <span className="required">*</span></label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
                   <label htmlFor="tcFileInput" style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    padding: '8px 16px', background: '#3b82f6', color: '#fff',
+                    padding: '8px 16px', background: errors.tcFile ? '#ef4444' : '#3b82f6', color: '#fff',
                     borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500
                   }}>
                     📎 {tcFileName ? 'Change File' : 'Browse PDF'}
@@ -761,6 +767,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
                     >📄 View Existing TC</a>
                   )}
                 </div>
+                {errors.tcFile && <span className="error-msg" style={{ display: 'block', marginTop: '4px' }}>{errors.tcFile}</span>}
               </div>
 
               <div className="form-group repeat-options">
