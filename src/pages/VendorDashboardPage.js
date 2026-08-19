@@ -4424,8 +4424,6 @@ const VendorDashboardPage = ({ onBack }) => {
                                                 (() => {
                                                   // Get all approved Sub POs for this PO (shared across all items,  selectedSubPOsByItem[item.id] || )
                                                   const approvedSubPOs = getApprovedSubPOsForPO(po);
-
-                                                  // Sort the items based on current sort state
                                                   const sortedItems = getSortedPOItems(po.id, po.items);
 
                                                   return sortedItems.map((item) => {
@@ -4433,7 +4431,27 @@ const VendorDashboardPage = ({ onBack }) => {
                                                     const activeRole = localStorage.getItem('activeRole') || '';
                                                     const isErcVendor = !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' || (po?.item_category && (po.item_category.toLowerCase().includes('elastic rail') || po.item_category.toUpperCase().includes('ERC')));
                                                     const isCaseNoMissing = !po.case_no || po.case_no === 'N/A' || po.case_no.trim() === '' || po.case_no === '-';
-                                                    const shouldDisableRaiseCall = isErcVendor && isCaseNoMissing;
+
+                                                    let isOdpExpired = false;
+                                                    if (item.delivery_period) {
+                                                      const odpDate = new Date(item.delivery_period);
+                                                      odpDate.setHours(23, 59, 59, 999);
+                                                      isOdpExpired = new Date() > odpDate;
+                                                    }
+
+                                                    const shouldDisableRaiseCall = (isErcVendor && isCaseNoMissing) || isOdpExpired;
+
+                                                    const disableReason = (isErcVendor && isCaseNoMissing)
+                                                      ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
+                                                      : (isOdpExpired ? `Original Delivery Period (ODP) date (${formatDate(item.delivery_period).replace(/-/g, '.')}) has expired for this item.` : '');
+
+                                                    const disableTitle = (isErcVendor && isCaseNoMissing)
+                                                      ? "Case No. not found for this PO. Please contact RITES Admin."
+                                                      : (isOdpExpired ? "Original Delivery Period (ODP) has expired." : "");
+
+                                                    const disableTooltipText = (isErcVendor && isCaseNoMissing)
+                                                      ? "⚠️ Case No. not available for this PO. Inspection call disabled."
+                                                      : (isOdpExpired ? "⚠️ Original Delivery Period (ODP) has expired. Inspection call disabled." : "");
 
                                                     return (
                                                       <tr key={item.id}>
@@ -4453,7 +4471,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                               onMouseLeave={() => setHoveredDisabledPoItemId(null)}
                                                               onClick={() => {
                                                                 if (shouldDisableRaiseCall) {
-                                                                  alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                                                                  alert(`Cannot Raise Inspection Request:\n${disableReason}`);
                                                                 }
                                                               }}
                                                               style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
@@ -4461,12 +4479,12 @@ const VendorDashboardPage = ({ onBack }) => {
                                                               <button
                                                                 className="btn btn-sm btn-primary"
                                                                 disabled={shouldDisableRaiseCall}
-                                                                title={shouldDisableRaiseCall ? "Case No. not found for this PO. Please contact RITES Admin." : ""}
+                                                                title={disableTitle}
                                                                 onClick={(e) => {
                                                                   if (shouldDisableRaiseCall) {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                                                                    alert(`Cannot Raise Inspection Request:\n${disableReason}`);
                                                                     return;
                                                                   }
                                                                   const subPOData = selectedSubPO
@@ -4502,7 +4520,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                                   fontWeight: '500',
                                                                   pointerEvents: 'none'
                                                                 }}>
-                                                                  ⚠️ Case No. not available for this PO. Inspection call disabled.
+                                                                  {disableTooltipText}
                                                                 </div>
                                                               )}
                                                             </div>
