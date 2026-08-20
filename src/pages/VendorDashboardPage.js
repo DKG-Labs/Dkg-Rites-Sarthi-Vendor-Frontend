@@ -4432,26 +4432,32 @@ const VendorDashboardPage = ({ onBack }) => {
                                                     const isErcVendor = !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' || (po?.item_category && (po.item_category.toLowerCase().includes('elastic rail') || po.item_category.toUpperCase().includes('ERC')));
                                                     const isCaseNoMissing = !po.case_no || po.case_no === 'N/A' || po.case_no.trim() === '' || po.case_no === '-';
 
+                                                    const effectiveDpPeriod = item.extended_delivery_period || item.delivery_period;
+                                                    const isEdpUsed = !!item.extended_delivery_period;
+
                                                     let isOdpExpired = false;
-                                                    if (item.delivery_period) {
-                                                      const odpDate = new Date(item.delivery_period);
-                                                      odpDate.setHours(23, 59, 59, 999);
-                                                      isOdpExpired = new Date() > odpDate;
+                                                    if (effectiveDpPeriod) {
+                                                      const dpDate = new Date(effectiveDpPeriod);
+                                                      dpDate.setHours(23, 59, 59, 999);
+                                                      isOdpExpired = new Date() > dpDate;
                                                     }
 
                                                     const shouldDisableRaiseCall = (isErcVendor && isCaseNoMissing) || isOdpExpired;
 
+                                                    const dpTypeLabel = isEdpUsed ? "Extended Delivery Period (EDP)" : "Original Delivery Period (ODP)";
+                                                    const dpShortLabel = isEdpUsed ? "EDP" : "ODP";
+
                                                     const disableReason = (isErcVendor && isCaseNoMissing)
                                                       ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
-                                                      : (isOdpExpired ? `Original Delivery Period (ODP) date (${formatDate(item.delivery_period).replace(/-/g, '.')}) has expired for this item.` : '');
+                                                      : (isOdpExpired ? `${dpTypeLabel} date (${formatDate(effectiveDpPeriod).replace(/-/g, '.')}) has expired for this item.` : '');
 
                                                     const disableTitle = (isErcVendor && isCaseNoMissing)
                                                       ? "Case No. not found for this PO. Please contact RITES Admin."
-                                                      : (isOdpExpired ? "Original Delivery Period (ODP) has expired." : "");
+                                                      : (isOdpExpired ? `${dpTypeLabel} has expired.` : "");
 
                                                     const disableTooltipText = (isErcVendor && isCaseNoMissing)
                                                       ? "⚠️ Case No. not available for this PO. Inspection call disabled."
-                                                      : (isOdpExpired ? "⚠️ Original Delivery Period (ODP) has expired. Inspection call disabled." : "");
+                                                      : (isOdpExpired ? `⚠️ ${dpTypeLabel} (${dpShortLabel}) has expired. Inspection call disabled.` : "");
 
                                                     return (
                                                       <tr key={item.id}>
