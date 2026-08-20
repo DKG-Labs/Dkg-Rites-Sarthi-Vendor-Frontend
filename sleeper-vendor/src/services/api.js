@@ -1088,7 +1088,29 @@ export const apiService = {
 
     getIMMSPOData: async (payload) => {
         try {
-            const token = sessionStorage.getItem('token');
+            const token = sessionStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+
+            let finalPayload = { ...payload };
+            if (!finalPayload.poDate && finalPayload.poNo) {
+                try {
+                    const poDateRes = await apiService.getPoDateByPoNo(finalPayload.poNo);
+                    const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                    if (rawPoDate) {
+                        let dateStr = String(rawPoDate).trim();
+                        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+                        if (!dateStr.includes('/') && dateStr.includes('-')) {
+                            const p = dateStr.split('-');
+                            if (p.length === 3) {
+                                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+                            }
+                        }
+                        finalPayload.poDate = dateStr;
+                    }
+                } catch (e) {
+                    console.warn('Could not auto-fetch poDate in getIMMSPOData:', e);
+                }
+            }
 
             const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
                 method: 'POST',
@@ -1096,7 +1118,7 @@ export const apiService = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
             if (!response.ok) {
                 const text = await response.text();
@@ -1111,14 +1133,37 @@ export const apiService = {
 
     getIMMSMAData: async (payload) => {
         try {
-            const token = sessionStorage.getItem('token');
+            const token = sessionStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+
+            let finalPayload = { ...payload };
+            if (!finalPayload.poDate && finalPayload.poNo) {
+                try {
+                    const poDateRes = await apiService.getPoDateByPoNo(finalPayload.poNo);
+                    const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                    if (rawPoDate) {
+                        let dateStr = String(rawPoDate).trim();
+                        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+                        if (!dateStr.includes('/') && dateStr.includes('-')) {
+                            const p = dateStr.split('-');
+                            if (p.length === 3) {
+                                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+                            }
+                        }
+                        finalPayload.poDate = dateStr;
+                    }
+                } catch (e) {
+                    console.warn('Could not auto-fetch poDate in getIMMSMAData:', e);
+                }
+            }
+
             const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
             if (!response.ok) {
                 const text = await response.text();
@@ -1133,7 +1178,7 @@ export const apiService = {
 
     getPoDateByPoNo: async (poNo) => {
         try {
-            const token = sessionStorage.getItem('token');
+            const token = sessionStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('token');
             const response = await fetch(`${BASE_URL}/Vendorsync/po-date?poNo=${encodeURIComponent(poNo)}`, {
                 method: 'GET',
                 headers: {
@@ -1141,13 +1186,12 @@ export const apiService = {
                 }
             });
             if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || 'Failed to fetch PO Date');
+                return null;
             }
             return await response.json();
         } catch (error) {
             console.error('Get PO Date Error:', error);
-            throw error;
+            return null;
         }
     },
 

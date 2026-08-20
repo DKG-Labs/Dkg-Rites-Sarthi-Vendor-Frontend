@@ -1,5 +1,13 @@
 import { getBaseUrl } from './apiConfig';
 
+const getAuthToken = () => {
+    return localStorage.getItem('authToken') || 
+           localStorage.getItem('token') || 
+           sessionStorage.getItem('token') || 
+           localStorage.getItem('railpad_token') || 
+           sessionStorage.getItem('authToken') || '';
+};
+
 /**
  * Service to handle IMMS PO Synchronization (CRIS Integration)
  * Standardized across Sleeper and ERC modules.
@@ -12,7 +20,7 @@ export const immsService = {
     authenticateIMMS: async () => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
 
             const response = await fetch(`${baseUrl}/Vendorsync/authenticate`, {
                 method: 'POST',
@@ -47,15 +55,38 @@ export const immsService = {
     getIMMSPOData: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
 
+            let finalPayload = { ...payload };
+            if (!finalPayload.poDate && finalPayload.poNo) {
+                try {
+                    const poDateRes = await immsService.getPoDateByPoNo(finalPayload.poNo);
+                    const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                    if (rawPoDate) {
+                        let dateStr = String(rawPoDate).trim();
+                        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+                        if (!dateStr.includes('/') && dateStr.includes('-')) {
+                            const p = dateStr.split('-');
+                            if (p.length === 3) {
+                                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+                            }
+                        }
+                        finalPayload.poDate = dateStr;
+                    }
+                } catch (e) {
+                    console.warn('Could not auto-fetch poDate in getIMMSPOData:', e);
+                }
+            }
+
+            console.log('Calling /Vendorsync/fetch-po with payload:', finalPayload);
             const response = await fetch(`${baseUrl}/Vendorsync/fetch-po`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
 
             if (!response.ok) {
@@ -77,15 +108,38 @@ export const immsService = {
     getIMMSMAData: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
 
+            let finalPayload = { ...payload };
+            if (!finalPayload.poDate && finalPayload.poNo) {
+                try {
+                    const poDateRes = await immsService.getPoDateByPoNo(finalPayload.poNo);
+                    const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                    if (rawPoDate) {
+                        let dateStr = String(rawPoDate).trim();
+                        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+                        if (!dateStr.includes('/') && dateStr.includes('-')) {
+                            const p = dateStr.split('-');
+                            if (p.length === 3) {
+                                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+                            }
+                        }
+                        finalPayload.poDate = dateStr;
+                    }
+                } catch (e) {
+                    console.warn('Could not auto-fetch poDate in getIMMSMAData:', e);
+                }
+            }
+
+            console.log('Calling /Vendorsync/fetch-po (MA) with payload:', finalPayload);
             const response = await fetch(`${baseUrl}/Vendorsync/fetch-po`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
 
             if (!response.ok) {
@@ -106,9 +160,9 @@ export const immsService = {
     getPoDateByPoNo: async (poNo) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             
-            const response = await fetch(`${baseUrl}/Vendorsync/po-date?poNo=${poNo}`, {
+            const response = await fetch(`${baseUrl}/Vendorsync/po-date?poNo=${encodeURIComponent(poNo)}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -132,7 +186,7 @@ export const immsService = {
     savePOToSarthi: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             
             // Note: The new uat-sarthi backend uses /Vendorsync/save for this
             const response = await fetch(`${baseUrl}/Vendorsync/save`, {
@@ -157,7 +211,7 @@ export const immsService = {
     savePoMaToSarthi: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             
             const response = await fetch(`${baseUrl}/Vendorsync/savePoMa`, {
                 method: 'POST',
@@ -181,7 +235,7 @@ export const immsService = {
     savePoCaToSarthi: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             
             const response = await fetch(`${baseUrl}/Vendorsync/savePoCa`, {
                 method: 'POST',
@@ -202,7 +256,7 @@ export const immsService = {
     getRlyList: async () => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             const response = await fetch(`${baseUrl}/vendor-plant/Rlylist`, {
                 method: 'GET',
                 headers: { 
@@ -222,7 +276,7 @@ export const immsService = {
     getPoAssigned: async (vendorCode, vendorType = 'Elastic Rail Clips') => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             const endpoint = `${baseUrl}/vendor/po-data?vendorCode=${encodeURIComponent(vendorCode)}&vendorType=${encodeURIComponent(vendorType)}`;
             const response = await fetch(endpoint, {
                 headers: {
@@ -241,7 +295,7 @@ export const immsService = {
     getIbsCaseNo: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             const response = await fetch(`${baseUrl}/ibs/get-case-no`, {
                 method: 'POST',
                 headers: {
@@ -261,7 +315,7 @@ export const immsService = {
     saveIbsCaseNo: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
-            const token = localStorage.getItem('authToken');
+            const token = getAuthToken();
             const response = await fetch(`${baseUrl}/ibs/save-case-no`, {
                 method: 'POST',
                 headers: {
