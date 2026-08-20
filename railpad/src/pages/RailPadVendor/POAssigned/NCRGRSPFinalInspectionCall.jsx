@@ -284,6 +284,47 @@ const DEFAULT_BATCH_INVENTORY = {};
 
 const normalizeDwg = (dwg) => (dwg || '').replace(/^(RDSO\/|RDSO-)/i, '').trim().toUpperCase();
 
+const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
+  if (!dwgOrType && (!lotsData || lotsData.length === 0)) {
+    return 'Pocket Type NCR GRSP – 1 in 12 Turnout for 25T Axle Load (T-9790)';
+  }
+  
+  // 1. Direct key match
+  if (NCRGRSP_CATALOG[dwgOrType]) return dwgOrType;
+
+  // 2. Exact / normalized match on key names
+  const norm = normalizeDwg(dwgOrType);
+  for (const key of Object.keys(NCRGRSP_CATALOG)) {
+    if (normalizeDwg(key) === norm || key.toLowerCase().includes(String(dwgOrType).toLowerCase()) || String(dwgOrType).toLowerCase().includes(key.toLowerCase())) {
+      return key;
+    }
+  }
+
+  // 3. Search drawing numbers inside catalog items
+  const candidateDrawings = [dwgOrType];
+  if (Array.isArray(lotsData)) {
+    lotsData.forEach(l => (l.batches || l.rows || []).forEach(b => {
+      if (b.drawingNo) candidateDrawings.push(b.drawingNo);
+    }));
+  }
+
+  for (const d of candidateDrawings) {
+    if (!d) continue;
+    const normD = normalizeDwg(d);
+    for (const [key, items] of Object.entries(NCRGRSP_CATALOG)) {
+      if (items.some(item => normalizeDwg(item.drawingNo) === normD || normalizeDwg(item.drawingNo).includes(normD) || normD.includes(normalizeDwg(item.drawingNo)))) {
+        return key;
+      }
+    }
+  }
+
+  if (String(dwgOrType).includes('10.00mm') || String(dwgOrType).includes('10mm') || String(dwgOrType).includes('9790') || String(dwgOrType).includes('10093') || String(dwgOrType).includes('10114')) {
+    return 'Pocket Type NCR GRSP – 1 in 12 Turnout for 25T Axle Load (T-9790)';
+  }
+
+  return Object.keys(NCRGRSP_CATALOG)[0];
+};
+
 // ─── Main NCRGRSP Component ───────────────────────────────────────────────────
 const NCRGRSPFinalInspectionCall = ({
   srItem,
@@ -293,21 +334,50 @@ const NCRGRSPFinalInspectionCall = ({
   onClose,
   onSubmitInspectionCall,
   initialRailPadType = Object.keys(NCRGRSP_CATALOG)[0],
-  onRailPadTypeChange
+  onRailPadTypeChange,
+  isReadOnly = false,
+  isModifyMode = false,
+  callData = null
 }) => {
+  const effectivePoNo = poNo || callData?.poNo || callData?.po_no || '';
+  const effectiveSrItem = srItem || {
+    itemSrNo: callData?.poSr || callData?.po_sr || '1',
+    orderedQty: callData?.orderedQty || callData?.totalQty || 0,
+    acceptedTillNow: callData?.qtyAcceptedTillNow || 0,
+    rejectedTillNow: callData?.qtyRejectedTillNow || 0,
+    ...callData
+  };
+  const effectiveCallNo = callData?.callNo || callData?.call_no || '';
+
+  const initialResolvedCatalog = callData
+    ? resolveNcrgrspCatalogKey(callData?.drawingNo || callData?.railPadType || initialRailPadType, callData?.lots)
+    : '';
+
   // ── Form State ──
-  const [selectedRailPadType, setSelectedRailPadType] = useState(initialRailPadType || '');
-  const [ncrgrspType, setNcrgrspType] = useState(
-    NCRGRSP_CATALOG[initialRailPadType] ? initialRailPadType : Object.keys(NCRGRSP_CATALOG)[0]
+  const [selectedRailPadType, setSelectedRailPadType] = useState(
+    callData?.railPadType || initialRailPadType || '10.00mm NCRGRSP'
   );
-  const [selectedProcessCertNos, setSelectedProcessCertNos] = useState([]);
+  const [ncrgrspType, setNcrgrspType] = useState(initialResolvedCatalog);
+  const [selectedProcessCertNos, setSelectedProcessCertNos] = useState(
+    callData?.processIcNo ? callData.processIcNo.split(',').map(s => s.trim()).filter(Boolean) : []
+  );
   const [isCertDropdownOpen, setIsCertDropdownOpen] = useState(false);
   const certDropdownRef = useRef(null);
 
-  const [noOfSets, setNoOfSets] = useState(0);
-  const [noOfLots, setNoOfLots] = useState(0);
-  const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
-  const [remarks, setRemarks] = useState('');
+  const initialLotsCount = callData?.noOfLots || (callData?.lots && callData.lots.length > 0 ? callData.lots.length : (isReadOnly ? 1 : 0));
+  const [noOfLots, setNoOfLots] = useState(initialLotsCount);
+
+  // Initial Sets Calculation
+  const initialReqList = (initialResolvedCatalog && NCRGRSP_CATALOG[initialResolvedCatalog]) || [];
+  const initialPerSet = initialReqList.reduce((acc, d) => acc + d.qtyPerSet, 0);
+  const initialTotalOffered = callData?.totalQty || (callData?.lots || []).reduce((sum, l) => sum + (l.batches || []).reduce((bSum, b) => bSum + (b.qtyToUse || b.quantity || 0), 0), 0);
+  const initialSets = callData?.noOfSets || callData?.no_of_sets || (initialPerSet > 0 && initialTotalOffered > 0 ? Math.max(1, Math.round(initialTotalOffered / initialPerSet)) : (isReadOnly ? 1 : 0));
+  const [noOfSets, setNoOfSets] = useState(initialSets);
+
+  const [desiredDate, setDesiredDate] = useState(
+    callData?.inspectionDate ? new Date(callData.inspectionDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  );
+  const [remarks, setRemarks] = useState(callData?.remarks || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
@@ -399,7 +469,7 @@ const NCRGRSPFinalInspectionCall = ({
         const results = await Promise.all(
           selectedProcessCertNos.map(async certNo => {
             try {
-              const res = await inspectionCallService.getAvailableFinalBatches(certNo);
+              const res = await inspectionCallService.getAvailableFinalBatches(certNo, effectiveCallNo);
               return (res && Array.isArray(res.batches)) ? res.batches : [];
             } catch (e) {
               console.warn(`Error fetching batches for cert ${certNo}:`, e);
@@ -420,19 +490,32 @@ const NCRGRSPFinalInspectionCall = ({
                 };
               }
               const dwg = b.drawingNo || b.drawing_no || '';
-              const acceptedFromApi = (b.qtyAccepted !== undefined && b.qtyAccepted !== null)
-                ? Number(b.qtyAccepted)
-                : ((b.qty_accepted !== undefined && b.qty_accepted !== null) ? Number(b.qty_accepted) : null);
               const manufactured = Number(b.qtyManufactured || b.quantityProduced || b.quantity || b.totalQty || 0);
               const rejected = Number(b.verificationRejectedQty || b.rejectedQty || b.qtyRejected || 0);
-              const accepted = acceptedFromApi !== null ? acceptedFromApi : Math.max(0, manufactured - rejected);
+              const netAccepted = Math.max(0, manufactured - rejected);
+              const previouslyOffered = Number(b.previouslyOfferedQty || b.alreadyOfferedQty || 0);
+              const remainingQty = Math.max(0, netAccepted - previouslyOffered);
+
+              const dwgInfo = {
+                availableQty: netAccepted,
+                previouslyOfferedQty: previouslyOffered,
+                remainingQty: remainingQty
+              };
 
               if (b.drawings) {
-                Object.entries(b.drawings).forEach(([dNo, qty]) => {
-                  transformed[bNo].drawings[dNo] = (transformed[bNo].drawings[dNo] || 0) + (qty || 0);
+                Object.entries(b.drawings).forEach(([dNo, val]) => {
+                  if (typeof val === 'object' && val !== null) {
+                    transformed[bNo].drawings[dNo] = val;
+                  } else {
+                    transformed[bNo].drawings[dNo] = {
+                      availableQty: Number(val) || 0,
+                      previouslyOfferedQty: 0,
+                      remainingQty: Number(val) || 0
+                    };
+                  }
                 });
               } else if (dwg) {
-                transformed[bNo].drawings[dwg] = (transformed[bNo].drawings[dwg] || 0) + (accepted > 0 ? accepted : manufactured);
+                transformed[bNo].drawings[dwg] = dwgInfo;
               }
             });
           }
@@ -445,11 +528,12 @@ const NCRGRSPFinalInspectionCall = ({
       }
     };
     fetchBatches();
-  }, [selectedProcessCertNos]);
+  }, [selectedProcessCertNos, effectiveCallNo]);
 
   // ── Drawings list for selected NCRGRSP Type ──
   const requiredDrawingsList = useMemo(() => {
-    const catalogEntry = NCRGRSP_CATALOG[ncrgrspType] || NCRGRSP_CATALOG[Object.keys(NCRGRSP_CATALOG)[0]] || [];
+    if (!ncrgrspType || !NCRGRSP_CATALOG[ncrgrspType]) return [];
+    const catalogEntry = NCRGRSP_CATALOG[ncrgrspType] || [];
     const safeList = Array.isArray(catalogEntry) ? catalogEntry : [];
 
     const setsCount = parseInt(noOfSets) || 0;
@@ -473,6 +557,7 @@ const NCRGRSPFinalInspectionCall = ({
 
   // Initialize or adjust lots structure when noOfLots changes
   useEffect(() => {
+    if (isReadOnly) return; // In read-only mode, lots are populated directly from callData
     const count = parseInt(noOfLots) || 0;
     setLots(prevLots => {
       const newLots = [...prevLots];
@@ -507,7 +592,74 @@ const NCRGRSPFinalInspectionCall = ({
       }
       return exp;
     });
-  }, [noOfLots]);
+  }, [noOfLots, isReadOnly]);
+
+  // Populate from existing callData (for Read-Only or View mode)
+  useEffect(() => {
+    if (callData) {
+      if (callData.railPadType) setSelectedRailPadType(callData.railPadType);
+
+      const resolvedCatalogKey = resolveNcrgrspCatalogKey(callData.drawingNo || callData.railPadType, callData.lots);
+      setNcrgrspType(resolvedCatalogKey);
+
+      if (callData.processIcNo) {
+        setSelectedProcessCertNos(callData.processIcNo.split(',').map(s => s.trim()).filter(Boolean));
+      }
+      if (callData.inspectionDate) {
+        try {
+          setDesiredDate(new Date(callData.inspectionDate).toISOString().split('T')[0]);
+        } catch (e) {
+          setDesiredDate(callData.inspectionDate);
+        }
+      }
+      if (callData.remarks) setRemarks(callData.remarks);
+
+      const lotsCount = callData.noOfLots || (callData.lots && callData.lots.length > 0 ? callData.lots.length : 1);
+      setNoOfLots(lotsCount);
+
+      if (Array.isArray(callData.lots) && callData.lots.length > 0) {
+        const mappedLots = callData.lots.map((l, lIdx) => ({
+          stableId: `lot_stable_${lIdx + 1}`,
+          lotId: l.lotNo || `Lot ${lIdx + 1}`,
+          lotName: l.lotNo || `Lot ${lIdx + 1}`,
+          lotIndex: lIdx,
+          lotSize: l.lotSize || (l.batches || []).reduce((sum, b) => sum + (b.qtyToUse || b.quantity || 0), 0),
+          rows: (l.batches && l.batches.length > 0) ? l.batches.map((b, bIdx) => ({
+            id: `row-${lIdx + 1}-${bIdx + 1}`,
+            batchNo: b.batchNo || '',
+            drawingNo: b.drawingNo || '',
+            qtyToUse: b.qtyToUse || b.quantity || 0,
+            availableQty: b.availableQty || (b.qtyToUse || b.quantity || 0),
+            previouslyOfferedQty: b.previouslyOfferedQty || 0,
+            balanceQty: b.balanceQty !== undefined ? b.balanceQty : 0
+          })) : [{
+            id: `row-${lIdx + 1}-1`,
+            batchNo: '',
+            drawingNo: '',
+            qtyToUse: 0
+          }]
+        }));
+        setLots(mappedLots);
+
+        const totalOffered = callData.totalQty || mappedLots.reduce((sum, lot) => sum + (lot.rows || []).reduce((rSum, r) => rSum + (parseInt(r.qtyToUse) || 0), 0), 0);
+        const reqList = NCRGRSP_CATALOG[resolvedCatalogKey] || [];
+        const totalPerSet = reqList.reduce((acc, d) => acc + d.qtyPerSet, 0);
+
+        let calculatedSets = 1;
+        if (callData.noOfSets) {
+          calculatedSets = callData.noOfSets;
+        } else if (callData.no_of_sets) {
+          calculatedSets = callData.no_of_sets;
+        } else if (totalPerSet > 0 && totalOffered > 0) {
+          calculatedSets = Math.max(1, Math.round(totalOffered / totalPerSet));
+        }
+        setNoOfSets(calculatedSets);
+      } else {
+        const calculatedSets = callData.noOfSets || callData.no_of_sets || 1;
+        setNoOfSets(calculatedSets);
+      }
+    }
+  }, [callData]);
 
   // Handle Lot Name change
   const handleLotNameChange = (lotIdx, newName) => {
@@ -607,7 +759,7 @@ const NCRGRSPFinalInspectionCall = ({
     });
   };
 
-  // Handle Qty to Use change in a lot row (strictly capped to Available Quantity)
+  // Handle Qty to Use change in a lot row (strictly capped to Available - Previously Offered)
   const handleRowQtyChange = (lotIdx, rowId, value) => {
     setLots(prev => {
       const updated = [...prev];
@@ -620,9 +772,10 @@ const NCRGRSPFinalInspectionCall = ({
           if (isDuplicate) {
             return { ...r, qtyToUse: 0 };
           }
-          const avail = getBatchDrawingAvailableQty(r.batchNo, r.drawingNo);
+          const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
+          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
           const parsed = value === '' ? 0 : Math.max(0, parseInt(value) || 0);
-          const cappedVal = Math.min(avail, parsed);
+          const cappedVal = Math.min(maxAllowed, parsed);
           return { ...r, qtyToUse: cappedVal };
         }
         return r;
@@ -644,12 +797,13 @@ const NCRGRSPFinalInspectionCall = ({
       });
     });
 
-    // Sum total available inventory per drawing across all batches
+    // Sum total remaining inventory per drawing across all batches
     const inventoryMap = {};
     batchInventory.forEach(b => {
       if (b.drawings) {
-        Object.entries(b.drawings).forEach(([dwg, qty]) => {
-          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + (qty || 0);
+        Object.entries(b.drawings).forEach(([dwg, val]) => {
+          const avail = typeof val === 'object' && val !== null ? val.availableQty : (Number(val) || 0);
+          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + avail;
         });
       }
     });
@@ -710,20 +864,37 @@ const NCRGRSPFinalInspectionCall = ({
     return [];
   };
 
-  // Helper: get available inventory for a specific batch and drawing
-  const getBatchDrawingAvailableQty = (batchNo, drawingNo) => {
-    if (!batchNo || !drawingNo) return 0;
+  // Helper: get drawing information (available, previously offered, remaining) for a specific batch and drawing
+  const getBatchDrawingInfo = (batchNo, drawingNo) => {
+    if (!batchNo || !drawingNo) return { availableQty: 0, previouslyOfferedQty: 0, remainingQty: 0 };
     const batchObj = batchInventory.find(b => String(b.batchNo) === String(batchNo));
-    if (!batchObj || !batchObj.drawings) return 0;
-    if (batchObj.drawings[drawingNo] !== undefined) return batchObj.drawings[drawingNo];
+    if (!batchObj || !batchObj.drawings) return { availableQty: 0, previouslyOfferedQty: 0, remainingQty: 0 };
+    if (batchObj.drawings[drawingNo] !== undefined) {
+      const val = batchObj.drawings[drawingNo];
+      if (typeof val === 'object' && val !== null) return val;
+      return { availableQty: Number(val) || 0, previouslyOfferedQty: 0, remainingQty: Number(val) || 0 };
+    }
     const normTarget = normalizeDwg(drawingNo);
-    for (const [k, q] of Object.entries(batchObj.drawings)) {
+    for (const [k, v] of Object.entries(batchObj.drawings)) {
       const normK = normalizeDwg(k);
       if (normK === normTarget) {
-        return q;
+        if (typeof v === 'object' && v !== null) return v;
+        return { availableQty: Number(v) || 0, previouslyOfferedQty: 0, remainingQty: Number(v) || 0 };
       }
     }
-    return 0;
+    return { availableQty: 0, previouslyOfferedQty: 0, remainingQty: 0 };
+  };
+
+  const getBatchDrawingAvailableQty = (batchNo, drawingNo) => {
+    return getBatchDrawingInfo(batchNo, drawingNo).availableQty;
+  };
+
+  const getBatchDrawingPreviouslyOfferedQty = (batchNo, drawingNo) => {
+    return getBatchDrawingInfo(batchNo, drawingNo).previouslyOfferedQty;
+  };
+
+  const getBatchDrawingRemainingQty = (batchNo, drawingNo) => {
+    return getBatchDrawingInfo(batchNo, drawingNo).remainingQty;
   };
 
   // Auto-calculate required lots whenever totalRequiredQty or totalOfferedQty changes based on 5000 max capacity per lot
@@ -740,6 +911,7 @@ const NCRGRSPFinalInspectionCall = ({
   // ── Validation Rules ──
   const validationResult = useMemo(() => {
     const errors = [];
+    if (!ncrgrspType) errors.push('Please select an NCRGRSP Type.');
     if (!selectedProcessCertNos || selectedProcessCertNos.length === 0) errors.push('Process Inspection Certificate is required.');
     if (!noOfSets || noOfSets <= 0) errors.push('Number of sets must be greater than 0.');
     if (!noOfLots || noOfLots <= 0) errors.push('Number of lots must be greater than 0.');
@@ -779,13 +951,14 @@ const NCRGRSPFinalInspectionCall = ({
       }
     });
 
-    // Check if any row qtyToUse exceeds availableQty for that batch & drawing
+    // Check if any row qtyToUse exceeds allowable balance qty for that batch & drawing
     lots.forEach(lot => {
       (lot.rows || []).forEach((r, rIdx) => {
         if (r.batchNo && r.drawingNo) {
-          const avail = getBatchDrawingAvailableQty(r.batchNo, r.drawingNo);
-          if (r.qtyToUse > avail) {
-            errors.push(`${lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds Available Qty (${avail}).`);
+          const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
+          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
+          if (r.qtyToUse > maxAllowed) {
+            errors.push(`${lot.lotName || lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds allowable balance quantity (${maxAllowed}).`);
           }
         }
       });
@@ -814,22 +987,27 @@ const NCRGRSPFinalInspectionCall = ({
 
       const payload = {
         inspectionCallType: 'FINAL',
+        callType: 'FINAL',
         productType: 'NCRGRSP',
         ncrgrspType,
-        railPadType: selectedRailPadType || ncrgrspType || 'NCRGRSP',
+        drawingNo: ncrgrspType,
+        railPadType: selectedRailPadType || '10.00mm NCRGRSP',
         createdBy: userId,
         updatedBy: userId,
         processInspectionCertNo: selectedProcessCertNos.join(','),
         processIcNo: selectedProcessCertNos.join(','),
         poNo: poNo || '60250003104659',
         poSrNo: srItem?.itemSrNo || srItem?.srNo || '1',
+        poSr: srItem?.itemSrNo || srItem?.srNo || '1',
         plantId: (plantId || '').replace(/^:/, ''),
         vendorCode: (vendorCode || '').replace(/^:/, ''),
         noOfSets,
         noOfLots,
         desiredInspectionDate: desiredDate,
+        inspectionDate: desiredDate,
         totalRequiredQty,
         totalOfferedQty,
+        totalQty: totalOfferedQty,
         drawingRequirementSummary: drawingSummaryData,
         lots: lots.map(l => ({
           lotNo: l.lotName || l.lotId,
@@ -912,9 +1090,60 @@ const NCRGRSPFinalInspectionCall = ({
         </div>
       )}
 
+      {/* Top Banner (Read-Only or Modify Mode) */}
+      {(isReadOnly || isModifyMode || (callData && effectiveCallNo)) && (
+        <div style={{
+          background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
+          padding: '16px 24px', color: '#fff',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0
+        }}>
+          <div>
+            <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, marginBottom: '4px' }}>
+              {isReadOnly ? 'VIEW FINAL INSPECTION CALL (READ-ONLY)' : 'MODIFY FINAL INSPECTION CALL'}
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+              <Package size={22} />
+              <span>CALL NO: <span style={{ color: '#fef08a' }}>{effectiveCallNo}</span></span>
+              <span style={{ fontSize: '14px', fontWeight: 700, opacity: 0.9, marginLeft: '8px' }}>
+                — {effectivePoNo ? `PO: ${effectivePoNo}` : ''} {effectiveSrItem?.itemSrNo ? `(SR: ${effectiveSrItem.itemSrNo})` : ''}
+              </span>
+            </h2>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%',
+            width: '36px', height: '36px', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', cursor: 'pointer', color: '#ffffff', transition: 'all 0.2s'
+          }}>
+            <Plus size={20} style={{ transform: 'rotate(45deg)' }} />
+          </button>
+        </div>
+      )}
+
       {/* Main Form Scroll Container */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Top Field: Type of Call */}
+          <div style={{
+            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)', padding: '14px 20px'
+          }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+              TYPE OF CALL <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <input
+              type="text"
+              readOnly
+              disabled
+              value="Final"
+              style={{
+                width: '260px', padding: '8px 14px', borderRadius: '8px',
+                border: '1px solid #cbd5e1', background: '#f8fafc',
+                color: '#1e293b', fontWeight: 800, fontSize: '14px'
+              }}
+            />
+          </div>
 
           {/* ========================================================================= */}
           {/* SECTION A – CALL HEADER & PO INFORMATION */}
@@ -943,22 +1172,22 @@ const NCRGRSPFinalInspectionCall = ({
               }}>
                 <div style={{ minWidth: 0, flex: 2 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>PO No</div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{poNo || '60250003104659'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{effectivePoNo || '60250003104659'}</div>
                 </div>
                 <div style={{ flexShrink: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>PO Sr No</div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b' }}>{srItem?.itemSrNo || srItem?.srNo || '1'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b' }}>{effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1'}</div>
                 </div>
               </div>
 
               <HeaderCard label="Call Date" value={desiredDate} highlightColor="#1677ff" />
-              <HeaderCard label="Ordered Qty" value={(srItem?.orderedQty || srItem?.ordered || 10000).toLocaleString()} />
+              <HeaderCard label="Ordered Qty" value={(effectiveSrItem?.orderedQty || effectiveSrItem?.ordered || 10000).toLocaleString()} />
               <HeaderCard label="Offered Qty" value={totalOfferedQty.toLocaleString()} highlightColor="#722ed1" />
-              <HeaderCard label="Accepted Qty" value={(srItem?.acceptedTillNow || 0).toLocaleString()} highlightColor="#52c41a" />
-              <HeaderCard label="Rejected Qty" value={(srItem?.rejectedTillNow || 0).toLocaleString()} highlightColor="#ff4d4f" />
+              <HeaderCard label="Accepted Qty" value={(effectiveSrItem?.acceptedTillNow || 0).toLocaleString()} highlightColor="#52c41a" />
+              <HeaderCard label="Rejected Qty" value={(effectiveSrItem?.rejectedTillNow || 0).toLocaleString()} highlightColor="#ff4d4f" />
               <HeaderCard
                 label="Balance Qty"
-                value={Math.max(0, (srItem?.orderedQty || srItem?.ordered || 10000) - (srItem?.acceptedTillNow || 0)).toLocaleString()}
+                value={Math.max(0, (effectiveSrItem?.orderedQty || effectiveSrItem?.ordered || 10000) - (effectiveSrItem?.acceptedTillNow || 0)).toLocaleString()}
                 highlightColor="#fa8c16"
               />
             </div>
@@ -984,26 +1213,36 @@ const NCRGRSPFinalInspectionCall = ({
               {/* Rail Pad Type Dropdown */}
               <div>
                 <label style={labelStyle}>Rail Pad Type <span style={{ color: '#ff4d4f' }}>*</span></label>
-                <select
-                  value={selectedRailPadType}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setSelectedRailPadType(val);
-                    if (onRailPadTypeChange) {
-                      onRailPadTypeChange(val);
-                    }
-                    if (NCRGRSP_CATALOG[val]) {
-                      setNcrgrspType(val);
-                    }
-                    setLots([{ id: 1, rows: [] }]);
-                  }}
-                  style={selectStyle}
-                >
-                  <option value="" disabled>Select Rail Pad Type</option>
-                  {RAIL_PAD_TYPES.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
+                {isReadOnly ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={selectedRailPadType}
+                    style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#1e293b' }}
+                  />
+                ) : (
+                  <select
+                    value={selectedRailPadType}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSelectedRailPadType(val);
+                      if (onRailPadTypeChange) {
+                        onRailPadTypeChange(val);
+                      }
+                      if (NCRGRSP_CATALOG[val]) {
+                        setNcrgrspType(val);
+                      }
+                      setLots([{ id: 1, rows: [] }]);
+                    }}
+                    style={selectStyle}
+                  >
+                    <option value="" disabled>Select Rail Pad Type</option>
+                    {RAIL_PAD_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* NCRGRSP Type Select */}
@@ -1011,15 +1250,26 @@ const NCRGRSPFinalInspectionCall = ({
                 <label style={labelStyle}>
                   NCRGRSP Type <span style={{ color: '#ff4d4f' }}>*</span>
                 </label>
-                <select
-                  value={ncrgrspType}
-                  onChange={e => setNcrgrspType(e.target.value)}
-                  style={selectStyle}
-                >
-                  {Object.keys(NCRGRSP_CATALOG).map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
+                {isReadOnly ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={ncrgrspType}
+                    style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#1e293b' }}
+                  />
+                ) : (
+                  <select
+                    value={ncrgrspType || ''}
+                    onChange={e => setNcrgrspType(e.target.value)}
+                    style={selectStyle}
+                  >
+                    <option value="">Select NCRGRSP Type</option>
+                    {Object.keys(NCRGRSP_CATALOG).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Process Inspection Certificate Multi-Select Dropdown */}
@@ -1027,76 +1277,88 @@ const NCRGRSPFinalInspectionCall = ({
                 <label style={labelStyle}>
                   Process Inspection Certificate <span style={{ color: '#ff4d4f' }}>*</span>
                 </label>
-                <div
-                  onClick={() => setIsCertDropdownOpen(!isCertDropdownOpen)}
-                  style={{
-                    ...selectStyle,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    background: '#fff',
-                    minHeight: 38
-                  }}
-                >
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                    {selectedProcessCertNos.length === 0
-                      ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>Select Process Certificate(s)</span>
-                      : selectedProcessCertNos.join(', ')}
-                  </div>
-                  <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0 }} />
-                </div>
-
-                {isCertDropdownOpen && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                    background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                    zIndex: 1000, padding: 8, maxHeight: 220, overflowY: 'auto'
-                  }}>
+                {isReadOnly ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={selectedProcessCertNos.join(', ') || 'N/A'}
+                    style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#0958d9' }}
+                  />
+                ) : (
+                  <>
                     <div
-                      onClick={toggleSelectAllCerts}
+                      onClick={() => setIsCertDropdownOpen(!isCertDropdownOpen)}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                        borderRadius: 6, cursor: 'pointer', background: '#f8fafc', marginBottom: 4,
-                        fontWeight: 700, fontSize: 12, color: '#0f172a'
+                        ...selectStyle,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        background: '#fff',
+                        minHeight: 38
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedProcessCertNos.length === processCertOptions.length}
-                        onChange={() => { }}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <span>Select All ({processCertOptions.length})</span>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+                        {selectedProcessCertNos.length === 0
+                          ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>Select Process Certificate(s)</span>
+                          : selectedProcessCertNos.join(', ')}
+                      </div>
+                      <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0 }} />
                     </div>
 
-                    {processCertOptions.map(cert => {
-                      const isSelected = selectedProcessCertNos.includes(cert);
-                      return (
+                    {isCertDropdownOpen && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                        background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                        zIndex: 1000, padding: 8, maxHeight: 220, overflowY: 'auto'
+                      }}>
                         <div
-                          key={cert}
-                          onClick={() => toggleProcessCert(cert)}
+                          onClick={toggleSelectAllCerts}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                            borderRadius: 6, cursor: 'pointer',
-                            background: isSelected ? '#eff6ff' : 'transparent',
-                            color: isSelected ? '#1d4ed8' : '#334155',
-                            fontWeight: isSelected ? 700 : 500,
-                            fontSize: 12, marginBottom: 2
+                            borderRadius: 6, cursor: 'pointer', background: '#f8fafc', marginBottom: 4,
+                            fontWeight: 700, fontSize: 12, color: '#0f172a'
                           }}
                         >
                           <input
                             type="checkbox"
-                            checked={isSelected}
+                            checked={selectedProcessCertNos.length === processCertOptions.length}
                             onChange={() => { }}
                             style={{ cursor: 'pointer' }}
                           />
-                          <span>{cert}</span>
+                          <span>Select All ({processCertOptions.length})</span>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        {processCertOptions.map(cert => {
+                          const isSelected = selectedProcessCertNos.includes(cert);
+                          return (
+                            <div
+                              key={cert}
+                              onClick={() => toggleProcessCert(cert)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                                borderRadius: 6, cursor: 'pointer',
+                                background: isSelected ? '#eff6ff' : 'transparent',
+                                color: isSelected ? '#1d4ed8' : '#334155',
+                                fontWeight: isSelected ? 700 : 500,
+                                fontSize: 12, marginBottom: 2
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => { }}
+                                style={{ cursor: 'pointer' }}
+                              />
+                              <span>{cert}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1106,13 +1368,19 @@ const NCRGRSPFinalInspectionCall = ({
                 <input
                   type="number"
                   min="0"
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
                   placeholder="Enter No. of Sets"
-                  value={noOfSets === 0 ? '' : noOfSets}
+                  value={isReadOnly ? (noOfSets || 1) : (noOfSets === 0 ? '' : noOfSets)}
                   onChange={e => {
                     const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
                     setNoOfSets(val);
                   }}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    background: isReadOnly ? '#f8fafc' : '#fff',
+                    fontWeight: isReadOnly ? 700 : 500
+                  }}
                 />
               </div>
 
@@ -1123,13 +1391,19 @@ const NCRGRSPFinalInspectionCall = ({
                   type="number"
                   min="0"
                   max="10"
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
                   placeholder="Enter No. of Lots"
-                  value={noOfLots === 0 ? '' : noOfLots}
+                  value={isReadOnly ? (noOfLots || (lots.length > 0 ? lots.length : 1)) : (noOfLots === 0 ? '' : noOfLots)}
                   onChange={e => {
                     const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
                     setNoOfLots(val);
                   }}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    background: isReadOnly ? '#f8fafc' : '#fff',
+                    fontWeight: isReadOnly ? 700 : 500
+                  }}
                 />
               </div>
 
@@ -1137,10 +1411,16 @@ const NCRGRSPFinalInspectionCall = ({
               <div>
                 <label style={labelStyle}>Desired Inspection Date <span style={{ color: '#ff4d4f' }}>*</span></label>
                 <input
-                  type="date"
+                  type={isReadOnly ? "text" : "date"}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
                   value={desiredDate}
                   onChange={e => setDesiredDate(e.target.value)}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    background: isReadOnly ? '#f8fafc' : '#fff',
+                    fontWeight: isReadOnly ? 700 : 500
+                  }}
                 />
               </div>
             </div>
@@ -1160,18 +1440,18 @@ const NCRGRSPFinalInspectionCall = ({
                   Section C – Drawing Requirement Summary
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 700 }}>
-                <span style={{ background: '#e6f4ff', color: '#0958d9', padding: '4px 12px', borderRadius: 20, border: '1px solid #91caff' }}>
-                  Total Required Qty: <strong>{totalRequiredQty.toLocaleString()}</strong>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <span style={{
+                  background: '#e6f4ff', color: '#0958d9', fontWeight: 800,
+                  fontSize: 12, padding: '4px 12px', borderRadius: 20, border: '1px solid #91caff'
+                }}>
+                  Total Required Qty: {totalRequiredQty.toLocaleString()}
                 </span>
                 <span style={{
-                  background: totalOfferedQty >= totalRequiredQty ? '#f6ffed' : '#fff7e6',
-                  color: totalOfferedQty >= totalRequiredQty ? '#389e0d' : '#d46b08',
-                  padding: '4px 12px',
-                  borderRadius: 20,
-                  border: totalOfferedQty >= totalRequiredQty ? '1px solid #b7eb8f' : '1px solid #ffd591'
+                  background: '#fff7e6', color: '#d46b08', fontWeight: 800,
+                  fontSize: 12, padding: '4px 12px', borderRadius: 20, border: '1px solid #ffd591'
                 }}>
-                  Total Qty to be Offered: <strong>{totalOfferedQty.toLocaleString()}</strong>
+                  Total Qty to be Offered: {totalOfferedQty.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -1183,37 +1463,46 @@ const NCRGRSPFinalInspectionCall = ({
                   <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
                     <th style={thStyle}>Sl.</th>
                     <th style={thStyle}>Drawing No.</th>
-                    <th style={thStyle}>Qty/Set</th>
-                    <th style={thStyle}>Required Qty</th>
-                    <th style={thStyle}>Qty to be Offered</th>
-                    <th style={thStyle}>Available Inventory</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Qty/Set</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Required Qty</th>
+                    <th style={{ ...thStyle, textAlign: 'center', color: '#0958d9' }}>Qty to be Offered</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Available Inventory</th>
                     <th style={{ ...thStyle, textAlign: 'center' }}>Allocation Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {drawingSummaryData.map((row, idx) => (
-                    <tr key={`${row.drawingNo}_${idx}`} style={{ borderBottom: '1px solid #f1f5f9', background: '#fff' }}>
-                      <td style={tdStyle}>{row.sl}</td>
+                  {drawingSummaryData.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: 13 }}>
+                        Please select an NCRGRSP Type above to view required drawings and batch allocation.
+                      </td>
+                    </tr>
+                  ) : (
+                    drawingSummaryData.map((row, idx) => (
+                    <tr key={row.drawingNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={tdStyle}>{idx + 1}</td>
                       <td style={{ ...tdStyle, fontWeight: 700, color: '#1677ff' }}>{row.drawingNo}</td>
-                      <td style={tdStyle}>{row.qtyPerSet}</td>
-                      <td style={{ ...tdStyle, fontWeight: 700 }}>{row.requiredQty.toLocaleString()}</td>
-                      <td style={{ ...tdStyle, fontWeight: 800, color: (row.isComplete || row.isExceeded) ? '#389e0d' : '#0958d9' }}>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>{row.qtyPerSet}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800 }}>{row.requiredQty.toLocaleString()}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800, color: '#0958d9' }}>
                         {row.offeredQty.toLocaleString()}
                       </td>
-                      <td style={{ ...tdStyle, color: '#64748b' }}>{row.availableInventory.toLocaleString()}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center', color: '#64748b' }}>
+                        {row.availableInventory.toLocaleString()}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         {row.isComplete ? (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
-                            background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f',
+                            background: '#f6ffed', border: '1px solid #b7eb8f', color: '#52c41a',
                             padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800
                           }}>
-                            <CheckCircle2 size={13} /> 100% Allocated
+                            <CheckCircle2 size={13} /> Complete
                           </span>
                         ) : row.isExceeded ? (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
-                            background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f',
+                            background: '#f6ffed', border: '1px solid #52c41a', color: '#389e0d',
                             padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800
                           }}>
                             <CheckCircle2 size={13} /> Exceeded by {(row.offeredQty - row.requiredQty).toLocaleString()}
@@ -1228,7 +1517,7 @@ const NCRGRSPFinalInspectionCall = ({
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>
@@ -1249,7 +1538,7 @@ const NCRGRSPFinalInspectionCall = ({
                 </span>
               </div>
               <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                Select Batch → Choose Drawing → Enter Qty to Use
+                {isReadOnly ? 'Formed Lots & Batches Breakdown' : 'Select Batch → Choose Drawing → Enter Qty to Use'}
               </span>
             </div>
 
@@ -1275,6 +1564,8 @@ const NCRGRSPFinalInspectionCall = ({
                         <label style={{ fontSize: 11, fontWeight: 800, color: '#002c8c', textTransform: 'uppercase' }}>Lot Name:</label>
                         <input
                           type="text"
+                          readOnly={isReadOnly}
+                          disabled={isReadOnly}
                           value={lot.lotName !== undefined ? lot.lotName : (lot.lotId || `Lot ${lotIdx + 1}`)}
                           onChange={e => handleLotNameChange(lotIdx, e.target.value)}
                           placeholder={`Lot ${lotIdx + 1} Name`}
@@ -1310,113 +1601,139 @@ const NCRGRSPFinalInspectionCall = ({
                                 <th style={thStyle}>Sl.</th>
                                 <th style={thStyle}>Batch No</th>
                                 <th style={thStyle}>Drawing No</th>
-                                <th style={thStyle}>Available Qty</th>
-                                <th style={thStyle}>Qty to Use</th>
-                                <th style={thStyle}>Balance Qty</th>
-                                <th style={{ ...thStyle, textAlign: 'center', width: 60 }}>Action</th>
+                                <th style={{ ...thStyle, textAlign: 'center' }}>Available Qty</th>
+                                <th style={{ ...thStyle, textAlign: 'center', color: '#7c3aed' }}>Previously Offered Qty</th>
+                                <th style={{ ...thStyle, textAlign: 'center' }}>Qty to Use</th>
+                                <th style={{ ...thStyle, textAlign: 'center', color: '#16a34a' }}>Balance Qty</th>
+                                {!isReadOnly && <th style={{ ...thStyle, textAlign: 'center', width: 60 }}>Action</th>}
                               </tr>
                             </thead>
                             <tbody>
                               {(lot.rows || []).map((row, rIdx) => {
                                 const availDrawings = getDrawingsForBatch(row.batchNo);
-                                const availableQty = getBatchDrawingAvailableQty(row.batchNo, row.drawingNo);
-                                const balanceQty = Math.max(0, availableQty - (parseInt(row.qtyToUse) || 0));
+                                const info = getBatchDrawingInfo(row.batchNo, row.drawingNo);
+                                const rowQtyToUse = parseInt(row.qtyToUse) || 0;
+                                const previouslyOfferedQty = info.previouslyOfferedQty || 0;
+                                const availableQty = info.availableQty || row.availableQty || (previouslyOfferedQty + rowQtyToUse);
+                                const maxAllowedToUse = Math.max(0, availableQty - previouslyOfferedQty);
+                                const balanceQty = Math.max(0, availableQty - previouslyOfferedQty - rowQtyToUse);
 
                                 return (
                                   <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                     <td style={tdStyle}>{rIdx + 1}</td>
 
-                                    {/* Batch Select */}
+                                    {/* Batch Select / Display */}
                                     <td style={tdStyle}>
-                                      <select
-                                        value={row.batchNo}
-                                        onChange={e => handleRowBatchChange(lotIdx, row.id, e.target.value)}
-                                        style={{ ...selectStyle, padding: '4px 8px', height: 32 }}
-                                      >
-                                        <option value="" disabled>Select Batch No</option>
-                                        {batchInventory.map(b => (
-                                          <option key={b.batchNo} value={b.batchNo}>{b.batchNo}</option>
-                                        ))}
-                                      </select>
+                                      {isReadOnly ? (
+                                        <span style={{ fontWeight: 800, color: '#1e293b' }}>{row.batchNo}</span>
+                                      ) : (
+                                        <select
+                                          value={row.batchNo}
+                                          onChange={e => handleRowBatchChange(lotIdx, row.id, e.target.value)}
+                                          style={{ ...selectStyle, padding: '4px 8px', height: 32 }}
+                                        >
+                                          <option value="" disabled>Select Batch No</option>
+                                          {batchInventory.map(b => (
+                                            <option key={b.batchNo} value={b.batchNo}>{b.batchNo}</option>
+                                          ))}
+                                        </select>
+                                      )}
                                     </td>
 
-                                    {/* Drawing Select (Dependent on Batch) */}
+                                    {/* Drawing Select / Display */}
                                     <td style={tdStyle}>
-                                      <select
-                                        value={row.drawingNo}
-                                        onChange={e => handleRowDrawingChange(lotIdx, row.id, e.target.value)}
-                                        style={{ ...selectStyle, padding: '4px 8px', height: 32, fontWeight: 700, color: '#1677ff' }}
-                                        disabled={!row.batchNo}
-                                      >
-                                        <option value="" disabled>{row.batchNo ? 'Select Drawing No' : 'Select Batch First'}</option>
-                                        {availDrawings.map((d, dIdx) => {
-                                          const isAlreadyUsedInLot = (lot.rows || []).some(
-                                            r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === d.drawingNo
-                                          );
-                                          return (
-                                            <option key={`${d.drawingNo}_${dIdx}`} value={d.drawingNo} disabled={isAlreadyUsedInLot}>
-                                              {d.drawingNo} {isAlreadyUsedInLot ? '(Already Added)' : ''}
-                                            </option>
-                                          );
-                                        })}
-                                      </select>
+                                      {isReadOnly ? (
+                                        <span style={{ fontWeight: 800, color: '#1677ff' }}>{row.drawingNo}</span>
+                                      ) : (
+                                        <select
+                                          value={row.drawingNo}
+                                          onChange={e => handleRowDrawingChange(lotIdx, row.id, e.target.value)}
+                                          style={{ ...selectStyle, padding: '4px 8px', height: 32, fontWeight: 700, color: '#1677ff' }}
+                                          disabled={!row.batchNo}
+                                        >
+                                          <option value="" disabled>{row.batchNo ? 'Select Drawing No' : 'Select Batch First'}</option>
+                                          {availDrawings.map((d, dIdx) => {
+                                            const isAlreadyUsedInLot = (lot.rows || []).some(
+                                              r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === d.drawingNo
+                                            );
+                                            return (
+                                              <option key={`${d.drawingNo}_${dIdx}`} value={d.drawingNo} disabled={isAlreadyUsedInLot}>
+                                                {d.drawingNo} {isAlreadyUsedInLot ? '(Already Added)' : ''}
+                                              </option>
+                                            );
+                                          })}
+                                        </select>
+                                      )}
                                     </td>
 
                                     {/* Available Qty */}
-                                    <td style={{ ...tdStyle, fontWeight: 700, color: '#475569' }}>
+                                    <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: '#475569' }}>
                                       {availableQty.toLocaleString()}
                                     </td>
 
-                                    {/* Qty to Use Input */}
+                                    {/* Previously Offered Qty */}
+                                    <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: '#7c3aed' }}>
+                                      {previouslyOfferedQty.toLocaleString()}
+                                    </td>
+
+                                    {/* Qty to Use Input / Display */}
                                     <td style={tdStyle}>
-                                      {(() => {
-                                        const isDuplicateRow = (lot.rows || []).some(
-                                          r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === row.drawingNo
-                                        );
-                                        return (
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max={availableQty}
-                                            disabled={isDuplicateRow}
-                                            value={isDuplicateRow ? 0 : (row.qtyToUse || '')}
-                                            onChange={e => !isDuplicateRow && handleRowQtyChange(lotIdx, row.id, e.target.value)}
-                                            placeholder="0"
-                                            style={{
-                                              ...inputStyle, padding: '4px 8px', height: 32,
-                                              fontWeight: 800,
-                                              color: isDuplicateRow ? '#94a3b8' : '#0958d9',
-                                              background: isDuplicateRow ? '#f1f5f9' : '#ffffff',
-                                              cursor: isDuplicateRow ? 'not-allowed' : 'text',
-                                              borderColor: isDuplicateRow ? '#fca5a5' : (row.qtyToUse > availableQty ? '#ff4d4f' : '#cbd5e1')
-                                            }}
-                                          />
-                                        );
-                                      })()}
+                                      {isReadOnly ? (
+                                        <div style={{ textAlign: 'center', fontWeight: 900, color: '#0958d9', fontSize: 14 }}>
+                                          {(row.qtyToUse || 0).toLocaleString()}
+                                        </div>
+                                      ) : (
+                                        (() => {
+                                          const isDuplicateRow = (lot.rows || []).some(
+                                            r => r.id !== row.id && String(r.batchNo) === String(row.batchNo) && r.drawingNo === row.drawingNo
+                                          );
+                                          return (
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max={maxAllowedToUse}
+                                              disabled={isDuplicateRow || maxAllowedToUse <= 0}
+                                              value={isDuplicateRow ? 0 : (row.qtyToUse || '')}
+                                              onChange={e => !isDuplicateRow && handleRowQtyChange(lotIdx, row.id, e.target.value)}
+                                              placeholder="0"
+                                              style={{
+                                                ...inputStyle, padding: '4px 8px', height: 32,
+                                                fontWeight: 800,
+                                                color: isDuplicateRow ? '#94a3b8' : '#0958d9',
+                                                background: isDuplicateRow ? '#f1f5f9' : '#ffffff',
+                                                cursor: isDuplicateRow ? 'not-allowed' : 'text',
+                                                borderColor: isDuplicateRow ? '#fca5a5' : (row.qtyToUse > maxAllowedToUse ? '#ff4d4f' : '#cbd5e1')
+                                              }}
+                                            />
+                                          );
+                                        })()
+                                      )}
                                     </td>
 
                                     {/* Balance Qty */}
-                                    <td style={{ ...tdStyle, fontWeight: 700, color: '#52c41a' }}>
+                                    <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: balanceQty > 0 ? '#16a34a' : '#94a3b8' }}>
                                       {balanceQty.toLocaleString()}
                                     </td>
 
                                     {/* Delete Row Action */}
-                                    <td style={{ ...tdStyle, textAlign: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteRow(lotIdx, row.id)}
-                                        disabled={lot.rows.length <= 1}
-                                        style={{
-                                          background: lot.rows.length <= 1 ? '#f1f5f9' : '#fff1f0',
-                                          border: '1px solid #ffccc7', color: lot.rows.length <= 1 ? '#cbd5e1' : '#ff4d4f',
-                                          borderRadius: 6, width: 28, height: 28, display: 'flex',
-                                          alignItems: 'center', justifyContent: 'center',
-                                          cursor: lot.rows.length <= 1 ? 'not-allowed' : 'pointer'
-                                        }}
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </td>
+                                    {!isReadOnly && (
+                                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteRow(lotIdx, row.id)}
+                                          disabled={lot.rows.length <= 1}
+                                          style={{
+                                            background: lot.rows.length <= 1 ? '#f1f5f9' : '#fff1f0',
+                                            border: '1px solid #ffccc7', color: lot.rows.length <= 1 ? '#cbd5e1' : '#ff4d4f',
+                                            borderRadius: 6, width: 28, height: 28, display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            cursor: lot.rows.length <= 1 ? 'not-allowed' : 'pointer'
+                                          }}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </td>
+                                    )}
                                   </tr>
                                 );
                               })}
@@ -1425,18 +1742,20 @@ const NCRGRSPFinalInspectionCall = ({
                         </div>
 
                         {/* Add Row Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleAddRow(lotIdx)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            background: '#e6f4ff', border: '1px dashed #91caff',
-                            color: '#1677ff', padding: '6px 14px', borderRadius: 6,
-                            fontSize: 12, fontWeight: 700, cursor: 'pointer'
-                          }}
-                        >
-                          <Plus size={14} /> Add Row to {lot.lotId}
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => handleAddRow(lotIdx)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 6,
+                              background: '#e6f4ff', border: '1px dashed #91caff',
+                              color: '#1677ff', padding: '6px 14px', borderRadius: 6,
+                              fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                            }}
+                          >
+                            <Plus size={14} /> Add Row to {lot.lotId}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1461,18 +1780,21 @@ const NCRGRSPFinalInspectionCall = ({
             <textarea
               rows={3}
               value={remarks}
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
               onChange={e => setRemarks(e.target.value)}
-              placeholder="Enter optional remarks or special instructions for final inspection..."
+              placeholder={isReadOnly ? "No remarks entered." : "Enter optional remarks or special instructions for final inspection..."}
               style={{
                 width: '100%', padding: '10px 12px', borderRadius: 8,
                 border: '1px solid #cbd5e1', fontSize: 13, fontFamily: 'inherit',
-                outline: 'none', resize: 'vertical'
+                outline: 'none', resize: isReadOnly ? 'none' : 'vertical',
+                background: isReadOnly ? '#f8fafc' : '#fff'
               }}
             />
           </div>
 
           {/* Validation Warnings Alert Banner */}
-          {!validationResult.isValid && (
+          {!isReadOnly && !validationResult.isValid && (
             <div style={{
               background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10,
               padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-start'
@@ -1500,46 +1822,69 @@ const NCRGRSPFinalInspectionCall = ({
       {/* Footer Action Bar */}
       <div style={{
         background: '#fff', borderTop: '1px solid #e2e8f0',
-        padding: '14px 24px', display: 'flex', justifyContent: 'flex-end',
+        padding: '14px 24px', display: 'flex', justifyContent: isReadOnly ? 'space-between' : 'flex-end',
         alignItems: 'center', gap: 12, flexShrink: 0
       }}>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            padding: '8px 20px', borderRadius: 8, border: '1px solid #cbd5e1',
-            background: '#fff', color: '#475569', fontWeight: 700, fontSize: 14,
-            cursor: 'pointer'
-          }}
-        >
-          Cancel
-        </button>
+        {isReadOnly ? (
+          <>
+            <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+              Read-Only View: Submitted NCRGRSP inspection request parameters.
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '8px 28px', borderRadius: 8, border: '1px solid #cbd5e1',
+                background: '#f8fafc', color: '#334155', fontWeight: 800, fontSize: 14,
+                cursor: 'pointer', transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
+            >
+              Close
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid #cbd5e1',
+                background: '#fff', color: '#475569', fontWeight: 700, fontSize: 14,
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
 
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={handleSubmitCall}
-          style={{
-            padding: '8px 24px', borderRadius: 8, border: 'none',
-            background: isSubmitting
-              ? '#f5f5f5'
-              : (!validationResult.isValid
-                ? '#91caff'
-                : 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)'),
-            color: isSubmitting ? '#bfbfbf' : '#fff',
-            fontWeight: 800, fontSize: 14, cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            boxShadow: !validationResult.isValid || isSubmitting ? 'none' : '0 4px 12px rgba(22,119,255,0.3)',
-            display: 'flex', alignItems: 'center', gap: 8
-          }}
-        >
-          {isSubmitting ? (
-            'Submitting Call...'
-          ) : (
-            <>
-              <ShieldCheck size={18} /> Submit Final Inspection Call
-            </>
-          )}
-        </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleSubmitCall}
+              style={{
+                padding: '8px 24px', borderRadius: 8, border: 'none',
+                background: isSubmitting
+                  ? '#f5f5f5'
+                  : (!validationResult.isValid
+                    ? '#91caff'
+                    : 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)'),
+                color: isSubmitting ? '#bfbfbf' : '#fff',
+                fontWeight: 800, fontSize: 14, cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                boxShadow: !validationResult.isValid || isSubmitting ? 'none' : '0 4px 12px rgba(22,119,255,0.3)',
+                display: 'flex', alignItems: 'center', gap: 8
+              }}
+            >
+              {isSubmitting ? (
+                'Saving...'
+              ) : (
+                <>
+                  <ShieldCheck size={18} /> {isModifyMode || (callData && effectiveCallNo) ? 'Save Modifications' : 'Submit Final Inspection Call'}
+                </>
+              )}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

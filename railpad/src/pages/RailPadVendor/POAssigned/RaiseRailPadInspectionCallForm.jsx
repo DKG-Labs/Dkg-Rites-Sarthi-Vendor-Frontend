@@ -157,10 +157,17 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     if (!grouped[dateStr]) {
                         grouped[dateStr] = [];
                     }
+                    const manufactured = Number(b.qtyManufactured || b.quantityProduced || b.quantity || b.totalQty || 0);
+                    const rejected = Number(b.verificationRejectedQty || b.rejectedQty || b.qtyRejected || 0);
+                    const netAccepted = Math.max(0, manufactured - rejected);
+                    const finalAccepted = (b.qtyAccepted !== undefined && b.qtyAccepted !== null)
+                        ? Math.max(0, Math.min(Number(b.qtyAccepted), netAccepted))
+                        : netAccepted;
+
                     const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo && eb.drawingNo === b.drawingNo);
                     if (existingBatch) {
-                        existingBatch.acceptedQty += b.qtyAccepted;
-                        existingBatch.quantity += b.qtyAccepted;
+                        existingBatch.acceptedQty += finalAccepted;
+                        existingBatch.quantity += finalAccepted;
                     } else {
                         grouped[dateStr].push({
                             id: b.declarationBatchId || b.id,
@@ -168,8 +175,8 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                             batchNo: b.batchNo,
                             productType: railPadType,
                             drawingNo: b.drawingNo,
-                            acceptedQty: b.qtyAccepted,
-                            quantity: b.qtyAccepted
+                            acceptedQty: finalAccepted,
+                            quantity: finalAccepted
                         });
                     }
                 });
