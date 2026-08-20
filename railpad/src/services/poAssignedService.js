@@ -68,14 +68,37 @@ const poAssignedService = {
 
   getIMMSPOData: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+
+      let finalPayload = { ...payload };
+      if (!finalPayload.poDate && finalPayload.poNo) {
+        try {
+          const poDateRes = await poAssignedService.getPoDateByPoNo(finalPayload.poNo);
+          const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+          if (rawPoDate) {
+            let dateStr = String(rawPoDate).trim();
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            if (!dateStr.includes('/') && dateStr.includes('-')) {
+              const p = dateStr.split('-');
+              if (p.length === 3) {
+                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+              }
+            }
+            finalPayload.poDate = dateStr;
+          }
+        } catch (e) {
+          console.warn('Could not auto-fetch poDate in getIMMSPOData:', e);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(finalPayload)
       });
       if (!response.ok) {
         const text = await response.text();
@@ -90,7 +113,7 @@ const poAssignedService = {
 
   savePOData: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/Vendorsync/save`, {
         method: 'POST',
         headers: {
@@ -108,14 +131,37 @@ const poAssignedService = {
 
   getIMMSMAData: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+
+      let finalPayload = { ...payload };
+      if (!finalPayload.poDate && finalPayload.poNo) {
+        try {
+          const poDateRes = await poAssignedService.getPoDateByPoNo(finalPayload.poNo);
+          const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+          if (rawPoDate) {
+            let dateStr = String(rawPoDate).trim();
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            if (!dateStr.includes('/') && dateStr.includes('-')) {
+              const p = dateStr.split('-');
+              if (p.length === 3) {
+                if (p[0].length === 4) dateStr = `${p[2].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[0]}`;
+                else if (p[2].length === 4) dateStr = `${p[0].padStart(2, '0')}/${p[1].padStart(2, '0')}/${p[2]}`;
+              }
+            }
+            finalPayload.poDate = dateStr;
+          }
+        } catch (e) {
+          console.warn('Could not auto-fetch poDate in getIMMSMAData:', e);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(finalPayload)
       });
       if (!response.ok) {
         const text = await response.text();
@@ -130,7 +176,7 @@ const poAssignedService = {
 
   getPoDateByPoNo: async (poNo) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/Vendorsync/po-date?poNo=${encodeURIComponent(poNo)}`, {
         method: 'GET',
         headers: {

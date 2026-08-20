@@ -116,18 +116,21 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
     const formatDate = (dateStr) => {
         if (!dateStr) return "";
         if (typeof dateStr === 'object') {
-            dateStr = dateStr.poDate || dateStr.date || dateStr.maDate || dateStr.PO_DT || "";
+            dateStr = dateStr.poDate || dateStr.po_date || dateStr.date || dateStr.maDate || dateStr.PO_DT || "";
         }
-        if (typeof dateStr !== 'string') return "";
+        if (!dateStr || typeof dateStr !== 'string') return "";
         dateStr = dateStr.trim();
+        if (dateStr.includes('T')) {
+            dateStr = dateStr.split('T')[0];
+        }
         if (dateStr.includes('/')) return dateStr;
         const parts = dateStr.split('-');
         if (parts.length === 3) {
             if (parts[0].length === 4) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
             }
             if (parts[2].length === 4) {
-                return `${parts[0]}/${parts[1]}/${parts[2]}`;
+                return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
             }
         }
         return dateStr;
@@ -181,9 +184,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
                 const res = await poAssignedService.getIbsCaseNo(ibsPayload);
                 const data = res?.data || res;
-                const caseNo = data?.CASE_NO || data?.caseNo || res?.CASE_NO;
 
-                if (res && (res.resultFlag === 1 || res.status === 1) && caseNo && String(caseNo).trim() !== '') {
+                if (data && (data.caseNo || data.CASE_NO)) {
                     setIbsResult(data);
                     setView('review');
                     setStatus('idle');
@@ -201,29 +203,24 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 const formattedMaDate = formatDate(formData.maDate);
                 let poDateFormatted = '';
                 
-                // 1. Check if poDate is in formData
-                if (formData.poDate) {
-                    poDateFormatted = formatDate(formData.poDate);
-                }
-
-                // 2. Check if poDate is in vendorPos list
-                if (!poDateFormatted && vendorPos && vendorPos.length > 0) {
-                    const matchedPo = vendorPos.find(p => String(p.poNo || p.po_no) === String(formData.poNo));
-                    if (matchedPo && (matchedPo.poDate || matchedPo.po_dt)) {
-                        poDateFormatted = formatDate(matchedPo.poDate || matchedPo.po_dt);
-                    }
-                }
-
-                // 3. Automatically fetch PO date from response of /Vendorsync/po-date?poNo=...
-                if (!poDateFormatted) {
+                // Fetch PO date from /Vendorsync/po-date?poNo=...
+                if (formData.poNo) {
                     try {
-                        const poDateRes = await poAssignedService.getPoDateByPoNo(formData.poNo);
-                        const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
+                        const poDateRes = await poAssignedService.getPoDateByPoNo(formData.poNo.trim());
+                        const rawPoDate = poDateRes?.poDate || poDateRes?.data?.poDate || poDateRes?.responseData?.poDate || poDateRes?.po_date || poDateRes?.poHeader?.poDate || (typeof poDateRes === 'string' ? poDateRes : null);
                         if (rawPoDate) {
                             poDateFormatted = formatDate(rawPoDate);
                         }
                     } catch (err) {
                         console.log('PO Date lookup from API failed:', err);
+                    }
+                }
+
+                // Fallback to vendorPos if needed
+                if (!poDateFormatted && vendorPos && vendorPos.length > 0) {
+                    const matchedPo = vendorPos.find(p => String(p.poNo || p.po_no) === String(formData.poNo));
+                    if (matchedPo && (matchedPo.poDate || matchedPo.po_dt)) {
+                        poDateFormatted = formatDate(matchedPo.poDate || matchedPo.po_dt);
                     }
                 }
 
@@ -233,13 +230,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     vcode: finalVcode,
                     maDate: formattedMaDate,
                     maNo: formData.maNo,
-                    amended: "true"
+                    amended: "true",
+                    poDate: poDateFormatted
                 };
 
-                if (poDateFormatted) {
-                    maPayload.poDate = poDateFormatted;
-                }
-
+                console.log('Final MA Payload being sent (railpad):', maPayload);
                 const res = await poAssignedService.getIMMSMAData(maPayload);
                 
                 const hasData = res && (
@@ -658,7 +653,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         <>
                             <div style={styles.formGroup}>
                                 <label style={styles.label}>MA Number</label>
-                                <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. MA01" style={styles.input} required />
+                                <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. 006384" style={styles.input} required />
                             </div>
                             <div style={styles.formGroup}>
                                 <label style={styles.label}>MA Date</label>
