@@ -333,16 +333,27 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 const h = fetchedData.PoHdr || fetchedData.data?.PoHdr || fetchedData.data?.MMP_POMA_HDR || fetchedData.MMP_POMA_HDR || fetchedData.data?.MMP_PO_HDR || fetchedData.MMP_PO_HDR || {};
                 const d = fetchedData.PoDtl || fetchedData.data?.PoDtl || fetchedData.data?.MMP_POMA_DTL || fetchedData.MMP_POMA_DTL || fetchedData.data?.MMP_PO_DTL || fetchedData.MMP_PO_DTL || [];
 
+                const vcodeVal = formData.vcode ? (formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`) : '';
                 const saveMaPayload = {
                     status: fetchedData?.status || 'OK',
                     message: fetchedData?.message || 'Success',
                     error: fetchedData?.error || [],
                     timestamp: fetchedData?.timestamp || '',
+                    maNo: formData.maNo,
+                    maDate: formData.maDate ? formatDate(formData.maDate) : '',
+                    rly: formData.rly,
+                    poNo: formData.poNo,
+                    vcode: vcodeVal,
                     data: {
                         MMP_POMA_HDR: fetchedData?.data?.MMP_POMA_HDR || fetchedData?.MMP_POMA_HDR || h,
                         MMP_POMA_DTL: fetchedData?.data?.MMP_POMA_DTL || fetchedData?.MMP_POMA_DTL || d,
                         PoHdr: fetchedData?.data?.PoHdr || fetchedData?.PoHdr || h,
-                        PoDtl: fetchedData?.data?.PoDtl || fetchedData?.PoDtl || d
+                        PoDtl: fetchedData?.data?.PoDtl || fetchedData?.PoDtl || d,
+                        maNo: formData.maNo,
+                        maDate: formData.maDate ? formatDate(formData.maDate) : '',
+                        rly: formData.rly,
+                        poNo: formData.poNo,
+                        vcode: vcodeVal
                     }
                 };
                 const res = await (poAssignedService.savePoMaData ? poAssignedService.savePoMaData(saveMaPayload) : poAssignedService.savePOData(saveMaPayload));
