@@ -53,23 +53,28 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
 
     // RIO To address resolution
     const getRioDetails = (rioCode) => {
-        const code = String(rioCode || '').toUpperCase();
-        if (code.includes('ER')) {
+        const code = String(rioCode || '').trim().toUpperCase();
+        if (code === 'CRIO' || code === 'CR' || code.includes('CENTRAL')) {
+            return {
+                region: 'Central Region',
+                address: '50, EXPANSION BUIDING,BHILAI STEEL PLANT AREA\nBHILAI -490001'
+            };
+        } else if (code === 'ERIO' || code === 'ER' || (code.includes('ER') && !code.includes('SERVER'))) {
             return {
                 region: 'Eastern Region',
                 address: 'OJAS BHAWAN, 7TH FLOOR, PLOT NO. DJ/20, STREET NO.326,\nACTION AREA 1D, NEW TOWN, KOLKATA - 700 156'
             };
-        } else if (code.includes('NR')) {
+        } else if (code === 'NRIO' || code === 'NR' || (code.includes('NR') && code !== 'NWR')) {
             return {
                 region: 'Northern Region',
                 address: '12TH FLOOR, CORE-2, SCOPE MINAR,\nLAXMI NAGAR, DELHI-110092'
             };
-        } else if (code.includes('WR')) {
+        } else if (code === 'WRIO' || code === 'WR' || code === 'SWR' || code === 'WCR' || (code.endsWith('WR') && code !== 'NWR')) {
             return {
                 region: 'Western Region',
                 address: '5TH FLOOR, REGENT CHAMBER, ABOVE STATUS RESTAURANT,\nNARIMAN POINT, MUMBAI - 400021'
             };
-        } else if (code.includes('SR')) {
+        } else if (code === 'SRIO' || code === 'SR' || code.includes('SOUTHERN')) {
             return {
                 region: 'Southern Region',
                 address: 'CTS BUILDING - 2ND FLOOR, BSNL COMPLEX, NO. 16,\nGREAMS ROAD CHENNAI - 600006'
@@ -82,7 +87,21 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         };
     };
 
-    const rio = getRioDetails(merged.rio || merged.rlyShortName);
+    // Mapping of Railway SCR codes to RITES RIO regions
+    // Used as fallback when rio/rioCode is not returned by backend API
+    const scrCodeToRio = {
+        'ECR': 'ERIO', 'ER': 'ERIO', 'SER': 'ERIO', 'ECOR': 'ERIO',
+        'NR':  'NRIO', 'NWR': 'NRIO', 'NFR': 'NRIO', 'NER': 'NRIO',
+        'NCR': 'CRIO', 'CR': 'CRIO', 'WCR': 'CRIO',
+        'WR':  'WRIO', 'SWR': 'WRIO',
+        'SR':  'SRIO', 'SCR': 'SRIO',
+    };
+
+    const rawScrCode = String(merged.scrCode || merged.rlyShortName || '').trim().toUpperCase();
+    const rioFromScr = rawScrCode ? (scrCodeToRio[rawScrCode] || null) : null;
+
+    const rawRioCode = merged.rio || merged.rioCode || merged.rioName || rioFromScr || merged.region;
+    const rio = getRioDetails(rawRioCode);
 
     // Call Serial & Date
     const rawCallDate = merged.inspectionDate || merged.created_at || merged.callDate || new Date().toLocaleDateString('en-GB');
