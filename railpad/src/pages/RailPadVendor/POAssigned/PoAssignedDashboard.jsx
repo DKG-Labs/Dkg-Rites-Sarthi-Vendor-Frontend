@@ -183,7 +183,7 @@ const checkDpDateStatus = (item) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false, onRefreshData }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
@@ -271,7 +271,10 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                     poNo={poNo}
                     plantId={plantId}
                     vendorCode={vendorCode}
-                    onClose={() => setShowForm(false)}
+                    onClose={() => {
+                        setShowForm(false);
+                        if (onRefreshData) onRefreshData();
+                    }}
                     onSubmitInspectionCall={onSubmitInspectionCall}
                 />
             )}
@@ -280,7 +283,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl, onRefreshData }) => {
     const [expanded, setExpanded] = useState(false);
 
     // Sort items numerically by SR No / poSerialNo
@@ -439,6 +442,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                                                 plantId={plantId}
                                                 vendorCode={vendorCode}
                                                 isCaseNoMissing={isCaseNoMissing}
+                                                onRefreshData={onRefreshData}
                                             />
                                         ))}
                                     </tbody>
@@ -516,7 +520,16 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
             const res = await inspectionCallService.create(payload);
             const callNo = res?.callNo || res?.responseData?.callNo || res?.data?.callNo || 'RPF-SUCCESS';
             showNotification(`✅ Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
+            
+            // Immediate and delayed re-fetches so backend DB update completes and reflects automatically
             fetchPoData();
+            setTimeout(() => {
+                fetchPoData();
+            }, 1200);
+            setTimeout(() => {
+                fetchPoData();
+            }, 2500);
+
             return res;
         } catch (err) {
             console.error("Error creating inspection call:", err);
@@ -793,6 +806,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         plantId={plantId}
                                         vendorCode={vendorCode}
                                         setViewingPdfUrl={setViewingPdfUrl}
+                                        onRefreshData={fetchPoData}
                                     />
                                 ))
                             )}

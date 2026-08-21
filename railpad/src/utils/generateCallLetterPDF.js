@@ -146,26 +146,79 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     const dpPeriod = merged.deliveryDate || merged.origDp || merged.dpDate || merged.extDp || '';
     const billPayOfficer = merged.billPayOffDesc || merged.billPayingOfficer || merged.billPayingAuthority || '';
 
-    // Build Annexure-1 rows
-    const lots = merged.lots || [];
+    // Extract PO Item Serial No (Sr. No.) strictly prioritizing the call's stored PO Serial
+    const resolvePoSrNo = (obj, fallbackIdx = 1) => {
+        const target = obj || merged;
+
+        // 1. Check if call's po_no / poNo is composite (e.g. "60265359103833/001" or "60265359103833 / 001")
+        const callPo = String(target.po_no || target.poNo || merged.po_no || merged.poNo || '');
+        if (callPo.includes('/')) {
+            const parts = callPo.split('/').map(p => p.trim()).filter(Boolean);
+            const last = parts[parts.length - 1];
+            if (last && last.length <= 6 && !isNaN(Number(last))) {
+                return last;
+            }
+        }
+
+        // 2. Check call's dedicated po_sr / poSr / poSrNo / poSerialNo field
+        const callSr = target.po_sr || target.poSr || target.poSrNo || target.poSerialNo ||
+                       merged.po_sr || merged.poSr || merged.poSrNo || merged.poSerialNo;
+        if (callSr && String(callSr).trim() !== '' && String(callSr).trim() !== 'null' && String(callSr).trim() !== 'undefined') {
+            let str = String(callSr).trim();
+            if (str.includes('/')) {
+                const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+                str = parts[parts.length - 1];
+            }
+            return str;
+        }
+
+        // 3. Check composite rlyPoSr (e.g. "SER / 60265359103833 / 001")
+        const rawRlyPo = String(target.rlyPoSr || target.rlyPoNo || target.poNumber || 
+                                merged.rlyPoSr || merged.rlyPoNo || merged.poNumber || '');
+        if (rawRlyPo.includes('/')) {
+            const parts = rawRlyPo.split('/').map(p => p.trim()).filter(Boolean);
+            const last = parts[parts.length - 1];
+            if (last && last.length <= 6 && !isNaN(Number(last))) {
+                return last;
+            }
+        }
+
+        // 4. Check item level itemSrNo / srNo if distinct item
+        if (target.itemSrNo && String(target.itemSrNo).trim() !== '' && String(target.itemSrNo).trim() !== 'null') {
+            return String(target.itemSrNo).trim();
+        }
+        if (target.srNo && String(target.srNo).trim() !== '' && String(target.srNo).trim() !== 'null') {
+            return String(target.srNo).trim();
+        }
+
+        return String(fallbackIdx);
+    };
+
+    // Build Annexure-1 rows (PO Item Details)
+    const items = (Array.isArray(merged.items) && merged.items.length > 0) 
+        ? merged.items 
+        : (Array.isArray(merged.poItems) && merged.poItems.length > 0) 
+            ? merged.poItems 
+            : [];
+
     let annexureRows = [];
 
-    if (lots.length > 0) {
-        annexureRows = lots.map((lot, idx) => [
-            String(idx + 1),
-            lot.consignee || consigneeVal,
-            lot.description || itemDescStr,
-            formatQtyWithUom(lot.orderQty || lot.totalQty || effectiveOrderQty),
-            String(lot.passedQty || '&'),
-            formatQtyWithUom(lot.offeredQty || (effectiveUom.toUpperCase().includes('SET') && lot.noOfSets ? lot.noOfSets : lot.offeredQty) || effectiveOfferedQty),
-            lot.deliveryPeriod || dpPeriod,
-            lot.bpo || billPayOfficer,
+    if (items.length > 0) {
+        annexureRows = items.map((item, idx) => [
+            resolvePoSrNo(item, idx + 1),
+            item.consignee || consigneeVal,
+            item.description || item.itemDesc || itemDescStr,
+            formatQtyWithUom(item.orderQty || item.poQty || effectiveOrderQty),
+            String(item.passedQty || '&'),
+            formatQtyWithUom(item.offeredQty || item.qtyOffered || effectiveOfferedQty),
+            item.deliveryPeriod || item.deliveryDate || dpPeriod,
+            item.bpo || item.billPayOfficer || billPayOfficer,
             ''
         ]);
     } else {
         annexureRows = [
             [
-                '1',
+                resolvePoSrNo(merged, 1),
                 consigneeVal,
                 itemDescStr,
                 formatQtyWithUom(effectiveOrderQty),
