@@ -375,9 +375,11 @@ const RawMaterialDashboard = ({ onBack, onNavigateToSubModule, onHeatsChange, on
   }, [heats]);
 
   const numberOfERC = useMemo(() => {
-    // Assuming 1 ERC per 0.5 MT of material
-    return Math.ceil(parseFloat(totalQuantity) / 0.5);
-  }, [totalQuantity]);
+    // Formula: (Offered Qty MT × 1000) / Division Factor
+    const factor = productModel === 'MK-V' ? 1.14 : productModel === 'MK-III' ? 0.91 : productModel === 'J-Type' ? 0.915 : 1.14;
+    const totalMt = parseFloat(totalQuantity) || 0;
+    return Math.floor((totalMt * 1000) / factor);
+  }, [totalQuantity, productModel]);
 
   // (defect lists and counts handled in visual module state)
 
@@ -508,7 +510,7 @@ const RawMaterialDashboard = ({ onBack, onNavigateToSubModule, onHeatsChange, on
               value={numberOfERC}
               disabled
             />
-            <span className="rm-form-hint">Auto-calculated (1 ERC per 0.5 MT)</span>
+            <span className="rm-form-hint">Auto-calculated: (Total MT × 1000) / Division Factor</span>
           </div>
         </div>
 

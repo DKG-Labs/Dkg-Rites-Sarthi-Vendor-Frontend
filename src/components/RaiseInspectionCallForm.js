@@ -1223,6 +1223,20 @@ export const RaiseInspectionCallForm = ({
   //   return company?.units || [];
   // }, [formData.company_id]);
 
+  // ERC Division Factor helper based on specification:
+  // MK-V: 1.14, MK-III: 0.91, J-Type: 0.915
+  const getErcDivisionFactor = useCallback((ercType) => {
+    const typeUpper = (ercType || '').toUpperCase().trim();
+    if (typeUpper.includes('MK-III') || typeUpper.includes('MKIII') || typeUpper.includes('MK 3') || typeUpper.includes('MK-3')) {
+      return 0.91;
+    }
+    if (typeUpper.includes('J') || typeUpper.includes('J-TYPE') || typeUpper.includes('J TYPE')) {
+      return 0.915;
+    }
+    // Default to MK-V: 1.14
+    return 1.14;
+  }, []);
+
   // Calculate ERC quantity from MT (for Raw Material)
   const calculateErcFromMt = useCallback((mtQty, ercType) => {
     if (!mtQty || !ercType) return 0;
@@ -1230,20 +1244,11 @@ export const RaiseInspectionCallForm = ({
     const qty = parseFloat(mtQty);
     if (isNaN(qty) || qty <= 0) return 0;
 
-    let maxErc = 0;
-    if (ercType === 'MK-III') {
-      // Formula: (mtQty * 1000) / 0.928426
-      maxErc = (qty * 1000) / 0.928426;
-    } else if (ercType === 'MK-V') {
-      // Formula: (mtQty * 1000) / 1.133
-      maxErc = (qty * 1000) / 1.133;
-    } else if (ercType === 'J-Type') {
-      // Formula: (mtQty * 1000) / 0.928
-      maxErc = (qty * 1000) / 0.928;
-    }
+    const divisor = getErcDivisionFactor(ercType);
+    const maxErc = (qty * 1000) / divisor;
 
     return Math.floor(maxErc);
-  }, []);
+  }, [getErcDivisionFactor]);
 
   // Calculate maximum ERC that can be manufactured from a specific heat-TC mapping
   const calculateMaxErcForHeat = useCallback((offeredQty, ercType) => {
@@ -1252,20 +1257,11 @@ export const RaiseInspectionCallForm = ({
     const qty = parseFloat(offeredQty);
     if (isNaN(qty) || qty <= 0) return 0;
 
-    let maxErc = 0;
-    if (ercType === 'MK-III') {
-      // Formula: (offeredQty * 1000) / 0.928426
-      maxErc = (qty * 1000) / 0.928426;
-    } else if (ercType === 'MK-V') {
-      // Formula: (offeredQty * 1000) / 1.133
-      maxErc = (qty * 1000) / 1.133;
-    } else if (ercType === 'J-Type') {
-      // Use default conversion factor for J-Type
-      maxErc = (qty * 1000) / 0.928;
-    }
+    const divisor = getErcDivisionFactor(ercType);
+    const maxErc = (qty * 1000) / divisor;
 
     return Math.floor(maxErc);
-  }, []);
+  }, [getErcDivisionFactor]);
 
   // Format number with thousand separators
   const formatNumber = useCallback((num) => {
@@ -1695,7 +1691,7 @@ export const RaiseInspectionCallForm = ({
                       : (heatData.weightAcceptedMt || 0);
 
                     // Compute Max ERC strictly from this RM IC's accepted MT
-                    const ercDivisor = (formData.product_model && formData.product_model.toUpperCase().includes('MK-III')) ? 0.928426 : 1.133;
+                    const ercDivisor = getErcDivisionFactor(formData.product_model || formData.type_of_erc);
                     const maxErc = (heatData.rmAcceptedQty && heatData.rmAcceptedQty > 0)
                       ? heatData.rmAcceptedQty
                       : (acceptedMt > 0 ? Math.round((acceptedMt * 1000) / ercDivisor) : 0);
@@ -3243,7 +3239,7 @@ export const RaiseInspectionCallForm = ({
                       <FormField
                         label="Max ERC can be manufactured from this Manufacturer - Heat No. combination for this PO Sr. No."
                         name={`heat_${index}_maxErc`}
-                        hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc === 'MK-V' ? 'MK-V: 1.133' : formData.type_of_erc === 'MK-III' ? 'MK-III: 0.928426' : 'J-Type: 0.928'}` : 'Select ERC type to calculate'}
+                        hint={formData.type_of_erc ? `Formula: (Offered Qty MT × 1000) / Division Factor. ${formData.type_of_erc.toUpperCase().includes('MK-III') ? 'MK-III: 0.91' : formData.type_of_erc.toUpperCase().includes('J') ? 'J-Type: 0.915' : 'MK-V: 1.14'}` : 'Select ERC type to calculate'}
                         fullWidth
                       >
                         <input
@@ -3410,9 +3406,9 @@ export const RaiseInspectionCallForm = ({
                     name="rm_offered_qty_erc"
                     // hint="Auto-calculated from Total Qty (1.150 MT per 1000 ERCs)"
                     hint={`Formula: (Total Offered Qty MT × 1000) / Division Factor
-                        MK-III: Division Factor = 0.928426
-                        MK-V: Division Factor = 1.133
-                        J-Type: Division Factor = 0.928${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
+                        MK-V: Division Factor = 1.14
+                        MK-III: Division Factor = 0.91
+                        J-Type: Division Factor = 0.915${formData.type_of_erc ? ` | Current: ${formData.type_of_erc}` : ''}`}
                   >
                     <input
                       type="text"

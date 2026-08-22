@@ -1146,9 +1146,10 @@ export const LOT_NUMBERS = [
 // ERC Conversion Factors (Division factors for calculating max ERCs)
 // Formula: (offered_qty_mt * 1000) / division_factor = max_erc_count
 export const ERC_CONVERSION_FACTORS = {
-  'ERC MK-III': 0.928426,
-  'ERC MK-V': 1.15321,
-  'default': 1.100
+  'ERC MK-III': 0.91,
+  'ERC MK-V': 1.14,
+  'ERC J-Type': 0.915,
+  'default': 1.14
 };
 
 // PO Serial Numbers with remaining quantities
