@@ -56,34 +56,52 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         const code = String(rioCode || '').trim().toUpperCase();
         if (code === 'CRIO' || code === 'CR' || code.includes('CENTRAL')) {
             return {
+                code: 'CRIO',
                 region: 'Central Region',
-                address: '50, EXPANSION BUIDING,BHILAI STEEL PLANT AREA\nBHILAI -490001'
+                officeName: 'CENTRAL REGION INSPECTION OFFICE',
+                address: '50, EXPANSION BUIDING,BHILAI STEEL PLANT AREA\nBHILAI -490001',
+                contactInfo: '0788-2227365, sbu.cinsp@rites.com'
             };
         } else if (code === 'ERIO' || code === 'ER' || (code.includes('ER') && !code.includes('SERVER'))) {
             return {
+                code: 'ERIO',
                 region: 'Eastern Region',
-                address: 'OJAS BHAWAN, 7TH FLOOR, PLOT NO. DJ/20, STREET NO.326,\nACTION AREA 1D, NEW TOWN, KOLKATA - 700 156'
+                officeName: 'EASTERN REGION INSPECTION OFFICE',
+                address: 'OJAS BHAWAN, 7TH FLOOR, PLOT NO. DJ/20, STREET NO.326,\nACTION AREA 1D, NEW TOWN, KOLKATA - 700 156',
+                contactInfo: '033-23572946, sbu.einsp@rites.com'
             };
         } else if (code === 'NRIO' || code === 'NR' || (code.includes('NR') && code !== 'NWR')) {
             return {
+                code: 'NRIO',
                 region: 'Northern Region',
-                address: '12TH FLOOR, CORE-2, SCOPE MINAR,\nLAXMI NAGAR, DELHI-110092'
+                officeName: 'NORTHERN REGION INSPECTION OFFICE',
+                address: '12TH FLOOR, CORE-2, SCOPE MINAR,\nLAXMI NAGAR, DELHI-110092',
+                contactInfo: '011-22402502, sbu.ninsp@rites.com'
             };
         } else if (code === 'WRIO' || code === 'WR' || code === 'SWR' || code === 'WCR' || (code.endsWith('WR') && code !== 'NWR')) {
             return {
+                code: 'WRIO',
                 region: 'Western Region',
-                address: '5TH FLOOR, REGENT CHAMBER, ABOVE STATUS RESTAURANT,\nNARIMAN POINT, MUMBAI - 400021'
+                officeName: 'WESTERN REGION INSPECTION OFFICE',
+                address: '5TH FLOOR, REGENT CHAMBER, ABOVE STATUS RESTAURANT,\nNARIMAN POINT, MUMBAI - 400021',
+                contactInfo: '022-22026130, sbu.winsp@rites.com'
             };
         } else if (code === 'SRIO' || code === 'SR' || code.includes('SOUTHERN')) {
             return {
+                code: 'SRIO',
                 region: 'Southern Region',
-                address: 'CTS BUILDING - 2ND FLOOR, BSNL COMPLEX, NO. 16,\nGREAMS ROAD CHENNAI - 600006'
+                officeName: 'SOUTHERN REGION INSPECTION OFFICE',
+                address: 'CTS BUILDING - 2ND FLOOR, BSNL COMPLEX, NO. 16,\nGREAMS ROAD CHENNAI - 600006',
+                contactInfo: '044-28292728, sbu.sinsp@rites.com'
             };
         }
         // Default CRIO or Central Region
         return {
+            code: 'CRIO',
             region: 'Central Region',
-            address: '50, EXPANSION BUIDING,BHILAI STEEL PLANT AREA\nBHILAI -490001'
+            officeName: 'CENTRAL REGION INSPECTION OFFICE',
+            address: '50, EXPANSION BUIDING,BHILAI STEEL PLANT AREA\nBHILAI -490001',
+            contactInfo: '0788-2227365, sbu.cinsp@rites.com'
         };
     };
 
@@ -198,237 +216,150 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // TABLE 1: HEADER BOX (ONLINE INSPECTION CALL / FROM / TO / DATES)
+    // FORMAT 2: SARTHI ONLINE INSPECTION CALL LETTER (Images 3 & 4 Style)
     // ─────────────────────────────────────────────────────────────────
 
-    const headerBody = [
-        [{ content: 'ONLINE INSPECTION CALL', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fontSize: 10.5 } }],
-        [{ content: stageText, colSpan: 2, styles: { fontStyle: 'bold', fontSize: 9.5 } }],
-        [{
-            content: `From.\n${vendorName}\n${vendorAddress}`,
-            colSpan: 2,
-            styles: { fontSize: 8.5 }
-        }],
-        [{ content: 'Ref No.', colSpan: 2, styles: { fontStyle: 'bold', fontSize: 8.5 } }],
-        [
-            { content: `Date: ${formattedCallDate}`, styles: { fontSize: 8.5 } },
-            { content: `Call Marked to: ${ieName}`, styles: { fontSize: 8.5 } }
-        ],
-        [
-            {
-                content: `To\n\nGroup General Manager (Inspection)\nRITES LTD.,\n${rio.region}\n${rio.address}`,
-                styles: { fontSize: 8.5 }
-            },
-            {
-                content: `CALL DATED: ${formattedCallDate} CALL SNO. ${callNo}\nCASE NO. ${caseNo} (PO SOURCE: VENDOR)`,
-                styles: { fontSize: 8.5 }
-            }
-        ]
-    ];
+    const redTextColor = [220, 38, 38]; // #DC2626
+    const labelTextColor = [30, 41, 59]; // #1E293B
+    const borderLineColor = [156, 163, 175]; // #9CA3AF / silver grey
 
+    // Format current timestamp for top bar
+    const now = new Date();
+    const formattedGenDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}, ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toLowerCase()}`;
+
+    // Header Top Bar
+    const topBarText = `Generated on: ${formattedGenDate}  |  Call No: ${callNo}  |  System: RITES Sarthi`;
+    
     autoTable(doc, {
         startY: margin,
         margin: { left: margin, right: margin },
         tableWidth: tableW,
-        body: headerBody,
+        body: [[{ content: topBarText, styles: { halign: 'center', fontSize: 7.5, textColor: [71, 85, 105] } }]],
         theme: 'plain',
         styles: {
-            textColor: darkText,
-            cellPadding: 2.5,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
-            font: 'helvetica'
-        },
-        columnStyles: {
-            0: { cellWidth: tableW / 2 },
-            1: { cellWidth: tableW / 2 }
-        }
-    });
-
-    let currentY = doc.lastAutoTable.finalY + 3;
-
-    // ─────────────────────────────────────────────────────────────────
-    // INTRO TEXT
-    // ─────────────────────────────────────────────────────────────────
-    autoTable(doc, {
-        startY: currentY,
-        margin: { left: margin, right: margin },
-        tableWidth: tableW,
-        body: [
-            [{ content: 'Dear Sir,', styles: { fontStyle: 'bold', fontSize: 9 } }],
-            [{ content: 'Please arrange to inspect following goods lying ready with us. It is certified that the stores offered have been inspected by us and found to conform to the governing specifications.', styles: { fontSize: 8.5 } }]
-        ],
-        theme: 'plain',
-        styles: {
-            textColor: darkText,
+            fillColor: [248, 250, 252],
+            lineWidth: 0.15,
+            lineColor: borderLineColor,
             cellPadding: 1.5,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
+            font: 'helvetica'
+        }
+    });
+
+    let currentY = doc.lastAutoTable.finalY + 1;
+
+    // Main Title Block
+    autoTable(doc, {
+        startY: currentY,
+        margin: { left: margin, right: margin },
+        tableWidth: tableW,
+        body: [[{ content: 'Online Inspection Call Letter', styles: { halign: 'center', fontStyle: 'bold', fontSize: 11, textColor: labelTextColor } }]],
+        theme: 'plain',
+        styles: {
+            fillColor: [241, 245, 249],
+            lineWidth: 0.15,
+            lineColor: borderLineColor,
+            cellPadding: 2.5,
             font: 'helvetica'
         }
     });
 
     currentY = doc.lastAutoTable.finalY + 1;
 
-    // ─────────────────────────────────────────────────────────────────
-    // TABLE 2: NUMBERED PARAMETERS TABLE (Items 1 - 17)
-    // ─────────────────────────────────────────────────────────────────
+    // Formatting helpers
+    const redVal = (text, fallback = '-') => {
+        const str = text !== null && text !== undefined && String(text).trim() !== '' ? String(text) : fallback;
+        return { content: str, styles: { textColor: redTextColor, fontStyle: 'bold' } };
+    };
 
-    const paramRows = [
-        ['1. Purchase Order No. and Date', poFullNo],
-        ['2. Purchaser', purchaser],
-        ['3. Consignee', 'As Per Annexure-1'],
-        ['4. Manufacturer\'s Name', vendorName],
-        ['5. Place of Inspection with address', vendorAddress],
-        ['6. Person to be contacted, Phone No. with E-mail id', `${contactName}, ${contactPhone}, ${contactEmail}`],
-        ['7. Description of Stores', 'As Per Annexure-1'],
-        ['8. State whether the items is on RDSO Vendor Directory', 'Yes'],
-        ['9. If Yes, whether the vendor is RDSO Aprroved. Indicate validity of approval', 'Yes, From: TO:'],
-        ['10. Quantity on Order', 'As Per Annexure-1'],
-        ['11. Quantity Now Offered', 'As Per Annexure-1'],
-        ['12. Installment Number', String(merged.offeredInstallmentNo || merged.installmentNo || '1')],
-        ['13. Quantity already inspected and passed', 'As Per Annexure-1'],
-        ['14. Delivery period as per P.O./Amendment', 'As Per Annexure-1'],
-        ['   a. Does PO specified staggered DP:', 'NO'],
-        ['   b. If yes, details of lot size and staggered DP', '1. Lot Size & DP:\n2. Lot Size & DP2:'],
-        ['15. Bill Paying authority', 'As Per Annexure-1'],
-        ['16. IRFC Funded Project', 'No'],
-        ['17. Inspection Fee Payment details for cases', ''],
-        ['Where advance inspection fee is to be paid', ''],
-        [{ content: 'I hereby accept all the Terms and Conditions.', colSpan: 2, styles: { fontStyle: 'normal', fontSize: 8.5 } }],
-        [{ content: 'Thanking you,\nYours Faithfully,', colSpan: 2, styles: { fontStyle: 'normal', fontSize: 8.5 } }]
-    ];
+    const redValNormal = (text, fallback = '-') => {
+        const str = text !== null && text !== undefined && String(text).trim() !== '' ? String(text) : fallback;
+        return { content: str, styles: { textColor: redTextColor, fontStyle: 'normal' } };
+    };
 
-    autoTable(doc, {
-        startY: currentY,
-        margin: { left: margin, right: margin },
-        tableWidth: tableW,
-        body: paramRows,
-        theme: 'plain',
-        styles: {
-            textColor: darkText,
-            cellPadding: 2,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
-            font: 'helvetica',
-            fontSize: 8.5
-        },
-        columnStyles: {
-            0: { cellWidth: 90, fontStyle: 'normal' },
-            1: { cellWidth: tableW - 90, fontStyle: 'normal' }
-        }
-    });
-
-    currentY = doc.lastAutoTable.finalY + 1;
-
-    // ─────────────────────────────────────────────────────────────────
-    // SIGNATORY INFORMATION TABLE
-    // ─────────────────────────────────────────────────────────────────
-
-    const signRows = [
-        ['Name', contactName],
-        ['Mobile', contactPhone],
-        ['Vendor Email', contactEmail],
-        ['Designation', merged.contactDesignation || ''],
-        ['Authorised Signatory', '']
-    ];
-
-    autoTable(doc, {
-        startY: currentY,
-        margin: { left: margin, right: margin },
-        tableWidth: tableW,
-        body: signRows,
-        theme: 'plain',
-        styles: {
-            textColor: darkText,
-            cellPadding: 2,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
-            font: 'helvetica',
-            fontSize: 8.5
-        },
-        columnStyles: {
-            0: { cellWidth: 90, fontStyle: 'normal' },
-            1: { cellWidth: tableW - 90, fontStyle: 'normal' }
-        }
-    });
-
-    currentY = doc.lastAutoTable.finalY + 14;
-
-    // ─────────────────────────────────────────────────────────────────
-    // ANNEXURE-1 SECTION HEADER
-    // ─────────────────────────────────────────────────────────────────
+    // Calculate dynamic values from merged API responses
+    const displayFrom = `${vendorName}${vendorAddress ? ' - ' + vendorAddress : ''}`;
+    const displayTo = `(SBU Head/${rio.code || 'NRIO'})\n${rio.officeName || 'NORTHERN REGION INSPECTION OFFICE'}\nRITES LTD. (A Govt. of India Enterprise)\n${rio.address}${rio.contactInfo ? '\n' + rio.contactInfo : ''}`;
+    const displayPoNoDate = `${merged.rlyPoNoSerial || merged.rlyPoNo || poNo}\nDate of PO: ${poDate || '-'}`;
     
-    // Check page space for Annexure header and table
-    if (currentY + 60 > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage();
-        currentY = margin + 8;
-    }
+    // Stage text
+    const isProcess = callTypeUpper === 'PROCESS' || String(callNo).startsWith('RPP');
+    const stageDisplay = isProcess ? 'Process Inspection' : (merged.stageOfInspection || 'Final Inspection');
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(...darkText);
-    doc.text('Annexure-1 (INSPECTION CALL ITEM DETAILS)', pageW / 2, currentY, { align: 'center' });
+    // Quantities & Units
+    const uomText = merged.unit || effectiveUom || 'Nos.';
+    const poQtyDisplay = merged.poQty || merged.poSrQty || effectiveOrderQty ? `${merged.poQty || merged.poSrQty || effectiveOrderQty} ${uomText}` : '-';
+    const callQtyDisplay = effectiveOfferedQty ? `${effectiveOfferedQty} ${uomText}` : '-';
 
-    currentY += 8;
+    // Dates
+    const origDpDisplay = merged.origDp || merged.deliveryDate || dpPeriod || '-';
+    const extDpDisplay = merged.extDp || '-';
+    const desiredInspDate = formattedCallDate || '-';
 
-    // ─────────────────────────────────────────────────────────────────
-    // ANNEXURE-1 ITEM DETAILS TABLE
-    // ─────────────────────────────────────────────────────────────────
+    // Additional fields
+    const purchaserDisplay = merged.purchasingAuthority || purchaser || '-';
+    const consigneeDisplay = merged.consignee || consigneeVal || '-';
+    const bpoDisplay = merged.billPayingOfficer || billPayOfficer || '-';
+    const manufacturerDisplay = merged.manufacturerName || vendorName || '-';
 
-    const annexureHeaders = [[
-        'Sr. No.',
-        'Consignee',
-        'Description of Stores',
-        'Quantity on Order',
-        'Quantity already inspected and passed',
-        'Quantity Now Offered',
-        'Delivery period as per P.O./Amendment',
-        'Bill Paying authority',
-        'Master Item Checksheet'
-    ]];
+    const rawMatPassed = merged.rawMaterialQtyPassed ? `${merged.rawMaterialQtyPassed} MT` : '0.000 MT';
+    const finalAccQty = merged.finalAcceptedQty ? `${merged.finalAcceptedQty} ${uomText}` : `0 ${uomText}`;
+    const rawTotalPoQty = merged.totalPoQty || merged.poQty || merged.poSrQty || effectiveOrderQty;
+    const totalPoQtyVal = rawTotalPoQty
+        ? (String(rawTotalPoQty).match(/[a-zA-Z]/) ? rawTotalPoQty : `${rawTotalPoQty} ${uomText}`)
+        : '-';
+    const totalPoValDisplay = merged.totalPoValue || merged.poValue || '-';
+    const rawMatDetailsDisplay = merged.rawMaterialDetails || '-';
+    const prodSelectedVendor = merged.productSelectedByVendor || merged.ercType || merged.type_of_erc || merged.erc_type || merged.product || merged.productType || merged.railPadType || '-';
 
-    const annexureTableBody = [
-        ...annexureRows,
-        [{ content: 'REMARKS:', colSpan: 9, styles: { fontStyle: 'bold', fontSize: 8.5, halign: 'left' } }]
+    const mainTableBody = [
+        ['From', redVal(displayFrom)],
+        ['Date', redVal(formattedCallDate)],
+        ['To', redValNormal(displayTo)],
+        [{ content: 'Dear Sir,\nPlease arrange to inspect following goods lying ready with us. It is certified that the stores offered conform to governing specifications.', colSpan: 2, styles: { fontSize: 8, fontStyle: 'normal', textColor: labelTextColor } }],
+        ['Inspection Call Number', redVal(callNo)],
+        ['IE', redValNormal(ieName || '-')],
+        ['Stage of Inspection', { content: stageDisplay, styles: { textColor: [30, 41, 59], fontStyle: 'normal' } }],
+        ['PO Number & Date', redVal(displayPoNoDate)],
+        ['PO Sr. No Item Description', redValNormal(itemDescStr)],
+        ['Product Selected By Vendor', redValNormal(prodSelectedVendor)],
+        ['PO Sr. No. Qty', redVal(poQtyDisplay)],
+        ['Call Qty', redVal(callQtyDisplay)],
+        ['Orignal DP Date', redVal(origDpDisplay)],
+        ['Ext DP Date', redValNormal(extDpDisplay)],
+        ['Desired Date of Inspection', redVal(desiredInspDate)],
+        ['Purchaser', redVal(purchaserDisplay)],
+        ['Consignee', redVal(consigneeDisplay)],
+        ['Bill Paying Authority', redValNormal(bpoDisplay)],
+        ['Manufacturer\'s Name', redVal(manufacturerDisplay)],
+        ['Final Accepted Qty of this PO Sr. No.', redVal(finalAccQty)],
+        ['Total PO Quantity', redVal(totalPoQtyVal)],
+        ['Total PO Value', redVal(totalPoValDisplay)],
+        [{ content: 'I hereby accept all the Terms and Conditions.', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
+        [{ content: 'Thanking you,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
+        [{ content: 'Yours Faithfully,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
+        ['Name', redVal(vendorName)],
+        ['Mobile', redValNormal(contactPhone)],
+        ['Vendor Email', redValNormal(contactEmail ? `:${contactEmail}` : '-')]
     ];
 
     autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
         tableWidth: tableW,
-        head: annexureHeaders,
-        body: annexureTableBody,
+        body: mainTableBody,
         theme: 'plain',
-        headStyles: {
-            fillColor: [255, 255, 255],
-            textColor: [100, 116, 139],
-            fontStyle: 'normal',
-            fontSize: 7.5,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
-            halign: 'left',
-            valign: 'top'
-        },
         styles: {
-            textColor: darkText,
+            textColor: labelTextColor,
             cellPadding: 2,
-            lineWidth: 0.2,
-            lineColor: lightBlueBorder,
+            lineWidth: 0.15,
+            lineColor: borderLineColor,
             font: 'helvetica',
-            fontSize: 8,
-            valign: 'top'
+            fontSize: 8.5,
+            valign: 'middle'
         },
         columnStyles: {
-            0: { cellWidth: 10 },
-            1: { cellWidth: 26 },
-            2: { cellWidth: 42 },
-            3: { cellWidth: 18 },
-            4: { cellWidth: 18 },
-            5: { cellWidth: 18 },
-            6: { cellWidth: 22 },
-            7: { cellWidth: 22 },
-            8: { cellWidth: 10 }
+            0: { cellWidth: 70, fontStyle: 'normal', textColor: labelTextColor },
+            1: { cellWidth: tableW - 70 }
         }
     });
 
@@ -439,3 +370,4 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     }
     return doc;
 };
+
