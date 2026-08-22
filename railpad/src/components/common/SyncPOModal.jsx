@@ -650,18 +650,10 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             </div>
                         </div>
 
-                    {syncType === 'POMA DATA' && (
-                        <>
-                            <div style={styles.formGroup}>
-                                <label style={styles.label}>MA Number</label>
-                                <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. 006384" style={styles.input} required />
-                            </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.label}>MA Date</label>
-                                <input name="maDate" type="date" value={formData.maDate} onChange={handleInputChange} style={styles.input} required />
-                            </div>
-                        </>
-                    )}
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>PO Number</label>
+                            <input name="poNo" value={formData.poNo} onChange={handleInputChange} placeholder="e.g. 63245440201377" style={styles.input} required />
+                        </div>
 
                         {syncType === 'PO DATA' && (
                             <div style={styles.formGroup}>
@@ -674,7 +666,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             <>
                                 <div style={styles.formGroup}>
                                     <label style={styles.label}>MA Number</label>
-                                    <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. MA01" style={styles.input} required />
+                                    <input name="maNo" value={formData.maNo} onChange={handleInputChange} placeholder="e.g. 006384" style={styles.input} required />
                                 </div>
                                 <div style={styles.formGroup}>
                                     <label style={styles.label}>MA Date</label>
