@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Package, Calendar, ClipboardList, CheckCircle2, AlertCircle,
   Trash2, ChevronDown, ChevronUp, Plus, Info, Layers, FileText,
-  ShieldCheck, AlertTriangle, ArrowRight, Check
+  ShieldCheck, AlertTriangle, ArrowRight, Check, Search, X
 } from 'lucide-react';
 import inspectionCallService from '../../../services/inspectionCallService';
 
@@ -10,7 +10,7 @@ import inspectionCallService from '../../../services/inspectionCallService';
 // Source: PL-60217240 | PL-60217223 | PL-60217250 | PL-60217241 | Northern Railway Annexures A–F | Annexure-B (Photo)
 const NCRGRSP_CATALOG = {
   // TYPE 1 – Source: PL-60217240 | Date: 22.12.23
-  'NRC Rail Pads – 1 in 12 CMS x-ing B.G. for 52 Kg (RDSO/T-4734 Alt.6)': [
+  'RT-4734': [
     { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-8886', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
@@ -27,38 +27,40 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RDSO/T-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
   ],
-  // TYPE 2 – Source: PL-60217223 | Date: 22.12.23
-  'NRC Rail Pads – 1 in 12 T/out TWB Switch for 60 Kg (RDSO/T-6154 Alt.5)': [
-    { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8886', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7014/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8892', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8891', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8890', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7021', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7020', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7019', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7018', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7017', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7016', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8889', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8910', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8909', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8908', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8907', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8955', qtyPerSet: 42, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8954', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8895', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8894', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
+  // RT-6154 – 60 kg 1 in 12 Turnout with T-8970 (Total 345 Pads / 26 Items)
+  'RT-6154': [
+    // Approach, Exit & Lead Portion
+    { drawingNo: 'RDSO/T-8890', qtyPerSet: 1, description: 'Approach, Exit & Lead Portion' },
+    { drawingNo: 'RDSO/T-8889', qtyPerSet: 26, description: 'Approach, Exit & Lead Portion' },
+    { drawingNo: 'RDSO/T-8886', qtyPerSet: 146, description: 'Approach, Exit & Lead Portion' },
+    // Switch Portion
+    { drawingNo: 'RDSO/T-8970', qtyPerSet: 6, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8955', qtyPerSet: 42, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8954', qtyPerSet: 2, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8889', qtyPerSet: 4, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8896', qtyPerSet: 6, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8895', qtyPerSet: 6, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8894', qtyPerSet: 2, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8893', qtyPerSet: 36, description: 'Switch Portion' },
+    { drawingNo: 'RDSO/T-8906', qtyPerSet: 4, description: 'Switch Portion' },
+    // Crossing Portion
+    { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-8886', qtyPerSet: 36, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7014/1', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-8892', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-8891', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7021', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7020', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7019', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7018', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7017', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7016', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7015', qtyPerSet: 1, description: 'Crossing Portion' },
+    { drawingNo: 'RDSO/T-7014', qtyPerSet: 1, description: 'Crossing Portion' }
   ],
   // TYPE 3 – Source: PL-60217250 | Date: 03.09.2025
-  'NRC Rail Pads – 1 in 12 O.R. T/out for 52 Kg on PSC Sleepers (RDSO/T-4733 Alt.8)': [
+  'RT-4733': [
     { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-8886', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
@@ -83,7 +85,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RDSO/T-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 4 – Source: PL-60217241 | Date: 22.12.23
-  'NRC Rail Pads – 1 in 8.5 T/out for 52 Kg (RDSO/T-4867 Alt.9)': [
+  'RT-4867': [
     { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-8887', qtyPerSet: 20, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RDSO/T-8916', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
@@ -104,7 +106,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RDSO/T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 5 – Source: Northern Railway – Annexure-A | Date: 2026
-  '6 mm Thick NCR GRSP – 1 in 16 Turnout (ORS) (T-5691)': [
+  'RT-5691': [
     { drawingNo: 'T-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
     { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
     { drawingNo: 'T-8927', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
@@ -138,7 +140,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'T-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP / Pocket Type' }
   ],
   // TYPE 6 – Source: Northern Railway – Annexure-B | Date: 2026
-  '6 mm Thick NCR GRSP – CMS Crossing Portion 1 in 16 Turnout (T-5693)': [
+  'RT-5693': [
     { drawingNo: 'T-10160', qtyPerSet: 14, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10250', qtyPerSet: 58, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10264', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -156,7 +158,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'T-10276', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 7 – Source: Northern Railway – Annexure-C | Date: 2026
-  '6 mm Thick NCR GRSP – Derailing Switch 1 in 8.5, 60 kg (T-6068)': [
+  'RT-6068': [
     { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-8911', qtyPerSet: 22, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-8913', qtyPerSet: 6, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
@@ -165,8 +167,138 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'T-10162', qtyPerSet: 22, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10335', qtyPerSet: 3, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' }
   ],
+  // RT-5836 – 6 mm Thick NCR GRSP (Total 80 Pads)
+  'RT-5836': [
+    { drawingNo: 'T-8887', qtyPerSet: 17, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8907', qtyPerSet: 9, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8912', qtyPerSet: 22, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8889', qtyPerSet: 22, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-4732 – NCR GRSP (Total 22 Items)
+  'RT-4732': [
+    { drawingNo: 'RDSO/T-8889', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8886', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8890', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7016', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7017', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7018', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7019', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7020', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7021', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7014/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8891', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8892', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8894', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8895', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8907', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-10070 – 10 mm Thick NCR GRSP (Total 403 Pads / 35 Items)
+  'RT-10070': [
+    { drawingNo: 'RT-10096', qtyPerSet: 28, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10278', qtyPerSet: 232, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10223', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10222', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10221', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10220', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10219', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10218', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10217', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10216', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10152', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10116', qtyPerSet: 4, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10118', qtyPerSet: 4, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10189', qtyPerSet: 6, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10097', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10098', qtyPerSet: 36, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-9824', qtyPerSet: 38, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-9837', qtyPerSet: 4, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10151', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10150', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10149', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10148', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10147', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10146', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10145', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10144', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10143', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10142', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10141', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10140', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10139', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10138', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10137', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10136', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10095', qtyPerSet: 14, description: '10 mm Thick Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-4218 – Nylon Cord Reinforced GRSP – 60kg 1 in 12 Turnout (Total 321 Pads)
+  'RT-4218': [
+    { drawingNo: 'RDSO/T-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7014/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7016', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7017', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7018', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7019', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7020', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-7021', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8886', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8889', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8890', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8891', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8892', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8894', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8895', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-8955', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-8779 – 60 kg 1 in 12 Turnout per Set (Total 351 Pads / 30 Items)
+  'RT-8779': [
+    { drawingNo: 'T-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8895', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8894', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10202', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10201', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10200', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10199', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10198/2', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10198/1', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10198', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10164', qtyPerSet: 34, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10163', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10162', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10161', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10159', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10215', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10214', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10213', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10212', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10211', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10210', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10209', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10208', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10207', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10206', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10205', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10204', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10203', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 8 – Source: Northern Railway – Annexure-D | Date: 2026
-  '6 mm Thick NCR GRSP – TWS 1 in 16 Turnout, 60 kg (T-10241)': [
+  'RT-10241': [
     { drawingNo: 'T-8893', qtyPerSet: 38, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10161', qtyPerSet: 14, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
@@ -204,7 +336,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'T-10276', qtyPerSet: 1, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 9 – Source: Northern Railway – Annexure-E | Date: 2026
-  '6 mm Thick NCR GRSP – CMS Crossing Portion 1 in 16 Turnout, 60 kg (T-10243)': [
+  'RT-10243': [
     { drawingNo: 'T-10161', qtyPerSet: 14, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10250', qtyPerSet: 68, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10261', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -224,47 +356,141 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'T-10275', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'T-10276', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
   ],
-  // TYPE 10 – Source: Northern Railway – Annexure-F | Date: 2026
-  '10 mm Thick NCR GRSP – TWSEJ (T-8822)': [
-    { drawingNo: 'RDSO/T-10153', qtyPerSet: 22, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10154', qtyPerSet: 4, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10155', qtyPerSet: 16, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+  // RT-8822 – 10 mm Thick NCR GRSP for TWSEJ (Total 60 Pads)
+  'RT-8822': [
     { drawingNo: 'RDSO/T-10156', qtyPerSet: 2, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10157', qtyPerSet: 16, description: '10 mm Thick Nylon Cord Reinforced GRSP' }
+    { drawingNo: 'RDSO/T-10157', qtyPerSet: 16, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-10155', qtyPerSet: 16, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-10154', qtyPerSet: 4, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RDSO/T-10153', qtyPerSet: 22, description: '10 mm Thick Nylon Cord Reinforced GRSP' }
   ],
-  // TYPE 11 – Source: Annexure-B (Photo) | Date: 2026
-  'Pocket Type NCR GRSP – 1 in 12 Turnout for 25T Axle Load (T-9790)': [
-    { drawingNo: 'RDSO/T-10096', qtyPerSet: 30, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10093', qtyPerSet: 182, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10114/1', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10114/2', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10114', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10115', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10116', qtyPerSet: 4, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10117', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10118', qtyPerSet: 6, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10098', qtyPerSet: 34, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10097', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-9827', qtyPerSet: 6, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-9826', qtyPerSet: 6, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-9825', qtyPerSet: 2, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-9824', qtyPerSet: 36, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-9837', qtyPerSet: 4, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10095', qtyPerSet: 16, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10119', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10120', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10121', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10122', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10123', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10124', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10125', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10126', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10127', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10128', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10129', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10130', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    { drawingNo: 'RDSO/T-10131', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' },
-    // { drawingNo: 'RDSO/T-10031', qtyPerSet: 1, description: 'POCKET TYPE Nylon Cord Reinforced GRSP' }
+  // RT-9790 – NCR GRSP – 1 in 12 60E1 Turnout (Total 351 Pads / 30 Items)
+  'RT-9790': [
+    { drawingNo: 'RT-9827', qtyPerSet: 6, description: 'NCR GRSP' },
+    { drawingNo: 'RT-9826', qtyPerSet: 6, description: 'NCR GRSP' },
+    { drawingNo: 'RT-9825', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-9824', qtyPerSet: 36, description: 'NCR GRSP' },
+    { drawingNo: 'RT-9837', qtyPerSet: 4, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10118', qtyPerSet: 6, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10117', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10116', qtyPerSet: 4, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10115', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10114/2', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10114/1', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10114', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10098', qtyPerSet: 34, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10097', qtyPerSet: 2, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10096', qtyPerSet: 30, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10093', qtyPerSet: 182, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10095', qtyPerSet: 16, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10031', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10130', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10129', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10128', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10127', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10126', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10125', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10124', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10123', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10122', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10121', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10120', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10119', qtyPerSet: 1, description: 'NCR GRSP' }
+  ],
+  // RT-9841 – 10 mm NCR GRSP – 1 in 8.5 60E1 Turnout (Total 234 Pads / 22 Items)
+  'RT-9841': [
+    { drawingNo: '10101', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: '10102', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: '10099', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: '10098', qtyPerSet: 20, description: '10 mm NCR GRSP' },
+    { drawingNo: '10097', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: '10096', qtyPerSet: 30, description: '10 mm NCR GRSP' },
+    { drawingNo: '10094', qtyPerSet: 116, description: '10 mm NCR GRSP' },
+    { drawingNo: '9853', qtyPerSet: 6, description: '10 mm NCR GRSP' },
+    { drawingNo: '9852', qtyPerSet: 22, description: '10 mm NCR GRSP' },
+    { drawingNo: '9837', qtyPerSet: 4, description: '10 mm NCR GRSP' },
+    { drawingNo: '10100', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: '10103', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10104', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10105', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10106', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10107', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10108', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10109', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10110', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10111', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10112', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: '10095', qtyPerSet: 16, description: '10 mm NCR GRSP' }
+  ],
+  // RT-9774 – Nylon Cord Reinforced GRSP for TWS 60 Kg 1 in 8.5 (Total 234 Pads / 22 Items)
+  'RT-9774': [
+    { drawingNo: 'T-10168', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10167', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10165', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10164', qtyPerSet: 20, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10163', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10162', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10160', qtyPerSet: 116, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8911', qtyPerSet: 22, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10166', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10178', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10177', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10176', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10175', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10174', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10173', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10172', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10171', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10170', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10169', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'T-10161', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-4865 – 6 mm Thick Pocket Type NCR GRSP – 1 in 8.5 Turnout (Total 216 Pads / 17 Items)
+  'RT-4865': [
+    { drawingNo: 'RT-10162', qtyPerSet: 30, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10160', qtyPerSet: 116, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8911', qtyPerSet: 22, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8913', qtyPerSet: 6, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8955', qtyPerSet: 12, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10169', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10170', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10171', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10172', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10173', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10174', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10175', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10176', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10177', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10178', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10161', qtyPerSet: 16, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
+  ],
+  // T-9842 to T-9843 – 10 mm NCR GRSP – NFR RDSO/RT-9842+9843 1 in 8.5 (Total 132 Pads / 22 Items)
+  'T-9842 to T-9843': [
+    { drawingNo: 'RDSO/RT-9837', qtyPerSet: 4, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-9852', qtyPerSet: 22, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-9853', qtyPerSet: 6, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10094', qtyPerSet: 48, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10095', qtyPerSet: 16, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10096', qtyPerSet: 4, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10097', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10098', qtyPerSet: 20, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10099', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10100', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10101', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10102', qtyPerSet: 2, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10103', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10104', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10105', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10106', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10107', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10108', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10109', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10110', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10111', qtyPerSet: 1, description: '10 mm NCR GRSP' },
+    { drawingNo: 'RDSO/RT-10112', qtyPerSet: 1, description: '10 mm NCR GRSP' }
   ]
 };
 
@@ -286,7 +512,7 @@ const normalizeDwg = (dwg) => (dwg || '').replace(/^(RDSO\/|RDSO-)/i, '').trim()
 
 const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
   if (!dwgOrType && (!lotsData || lotsData.length === 0)) {
-    return 'Pocket Type NCR GRSP – 1 in 12 Turnout for 25T Axle Load (T-9790)';
+    return 'RT-9790';
   }
   
   // 1. Direct key match
@@ -319,7 +545,7 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
   }
 
   if (String(dwgOrType).includes('10.00mm') || String(dwgOrType).includes('10mm') || String(dwgOrType).includes('9790') || String(dwgOrType).includes('10093') || String(dwgOrType).includes('10114')) {
-    return 'Pocket Type NCR GRSP – 1 in 12 Turnout for 25T Axle Load (T-9790)';
+    return 'RT-9790';
   }
 
   return Object.keys(NCRGRSP_CATALOG)[0];
@@ -364,6 +590,10 @@ const NCRGRSPFinalInspectionCall = ({
   const [isCertDropdownOpen, setIsCertDropdownOpen] = useState(false);
   const certDropdownRef = useRef(null);
 
+  const [isNcrgrspDropdownOpen, setIsNcrgrspDropdownOpen] = useState(false);
+  const [ncrgrspSearchTerm, setNcrgrspSearchTerm] = useState('');
+  const ncrgrspDropdownRef = useRef(null);
+
   const initialLotsCount = callData?.noOfLots || (callData?.lots && callData.lots.length > 0 ? callData.lots.length : (isReadOnly ? 1 : 0));
   const [noOfLots, setNoOfLots] = useState(initialLotsCount);
 
@@ -390,6 +620,9 @@ const NCRGRSPFinalInspectionCall = ({
     const handleClickOutside = (e) => {
       if (certDropdownRef.current && !certDropdownRef.current.contains(e.target)) {
         setIsCertDropdownOpen(false);
+      }
+      if (ncrgrspDropdownRef.current && !ncrgrspDropdownRef.current.contains(e.target)) {
+        setIsNcrgrspDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1245,8 +1478,8 @@ const NCRGRSPFinalInspectionCall = ({
                 )}
               </div>
 
-              {/* NCRGRSP Type Select */}
-              <div>
+              {/* NCRGRSP Type Select (Searchable & Compact) */}
+              <div style={{ position: 'relative' }} ref={ncrgrspDropdownRef}>
                 <label style={labelStyle}>
                   NCRGRSP Type <span style={{ color: '#ff4d4f' }}>*</span>
                 </label>
@@ -1255,20 +1488,114 @@ const NCRGRSPFinalInspectionCall = ({
                     type="text"
                     readOnly
                     disabled
-                    value={ncrgrspType}
+                    value={ncrgrspType || 'N/A'}
                     style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#1e293b' }}
                   />
                 ) : (
-                  <select
-                    value={ncrgrspType || ''}
-                    onChange={e => setNcrgrspType(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="">Select NCRGRSP Type</option>
-                    {Object.keys(NCRGRSP_CATALOG).map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
+                  <>
+                    <div
+                      onClick={() => {
+                        setIsNcrgrspDropdownOpen(prev => !prev);
+                        setNcrgrspSearchTerm('');
+                      }}
+                      style={{
+                        ...selectStyle,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        background: '#fff',
+                        minHeight: 38,
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, fontSize: 13, fontWeight: ncrgrspType ? 700 : 500, color: ncrgrspType ? '#1e293b' : '#94a3b8' }}>
+                        {ncrgrspType || 'Select NCRGRSP Type'}
+                      </div>
+                      <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0, transform: isNcrgrspDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                    </div>
+
+                    {isNcrgrspDropdownOpen && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                        background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                        zIndex: 1100, padding: 6, width: '100%'
+                      }}>
+                        {/* Compact Search Input */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+                          background: '#f1f5f9', borderRadius: 6, marginBottom: 6, border: '1px solid #e2e8f0'
+                        }}>
+                          <Search size={14} style={{ color: '#64748b', flexShrink: 0 }} />
+                          <input
+                            type="text"
+                            placeholder="Search type... (e.g. 6154)"
+                            value={ncrgrspSearchTerm}
+                            onChange={e => setNcrgrspSearchTerm(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            autoFocus
+                            style={{
+                              border: 'none', background: 'transparent', outline: 'none',
+                              fontSize: 12, fontWeight: 600, width: '100%', color: '#0f172a'
+                            }}
+                          />
+                          {ncrgrspSearchTerm && (
+                            <X
+                              size={13}
+                              style={{ color: '#94a3b8', cursor: 'pointer' }}
+                              onClick={(e) => { e.stopPropagation(); setNcrgrspSearchTerm(''); }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Compact Scrollable Options List */}
+                        <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {Object.keys(NCRGRSP_CATALOG)
+                            .filter(type => type.toLowerCase().includes(ncrgrspSearchTerm.trim().toLowerCase()))
+                            .map(type => {
+                              const isSelected = ncrgrspType === type;
+                              return (
+                                <div
+                                  key={type}
+                                  onClick={() => {
+                                    setNcrgrspType(type);
+                                    setIsNcrgrspDropdownOpen(false);
+                                  }}
+                                  style={{
+                                    padding: '6px 10px',
+                                    borderRadius: 5,
+                                    cursor: 'pointer',
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? 800 : 600,
+                                    color: isSelected ? '#1677ff' : '#334155',
+                                    background: isSelected ? '#eff6ff' : 'transparent',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    transition: 'background 0.15s'
+                                  }}
+                                  onMouseEnter={e => {
+                                    if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                                  }}
+                                  onMouseLeave={e => {
+                                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                                  }}
+                                >
+                                  <span>{type}</span>
+                                  {isSelected && <Check size={14} style={{ color: '#1677ff' }} />}
+                                </div>
+                              );
+                            })}
+                          {Object.keys(NCRGRSP_CATALOG).filter(type => type.toLowerCase().includes(ncrgrspSearchTerm.trim().toLowerCase())).length === 0 && (
+                            <div style={{ padding: '10px 8px', fontSize: 12, color: '#94a3b8', textAlign: 'center', fontWeight: 600 }}>
+                              No matching type found
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

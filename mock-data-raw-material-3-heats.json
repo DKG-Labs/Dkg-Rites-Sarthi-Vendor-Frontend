@@ -191,11 +191,11 @@
   "calculation_details": {
     "conversion_factor": {
       "product_type": "ERC MK-III",
-      "division_factor": 0.928426,
+      "division_factor": 0.91,
       "formula": "(Total Offered Qty MT × 1000) / Division Factor = Max ERC Count"
     },
     "total_offered_qty_mt": 5.500,
-    "calculation": "(5.500 × 1000) / 0.928426 = 5925.77 ≈ 5,926 ERCs",
+    "calculation": "(5.500 × 1000) / 0.91 = 6043.95 ≈ 6,043 ERCs",
     "heat_wise_breakdown": [
       {
         "heatNumber": "HT-2025-001",

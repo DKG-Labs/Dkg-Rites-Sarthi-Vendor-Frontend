@@ -24,10 +24,46 @@ const RAIL_PAD_TYPES = [
 const DRAWING_MAPPING = {
     "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
     "10.00mm GRSP": [], 
-    "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
-    "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8694", "RDSO/T-8747", "RDSO/T-8998"],
-    "6.00mm NCRGRSP": ["1 in 12 RDSO/T-6154", "RDSO/T-6154", "1 in 12 RDSO/T-8779", "1 in 8.5 RDSO/T-9774", "1 in 12 RDSO/T-4218", "1 in 8.5 RDSO/T-4865", "RDSO/T-4220", "RDSO/T-4967", "RDSO/T-6068", "RDSO/T-8893 to RDSO/T-8905", "RDSO/T-8886 to RDSO/T-8889"],
-    "10.00mm NCRGRSP": ["1 in 12 RDSO- 9790", "1 in 16 RDSO -10070"]
+    "6.20mm CGRSP": ["RT-6618", "RT-8327"],
+    "10.00mm CGRSP": ["RT-8528", "RT-8694", "RT-8747", "RT-8998"],
+    "6.00mm NCRGRSP": [
+        "RT-6154",
+        "RT-8779",
+        "RT-9774",
+        "RT-4218",
+        "RT-4865",
+        "RT-4220",
+        "RT-4967",
+        "RT-6068",
+        "RT-8893 to RT-8905",
+        "RT-8886 to RT-8889",
+        "RT-4734",
+        "RT-4733",
+        "RT-4867",
+        "RT-5691",
+        "RT-5693",
+        "RT-10241",
+        "RT-10243",
+        "RT-8822",
+        "RT-9790",
+        "RT-4732",
+        "RT-9841"
+    ],
+    "10.00mm NCRGRSP": [
+        "RT-9790",
+        "RT-10070",
+        "RT-4734",
+        "RT-6154",
+        "RT-4733",
+        "RT-4867",
+        "RT-5691",
+        "RT-5693",
+        "RT-6068",
+        "RT-10241",
+        "RT-10243",
+        "RT-8822",
+        "T-9842 to T-9843"
+    ]
 };
 
 const UOM_OPTIONS = ['Nos.', 'Set'];
