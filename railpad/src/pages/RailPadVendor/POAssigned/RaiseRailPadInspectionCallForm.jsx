@@ -373,21 +373,29 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
 
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
-    const handleBatchSelection = (lotIdx, batch, checked) => {
-        if (checked) {
-            const currentLotSum = getLotSum(lots[lotIdx]);
-            if (currentLotSum + batch.pending > lotLimit) {
-                alert(`Lot Limit Exceeded!\n\n1 lot cannot have more than ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nYou need to select/create a second lot for quantities exceeding ${lotLimit.toLocaleString()} Nos.`);
-                return;
+    const getQtyUsedInOtherLots = (currentLotIdx, batchId) => {
+        return lots.reduce((acc, lot, idx) => {
+            if (idx !== currentLotIdx) {
+                return acc + (parseInt(lot.selectedBatches[batchId]) || 0);
             }
-        }
+            return acc;
+        }, 0);
+    };
+
+    const getRemainingBatchQty = (currentLotIdx, batchId, totalQty) => {
+        const usedInOther = getQtyUsedInOtherLots(currentLotIdx, batchId);
+        return Math.max(0, totalQty - usedInOther);
+    };
+
+    const handleBatchSelection = (lotIdx, batch, checked) => {
+        const remainingForThisLot = getRemainingBatchQty(lotIdx, batch.id, batch.qty);
         setLots(prev => {
             const newLots = [...prev];
             const currentLot = { ...newLots[lotIdx] };
             const newSelected = { ...currentLot.selectedBatches };
 
             if (checked) {
-                newSelected[batch.id] = batch.pending;
+                newSelected[batch.id] = remainingForThisLot;
             } else {
                 delete newSelected[batch.id];
             }
@@ -410,32 +418,16 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const handleDateMasterToggle = (lotIdx, dateGroup, checked) => {
-        if (checked) {
-            let potentialAddedQty = 0;
-            dateGroup.batches.forEach(b => {
-                const isSelectedInOther = lots.some((l, idx) => idx !== lotIdx && l.selectedBatches[b.id] !== undefined);
-                const isAlreadySelectedInCurrent = lots[lotIdx].selectedBatches[b.id] !== undefined;
-                if (!isSelectedInOther && !isAlreadySelectedInCurrent) {
-                    potentialAddedQty += b.pending;
-                }
-            });
-
-            const currentLotSum = getLotSum(lots[lotIdx]);
-            if (currentLotSum + potentialAddedQty > lotLimit) {
-                alert(`Lot Limit Exceeded!\n\n1 lot cannot have more than ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nYou need to select/create a second lot for quantities exceeding ${lotLimit.toLocaleString()} Nos.`);
-                return;
-            }
-        }
         setLots(prev => {
             const newLots = [...prev];
             const currentLot = { ...newLots[lotIdx] };
             const newSelected = { ...currentLot.selectedBatches };
 
             dateGroup.batches.forEach(b => {
+                const bRemaining = getRemainingBatchQty(lotIdx, b.id, b.qty);
                 if (checked) {
-                    const isSelectedInOther = prev.some((l, idx) => idx !== lotIdx && l.selectedBatches[b.id] !== undefined);
-                    if (!isSelectedInOther) {
-                        newSelected[b.id] = b.pending;
+                    if (bRemaining > 0) {
+                        newSelected[b.id] = bRemaining;
                     }
                 } else {
                     delete newSelected[b.id];
@@ -449,10 +441,6 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const isBatchSelected = (lotIdx, batchId) => lots[lotIdx]?.selectedBatches[batchId] !== undefined;
-
-    const isBatchSelectedInOtherLot = (currentLotIdx, batchId) => {
-        return lots.some((lot, idx) => idx !== currentLotIdx && lot.selectedBatches[batchId] !== undefined);
-    };
 
 
     // ─── Styles ───────────────────────────────────────────────────────────────
@@ -701,7 +689,11 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                 </div>
                                                             ) : (
                                                                 filteredInventory.map(dateGroup => {
-                                                                    const availableBatches = dateGroup.batches.filter(b => !isBatchSelectedInOtherLot(lotIdx, b.id));
+                                                                    const availableBatches = dateGroup.batches.map(b => {
+                                                                        const remaining = getRemainingBatchQty(lotIdx, b.id, b.qty);
+                                                                        return { ...b, remaining };
+                                                                    }).filter(b => b.remaining > 0 || isBatchSelected(lotIdx, b.id));
+
                                                                     if (availableBatches.length === 0) return null;
                                                                     return (
                                                                         <div key={dateGroup.productionDate} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.01)' }}>
@@ -723,6 +715,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                             <div style={{ padding: '6px 8px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '5px', background: '#fcfcfd' }}>
                                                                                 {availableBatches.map(batch => {
                                                                                     const isSelected = isBatchSelected(lotIdx, batch.id);
+                                                                                    const selectedQtyInThisLot = lots[lotIdx]?.selectedBatches[batch.id];
                                                                                     return (
                                                                                         <div
                                                                                             key={batch.id}
@@ -750,7 +743,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                                                     <div style={{ fontSize: '9px', color: isSelected ? '#bae6fd' : '#0284c7', fontWeight: 700 }}>Drawing No: {batch.drawingNo || 'N/A'}</div>
                                                                                                 )}
                                                                                                 <div style={{ fontSize: '8px', color: isSelected ? '#94a3b8' : '#64748b', fontWeight: 700 }}>
-                                                                                                    Qty: {batch.qty.toLocaleString()}
+                                                                                                    Qty: {isSelected && selectedQtyInThisLot !== undefined ? selectedQtyInThisLot.toLocaleString() : batch.remaining.toLocaleString()}
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
@@ -840,17 +833,10 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             {activePartialLotIdx !== null && (
                 <PartialOfferingModal
                     lot={lots[activePartialLotIdx]}
+                    activePartialLotIdx={activePartialLotIdx}
+                    allLots={lots}
                     lotLimit={lotLimit}
                     inventory={filteredInventory}
-                    alreadySelectedBatchIds={(() => {
-                        const ids = new Set();
-                        lots.forEach((l, idx) => {
-                            if (idx !== activePartialLotIdx) {
-                                Object.keys(l.selectedBatches).forEach(id => ids.add(String(id)));
-                            }
-                        });
-                        return ids;
-                    })()}
                     onClose={() => setActivePartialLotIdx(null)}
                     onSubmit={(selected) => {
                         setLots(prev => {
@@ -936,27 +922,39 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
 };
 
 // ─── Partial Offering Modal Component ──────────────────────────────────────────
-const PartialOfferingModal = ({ lot, lotLimit = 10000, inventory, alreadySelectedBatchIds = new Set(), onClose, onSubmit }) => {
+const PartialOfferingModal = ({ lot, activePartialLotIdx, allLots = [], lotLimit = 10000, inventory, onClose, onSubmit }) => {
     // Initialize with existing selections from the lot
     const [selectedBatches, setSelectedBatches] = useState(lot.selectedBatches || {});
 
+    const getQtyUsedInOtherLots = (batchId) => {
+        return (allLots || []).reduce((acc, l, idx) => {
+            if (idx !== activePartialLotIdx) {
+                return acc + (parseInt(l.selectedBatches[batchId]) || 0);
+            }
+            return acc;
+        }, 0);
+    };
+
     const allBatches = useMemo(() => {
         const list = [];
-        // 'inventory' prop here is actually 'filteredInventory' passed from parent
         (inventory || []).forEach(group => {
             (group.batches || []).forEach(b => {
-                if (alreadySelectedBatchIds.has(String(b.id))) return;
+                const usedInOther = getQtyUsedInOtherLots(b.id);
+                const totalBatchQty = b.qty || b.pending || 0;
+                const remainingForThisLot = Math.max(0, totalBatchQty - usedInOther);
 
-                list.push({
-                    id: b.id,
-                    batchNo: b.batchNo,
-                    pending: b.pending || b.qty || 0,
-                    productionDate: group.productionDate
-                });
+                if (remainingForThisLot > 0 || selectedBatches[b.id] !== undefined) {
+                    list.push({
+                        id: b.id,
+                        batchNo: b.batchNo,
+                        pending: remainingForThisLot,
+                        productionDate: group.productionDate
+                    });
+                }
             });
         });
         return list;
-    }, [inventory, alreadySelectedBatchIds]);
+    }, [inventory, allLots, activePartialLotIdx, selectedBatches]);
 
     const totalSelected = Object.values(selectedBatches).reduce((acc, v) => acc + v, 0);
 
@@ -964,32 +962,13 @@ const PartialOfferingModal = ({ lot, lotLimit = 10000, inventory, alreadySelecte
         if (!val) return;
         // Convert both to string to handle potential number/string mismatch
         const batch = allBatches.find(b => String(b.id) === String(val));
-        if (batch && !selectedBatches[batch.id]) {
-            const potentialNewTotal = totalSelected + batch.pending;
-            if (potentialNewTotal > lotLimit) {
-                alert(`Lot Limit Exceeded!\n\n1 lot cannot have more than ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nYou need to select/create a second lot for quantities exceeding ${lotLimit.toLocaleString()} Nos.`);
-                const remainingCapacity = Math.max(0, lotLimit - totalSelected);
-                if (remainingCapacity > 0) {
-                    setSelectedBatches(prev => ({ ...prev, [batch.id]: remainingCapacity }));
-                }
-                return;
-            }
+        if (batch && selectedBatches[batch.id] === undefined) {
             setSelectedBatches(prev => ({ ...prev, [batch.id]: batch.pending }));
         }
     };
 
     const handleQtyChange = (batchId, qty, max) => {
         const val = Math.max(0, Math.min(parseInt(qty) || 0, max));
-        const currentVal = selectedBatches[batchId] || 0;
-        const otherBatchesSum = totalSelected - currentVal;
-
-        if (otherBatchesSum + val > lotLimit) {
-            alert(`Lot Limit Exceeded!\n\n1 lot cannot have more than ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nYou need to select/create a second lot for quantities exceeding ${lotLimit.toLocaleString()} Nos.`);
-            const allowedVal = Math.max(0, lotLimit - otherBatchesSum);
-            setSelectedBatches(prev => ({ ...prev, [batchId]: allowedVal }));
-            return;
-        }
-
         setSelectedBatches(prev => ({ ...prev, [batchId]: val }));
     };
 
@@ -999,7 +978,13 @@ const PartialOfferingModal = ({ lot, lotLimit = 10000, inventory, alreadySelecte
         setSelectedBatches(newSelected);
     };
 
-    const availableOptions = allBatches.filter(b => !selectedBatches[b.id]);
+    const availableOptions = allBatches.filter(b => selectedBatches[b.id] === undefined);
+    const isLotExceedingLimit = totalSelected > lotLimit;
+    const hasInvalidQty = Object.entries(selectedBatches).some(([batchId, qty]) => {
+        const batch = allBatches.find(b => String(b.id) === String(batchId));
+        return qty <= 0 || qty > (batch?.pending || 0);
+    });
+    const isModalDisabled = Object.keys(selectedBatches).length === 0 || isLotExceedingLimit || hasInvalidQty;
 
     return (
         <div style={{
@@ -1143,22 +1128,29 @@ const PartialOfferingModal = ({ lot, lotLimit = 10000, inventory, alreadySelecte
 
                 {/* Footer */}
                 <div style={{ padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Total Lot Quantity:</span>
-                        <span style={{ fontSize: '16px', fontWeight: 950, color: '#1e293b' }}>{totalSelected.toLocaleString()}</span>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8' }}>Nos.</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Total Lot Quantity:</span>
+                            <span style={{ fontSize: '16px', fontWeight: 950, color: isLotExceedingLimit ? '#dc2626' : '#1e293b' }}>{totalSelected.toLocaleString()}</span>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8' }}>Nos.</span>
+                        </div>
+                        {isLotExceedingLimit && (
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#dc2626' }}>
+                                ⚠️ Total lot quantity exceeds maximum limit of {lotLimit.toLocaleString()} Nos. Please adjust quantities.
+                            </span>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={onClose} style={{ height: '34px', padding: '0 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                         <button
-                            disabled={Object.keys(selectedBatches).length === 0}
+                            disabled={isModalDisabled}
                             onClick={() => onSubmit(selectedBatches)}
                             style={{
                                 height: '34px', padding: '0 20px', borderRadius: '8px', border: 'none',
-                                background: Object.keys(selectedBatches).length === 0 ? '#e2e8f0' : 'linear-gradient(135deg, #0891b2, #0e7490)',
-                                color: Object.keys(selectedBatches).length === 0 ? '#94a3b8' : '#fff',
-                                fontWeight: 900, fontSize: '12px', cursor: Object.keys(selectedBatches).length === 0 ? 'not-allowed' : 'pointer',
-                                boxShadow: Object.keys(selectedBatches).length === 0 ? 'none' : '0 4px 6px -1px rgba(8,145,178,0.15)'
+                                background: isModalDisabled ? '#e2e8f0' : 'linear-gradient(135deg, #0891b2, #0e7490)',
+                                color: isModalDisabled ? '#94a3b8' : '#fff',
+                                fontWeight: 900, fontSize: '12px', cursor: isModalDisabled ? 'not-allowed' : 'pointer',
+                                boxShadow: isModalDisabled ? 'none' : '0 4px 6px -1px rgba(8,145,178,0.15)'
                             }}
                         >Confirm & Update Lot</button>
                     </div>
