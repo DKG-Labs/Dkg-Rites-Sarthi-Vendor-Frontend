@@ -578,6 +578,7 @@ const VendorDashboardPage = ({ onBack }) => {
           quantity_offered: call.quantityOffered || 0,
           location: call.placeOfInspection || '',
           status: call.workflowStatus || call.jobStatus || 'Pending',
+          desiredInspectionDate: call.desiredInspectionDate || call.desired_inspection_date || '',
           // Additional fields for expanded view
           rlyShortName: call.rlyShortName || call.rly_short_name || call.rlyCd || 'N/A',
           ercType: call.ercType || 'N/A',
@@ -2806,11 +2807,11 @@ const VendorDashboardPage = ({ onBack }) => {
             // Process fields – derive RM IC numbers from mappings; fall back to
             // detail rows when the mapping table is empty (older records)
             process_rm_ic_numbers: (() => {
-              const fromMappings = mappings.map(m => m.rmIcNumber).filter(Boolean);
-              if (fromMappings.length > 0) return fromMappings;
+              const fromMappings = (mappings || []).flatMap(m => (m.rmIcNumber ? m.rmIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+              if (fromMappings.length > 0) return [...new Set(fromMappings)];
               // Fallback: collect unique rmIcNumber values from detail rows
               const fromDetails = [...new Set(
-                detailsList.map(d => d.rmIcNumber).filter(Boolean)
+                (detailsList || []).flatMap(d => (d.rmIcNumber ? d.rmIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean)
               )];
               return fromDetails;
             })(),
@@ -2865,10 +2866,15 @@ const VendorDashboardPage = ({ onBack }) => {
           const ic = data.inspectionCall || {};
           const finalDetails = data.finalInspectionDetails || {};
           const lotDetails = data.finalLotDetails || [];
+          const mappings = data.finalProcessMappings || [];
 
-          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').filter(Boolean) : [];
-          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').filter(Boolean) : [];
-          const lotNumbers = lotDetails.map(d => d.lotNumber).filter(Boolean);
+          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const fromMappings = mappings.flatMap(m => (m.processIcNumber ? m.processIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+          const fromLots = lotDetails.flatMap(d => (d.processIcNumber ? d.processIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+          const allProcessIcs = [...new Set([...processIcList, ...fromMappings, ...fromLots])];
+
+          const lotNumbers = [...new Set(lotDetails.map(d => d.lotNumber).filter(Boolean))];
 
           prefilledData = {
             // Common fields
@@ -2891,7 +2897,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
             // Final fields
             final_rm_ic_numbers: rmIcList,
-            final_process_ic_numbers: processIcList,
+            final_process_ic_numbers: allProcessIcs,
             final_lot_numbers: lotNumbers,
             final_manufacturer_heat: lotDetails[0]?.manufacturerHeat || '',
             final_erc_qty: finalDetails.totalOfferedQty || '',
@@ -3117,10 +3123,10 @@ const VendorDashboardPage = ({ onBack }) => {
             remarks: ic.remarks || '',
             placeOfInspection: ic.placeOfInspection || '',
             process_rm_ic_numbers: (() => {
-              const fromMappings = mappings.map(m => m.rmIcNumber).filter(Boolean);
-              if (fromMappings.length > 0) return fromMappings;
+              const fromMappings = (mappings || []).flatMap(m => (m.rmIcNumber ? m.rmIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+              if (fromMappings.length > 0) return [...new Set(fromMappings)];
               const fromDetails = [...new Set(
-                detailsList.map(d => d.rmIcNumber).filter(Boolean)
+                (detailsList || []).flatMap(d => (d.rmIcNumber ? d.rmIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean)
               )];
               return fromDetails;
             })(),
@@ -3173,10 +3179,15 @@ const VendorDashboardPage = ({ onBack }) => {
           const ic = data.inspectionCall || {};
           const finalDetails = data.finalInspectionDetails || {};
           const lotDetails = data.finalLotDetails || [];
+          const mappings = data.finalProcessMappings || [];
 
-          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').filter(Boolean) : [];
-          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').filter(Boolean) : [];
-          const lotNumbers = lotDetails.map(d => d.lotNumber).filter(Boolean);
+          const rmIcList = finalDetails.rmIcNumber ? finalDetails.rmIcNumber.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const processIcList = finalDetails.processIcNumber ? finalDetails.processIcNumber.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const fromMappings = mappings.flatMap(m => (m.processIcNumber ? m.processIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+          const fromLots = lotDetails.flatMap(d => (d.processIcNumber ? d.processIcNumber.split(',').map(s => s.trim()) : [])).filter(Boolean);
+          const allProcessIcs = [...new Set([...processIcList, ...fromMappings, ...fromLots])];
+
+          const lotNumbers = [...new Set(lotDetails.map(d => d.lotNumber).filter(Boolean))];
 
           prefilledData = {
             po_no: ic.poNo || call.po_no || '',
@@ -3196,7 +3207,7 @@ const VendorDashboardPage = ({ onBack }) => {
             remarks: ic.remarks || '',
             placeOfInspection: ic.placeOfInspection || '',
             final_rm_ic_numbers: rmIcList,
-            final_process_ic_numbers: processIcList,
+            final_process_ic_numbers: allProcessIcs,
             final_lot_numbers: lotNumbers,
             final_manufacturer_heat: lotDetails[0]?.manufacturerHeat || '',
             final_erc_qty: finalDetails.totalOfferedQty || '',
