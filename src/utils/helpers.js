@@ -18,7 +18,43 @@ export const calculateDaysLeft = (dueDate) => {
 
 export const formatDate = (dateString) => {
   if (!dateString) return '-';
+
+  if (typeof dateString === 'string') {
+    const trimmed = dateString.trim();
+    if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'n/a') return '-';
+
+    // Check if already in DD-MM-YYYY or DD/MM/YYYY format
+    const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (ddmmyyyyMatch) {
+      const d = ddmmyyyyMatch[1].padStart(2, '0');
+      const m = ddmmyyyyMatch[2].padStart(2, '0');
+      const y = ddmmyyyyMatch[3];
+      return `${d}-${m}-${y}`;
+    }
+
+    // Check if in YYYY-MM-DD format
+    const yyyymmddMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (yyyymmddMatch) {
+      const y = yyyymmddMatch[1];
+      const m = yyyymmddMatch[2].padStart(2, '0');
+      const d = yyyymmddMatch[3].padStart(2, '0');
+      return `${d}-${m}-${y}`;
+    }
+  }
+
+  // Handle Array date representation [year, month, day, ...]
+  if (Array.isArray(dateString) && dateString.length >= 3) {
+    const y = dateString[0];
+    const m = String(dateString[1]).padStart(2, '0');
+    const d = String(dateString[2]).padStart(2, '0');
+    return `${d}-${m}-${y}`;
+  }
+
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return typeof dateString === 'string' ? dateString : '-';
+  }
+
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();

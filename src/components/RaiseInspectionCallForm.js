@@ -23,25 +23,84 @@ import Notification from './Notification';
 import '../styles/raiseInspectionCall.css';
 
 // Multi-Select Dropdown Component
-const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder, disabled = false }) => {
+const MultiSelectDropdown = ({ options = [], selectedValues = [], onChange, placeholder, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  const currentSelected = useMemo(() => {
+    return Array.isArray(selectedValues) ? selectedValues : [];
+  }, [selectedValues]);
 
   const toggleDropdown = () => {
     if (!disabled) setIsOpen(!isOpen);
   };
 
+  const isOptionSelected = (optVal) => {
+    if (optVal === undefined || optVal === null) return false;
+    return currentSelected.some(sv => {
+      if (sv === undefined || sv === null) return false;
+      if (sv === optVal) return true;
+      const s1 = String(sv).trim();
+      const s2 = String(optVal).trim();
+      if (s1 === s2) return true;
+      const m1 = s1.match(/[^/]+\/([^/]+)\//);
+      const ic1 = m1 ? m1[1] : s1;
+      const m2 = s2.match(/[^/]+\/([^/]+)\//);
+      const ic2 = m2 ? m2[1] : s2;
+      return ic1 && ic2 && ic1.toUpperCase() === ic2.toUpperCase();
+    });
+  };
+
   const handleOptionClick = (value) => {
-    const newValues = selectedValues.includes(value)
-      ? selectedValues.filter(v => v !== value)
-      : [...selectedValues, value];
+    let newValues;
+    if (isOptionSelected(value)) {
+      newValues = currentSelected.filter(sv => {
+        if (sv === value) return false;
+        const s1 = String(sv).trim();
+        const s2 = String(value).trim();
+        if (s1 === s2) return false;
+        const m1 = s1.match(/[^/]+\/([^/]+)\//);
+        const ic1 = m1 ? m1[1] : s1;
+        const m2 = s2.match(/[^/]+\/([^/]+)\//);
+        const ic2 = m2 ? m2[1] : s2;
+        return !(ic1 && ic2 && ic1.toUpperCase() === ic2.toUpperCase());
+      });
+    } else {
+      newValues = [...currentSelected, value];
+    }
     onChange(newValues);
   };
 
   const getDisplayText = () => {
-    if (selectedValues.length === 0) return placeholder;
-    if (selectedValues.length === 1) return selectedValues[0];
-    return `${selectedValues.length} items selected`;
+    if (currentSelected.length === 0) return placeholder;
+    if (currentSelected.length === 1) return currentSelected[0];
+    return `${currentSelected.length} items selected`;
   };
+
+  // Merge options with any selectedValues not present in options (e.g. during initial modify loading)
+  const displayOptions = useMemo(() => {
+    const list = Array.isArray(options) ? [...options] : [];
+    const hasMatch = (val) => list.some(o => {
+      if (o.value === val) return true;
+      const s1 = String(o.value || '').trim();
+      const s2 = String(val || '').trim();
+      if (s1 === s2) return true;
+      const m1 = s1.match(/[^/]+\/([^/]+)\//);
+      const ic1 = m1 ? m1[1] : s1;
+      const m2 = s2.match(/[^/]+\/([^/]+)\//);
+      const ic2 = m2 ? m2[1] : s2;
+      return ic1 && ic2 && ic1.toUpperCase() === ic2.toUpperCase();
+    });
+
+    currentSelected.forEach(sv => {
+      if (sv && !hasMatch(sv)) {
+        list.push({
+          value: sv,
+          label: sv
+        });
+      }
+    });
+    return list;
+  }, [options, currentSelected]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -70,20 +129,20 @@ const MultiSelectDropdown = ({ options, selectedValues, onChange, placeholder, d
       </div>
       {isOpen && (
         <div className="ric-multiselect-options">
-          {options.length === 0 ? (
+          {displayOptions.length === 0 ? (
             <div style={{ padding: '12px', color: '#6b7280', textAlign: 'center' }}>
               No options available
             </div>
           ) : (
-            options.map((option) => (
+            displayOptions.map((option) => (
               <div
                 key={option.value}
-                className={`ric-multiselect-option ${selectedValues.includes(option.value) ? 'ric-multiselect-option--selected' : ''}`}
+                className={`ric-multiselect-option ${isOptionSelected(option.value) ? 'ric-multiselect-option--selected' : ''}`}
                 onClick={() => handleOptionClick(option.value)}
               >
                 <input
                   type="checkbox"
-                  checked={selectedValues.includes(option.value)}
+                  checked={isOptionSelected(option.value)}
                   onChange={() => { }}
                   className="ric-multiselect-checkbox"
                 />
@@ -989,16 +1048,38 @@ export const RaiseInspectionCallForm = ({
           console.log('📦 RM IC certificates response:', response);
 
           if (response && response.data) {
-            const certificates = Array.isArray(response.data) ? response.data : [];
+            const certificates = Array.isArray(response.data) ? [...response.data] : [];
             console.log('✅ Setting RM IC certificates:', certificates);
+
+            // In modify mode: ensure pre-selected RM IC numbers are available as options
+            if (isModifyMode && formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
+              const existingValues = new Set(certificates.map(d => (typeof d === 'object' ? d.certificateNo : d)));
+              formData.final_rm_ic_numbers.forEach(preSelected => {
+                if (!existingValues.has(preSelected)) {
+                  certificates.push({
+                    certificateNo: preSelected,
+                    createdAt: null
+                  });
+                }
+              });
+            }
+
             setRmIcNumbersForFinal(certificates);
           } else {
             console.warn('⚠️ No RM IC certificates found');
-            setRmIcNumbersForFinal([]);
+            if (isModifyMode && formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
+              setRmIcNumbersForFinal(formData.final_rm_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
+            } else {
+              setRmIcNumbersForFinal([]);
+            }
           }
         } catch (error) {
           console.error('❌ Error fetching RM IC certificates:', error);
-          setRmIcNumbersForFinal([]);
+          if (isModifyMode && formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
+            setRmIcNumbersForFinal(formData.final_rm_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
+          } else {
+            setRmIcNumbersForFinal([]);
+          }
         } finally {
           setLoadingRmIcsForFinal(false);
         }
@@ -1008,6 +1089,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchRmIcCertificates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.po_serial_no]);
 
   // Step 2: Fetch Process IC certificates when RM IC certificate is selected
@@ -1023,16 +1105,38 @@ export const RaiseInspectionCallForm = ({
           console.log('📦 Process IC certificates response:', response);
 
           if (response && response.data) {
-            const certificates = Array.isArray(response.data) ? response.data : [];
+            const certificates = Array.isArray(response.data) ? [...response.data] : [];
             console.log('✅ Setting Process IC certificates:', certificates);
+
+            // In modify mode: ensure pre-selected Process IC numbers are available as options
+            if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+              const existingValues = new Set(certificates.map(d => (typeof d === 'object' ? d.certificateNo : d)));
+              formData.final_process_ic_numbers.forEach(preSelected => {
+                if (!existingValues.has(preSelected)) {
+                  certificates.push({
+                    certificateNo: preSelected,
+                    createdAt: null
+                  });
+                }
+              });
+            }
+
             setProcessIcCertificates(certificates);
           } else {
             console.warn('⚠️ No Process IC certificates found');
-            setProcessIcCertificates([]);
+            if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+              setProcessIcCertificates(formData.final_process_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
+            } else {
+              setProcessIcCertificates([]);
+            }
           }
         } catch (error) {
           console.error('❌ Error fetching Process IC certificates:', error);
-          setProcessIcCertificates([]);
+          if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+            setProcessIcCertificates(formData.final_process_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
+          } else {
+            setProcessIcCertificates([]);
+          }
         } finally {
           setLoadingProcessIcs(false);
         }
@@ -1042,6 +1146,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchProcessIcCertificates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.final_rm_ic_numbers]);
 
   // Step 3: Fetch Lot numbers when both RM IC and Process IC are selected
@@ -1059,16 +1164,35 @@ export const RaiseInspectionCallForm = ({
           console.log('📦 Lot numbers response:', response);
 
           if (response && response.data) {
-            const lotNumbers = Array.isArray(response.data) ? response.data : [];
+            const lotNumbers = Array.isArray(response.data) ? [...response.data] : [];
             console.log('✅ Setting lot numbers:', lotNumbers);
+
+            // In modify mode: ensure pre-selected lot numbers are available as options
+            if (isModifyMode && formData.final_lot_numbers && formData.final_lot_numbers.length > 0) {
+              const existingValues = new Set(lotNumbers);
+              formData.final_lot_numbers.forEach(preSelected => {
+                if (!existingValues.has(preSelected)) {
+                  lotNumbers.push(preSelected);
+                }
+              });
+            }
+
             setLotNumbersForFinal(lotNumbers);
           } else {
             console.warn('⚠️ No lot numbers found');
-            setLotNumbersForFinal([]);
+            if (isModifyMode && formData.final_lot_numbers && formData.final_lot_numbers.length > 0) {
+              setLotNumbersForFinal([...formData.final_lot_numbers]);
+            } else {
+              setLotNumbersForFinal([]);
+            }
           }
         } catch (error) {
           console.error('❌ Error fetching lot numbers:', error);
-          setLotNumbersForFinal([]);
+          if (isModifyMode && formData.final_lot_numbers && formData.final_lot_numbers.length > 0) {
+            setLotNumbersForFinal([...formData.final_lot_numbers]);
+          } else {
+            setLotNumbersForFinal([]);
+          }
         } finally {
           setLoadingLotsForFinal(false);
         }
@@ -1078,6 +1202,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchLotNumbers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
 
   // Step 4: Fetch heat numbers for each selected lot
@@ -1089,30 +1214,63 @@ export const RaiseInspectionCallForm = ({
         formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
         try {
           const newLotHeatMapping = {};
-          const processCerts = (formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0)
-            ? formData.final_process_ic_numbers
-            : [''];
 
-          // Fetch heat numbers for each lot with each selected RM IC and Process IC (MULTI-SELECT)
+          // Fetch heat numbers for each lot across all selected Process ICs and RM ICs
           for (const lotNumber of formData.final_lot_numbers) {
             let heatNumberFound = false;
 
-            for (const procCertificate of processCerts) {
+            // Check across all Process ICs and RM ICs
+            const procCertificates = (formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0)
+              ? formData.final_process_ic_numbers
+              : [''];
+
+            for (const procCertificate of procCertificates) {
               for (const rmCertificate of formData.final_rm_ic_numbers) {
                 console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate, 'Process cert:', procCertificate);
-                const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
+                try {
+                  const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
 
-                if (response && response.data) {
-                  const heatNumbers = Array.isArray(response.data) ? response.data : [];
-                  if (heatNumbers.length > 0) {
-                    newLotHeatMapping[lotNumber] = heatNumbers[0]; // Take first heat number
-                    console.log(`✅ Heat number for lot ${lotNumber}:`, newLotHeatMapping[lotNumber]);
-                    heatNumberFound = true;
-                    break; // Found heat number with this RM & Process IC
+                  if (response && response.data) {
+                    const heatNumbers = Array.isArray(response.data) ? response.data : [];
+                    if (heatNumbers.length > 0 && heatNumbers[0]) {
+                      newLotHeatMapping[lotNumber] = heatNumbers[0];
+                      console.log(`✅ Heat number for lot ${lotNumber}:`, newLotHeatMapping[lotNumber]);
+                      heatNumberFound = true;
+                      break;
+                    }
                   }
+                } catch (e) {
+                  console.warn(`Could not fetch heat number with RM ${rmCertificate} and Proc ${procCertificate}:`, e.message);
                 }
               }
-              if (heatNumberFound) break; // Found heat number, move to next lot
+              if (heatNumberFound) break;
+            }
+
+            // Fallback 1: Query without certificate filter
+            if (!heatNumberFound) {
+              try {
+                const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, '', '');
+                if (response && response.data) {
+                  const heatNumbers = Array.isArray(response.data) ? response.data : [];
+                  if (heatNumbers.length > 0 && heatNumbers[0]) {
+                    newLotHeatMapping[lotNumber] = heatNumbers[0];
+                    console.log(`✅ Fallback heat number for lot ${lotNumber}:`, newLotHeatMapping[lotNumber]);
+                    heatNumberFound = true;
+                  }
+                }
+              } catch (fallbackErr) {
+                console.warn(`Fallback heat number query failed for ${lotNumber}:`, fallbackErr.message);
+              }
+            }
+
+            // Fallback 2: Check existing lot data (e.g. in modify mode)
+            if (!heatNumberFound) {
+              const existingLot = formData.final_lots_data?.find(l => l.lotNumber === lotNumber) ||
+                                  selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
+              if (existingLot && existingLot.heatNo) {
+                newLotHeatMapping[lotNumber] = existingLot.heatNo;
+                heatNumberFound = true;
+              }
             }
 
             if (!heatNumberFound) {
@@ -1130,6 +1288,7 @@ export const RaiseInspectionCallForm = ({
     };
 
     fetchHeatNumbersForLots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type_of_call, formData.final_lot_numbers, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
 
   // Step 5: Sync final_lots_data and fetch acceptedProcessQty
@@ -1139,15 +1298,16 @@ export const RaiseInspectionCallForm = ({
         formData.final_lot_numbers && formData.final_lot_numbers.length > 0 &&
         formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
 
-        // Extract Request IDs from ALL selected Process IC numbers
-        const requestIds = formData.final_process_ic_numbers.map(procCert => {
-          const callNoMatch = procCert.match(/[^/]+\/([^/]+)\//);
-          return callNoMatch ? callNoMatch[1] : procCert;
-        });
+        // Extract Request IDs from all selected Process IC numbers
+        const requestIds = (formData.final_process_ic_numbers || []).map(processCert => {
+          const callNoMatch = processCert.match(/[^/]+\/([^/]+)\//);
+          return callNoMatch ? callNoMatch[1] : processCert;
+        }).filter(Boolean);
 
         const updatedLotsData = await Promise.all(formData.final_lot_numbers.map(async (lotNumber) => {
-          const existing = formData.final_lots_data.find(l => l.lotNumber === lotNumber);
-          const heatNo = lotHeatMapping[lotNumber] || '';
+          const existing = formData.final_lots_data?.find(l => l.lotNumber === lotNumber) ||
+                           selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
+          const heatNo = lotHeatMapping[lotNumber] || existing?.heatNo || '';
 
           let acceptedQtyProcess = existing?.acceptedQtyProcess || 0;
           let offeredEarlier = existing?.offeredEarlier || 0;
@@ -1155,25 +1315,29 @@ export const RaiseInspectionCallForm = ({
           // Fetch values if heatNo is available
           if (heatNo) {
             try {
-              // 1. Fetch acceptedQtyProcess across ALL selected Process IC requestIds if not already set on existing lot
-              if (!existing || !existing.acceptedQtyProcess || existing.lotNumber !== lotNumber || existing.heatNo !== heatNo) {
-                for (const requestId of requestIds) {
+              // 1. Fetch acceptedQtyProcess across all request IDs
+              let fetchedAcceptedQty = 0;
+              for (const requestId of requestIds) {
+                try {
                   const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
-                  if (acceptedRes && acceptedRes.success && acceptedRes.data !== undefined && acceptedRes.data !== null) {
-                    const val = parseInt(acceptedRes.data) || 0;
-                    if (val > 0) {
-                      acceptedQtyProcess = val;
-                      break;
-                    }
+                  if (acceptedRes && acceptedRes.success && acceptedRes.data > 0) {
+                    fetchedAcceptedQty = acceptedRes.data;
+                    break;
                   }
+                } catch (err) {
+                  console.warn(`Error fetching accepted qty with reqId ${requestId}:`, err.message);
                 }
+              }
+
+              if (fetchedAcceptedQty > 0) {
+                acceptedQtyProcess = fetchedAcceptedQty;
               }
 
               // 2. Fetch offeredEarlier
               const earlierRes = await inspectionCallService.getOfferedEarlierQuantity(heatNo, lotNumber);
               if (earlierRes && earlierRes.success) {
                 offeredEarlier = earlierRes.data || 0;
-                
+
                 // In modify mode, the backend's offeredEarlier already includes the original call's quantity.
                 // We need to subtract the original quantity for this lot from this call so it doesn't get double-counted.
                 if (isModifyMode && selectedItem && selectedItem.final_lots_data) {
@@ -1191,7 +1355,9 @@ export const RaiseInspectionCallForm = ({
             }
           }
 
-          const futureBalance = acceptedQtyProcess - offeredEarlier;
+          const totalAvailable = Math.max(0, acceptedQtyProcess - offeredEarlier);
+          const currentOffered = existing?.offeredQty !== undefined && existing?.offeredQty !== '' ? (parseInt(existing.offeredQty) || 0) : 0;
+          const futureBalance = Math.max(0, totalAvailable - currentOffered);
 
           return {
             lotNumber,
@@ -1199,8 +1365,8 @@ export const RaiseInspectionCallForm = ({
             acceptedQtyProcess,
             offeredEarlier,
             futureBalance,
-            offeredQty: existing?.offeredQty || '',
-            noOfBags: existing?.noOfBags || ''
+            offeredQty: existing?.offeredQty !== undefined ? existing.offeredQty : '',
+            noOfBags: existing?.noOfBags !== undefined ? existing.noOfBags : ''
           };
         }));
 
@@ -1332,79 +1498,51 @@ export const RaiseInspectionCallForm = ({
   const heatNumbersForDropdown = useMemo(() => {
     // Helper function to filter by grade based on ERC type and Call type
     const filterByGrade = (entries) => {
-      // Only apply grade filtering for Raw Material calls
       if (formData.type_of_call !== 'Raw Material') {
         return entries;
       }
-
-      // Only apply filtering if both Type of ERC and Type of Call are selected
       if (!formData.type_of_erc || formData.type_of_erc === '') {
         return entries;
       }
 
       // Filter based on Type of ERC
       if (formData.type_of_erc === 'MK-III') {
-        // MK-III + Raw Material: Only show grade "55Si7 20.64MM"
         const filtered = entries.filter(entry => {
-          const grade = entry.gradeSpecification || '';
-          const matches = grade.includes('55Si7') && grade.includes('20.64');
-          if (!matches) {
-            console.log(`🚫 Filtering out ${entry.heatNumber} - Grade: ${grade} (MK-III requires 55Si7 20.64MM)`);
-          }
-          return matches;
+          const grade = (entry.gradeSpecification || '').toLowerCase().replace(/\s+/g, '');
+          if (!grade) return true;
+          return grade.includes('55si7') || grade.includes('20.64');
         });
-        console.log(`🔍 MK-III + Raw Material filter: ${filtered.length} of ${entries.length} heat numbers match grade 55Si7 20.64MM`);
-        return filtered;
+        return filtered.length > 0 ? filtered : entries;
       } else if (formData.type_of_erc === 'MK-V') {
-        // MK-V + Raw Material: Only show grade "55Si7 23MM"
         const filtered = entries.filter(entry => {
-          const grade = entry.gradeSpecification || '';
-          const matches = grade.includes('55Si7') && grade.includes('23');
-          if (!matches) {
-            console.log(`🚫 Filtering out ${entry.heatNumber} - Grade: ${grade} (MK-V requires 55Si7 23MM)`);
-          }
-          return matches;
+          const grade = (entry.gradeSpecification || '').toLowerCase().replace(/\s+/g, '');
+          if (!grade) return true;
+          return grade.includes('55si7') || grade.includes('23');
         });
-        console.log(`🔍 MK-V + Raw Material filter: ${filtered.length} of ${entries.length} heat numbers match grade 55Si7 23MM`);
-        return filtered;
+        return filtered.length > 0 ? filtered : entries;
       }
 
-      // For other ERC types (J-Type), return all entries
       return entries;
     };
 
     if (availableHeatNumbers && availableHeatNumbers.length > 0) {
       console.log('✅ Using availableHeatNumbers from API:', availableHeatNumbers.length);
-      console.log('📊 Available heat numbers:', availableHeatNumbers);
-
-      // Apply grade filtering to API results
       const gradeFiltered = filterByGrade(availableHeatNumbers);
       return gradeFiltered;
     }
 
     // Fallback: filter from inventoryEntries
-    // IMPORTANT: Only exclude EXHAUSTED entries. All other statuses are available.
     console.log('⚠️ Falling back to filtering inventoryEntries');
-    console.warn('⚠️ API call may have failed - using fallback filtering logic');
 
-    const filtered = inventoryEntries
+    const filtered = (inventoryEntries || [])
       .filter(entry => {
-        // Explicitly exclude EXHAUSTED status only
-        if (entry.status === 'EXHAUSTED' || entry.status === 'Exhausted') {
-          console.log(`🚫 Filtering out EXHAUSTED entry: ${entry.heatNumber}`);
+        // Explicitly exclude EXHAUSTED status only when NOT in modify mode
+        if (!isModifyMode && (entry.status === 'EXHAUSTED' || entry.status === 'Exhausted')) {
           return false;
         }
 
-        // Include all other statuses (FRESH_PO, UNDER_INSPECTION, ACCEPTED, REJECTED)
-        // as long as there's remaining quantity
-        const hasQuantity = entry.qtyLeftForInspection > 0;
-
-        if (hasQuantity) {
-          console.log(`✅ Including entry: ${entry.heatNumber} (Status: ${entry.status}, Qty: ${entry.qtyLeftForInspection})`);
-        } else {
-          console.log(`⚠️ Excluding entry (no quantity): ${entry.heatNumber} (Status: ${entry.status})`);
-        }
-
+        // In modify mode, include entries so vendor can pick from existing inventory
+        const hasQuantity = isModifyMode || (entry.qtyLeftForInspection > 0);
         return hasQuantity;
       })
       .map(entry => ({
@@ -1412,47 +1550,47 @@ export const RaiseInspectionCallForm = ({
         tcNumber: entry.tcNumber,
         rawMaterial: entry.rawMaterial,
         supplierName: entry.supplierName,
-        gradeSpecification: entry.gradeSpecification, // Include grade for filtering
+        gradeSpecification: entry.gradeSpecification,
         qtyLeft: entry.qtyLeftForInspection,
         unit: entry.unitOfMeasurement,
-        status: entry.status // Include status for debugging
+        status: entry.status
       }));
 
     console.log(`📊 Fallback filtered ${filtered.length} available heat numbers from ${inventoryEntries.length} total entries`);
-    console.log(`📋 Included statuses: FRESH_PO, UNDER_INSPECTION, ACCEPTED, REJECTED (excluding EXHAUSTED)`);
 
     // Apply grade filtering to fallback results
     const gradeFiltered = filterByGrade(filtered);
     return gradeFiltered;
-  }, [availableHeatNumbers, inventoryEntries, formData.type_of_erc, formData.type_of_call]);
+  }, [availableHeatNumbers, inventoryEntries, formData.type_of_erc, formData.type_of_call, isModifyMode]);
 
   // Get available heat numbers for a specific heat mapping dropdown
-  // Shows ALL heat numbers (no filtering based on selection)
   // Deduplicates based on composite key (heatNumber + supplierName)
   const getAvailableHeatNumbersForDropdown = useCallback((currentHeatMappingId) => {
-    // Deduplicate heat numbers based on composite key
     const seenCompositeKeys = new Set();
     const deduplicatedHeats = [];
 
-    // Ensure the current prefilled heat number in modify mode is always in the list
-    const currentMapping = formData.rm_heat_tc_mapping.find(h => h.id === currentHeatMappingId);
-    if (currentMapping && currentMapping.heatNumber) {
-      const currentHeat = {
-        heatNumber: currentMapping.heatNumber,
-        supplierName: currentMapping.supplierName || currentMapping.manufacturer || '',
-        rawMaterial: currentMapping.unit || '',
-        gradeSpecification: '',
-        qtyLeft: parseFloat(currentMapping.tcQtyRemaining) || parseFloat(currentMapping.maxQty) || 0,
-        unit: currentMapping.unit || ''
-      };
-      const compositeKey = `${currentHeat.heatNumber}|${currentHeat.supplierName}`;
-      seenCompositeKeys.add(compositeKey);
-      deduplicatedHeats.push(currentHeat);
-    }
+    // 1. Always include all heats present in formData.rm_heat_tc_mapping (for all sections)
+    (formData.rm_heat_tc_mapping || []).forEach(mapping => {
+      if (mapping && mapping.heatNumber) {
+        const heatObj = {
+          heatNumber: mapping.heatNumber,
+          supplierName: mapping.supplierName || mapping.manufacturer || '',
+          rawMaterial: mapping.unit || '',
+          gradeSpecification: '',
+          qtyLeft: parseFloat(mapping.tcQtyRemaining) || parseFloat(mapping.maxQty) || 0,
+          unit: mapping.unit || ''
+        };
+        const compositeKey = `${heatObj.heatNumber}|${heatObj.supplierName}`;
+        if (!seenCompositeKeys.has(compositeKey)) {
+          seenCompositeKeys.add(compositeKey);
+          deduplicatedHeats.push(heatObj);
+        }
+      }
+    });
 
-    heatNumbersForDropdown.forEach(heat => {
+    // 2. Also include all heats from heatNumbersForDropdown (from inventory entries)
+    (heatNumbersForDropdown || []).forEach(heat => {
       const compositeKey = `${heat.heatNumber}|${heat.supplierName}`;
-      // Only add if we haven't seen this composite key before
       if (!seenCompositeKeys.has(compositeKey)) {
         seenCompositeKeys.add(compositeKey);
         deduplicatedHeats.push(heat);
@@ -1474,23 +1612,11 @@ export const RaiseInspectionCallForm = ({
 
     const tcList = [];
 
-    // Ensure the current prefilled TC number in modify mode is always in the list
-    const currentMapping = formData.rm_heat_tc_mapping.find(h => h.id === currentHeatMappingId);
-    if (currentMapping && currentMapping.tcNumber && currentMapping.heatNumber === heatNumber) {
-      tcList.push({
-        tcNumber: currentMapping.tcNumber,
-        heatNumber: currentMapping.heatNumber,
-        manufacturer: currentMapping.manufacturer || currentMapping.supplierName || '',
-        tcDate: currentMapping.tcDate
-      });
-    }
-
-    // Find all inventory entries matching this heat number and supplier (if provided)
-    // Filter out entries where TC Qty Remaining (qtyLeftForInspection) is 0 or less
-    const matchingEntries = inventoryEntries.filter(entry => {
+    // 1. Find all inventory entries matching this heat number and supplier
+    const matchingEntries = (inventoryEntries || []).filter(entry => {
       const heatMatches = entry.heatNumber === heatNumber;
       const supplierMatches = !supplierName || entry.supplierName === supplierName;
-      const hasRemainingQty = entry.qtyLeftForInspection > 0;
+      const hasRemainingQty = isModifyMode || (entry.qtyLeftForInspection > 0);
       return heatMatches && supplierMatches && hasRemainingQty;
     });
 
@@ -1501,6 +1627,18 @@ export const RaiseInspectionCallForm = ({
           heatNumber: entry.heatNumber,
           manufacturer: entry.supplierName,
           tcDate: entry.tcDate
+        });
+      }
+    });
+
+    // 2. Also ensure all TCs present in formData.rm_heat_tc_mapping for this heat are included
+    (formData.rm_heat_tc_mapping || []).forEach(h => {
+      if (h.heatNumber === heatNumber && h.tcNumber && !tcList.find(tc => tc.tcNumber === h.tcNumber)) {
+        tcList.push({
+          tcNumber: h.tcNumber,
+          heatNumber: h.heatNumber,
+          manufacturer: h.manufacturer || h.supplierName || '',
+          tcDate: h.tcDate
         });
       }
     });
@@ -1518,26 +1656,15 @@ export const RaiseInspectionCallForm = ({
       }
     }
 
-    // Filter out TC numbers that are already selected in OTHER rows for the SAME heat number.
-    // A TC number should only be excluded if it's already selected for this specific heat number
-    // in a different row. Two different heats can legitimately share the same TC number label
-    // because they correspond to separate inventory entries.
+    // 3. Filter out TC numbers that are already selected in OTHER rows for the SAME heat number
     const selectedTcNumbersForThisHeat = formData.rm_heat_tc_mapping
       .filter(heat => heat.id !== currentHeatMappingId && heat.tcNumber && heat.heatNumber === heatNumber)
       .map(heat => heat.tcNumber);
 
     const filteredTcList = tcList.filter(tc => !selectedTcNumbersForThisHeat.includes(tc.tcNumber));
 
-    console.log(`📋 TC numbers for heat ${heatNumber}:`, {
-      total: tcList.length,
-      filtered: filteredTcList.length,
-      selectedInSameHeatOtherRows: selectedTcNumbersForThisHeat.length,
-      selectedTcNumbersForThisHeat,
-      note: 'Excluded TC numbers with 0 remaining quantity or already selected for the same heat'
-    });
-
     return filteredTcList;
-  }, [inventoryEntries, formData.rm_heat_tc_mapping]);
+  }, [inventoryEntries, formData.rm_heat_tc_mapping, isModifyMode]);
 
   // OLD CODE - Commented out as we now handle per heat-TC combination
   // const availableTcNumbers = useMemo(() => { ... }, [formData.rm_heat_numbers]);
@@ -1983,24 +2110,34 @@ export const RaiseInspectionCallForm = ({
   const handleFinalLotDataChange = (lotNumber, field, value) => {
     setFormData(prev => ({
       ...prev,
-      final_lots_data: prev.final_lots_data.map(l => {
+      final_lots_data: (prev.final_lots_data || []).map(l => {
         if (l.lotNumber === lotNumber) {
           let newValue = value;
 
-          // Prevent entering quantity greater than future balance
+          // Max available for this lot before this call's offer
+          const totalAvailable = Math.max(0, (l.acceptedQtyProcess || 0) - (l.offeredEarlier || 0));
+
           if (field === 'offeredQty') {
-            const maxAllowed = Math.max(0, l.futureBalance || 0);
-            if (value > maxAllowed) {
-              newValue = maxAllowed;
+            const numVal = parseInt(value) || 0;
+            if (numVal > totalAvailable) {
+              newValue = totalAvailable;
             }
           }
 
-          const updatedLot = { ...l, [field]: newValue };
+          const currentOffered = field === 'offeredQty' ? (parseInt(newValue) || 0) : (parseInt(l.offeredQty) || 0);
+          const dynamicFutureBalance = Math.max(0, totalAvailable - currentOffered);
+
+          const updatedLot = {
+            ...l,
+            [field]: newValue,
+            futureBalance: dynamicFutureBalance
+          };
 
           // Logic: No. of Bags >= (Qty of that Lot / 50)
           // Auto-calculate suggested bags when Qty is changed
           if (field === 'offeredQty') {
-            const minBags = Math.ceil((newValue || 0) / 50);
+            const numVal = parseInt(newValue) || 0;
+            const minBags = Math.ceil(numVal / 50);
             // If current bags are 0 or less than the new minimum, auto-update them
             if (!l.noOfBags || l.noOfBags < minBags) {
               updatedLot.noOfBags = minBags;
@@ -2622,10 +2759,13 @@ export const RaiseInspectionCallForm = ({
       // Validate each lot in final_lots_data
       if (formData.final_lots_data && formData.final_lots_data.length > 0) {
         formData.final_lots_data.forEach((lot, index) => {
-          if (!lot.offeredQty || parseInt(lot.offeredQty) <= 0) {
+          const maxAvailable = Math.max(0, (lot.acceptedQtyProcess || 0) - (lot.offeredEarlier || 0));
+          const offeredQty = parseInt(lot.offeredQty) || 0;
+
+          if (!lot.offeredQty || offeredQty <= 0) {
             newErrors[`final_lot_${index}_qty`] = `Offered Quantity is required for Lot ${lot.lotNumber}`;
-          } else if (parseInt(lot.offeredQty) > (lot.futureBalance || 0)) {
-            newErrors[`final_lot_${index}_qty`] = `Offered Quantity for Lot ${lot.lotNumber} cannot exceed Future Balance (${lot.futureBalance})`;
+          } else if (offeredQty > maxAvailable) {
+            newErrors[`final_lot_${index}_qty`] = `Offered Quantity for Lot ${lot.lotNumber} cannot exceed available quantity (${maxAvailable})`;
           }
 
           if (!lot.noOfBags || parseInt(lot.noOfBags) <= 0) {
@@ -3869,8 +4009,11 @@ export const RaiseInspectionCallForm = ({
                         </thead>
                         <tbody>
                           {formData.final_lots_data.map((lot) => {
-                            const isQtyInvalid = lot.offeredQty > (lot.futureBalance || 0);
-                            const minBagsRequired = Math.ceil((lot.offeredQty || 0) / 50);
+                            const totalAvailable = Math.max(0, (lot.acceptedQtyProcess || 0) - (lot.offeredEarlier || 0));
+                            const currentOffered = parseInt(lot.offeredQty) || 0;
+                            const dynamicBalance = Math.max(0, totalAvailable - currentOffered);
+                            const isQtyInvalid = currentOffered > totalAvailable;
+                            const minBagsRequired = Math.ceil(currentOffered / 50);
                             const isBagsInvalid = lot.noOfBags > 0 && lot.noOfBags < minBagsRequired;
 
                             return (
@@ -3879,19 +4022,22 @@ export const RaiseInspectionCallForm = ({
                                 <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.heatNo}</td>
                                 <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.acceptedQtyProcess}</td>
                                 <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{lot.offeredEarlier || 0}</td>
-                                <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#059669' }}>{lot.futureBalance || 0}</td>
+                                <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#059669' }}>
+                                  {dynamicBalance}
+                                </td>
                                 <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
                                   <input
                                     type="number"
                                     className={`ric-form-input ${isQtyInvalid ? 'error' : ''}`}
                                     value={lot.offeredQty}
-                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', parseInt(e.target.value) || 0)}
+                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                                     placeholder="Quantity"
+                                    max={totalAvailable}
                                     style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
                                   />
                                   {isQtyInvalid && (
                                     <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
-                                      Cannot exceed future balance ({lot.futureBalance})
+                                      Cannot exceed available balance ({totalAvailable})
                                     </div>
                                   )}
                                 </td>
@@ -3900,7 +4046,7 @@ export const RaiseInspectionCallForm = ({
                                     type="number"
                                     className={`ric-form-input ${isBagsInvalid ? 'error' : ''}`}
                                     value={lot.noOfBags}
-                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'noOfBags', parseInt(e.target.value) || 0)}
+                                    onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'noOfBags', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                                     placeholder="Bags"
                                     style={isBagsInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
                                   />
