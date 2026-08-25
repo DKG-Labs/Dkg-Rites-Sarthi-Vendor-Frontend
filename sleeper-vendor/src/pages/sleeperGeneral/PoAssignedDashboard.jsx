@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import RaiseInspectionCallForm from './RaiseInspectionCallForm';
 import { apiService } from '../../services/api';
 import SyncPOButton from '../../components/common/SyncPOButton';
+import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
 
 
 // ─── Date & SR Formatter Helpers ─────────────────────────────────────────────
@@ -57,8 +58,70 @@ const StatusBadge = ({ status }) => {
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
 const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCaseNoMissing = false }) => {
     const [showForm, setShowForm] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing;
+
+    const handleDownloadCallLetter = async (e) => {
+        e.stopPropagation();
+        setIsDownloading(true);
+        try {
+            const rawSr = item.itemSrNo || item.srNo || (item.poSerialNo ? String(item.poSerialNo).split('/').pop() : '');
+            const srNo = String(rawSr).trim();
+            const userId = sessionStorage.getItem('userId') || 118;
+            const allCalls = await apiService.getVendorInspectionCalls(userId);
+            
+            // Find matching calls for this poNo and srNo
+            const matchingCalls = (allCalls || []).filter(c => 
+                String(c.poNo).trim() === String(poNo).trim() && 
+                (String(c.srNo).trim() === srNo || String(c.srNo).padStart(3, '0') === srNo.padStart(3, '0'))
+            );
+
+            let targetCall = matchingCalls.length > 0 ? matchingCalls[matchingCalls.length - 1] : null;
+            let callId = targetCall?.callNo;
+
+            if (callId) {
+                const details = await apiService.getCallLetterDetails(callId);
+                const enriched = {
+                    ...targetCall,
+                    ...(details || {}),
+                    callNumber: targetCall.callNo,
+                    poNumber: poNo,
+                    poSerialNo: srNo,
+                    poDes: item.poDes || item.description,
+                    conigness: item.conigness || item.consignee,
+                    orderedQty: item.orderedQty || item.ordered,
+                    acceptedTillNow: item.acceptedTillNow
+                };
+                generateCallLetterPDF(enriched, true);
+            } else {
+                // Generate official format call letter for this PO item
+                const syntheticCall = {
+                    callNo: `CALL-${poNo}-${srNo || '001'}`,
+                    callNumber: `CALL-${poNo}-${srNo || '001'}`,
+                    poNo: poNo,
+                    poNumber: poNo,
+                    srNo: srNo,
+                    poSerialNo: srNo,
+                    itemDesc: item.poDes || item.description,
+                    poQty: item.orderedQty || item.ordered,
+                    callQty: item.offeredTillNow || item.orderedQty || item.ordered,
+                    totalOffered: item.offeredTillNow || item.orderedQty || item.ordered,
+                    uom: 'Nos.',
+                    callUnit: 'Nos.',
+                    consigneeDetail: item.conigness || item.consignee,
+                    vendorName: sessionStorage.getItem('vendorName') || 'Sleeper Vendor',
+                    status: 'Call Raised'
+                };
+                generateCallLetterPDF(syntheticCall, true);
+            }
+        } catch (err) {
+            console.error("Error downloading Call Letter:", err);
+            alert("Failed to download Call Letter. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     return (
         <>

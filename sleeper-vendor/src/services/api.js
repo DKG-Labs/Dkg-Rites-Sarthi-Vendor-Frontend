@@ -825,6 +825,23 @@ export const apiService = {
         }
     },
 
+    getCallLetterDetails: async (requestId) => {
+        try {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token && { 'Authorization': `Bearer ${token}` }),
+            };
+            const response = await fetch(`${BASE_URL}/call-letter/details?requestId=${encodeURIComponent(requestId)}`, { headers });
+            if (!response.ok) throw new Error('Failed to fetch call letter details');
+            const data = await response.json();
+            return data.responseData || data.data || data;
+        } catch (error) {
+            console.error('API Error fetching call letter details:', error);
+            return null;
+        }
+    },
+
     getCompletedBatches: async (sleeperType, userId) => {
         try {
             const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';

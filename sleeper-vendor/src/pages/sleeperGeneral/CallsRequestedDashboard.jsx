@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/api';
 import { generateOfferListPDF } from '../../utils/offerListGenerator';
+import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
 
 // ─── Status Configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -645,6 +646,61 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
         showToast(`${call.callNo} has been withdrawn successfully.`);
     };
 
+    const handleDownloadCallLetter = async (call) => {
+        const callId = call?.callNo || call?.callNumber || call?.requestId || call?.id;
+        if (!callId) {
+            showToast('Call ID not found. Cannot generate PDF.', 'info');
+            return;
+        }
+        showToast(`Generating Call Letter for ${callId}...`, 'info');
+        try {
+            const details = await apiService.getCallLetterDetails(callId);
+            const enrichedCall = {
+                ...call,
+                ...(details || {}),
+                callNumber: call.callNo || call.callNumber || callId,
+                poNumber: call.poNo || call.poNumber || details?.poNo
+            };
+            generateCallLetterPDF(enrichedCall, true);
+            showToast(`Call letter for ${callId} downloaded successfully!`);
+        } catch (err) {
+            console.error('Error generating Call Letter PDF:', err);
+            try {
+                generateCallLetterPDF(call, true);
+                showToast(`Call letter for ${callId} downloaded!`);
+            } catch (e2) {
+                showToast('Failed to generate Call Letter PDF.', 'info');
+            }
+        }
+    };
+
+    const handleDownloadOfferList = async (call) => {
+        const callId = call?.callNo || call?.callNumber || call?.requestId || call?.id;
+        try {
+            const details = callId ? await apiService.getCallLetterDetails(callId) : null;
+            const enrichedCall = {
+                ...call,
+                ...(details || {}),
+                callNo: call.callNo || call.callNumber || callId,
+                poNo: call.poNo || details?.poNo,
+                consignee: details?.consigneeDetail || call.consignee || call.consigneeDetail,
+                poDate: details?.poDate || call.poDate,
+                batchesSelected: (call.batchesSelected && call.batchesSelected.length > 0)
+                    ? call.batchesSelected
+                    : (details?.heatDetails?.map(h => ({
+                        batchNo: h.heatNo,
+                        goodSleepers: parseInt(h.qtyOffered) || 0,
+                        totalCasted: parseInt(h.qtyOffered) || 0
+                    })))
+            };
+            generateOfferListPDF(enrichedCall);
+            showToast(`Offer list downloaded successfully!`);
+        } catch (e) {
+            console.error('Error generating offer list PDF:', e);
+            generateOfferListPDF(call);
+        }
+    };
+
     const FILTER_TABS = [
         { key: 'All', color: '#21808d' },
         { key: 'Call Raised', color: '#3b82f6' },
@@ -786,7 +842,7 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                                                 <StatusBadge status={call.status} scheduledDate={call.scheduledDate} />
                                             </td>
 
-                                            {/* View Button */}
+                                            {/* Action */}
                                             <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => setSelectedCall(call)}
@@ -819,8 +875,8 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                     onModify={(c) => { setSelectedCall(null); handleModify(c); }}
                     onWithdraw={(c) => { setSelectedCall(null); handleWithdraw(c); }}
                     onResubmit={(c) => { handleResubmit(c); }}
-                    onDownload={(c) => showToast(`Call letter for ${c.callNo} downloading...`, 'info')}
-                    onDownloadOfferList={(c) => generateOfferListPDF(c)}
+                    onDownload={(c) => handleDownloadCallLetter(c)}
+                    onDownloadOfferList={(c) => handleDownloadOfferList(c)}
                 />
             )}
 
