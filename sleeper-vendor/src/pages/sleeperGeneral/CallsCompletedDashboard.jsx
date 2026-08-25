@@ -1,12 +1,41 @@
 import React, { useState } from 'react';
+import { apiService } from '../../services/api';
+import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
 
 const CallsCompletedDashboard = ({ inspectionCalls }) => {
+    const [downloadingCallId, setDownloadingCallId] = useState(null);
+
+    const handleDownloadCallLetter = async (call) => {
+        const callId = call?.callNo || call?.callNumber || call?.id;
+        if (!callId) return;
+        setDownloadingCallId(callId);
+        try {
+            const details = await apiService.getCallLetterDetails(callId);
+            const enrichedCall = {
+                ...call,
+                ...(details || {}),
+                callNumber: call.callNo || call.callNumber || callId,
+                poNumber: call.poNo || call.poNumber || details?.poNo
+            };
+            generateCallLetterPDF(enrichedCall, true);
+        } catch (err) {
+            console.error('Error generating Call Letter PDF:', err);
+            try {
+                generateCallLetterPDF(call, true);
+            } catch (e2) {}
+        } finally {
+            setDownloadingCallId(null);
+        }
+    };
+
     const completedCalls = (inspectionCalls || []).filter(c => 
         c.status === 'Completed' || c.status === 'Verified' || c.status === 'Accepted'
     ).map(c => ({
         id: c.id,
         icNo: c.icNo || `IC-${c.callNo || c.id}`,
         callNo: c.callNo || 'N/A',
+        poNo: c.poNo,
+        srNo: c.srNo,
         date: c.callDate || 'N/A',
         qtyOffered: Number(c.qtyOffered) || 0,
         qtyAccepted: Number(c.qtyAccepted) || Number(c.qtyOffered) || 0,
@@ -65,20 +94,25 @@ const CallsCompletedDashboard = ({ inspectionCalls }) => {
                                         </span>
                                     </td>
                                     <td style={{ padding: '20px', textAlign: 'center' }}>
-                                        <button style={{
-                                            background: '#f1f5f9',
-                                            border: 'none',
-                                            padding: '8px 16px',
-                                            borderRadius: '8px',
-                                            fontSize: '12px',
-                                            fontWeight: '700',
-                                            color: '#475569',
-                                            cursor: 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}>
-                                            📄 Download
+                                        <button
+                                            onClick={() => handleDownloadCallLetter(call)}
+                                            disabled={downloadingCallId === (call.callNo || call.id)}
+                                            style={{
+                                                background: '#f0f9fa',
+                                                border: '1.5px solid #21808d',
+                                                padding: '8px 16px',
+                                                borderRadius: '8px',
+                                                fontSize: '12px',
+                                                fontWeight: '700',
+                                                color: '#21808d',
+                                                cursor: downloadingCallId === (call.callNo || call.id) ? 'not-allowed' : 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 2px 4px rgba(33,128,141,0.1)'
+                                            }}
+                                        >
+                                            📄 {downloadingCallId === (call.callNo || call.id) ? 'Downloading...' : 'Call Letter'}
                                         </button>
                                     </td>
                                 </tr>

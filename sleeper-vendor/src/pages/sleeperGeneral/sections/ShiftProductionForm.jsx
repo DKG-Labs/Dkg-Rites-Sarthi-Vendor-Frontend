@@ -551,7 +551,9 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             'RT-8978',
             'RT-4149',
             'RT-8838',
-            'RT-4852'
+            'RT-4852',
+            'RT-3504',
+            'RT-8326'
         ]
     };
 

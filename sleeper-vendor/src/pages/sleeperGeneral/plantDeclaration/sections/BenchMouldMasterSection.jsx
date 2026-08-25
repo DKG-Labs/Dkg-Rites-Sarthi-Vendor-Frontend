@@ -17,7 +17,8 @@ const CATEGORY_HIERARCHY = {
     "Special Sleepers": {
         "Turnouts, Points & Crossings": ["1 in 12 (Set): T-4218", "1 in 8.5 (Set): T-4865"],
         "Bridge Straight - Standard 60KG": ["RT-4088"],
-        "Bridge Approach - Standard 60KG": ["RT-4089", "RT-4090", "RT-4091", "RT-4092", "RT-4093", "RT-4094", "RT-4095", "RT-4096", "RT-4097"]
+        "Bridge Approach - Standard 60KG": ["RT-4089", "RT-4090", "RT-4091", "RT-4092", "RT-4093", "RT-4094", "RT-4095", "RT-4096", "RT-4097"],
+        "Special": ["RT-3504", "RT-8326", "RT-4148", "RT-4149", "RT-8838", "RT-4852"]
     },
     "Wider / Heavy-Duty": {},
     "Curved Track": {}
