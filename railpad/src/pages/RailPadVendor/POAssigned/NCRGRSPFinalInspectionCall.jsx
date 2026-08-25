@@ -27,14 +27,14 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
   ],
-  // RT-6154 – 60 kg 1 in 12 Turnout with T-8970 (Total 345 Pads / 26 Items)
+  // RT-6154 – 60 kg 1 in 12 Turnout with T-8907 (Total 345 Pads / 26 Items)
   'RT-6154': [
     // Approach, Exit & Lead Portion
     { drawingNo: 'RT-8890', qtyPerSet: 1, description: 'Approach, Exit & Lead Portion' },
     { drawingNo: 'RT-8889', qtyPerSet: 26, description: 'Approach, Exit & Lead Portion' },
     { drawingNo: 'RT-8886', qtyPerSet: 146, description: 'Approach, Exit & Lead Portion' },
     // Switch Portion
-    { drawingNo: 'RT-8970', qtyPerSet: 6, description: 'Switch Portion' },
+    { drawingNo: 'RT-8907', qtyPerSet: 6, description: 'Switch Portion' },
     { drawingNo: 'RT-8955', qtyPerSet: 42, description: 'Switch Portion' },
     { drawingNo: 'RT-8954', qtyPerSet: 2, description: 'Switch Portion' },
     { drawingNo: 'RT-8889', qtyPerSet: 4, description: 'Switch Portion' },
