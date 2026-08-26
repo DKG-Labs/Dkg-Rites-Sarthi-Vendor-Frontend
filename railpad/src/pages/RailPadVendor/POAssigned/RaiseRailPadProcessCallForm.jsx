@@ -446,13 +446,43 @@ const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
 const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall, isWrapped }) => {
-    // Form State (No pre-selection; Vendor selects manually)
-    const [railPadType, setRailPadType] = useState(srItem?.railPadType || '');
-    const [drawingNo, setDrawingNo] = useState(srItem?.drawingNo || '');
-    const [desiredQty, setDesiredQty] = useState('');
-    const [productionDate, setProductionDate] = useState(new Date().toISOString().split('T')[0]);
+    const storageKey = useMemo(() => {
+        const po = poNo ? String(poNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
+        const sr = srItem?.itemSrNo || srItem?.srNo || '1';
+        return `railpad_draft_process_${po}_${sr}`;
+    }, [poNo, srItem?.itemSrNo, srItem?.srNo]);
+
+    const savedDraft = useMemo(() => {
+        try {
+            const item = localStorage.getItem(storageKey);
+            return item ? JSON.parse(item) : null;
+        } catch (e) {
+            return null;
+        }
+    }, [storageKey]);
+
+    // Form State (Restores from draft if available, otherwise defaults)
+    const [railPadType, setRailPadType] = useState(savedDraft?.railPadType || srItem?.railPadType || '');
+    const [drawingNo, setDrawingNo] = useState(savedDraft?.drawingNo || srItem?.drawingNo || '');
+    const [desiredQty, setDesiredQty] = useState(savedDraft?.desiredQty || '');
+    const [productionDate, setProductionDate] = useState(savedDraft?.productionDate || new Date().toISOString().split('T')[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [notification, setNotification] = useState(null);
+
+    // Persist draft to localStorage
+    useEffect(() => {
+        try {
+            const draftData = {
+                railPadType,
+                drawingNo,
+                desiredQty,
+                productionDate
+            };
+            localStorage.setItem(storageKey, JSON.stringify(draftData));
+        } catch (e) {
+            console.warn('Error saving process call draft:', e);
+        }
+    }, [storageKey, railPadType, drawingNo, desiredQty, productionDate]);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type });
@@ -533,6 +563,15 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                 result = await onSubmitInspectionCall(payload);
             } else {
                 result = await inspectionCallService.create(payload);
+            }
+
+            // Clear draft on successful submit only!
+            try {
+                localStorage.removeItem(storageKey);
+                const wrapperKey = `railpad_draft_call_type_${String(poNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${srItem?.itemSrNo || srItem?.srNo || '1'}`;
+                localStorage.removeItem(wrapperKey);
+            } catch (e) {
+                console.warn('Error clearing process call draft:', e);
             }
 
             const callNo = result?.callNo || result?.responseData?.callNo || result?.data?.callNo || result;

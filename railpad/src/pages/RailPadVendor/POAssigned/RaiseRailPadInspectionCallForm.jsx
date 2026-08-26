@@ -116,24 +116,58 @@ const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
 // ─── Main Form Component ──────────────────────────────────────────────────────
 const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall, isWrapped }) => {
     // ─── ALL STATE HOOKS (must all be declared before any conditional return) ─────
+    const storageKey = useMemo(() => {
+        const po = poNo ? String(poNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
+        const sr = srItem?.itemSrNo || srItem?.srNo || '1';
+        return `railpad_draft_std_final_${po}_${sr}`;
+    }, [poNo, srItem?.itemSrNo, srItem?.srNo]);
+
+    const savedDraft = useMemo(() => {
+        try {
+            const item = localStorage.getItem(storageKey);
+            return item ? JSON.parse(item) : null;
+        } catch (e) {
+            return null;
+        }
+    }, [storageKey]);
+
     const defaultPadType = (srItem?.poDes?.includes('NCRGRSP') || srItem?.description?.includes('NCRGRSP')) ? '6.00mm NCRGRSP' : '';
-    const [railPadType, setRailPadType] = useState(defaultPadType);
-    const [drawingNo, setDrawingNo] = useState('');
-    const [selectedProcessIcs, setSelectedProcessIcs] = useState([]);
+    const [railPadType, setRailPadType] = useState(savedDraft?.railPadType || defaultPadType);
+    const [drawingNo, setDrawingNo] = useState(savedDraft?.drawingNo || '');
+    const [selectedProcessIcs, setSelectedProcessIcs] = useState(savedDraft?.selectedProcessIcs || []);
     const [processCalls, setProcessCalls] = useState([]);
     const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
     const uom = srItem?.unit || srItem?.uom || 'Nos.';
-    const [desiredDate, setDesiredDate] = useState(new Date().toISOString().split('T')[0]);
-    const [totalQtyToOffer, setTotalQtyToOffer] = useState('');
-    const [noOfLots, setNoOfLots] = useState(1);
+    const [desiredDate, setDesiredDate] = useState(savedDraft?.desiredDate || new Date().toISOString().split('T')[0]);
+    const [totalQtyToOffer, setTotalQtyToOffer] = useState(savedDraft?.totalQtyToOffer || '');
+    const [noOfLots, setNoOfLots] = useState(savedDraft?.noOfLots !== undefined ? savedDraft.noOfLots : 1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [loadingInventory, setLoadingInventory] = useState(false);
     const [notification, setNotification] = useState(null);
-    const [lots, setLots] = useState([{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]);
+    const [lots, setLots] = useState(savedDraft?.lots || [{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]);
     const [expandedLots, setExpandedLots] = useState({ 0: true });
     const [expandedDates, setExpandedDates] = useState({});
     const [activePartialLotIdx, setActivePartialLotIdx] = useState(null);
+
+    // Persist standard final call draft to localStorage
+    useEffect(() => {
+        if (railPadType && railPadType.includes('NCRGRSP')) return; // NCRGRSP manages its own draft
+        try {
+            const draftData = {
+                railPadType,
+                drawingNo,
+                selectedProcessIcs,
+                desiredDate,
+                totalQtyToOffer,
+                noOfLots,
+                lots
+            };
+            localStorage.setItem(storageKey, JSON.stringify(draftData));
+        } catch (e) {
+            console.warn('Error persisting standard final call draft:', e);
+        }
+    }, [storageKey, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots]);
 
     // ─── ALL EFFECTS (must all be declared before any conditional return) ─────
     // Fetch process calls matching railPadType and drawingNo
@@ -360,7 +394,14 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
 
             const result = await inspectionCallService.create(payload);
 
-
+            // Clear standard draft and wrapper draft on successful submission
+            try {
+                localStorage.removeItem(storageKey);
+                const wrapperKey = `railpad_draft_call_type_${String(poNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${srItem?.itemSrNo || srItem?.srNo || '1'}`;
+                localStorage.removeItem(wrapperKey);
+            } catch (e) {
+                console.warn('Error clearing standard draft:', e);
+            }
 
             showNotification(`✅ Inspection Call raised successfully!\nCall No: ${result}`, 'success');
         } catch (error) {
