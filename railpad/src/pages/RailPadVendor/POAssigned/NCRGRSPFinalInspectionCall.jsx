@@ -575,17 +575,37 @@ const NCRGRSPFinalInspectionCall = ({
   };
   const effectiveCallNo = callData?.callNo || callData?.call_no || '';
 
+  const storageKey = useMemo(() => {
+    const po = effectivePoNo ? String(effectivePoNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
+    const sr = effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1';
+    return `railpad_draft_ncrgrsp_${po}_${sr}`;
+  }, [effectivePoNo, effectiveSrItem?.itemSrNo, effectiveSrItem?.srNo]);
+
+  // Read saved draft on initialization if raising a new call (not view/modify mode)
+  const savedDraft = useMemo(() => {
+    if (callData || isReadOnly || isModifyMode) return null;
+    try {
+      const item = localStorage.getItem(storageKey);
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      console.warn('Error reading saved draft:', e);
+      return null;
+    }
+  }, [storageKey, callData, isReadOnly, isModifyMode]);
+
   const initialResolvedCatalog = callData
     ? resolveNcrgrspCatalogKey(callData?.drawingNo || callData?.railPadType || initialRailPadType, callData?.lots)
     : '';
 
   // ── Form State ──
   const [selectedRailPadType, setSelectedRailPadType] = useState(
-    callData?.railPadType || initialRailPadType || '10.00mm NCRGRSP'
+    callData?.railPadType || savedDraft?.selectedRailPadType || initialRailPadType || '6.00mm NCRGRSP'
   );
-  const [ncrgrspType, setNcrgrspType] = useState(initialResolvedCatalog);
+  const [ncrgrspType, setNcrgrspType] = useState(initialResolvedCatalog || savedDraft?.ncrgrspType || '');
   const [selectedProcessCertNos, setSelectedProcessCertNos] = useState(
-    callData?.processIcNo ? callData.processIcNo.split(',').map(s => s.trim()).filter(Boolean) : []
+    callData?.processIcNo
+      ? callData.processIcNo.split(',').map(s => s.trim()).filter(Boolean)
+      : (savedDraft?.selectedProcessCertNos || [])
   );
   const [isCertDropdownOpen, setIsCertDropdownOpen] = useState(false);
   const certDropdownRef = useRef(null);
@@ -594,20 +614,20 @@ const NCRGRSPFinalInspectionCall = ({
   const [ncrgrspSearchTerm, setNcrgrspSearchTerm] = useState('');
   const ncrgrspDropdownRef = useRef(null);
 
-  const initialLotsCount = callData?.noOfLots || (callData?.lots && callData.lots.length > 0 ? callData.lots.length : (isReadOnly ? 1 : 0));
+  const initialLotsCount = callData?.noOfLots || (callData?.lots && callData.lots.length > 0 ? callData.lots.length : (savedDraft?.noOfLots !== undefined ? savedDraft.noOfLots : (isReadOnly ? 1 : 0)));
   const [noOfLots, setNoOfLots] = useState(initialLotsCount);
 
   // Initial Sets Calculation
-  const initialReqList = (initialResolvedCatalog && NCRGRSP_CATALOG[initialResolvedCatalog]) || [];
+  const initialReqList = ((initialResolvedCatalog || savedDraft?.ncrgrspType) && NCRGRSP_CATALOG[initialResolvedCatalog || savedDraft?.ncrgrspType]) || [];
   const initialPerSet = initialReqList.reduce((acc, d) => acc + d.qtyPerSet, 0);
   const initialTotalOffered = callData?.totalQty || (callData?.lots || []).reduce((sum, l) => sum + (l.batches || []).reduce((bSum, b) => bSum + (b.qtyToUse || b.quantity || 0), 0), 0);
-  const initialSets = callData?.noOfSets || callData?.no_of_sets || (initialPerSet > 0 && initialTotalOffered > 0 ? Math.max(1, Math.round(initialTotalOffered / initialPerSet)) : (isReadOnly ? 1 : 0));
+  const initialSets = callData?.noOfSets || callData?.no_of_sets || (savedDraft?.noOfSets !== undefined ? savedDraft.noOfSets : (initialPerSet > 0 && initialTotalOffered > 0 ? Math.max(1, Math.round(initialTotalOffered / initialPerSet)) : (isReadOnly ? 1 : 0)));
   const [noOfSets, setNoOfSets] = useState(initialSets);
 
   const [desiredDate, setDesiredDate] = useState(
-    callData?.inspectionDate ? new Date(callData.inspectionDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    callData?.inspectionDate ? new Date(callData.inspectionDate).toISOString().split('T')[0] : (savedDraft?.desiredDate || new Date().toISOString().split('T')[0])
   );
-  const [remarks, setRemarks] = useState(callData?.remarks || '');
+  const [remarks, setRemarks] = useState(callData?.remarks || savedDraft?.remarks || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
@@ -653,8 +673,15 @@ const NCRGRSPFinalInspectionCall = ({
     const fetchCerts = async () => {
       if (!plantId) return;
       try {
-        const poSrNo = srItem?.itemSrNo || srItem?.srNo || '';
-        const calls = await inspectionCallService.getProcessCalls(ncrgrspType, '', plantId, poNo, poSrNo);
+        const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
+        // For NCRGRSP, process calls can be selected across any PO serial number under the same PO
+        const calls = await inspectionCallService.getProcessCalls(
+          selectedRailPadType || initialRailPadType || '6.00mm NCRGRSP',
+          ncrgrspType || '',
+          plantId,
+          cleanPo,
+          '' // Empty poSr so it fetches all process calls under this PO
+        );
         if (Array.isArray(calls) && calls.length > 0) {
           const sortedCalls = [...calls].sort((a, b) => {
             const dateA = new Date(a.createdAt || a.created_at || a.createdOn || 0);
@@ -688,7 +715,7 @@ const NCRGRSPFinalInspectionCall = ({
       }
     };
     fetchCerts();
-  }, [ncrgrspType, plantId, poNo, srItem?.itemSrNo, srItem?.srNo]);
+  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo]);
 
   // Fetch batches for all selected Process Certificates in PARALLEL
   useEffect(() => {
@@ -785,8 +812,46 @@ const NCRGRSPFinalInspectionCall = ({
   }, [requiredDrawingsList]);
 
   // ── Dynamic Lots State ──
-  const [lots, setLots] = useState([]);
+  const [lots, setLots] = useState(() => {
+    if (savedDraft?.lots && Array.isArray(savedDraft.lots) && savedDraft.lots.length > 0) {
+      return savedDraft.lots;
+    }
+    return [];
+  });
   const [expandedLots, setExpandedLots] = useState({ 0: true, 1: true, 2: true });
+
+  // Persist form draft to localStorage whenever form state changes (only for new calls)
+  useEffect(() => {
+    if (callData || isReadOnly || isModifyMode) return;
+    try {
+      const draftData = {
+        selectedRailPadType,
+        ncrgrspType,
+        selectedProcessCertNos,
+        noOfLots,
+        noOfSets,
+        desiredDate,
+        remarks,
+        lots
+      };
+      localStorage.setItem(storageKey, JSON.stringify(draftData));
+    } catch (e) {
+      console.warn('Error saving draft:', e);
+    }
+  }, [
+    storageKey,
+    callData,
+    isReadOnly,
+    isModifyMode,
+    selectedRailPadType,
+    ncrgrspType,
+    selectedProcessCertNos,
+    noOfLots,
+    noOfSets,
+    desiredDate,
+    remarks,
+    lots
+  ]);
 
   // Initialize or adjust lots structure when noOfLots changes
   useEffect(() => {
@@ -1274,6 +1339,15 @@ const NCRGRSPFinalInspectionCall = ({
         res = await onSubmitInspectionCall(payload);
       } else {
         res = await inspectionCallService.create(payload);
+      }
+
+      // Clear draft on successful submission only!
+      try {
+        localStorage.removeItem(storageKey);
+        const wrapperKey = `railpad_draft_call_type_${String(effectivePoNo).replace(/[^a-zA-Z0-9_-]/g, '_')}_${effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1'}`;
+        localStorage.removeItem(wrapperKey);
+      } catch (e) {
+        console.warn('Error clearing draft:', e);
       }
 
       setNotification({
