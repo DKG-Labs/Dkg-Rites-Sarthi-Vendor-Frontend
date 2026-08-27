@@ -15,7 +15,8 @@ const Header = ({
     window.location.href = '/login';
   };
 
-  const isVendor = activeRole?.includes('Vendor') || (user?.roleName && (Array.isArray(user.roleName) ? user.roleName.some(r => r.includes('Vendor')) : user.roleName.includes('Vendor')));
+  const checkIsVendorRole = (role) => typeof role === 'string' && role.toLowerCase().includes('vendor');
+  const isVendor = checkIsVendorRole(activeRole) || (user?.roleName && (Array.isArray(user.roleName) ? user.roleName.some(checkIsVendorRole) : checkIsVendorRole(user.roleName)));
 
   let displayName = 'Inspection Engineer';
   let displayRole = activeRole || 'Inspection Engineer';

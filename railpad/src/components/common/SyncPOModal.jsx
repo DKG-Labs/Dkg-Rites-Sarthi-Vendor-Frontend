@@ -392,8 +392,15 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     return;
                 }
 
+                const firstItem = (d && d.length > 0) ? d[0] : {};
+                const vcodeVal = formData.vcode ? (formData.vcode.startsWith(':') ? formData.vcode : `:${formData.vcode}`) : (h.IMMS_VENDOR_CODE || '');
+
                 const updatedHeader = {
                     ...h,
+                    POKEY: h.POKEY || h.poKey || firstItem.POKEY || firstItem.poKey || formData.poNo,
+                    PO_NO: h.PO_NO || h.poNo || firstItem.PO_NO || firstItem.poNo || formData.poNo,
+                    RLY_CD: h.RLY_CD || h.rlyCd || firstItem.RLY || firstItem.rly || formData.rly,
+                    IMMS_VENDOR_CODE: vcodeVal,
                     ITEM_CAT_DESCR: categoryToSave
                 };
 

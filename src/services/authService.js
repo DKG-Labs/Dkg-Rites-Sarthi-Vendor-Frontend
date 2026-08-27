@@ -92,6 +92,41 @@ export const loginUser = async (loginId, password, loginType = 'IE') => {
   }
 };
 
+/**
+ * Verify MFA OTP and complete login
+ * @param {string} transactionId - OTP Transaction ID from login response
+ * @param {string} otp - Entered OTP code
+ * @returns {Promise<Object>} Login response containing user data and JWT token
+ */
+export const verifyOtp = async (transactionId, otp) => {
+  try {
+    const response = await fetch(`${getBaseUrl()}/auth/verifyOtp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transactionId: String(transactionId),
+        otp: String(otp).trim(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.responseStatus?.message || 'Invalid or expired OTP');
+    }
+
+    if (data.responseStatus?.statusCode !== 0) {
+      throw new Error(data.responseStatus?.message || 'OTP verification failed');
+    }
+
+    return data.responseData;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const resetPassword = async (identifier, newPassword) => {
   try {
     const response = await fetch(`${getBaseUrl()}/auth/forgot-password`, {
