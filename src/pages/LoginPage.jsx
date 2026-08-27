@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { loginUser, storeAuthData, isAuthenticated, setActiveRole, getStoredUser, getActiveRole, resetPassword } from '../services/authService';
+import { loginUser, verifyOtp, storeAuthData, isAuthenticated, setActiveRole, getStoredUser, getActiveRole, resetPassword } from '../services/authService';
 import './LoginPage.css';
 
 // Import Assets
@@ -8,7 +8,7 @@ import slide1 from '../assets/login/slide1.jpeg';
 import slide2 from '../assets/login/slide2.jpeg';
 
 /**
- * Redesigned LoginPage for SARTHI Vendor Frontend
+ * Redesigned LoginPage for SARTHI Vendor Frontend with MFA Support
  */
 const LoginPage = () => {
   // Original Logic States
@@ -23,6 +23,14 @@ const LoginPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
+  // MFA OTP States
+  const [showOtpScreen, setShowOtpScreen] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [mfaTransactionId, setMfaTransactionId] = useState('');
+  const [otpInfoMessage, setOtpInfoMessage] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(30);
+
   // Redesign Specific States
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isInteracting, setIsInteracting] = useState(false);
@@ -31,6 +39,17 @@ const LoginPage = () => {
   const [availableRoles, setAvailableRoles] = useState(null); // New state for multiple roles
 
   const heroRef = useRef(null);
+
+  // Countdown timer for Resend OTP
+  useEffect(() => {
+    let timer;
+    if (showOtpScreen && resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [showOtpScreen, resendCountdown]);
 
   const slides = [
     {
@@ -70,8 +89,6 @@ const LoginPage = () => {
 
   // If already logged in AND (single role OR role already selected), then reload to show Dashboard
   if (isAuthenticated() && (user?.roleName?.length <= 1 || activeRole)) {
-    // Only reload if we are not already on the dashboard (indicated by some state)
-    // Actually window.location.reload() is fine as a simple redirect trigger for this app's architecture
     window.location.reload();
     return null;
   }
@@ -84,7 +101,23 @@ const LoginPage = () => {
     setPointerRatio({ x: Math.max(-0.5, Math.min(0.5, x)), y: Math.max(-0.5, Math.min(0.5, y)) });
   };
 
-  // Original Submit Logic
+  const processLoginSuccess = (userData) => {
+    // Store auth data with canonical vendor login ID
+    storeAuthData(userData, userId);
+
+    // Check for multiple roles
+    const roles = Array.isArray(userData.roleName) ? userData.roleName : [userData.roleName];
+
+    if (roles.length > 1) {
+      setAvailableRoles(roles);
+    } else {
+      // Single role, set it as active and reload
+      setActiveRole(roles[0]);
+      window.location.reload();
+    }
+  };
+
+  // Submit Credentials (MFA Step 1)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -99,27 +132,49 @@ const LoginPage = () => {
     }
 
     try {
-      setIsLoading(true); // Added this as it was missing from the block but needed for the try block below
-      const userData = await loginUser(userId, password, loginType);
+      setIsLoading(true);
+      const response = await loginUser(userId, password, loginType);
 
-      // Store basic auth data first
-      storeAuthData(userData, userId);
-
-      // Check for multiple roles
-      const roles = Array.isArray(userData.roleName) ? userData.roleName : [userData.roleName];
-
-      if (roles.length > 1) {
-        setAvailableRoles(roles);
-      } else {
-        // Single role, set it as active and reload
-        setActiveRole(roles[0]);
-        window.location.reload();
+      // If MFA required, transition to OTP Screen
+      if (response && response.mfaRequired) {
+        setMfaTransactionId(response.transactionId);
+        setOtpInfoMessage(response.message || 'OTP sent to your registered mobile number.');
+        setShowOtpScreen(true);
+        setResendCountdown(30);
+        setOtpValue('');
+        return;
       }
+
+      // Fallback direct login (if non-MFA response)
+      processLoginSuccess(response);
 
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Submit OTP (MFA Step 2)
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!otpValue.trim()) {
+      setError('Please enter the verification code');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+
+    try {
+      const userData = await verifyOtp(mfaTransactionId, otpValue);
+      setShowOtpScreen(false);
+      processLoginSuccess(userData);
+    } catch (err) {
+      setError(err.message || 'Invalid or expired OTP. Please try again.');
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -290,6 +345,84 @@ const LoginPage = () => {
                     
                     <div className="dashboard-options" style={{ justifyContent: 'center', marginTop: '1rem' }}>
                       <button type="button" className="forgot-link" style={{background: 'none', border: 'none', cursor: 'pointer'}} onClick={() => { setShowForgotPassword(false); setError(''); setResetSuccess(''); }}>Back to Login</button>
+                    </div>
+                  </form>
+                ) : showOtpScreen ? (
+                  <form className="dashboard-form otp-form" onSubmit={handleOtpSubmit}>
+                    <div className="form-header" style={{ marginBottom: '16px' }}>
+                      <h2 style={{ fontSize: '1.25rem', color: '#1a1a1a', fontWeight: '800' }}>Security Verification</h2>
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '10px 14px',
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: '10px',
+                        fontSize: '0.85rem',
+                        color: '#1e40af',
+                        lineHeight: '1.4',
+                        fontWeight: '600'
+                      }}>
+                        📱 {otpInfoMessage || 'OTP sent to your registered mobile number.'}
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="login-error-toast">
+                        <span>⚠️ {error}</span>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label style={{ fontWeight: '700', color: '#334155' }}>Enter 6-Digit OTP</label>
+                      <div className="input-field-shell">
+                        <span className="input-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          placeholder="e.g. 123456"
+                          value={otpValue}
+                          onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                          disabled={isVerifyingOtp}
+                          style={{ letterSpacing: '4px', fontSize: '1.15rem', fontWeight: '800', textAlign: 'center' }}
+                          autoFocus
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="submit-btn" disabled={isVerifyingOtp} style={{ marginTop: '12px' }}>
+                      {isVerifyingOtp ? 'Verifying OTP...' : 'Verify & Proceed'}
+                    </button>
+
+                    <div className="dashboard-options" style={{ justifyContent: 'space-between', marginTop: '1rem', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="forgot-link"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                        onClick={() => { setShowOtpScreen(false); setError(''); }}
+                      >
+                        ← Back to Login
+                      </button>
+
+                      <button
+                        type="button"
+                        className="forgot-link"
+                        disabled={resendCountdown > 0}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: resendCountdown > 0 ? 'not-allowed' : 'pointer',
+                          color: resendCountdown > 0 ? '#94a3b8' : '#2563eb',
+                          fontWeight: '700'
+                        }}
+                        onClick={handleSubmit}
+                      >
+                        {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : 'Resend OTP'}
+                      </button>
                     </div>
                   </form>
                 ) : !availableRoles ? (
