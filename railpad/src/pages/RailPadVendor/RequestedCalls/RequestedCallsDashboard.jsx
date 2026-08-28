@@ -137,6 +137,10 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const filteredCalls = useMemo(() => {
         return calls.filter(call => {
+            const rawStatus = String(call.status || call.workflowStatus || call.latestAction || '').toUpperCase();
+            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW')) {
+                return false;
+            }
             const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
                                   call.poNo?.toLowerCase().includes(search.toLowerCase());
             return matchesSearch;
@@ -570,13 +574,41 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>Qty: {call.totalQty?.toLocaleString()} (Nos.)</div>
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
-                                        <div style={{ 
-                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                            padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
-                                            background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a'
-                                        }}>
-                                            <Clock size={12} /> PENDING
-                                        </div>
+                                        {(() => {
+                                            const rawStatus = String(call.status || call.workflowStatus || 'PENDING').toUpperCase();
+                                            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW')) {
+                                                const isCancel = rawStatus.includes('CANCEL');
+                                                return (
+                                                    <div style={{ 
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5'
+                                                    }}>
+                                                        <XCircle size={12} /> {isCancel ? (rawStatus.includes('PAYMENT') ? 'CANCELLED & PAYMENT PENDING' : 'CANCELLED') : 'WITHDRAWN'}
+                                                    </div>
+                                                );
+                                            }
+                                            if (rawStatus.includes('APPROVED') || rawStatus.includes('COMPLETE') || rawStatus.includes('IC_ISSUE')) {
+                                                return (
+                                                    <div style={{ 
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
+                                                    }}>
+                                                        <CheckCircle2 size={12} /> {rawStatus.replace(/_/g, ' ')}
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div style={{ 
+                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                    background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a'
+                                                }}>
+                                                    <Clock size={12} /> {rawStatus.replace(/_/g, ' ')}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '20px 24px', textAlign: 'right' }}>
                                         <button 

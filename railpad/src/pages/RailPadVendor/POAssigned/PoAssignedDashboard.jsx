@@ -183,7 +183,7 @@ const checkDpDateStatus = (item) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false, onRefreshData }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false, onRefreshData, isPlantBlocked = false }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
@@ -251,21 +251,31 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <button
-                        onClick={() => setShowForm(true)}
+                        onClick={() => {
+                            if (isPlantBlocked) {
+                                alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
+                                return;
+                            }
+                            setShowForm(true);
+                        }}
+                        disabled={isPlantBlocked}
+                        title={isPlantBlocked ? 'Call raising is blocked due to pending cancellation charges' : ''}
                         style={{
                             padding: '6px 13px', borderRadius: 20, fontSize: 11,
-                            fontWeight: 700, border: 'none', cursor: 'pointer',
-                            background: 'linear-gradient(135deg, #21808d, #0d3b3f)',
+                            fontWeight: 700, border: 'none',
+                            cursor: isPlantBlocked ? 'not-allowed' : 'pointer',
+                            background: isPlantBlocked ? '#94a3b8' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
                             color: '#fff',
+                            opacity: isPlantBlocked ? 0.6 : 1,
                             transition: 'all 0.2s', whiteSpace: 'nowrap',
-                            boxShadow: '0 2px 8px rgba(33,128,141,0.3)'
+                            boxShadow: isPlantBlocked ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                         }}
                     >
                         Raise Inspection Call
                     </button>
                 </td>
             </tr>
-            {showForm && (
+            {showForm && !isPlantBlocked && (
                 <RaiseRailPadCallWrapper
                     srItem={item}
                     poNo={poNo}
@@ -283,7 +293,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl, onRefreshData }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl, onRefreshData, isPlantBlocked = false }) => {
     const [expanded, setExpanded] = useState(false);
 
     // Sort items numerically by SR No / poSerialNo
@@ -443,6 +453,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                                                 vendorCode={vendorCode}
                                                 isCaseNoMissing={isCaseNoMissing}
                                                 onRefreshData={onRefreshData}
+                                                isPlantBlocked={isPlantBlocked}
                                             />
                                         ))}
                                     </tbody>
@@ -474,6 +485,8 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const [loading, setLoading] = useState(true);
     const [poDataList, setPoDataList] = useState([]);
     const [notification, setNotification] = useState(null);
+    const [isPlantBlocked, setIsPlantBlocked] = useState(false);
+    const [blockReason, setBlockReason] = useState('');
 
     const fetchPoData = async () => {
         try {
@@ -487,11 +500,24 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
+    const checkPlantBlock = async () => {
+        if (plantId) {
+            try {
+                const res = await inspectionCallService.checkPlantPaymentBlock(plantId, vendorCode);
+                setIsPlantBlocked(Boolean(res?.isBlocked));
+                setBlockReason(res?.message || 'Call raising is blocked for this plant due to pending cancellation charges.');
+            } catch (err) {
+                console.error("Error checking plant payment block:", err);
+            }
+        }
+    };
+
     useEffect(() => {
         if (vendorCode) {
             fetchPoData();
+            checkPlantBlock();
         }
-    }, [vendorCode]);
+    }, [vendorCode, plantId]);
 
     const activePOs = poDataList.filter(p => (p.status || 'Active') === 'Active').length;
     const pendingCalls = poDataList.reduce((acc, po) =>
@@ -753,6 +779,31 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                 </div>
             </div>
 
+            {/* ── Plant Payment Block Alert Banner ── */}
+            {isPlantBlocked && (
+                <div style={{
+                    background: '#fef2f2',
+                    border: '1.5px solid #f87171',
+                    borderRadius: '14px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.08)'
+                }}>
+                    <span style={{ fontSize: '26px' }}>⚠️</span>
+                    <div>
+                        <div style={{ fontWeight: 800, color: '#991b1b', fontSize: '14px' }}>
+                            Call Raising is Blocked for this Plant
+                        </div>
+                        <div style={{ color: '#b91c1c', fontSize: '13px', marginTop: '2px', lineHeight: 1.4 }}>
+                            {blockReason || 'This plant has pending cancellation charges due to a cancelled call. Call raising functionality is blocked until payment details are submitted and approved.'}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Main Table ── */}
             <div style={{
                 background: '#fff', borderRadius: 16,
@@ -807,6 +858,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         vendorCode={vendorCode}
                                         setViewingPdfUrl={setViewingPdfUrl}
                                         onRefreshData={fetchPoData}
+                                        isPlantBlocked={isPlantBlocked}
                                     />
                                 ))
                             )}
