@@ -103,6 +103,17 @@ const inspectionCallService = {
             throw error;
         }
     },
+    getCancelledCallsForPayment: async (plantId, vendorCode) => {
+        try {
+            const response = await axios.get(`${API_CONFIG.RAILPAD_WORKFLOW}/cancelledCallsForPayment`, {
+                params: { plantId, vendorCode }
+            });
+            return response.data?.responseData;
+        } catch (error) {
+            console.error('Error fetching cancelled calls for payment:', error);
+            throw error;
+        }
+    },
     getProcessCalls: async (railPadType, drawingNo, plantId, poNo, poSr) => {
         try {
             const response = await axios.get(`${BASE_URL}/process-calls`, {
@@ -190,6 +201,19 @@ const inspectionCallService = {
         } catch (error) {
             console.warn(`No signed certificate in Azure for ${icNumber}:`, error?.response?.status || error.message);
             return null;
+        }
+    },
+    checkPlantPaymentBlock: async (plantId, vendorCode) => {
+        try {
+            const pId = plantId ? String(plantId).replace(/^:/, '').trim() : '';
+            const vCode = vendorCode ? String(vendorCode).replace(/^:/, '').trim() : '';
+            const response = await axios.get(`${API_CONFIG.RAILPAD_WORKFLOW}/checkPlantPaymentBlock`, {
+                params: { plantId: pId, vendorCode: vCode }
+            });
+            return response.data?.responseData || response.data || { isBlocked: false };
+        } catch (error) {
+            console.error('Error checking plant payment block:', error);
+            return { isBlocked: false };
         }
     }
 };

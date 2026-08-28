@@ -16,9 +16,18 @@ import {
 
 const getCallStatusInfo = (statusStr) => {
     const raw = String(statusStr || 'COMPLETED').toUpperCase().trim();
-    if (raw.includes('WITHDRAW') || raw.includes('CANCEL')) {
+    if (raw.includes('CANCEL')) {
         return {
-            label: 'WITHDRAW',
+            label: 'CANCELLED',
+            bg: '#fee2e2',
+            color: '#dc2626',
+            border: '#fca5a5',
+            icon: <AlertCircle size={12} />
+        };
+    }
+    if (raw.includes('WITHDRAW')) {
+        return {
+            label: 'WITHDRAWN',
             bg: '#fee2e2',
             color: '#991b1b',
             border: '#fca5a5',

@@ -6,6 +6,7 @@ import ProductionDeclarationDashboard from './ProductionDeclaration/ProductionDe
 import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
 import RequestedCallsDashboard from './RequestedCalls/RequestedCallsDashboard';
 import CompletedCallsDashboard from './CompletedCalls/CompletedCallsDashboard';
+import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
 import inspectionCallService from '../../services/inspectionCallService';
 
 const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
@@ -55,7 +56,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
-        /* { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true }, */
+        { id: 'payment-module', title: 'Payment Details', subtitle: 'Payment Details Updating Module', icon: '💳' },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' }
     ];
 
@@ -81,6 +82,8 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
                 return <RequestedCallsDashboard {...contextProps} />;
             case 'verified-locked':
                 return <CompletedCallsDashboard {...contextProps} />;
+            case 'payment-module':
+                return <PaymentDetailsDashboard {...contextProps} />;
             default:
                 return (
                     <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
