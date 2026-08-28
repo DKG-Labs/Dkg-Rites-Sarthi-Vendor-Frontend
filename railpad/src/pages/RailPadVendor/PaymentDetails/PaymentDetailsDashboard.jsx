@@ -245,61 +245,143 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
         handleClosePaymentModal();
     };
 
+    const pendingCount = allCombinedPaymentItems.filter(i => 
+        i.payment_status === 'Payment Pending' || 
+        i.payment_status === 'Payment Pending for Approval' || 
+        i.payment_status === 'Not Approved by RITES Finance'
+    ).length;
+
+    const approvedCount = allCombinedPaymentItems.filter(i => 
+        i.payment_status === 'Approved by RITES Finance'
+    ).length;
+
     return (
-        <div className="payment-module-container fade-in">
-            {/* Header */}
-            <div className="payment-section-header">
+        <div className="payment-module-container fade-in" style={{ padding: '16px 20px' }}>
+            {/* Header with Segmented Filter & Search */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '14px',
+                marginBottom: '16px'
+            }}>
+                {/* Title & Subtitle */}
                 <div>
-                    <h3 className="payment-section-header-title">Payment Details Updating Module</h3>
-                    <p className="payment-section-header-desc">
-                        View and manage inspection calls requiring payment (Cancelled / Rejected / Advance Payment).
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+                        Payment Details Updating Module
+                    </h3>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>
+                        Inspection calls requiring charges payment (Cancelled / Rejected)
                     </p>
                 </div>
-            </div>
 
-            {/* 2 Summary Status Cards: Payment Pending and Approved */}
-            <div className="payment-summary-cards">
-                {[
-                    { status: 'Payment Pending', label: 'PAYMENT PENDING', color: '#dc2626' },
-                    { status: 'Approved by RITES Finance', label: 'APPROVED', color: '#16a34a' }
-                ].map(({ status, label, color }) => {
-                    const count = allCombinedPaymentItems.filter(i => {
-                        if (status === 'Payment Pending') {
-                            return i.payment_status === 'Payment Pending' || i.payment_status === 'Payment Pending for Approval' || i.payment_status === 'Not Approved by RITES Finance';
-                        }
-                        return i.payment_status === status;
-                    }).length;
-                    const isActive = paymentStatusFilter === status;
-                    return (
-                        <div
-                            key={status}
-                            className={`payment-summary-card ${isActive ? 'active' : ''}`}
-                            onClick={() => setPaymentStatusFilter(isActive ? 'all' : status)}
-                            style={{ borderColor: isActive ? color : '#e2e8f0' }}
+                {/* Right controls: Segmented Tabs & Search */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    {/* Modern Segmented Status Tabs */}
+                    <div style={{
+                        display: 'inline-flex',
+                        background: '#f1f5f9',
+                        borderRadius: '8px',
+                        padding: '3px',
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        <button
+                            type="button"
+                            onClick={() => setPaymentStatusFilter('all')}
+                            style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: paymentStatusFilter === 'all' ? '#ffffff' : 'transparent',
+                                color: paymentStatusFilter === 'all' ? '#0f172a' : '#64748b',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                boxShadow: paymentStatusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                transition: 'all 0.15s'
+                            }}
                         >
-                            <span className="payment-summary-count" style={{ color }}>
-                                {loading ? '-' : count}
-                            </span>
-                            <span className="payment-summary-label">{label}</span>
-                        </div>
-                    );
-                })}
-            </div>
+                            All ({allCombinedPaymentItems.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPaymentStatusFilter('Payment Pending')}
+                            style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: paymentStatusFilter === 'Payment Pending' ? '#ffffff' : 'transparent',
+                                color: paymentStatusFilter === 'Payment Pending' ? '#dc2626' : '#64748b',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: paymentStatusFilter === 'Payment Pending' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <span style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                background: '#dc2626',
+                                display: 'inline-block'
+                            }} />
+                            Pending ({pendingCount})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPaymentStatusFilter('Approved by RITES Finance')}
+                            style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: paymentStatusFilter === 'Approved by RITES Finance' ? '#ffffff' : 'transparent',
+                                color: paymentStatusFilter === 'Approved by RITES Finance' ? '#16a34a' : '#64748b',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: paymentStatusFilter === 'Approved by RITES Finance' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <span style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                background: '#16a34a',
+                                display: 'inline-block'
+                            }} />
+                            Approved ({approvedCount})
+                        </button>
+                    </div>
 
-            {/* Search Bar */}
-            <div className="payment-filters" style={{ justifyContent: 'flex-end' }}>
-                <div style={{ position: 'relative' }}>
-                    <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search Call No / PO No / Case No..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            padding: '8px 12px 8px 34px', borderRadius: '8px', border: '1px solid #cbd5e1',
-                            fontSize: '13px', width: '280px', outline: 'none'
-                        }}
-                    />
+                    {/* Search Input */}
+                    <div style={{ position: 'relative' }}>
+                        <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={14} />
+                        <input
+                            type="text"
+                            placeholder="Search Call / PO / Case No..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                padding: '6px 12px 6px 30px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '12.5px',
+                                width: '220px',
+                                outline: 'none',
+                                background: '#fff',
+                                transition: 'border-color 0.2s'
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -314,7 +396,6 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                             <th>IBS Case No.</th>
                             <th>IBS Call No.</th>
                             <th>Reason</th>
-                            <th>Offered Qty</th>
                             <th>Charges (₹)</th>
                             <th style={{ textAlign: 'right' }}>Action</th>
                         </tr>
@@ -322,7 +403,7 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={9} style={{ textAlign: 'center', padding: '60px 16px', color: '#64748b' }}>
+                                <td colSpan={8} style={{ textAlign: 'center', padding: '60px 16px', color: '#64748b' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                                         <Loader2 size={36} className="spin-animation" style={{ color: '#2563eb' }} />
                                         <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
@@ -333,7 +414,7 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                             </tr>
                         ) : filteredPaymentItems.length === 0 ? (
                             <tr>
-                                <td colSpan={9} style={{ textAlign: 'center', padding: '48px 16px', color: '#94a3b8' }}>
+                                <td colSpan={8} style={{ textAlign: 'center', padding: '48px 16px', color: '#94a3b8' }}>
                                     <CreditCard size={36} style={{ opacity: 0.3, marginBottom: '8px' }} />
                                     <div>No payment records found.</div>
                                 </td>
@@ -341,68 +422,71 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                         ) : (
                             filteredPaymentItems.map((row) => {
                                 const isSelected = selectedPaymentCall?.call_no === row.call_no;
+                                const hasIbsCallNo = Boolean(
+                                    row.ibs_call_no && 
+                                    String(row.ibs_call_no).trim() !== '' && 
+                                    String(row.ibs_call_no).trim() !== '-'
+                                );
+
                                 return (
-                                    <tr 
-                                        key={row.id || row.call_no}
-                                        className={isSelected ? 'selected-row' : ''}
-                                        onClick={() => setSelectedPaymentCall(row)}
-                                        style={{ cursor: 'pointer' }}
-                                    >
+                                    <tr key={row.id || row.call_no}>
                                         <td style={{ fontWeight: 800, color: '#1e3a5f' }}>{row.call_no}</td>
                                         <td>{formatDateDDMMYY(row.call_date)}</td>
                                         <td style={{ fontWeight: 600 }}>{row.po_no}</td>
                                         <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.ibs_case_no || '-'}</td>
-                                        <td style={{ color: '#64748b' }}>{row.ibs_call_no || '-'}</td>
+                                        <td style={{ color: '#64748b', fontWeight: hasIbsCallNo ? 700 : 400 }}>{row.ibs_call_no || '-'}</td>
                                         <td>
                                             <span style={{ fontWeight: 600, color: row.payment_reason === 'Cancellation' ? '#dc2626' : '#2563eb' }}>
                                                 {row.payment_reason || 'Cancellation'}
                                             </span>
                                         </td>
-                                        <td style={{ fontWeight: 600 }}>{Number(row.offered_qty || 0).toLocaleString()}</td>
                                         <td style={{ fontWeight: 800, color: '#0f172a' }}>
                                             ₹{Number(row.total_payable_amount || 0).toLocaleString('en-IN')}
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                                                 <button
+                                                    disabled={!hasIbsCallNo}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setPaymentRedirectCall(row);
+                                                        if (hasIbsCallNo) {
+                                                            setPaymentRedirectCall(row);
+                                                        }
                                                     }}
+                                                    title={!hasIbsCallNo ? "IBS Call Sr. No. is not available yet" : "Click to pay cancellation/rejection charges"}
                                                     style={{
                                                         padding: '6px 14px',
                                                         borderRadius: '6px',
-                                                        border: 'none',
-                                                        background: '#16a34a',
+                                                        border: hasIbsCallNo ? 'none' : '1px solid #cbd5e1',
+                                                        background: hasIbsCallNo ? '#16a34a' : '#94a3b8',
                                                         color: '#fff',
                                                         fontSize: '12px',
                                                         fontWeight: 700,
-                                                        cursor: 'pointer',
-                                                        boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)',
-                                                        transition: 'background 0.2s'
+                                                        cursor: hasIbsCallNo ? 'pointer' : 'not-allowed',
+                                                        opacity: hasIbsCallNo ? 1 : 0.65,
+                                                        boxShadow: hasIbsCallNo ? '0 1px 2px rgba(22, 163, 74, 0.2)' : 'none',
+                                                        transition: 'all 0.2s'
                                                     }}
                                                 >
-                                                    Payment
+                                                    Pay Charges
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setSelectedPaymentCall(row);
-                                                        handleOpenPaymentModal(row);
                                                     }}
                                                     style={{
                                                         padding: '6px 14px',
                                                         borderRadius: '6px',
-                                                        border: '1px solid #2563eb',
-                                                        background: '#eff6ff',
-                                                        color: '#1d4ed8',
+                                                        border: '1px solid #0284c7',
+                                                        background: '#e0f2fe',
+                                                        color: '#0369a1',
                                                         fontSize: '12px',
                                                         fontWeight: 700,
                                                         cursor: 'pointer',
                                                         transition: 'all 0.2s'
                                                     }}
                                                 >
-                                                    View Details
+                                                    Verify Payment
                                                 </button>
                                             </div>
                                         </td>
@@ -413,106 +497,6 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                     </tbody>
                 </table>
             </div>
-
-            {/* Selected Payment Details Preview */}
-            {selectedPaymentCall && (
-                <div className="payment-details-card fade-in">
-                    <div className="payment-details-header">
-                        <h4>Payment Details - {selectedPaymentCall.call_no}</h4>
-                        <button
-                            onClick={() => setSelectedPaymentCall(null)}
-                            style={{
-                                padding: '4px 12px', borderRadius: '6px', border: '1px solid #cbd5e1',
-                                background: '#fff', color: '#64748b', fontSize: '12px', fontWeight: 600, cursor: 'pointer'
-                            }}
-                        >
-                            Close
-                        </button>
-                    </div>
-
-                    <div className="payment-details-grid">
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">IBS Case No.</span>
-                            <span className="payment-detail-value" style={{ fontWeight: 700 }}>{selectedPaymentCall.ibs_case_no || '-'}</span>
-                        </div>
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">IBS Call No.</span>
-                            <span className="payment-detail-value">{selectedPaymentCall.ibs_call_no || '-'}</span>
-                        </div>
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">Charge Type</span>
-                            <span className="payment-detail-value">{selectedPaymentCall.charge_type || selectedPaymentCall.payment_reason}</span>
-                        </div>
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">Base Amount</span>
-                            <span className="payment-detail-value">₹{Number(selectedPaymentCall.base_payable_amount || 0).toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">GST (18%)</span>
-                            <span className="payment-detail-value">₹{Number(selectedPaymentCall.gst || 0).toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="payment-detail-item">
-                            <span className="payment-detail-label">Total Payable</span>
-                            <span className="payment-detail-value payment-total">₹{Number(selectedPaymentCall.total_payable_amount || 0).toLocaleString('en-IN')}</span>
-                        </div>
-
-                        {selectedPaymentCall.bank_account_details && (
-                            <div className="payment-detail-item full-width">
-                                <span className="payment-detail-label">Bank Account Details</span>
-                                <span className="payment-detail-value">{selectedPaymentCall.bank_account_details}</span>
-                            </div>
-                        )}
-
-                        {selectedPaymentCall.transaction_reference_number && (
-                            <>
-                                <div className="payment-detail-item">
-                                    <span className="payment-detail-label">Payment Mode</span>
-                                    <span className="payment-detail-value">{selectedPaymentCall.payment_mode || '-'}</span>
-                                </div>
-                                <div className="payment-detail-item">
-                                    <span className="payment-detail-label">Transaction Ref / UTR</span>
-                                    <span className="payment-detail-value" style={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                                        {selectedPaymentCall.transaction_reference_number}
-                                    </span>
-                                </div>
-                                <div className="payment-detail-item">
-                                    <span className="payment-detail-label">Payment Date</span>
-                                    <span className="payment-detail-value">{formatDateDDMMYY(selectedPaymentCall.payment_date)}</span>
-                                </div>
-                                <div className="payment-detail-item">
-                                    <span className="payment-detail-label">Proof Attachment</span>
-                                    <span className="payment-detail-value" style={{ color: '#2563eb' }}>
-                                        {selectedPaymentCall.payment_proof_filename || 'Uploaded'}
-                                    </span>
-                                </div>
-                            </>
-                        )}
-
-                        {selectedPaymentCall.rejection_reason && (
-                            <div className="payment-detail-item full-width rejection">
-                                <span className="payment-detail-label" style={{ color: '#dc2626' }}>Rejection Reason from RITES Finance</span>
-                                <span className="payment-detail-value" style={{ color: '#991b1b', marginTop: '4px' }}>{selectedPaymentCall.rejection_reason}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="payment-details-actions">
-                        {(selectedPaymentCall.payment_status === 'Payment Pending' || selectedPaymentCall.payment_status === 'Not Approved by RITES Finance') && (
-                            <button
-                                onClick={() => handleOpenPaymentModal(selectedPaymentCall)}
-                                style={{
-                                    padding: '10px 20px', borderRadius: '8px', border: 'none',
-                                    background: '#2563eb', color: '#fff', fontSize: '13px', fontWeight: 700,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
-                                }}
-                            >
-                                <CreditCard size={16} />
-                                {selectedPaymentCall.payment_status === 'Payment Pending' ? 'Enter Payment Details' : 'Update Payment Details'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* Payment Form Modal */}
             <PaymentFormModal
