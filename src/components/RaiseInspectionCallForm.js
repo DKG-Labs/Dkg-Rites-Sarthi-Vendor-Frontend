@@ -1333,8 +1333,10 @@ export const RaiseInspectionCallForm = ({
                 acceptedQtyProcess = fetchedAcceptedQty;
               }
 
-              // 2. Fetch offeredEarlier
-              const earlierRes = await inspectionCallService.getOfferedEarlierQuantity(heatNo, lotNumber);
+              // 2. Fetch offeredEarlier for this specific PO and PO Serial Number
+              const currentPoNo = formData.po_no || selectedPO?.po_no || selectedItem?.po_no || '';
+              const currentPoSerialNo = formData.po_serial_no || selectedPoSerial || selectedItem?.po_serial_no || '';
+              const earlierRes = await inspectionCallService.getOfferedEarlierQuantity(heatNo, lotNumber, currentPoNo, currentPoSerialNo);
               if (earlierRes && earlierRes.success) {
                 offeredEarlier = earlierRes.data || 0;
 
@@ -3797,7 +3799,7 @@ export const RaiseInspectionCallForm = ({
                             availableBalance = heatSummary.maxErc - (heatSummary.offeredEarlier || 0) - otherLotsOffered;
                           }
 
-                          const exceedsBalance = heatSummary && offeredQty > availableBalance;
+                          const exceedsBalance = !isViewMode && heatSummary && (offeredQty > availableBalance);
 
                           return (
                             <FormField
@@ -3815,8 +3817,8 @@ export const RaiseInspectionCallForm = ({
                                 min="0"
                                 max={heatSummary ? availableBalance : (lotHeat.maxQty || undefined)}
                                 placeholder="Enter quantity in Number"
-                                disabled={!lotHeat.heatNumber}
-                                style={exceedsBalance ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                                disabled={isViewMode || !lotHeat.heatNumber}
+                                style={exceedsBalance ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : (isViewMode ? { backgroundColor: '#f9fafb', cursor: 'default' } : {})}
                               />
                             </FormField>
                           );
@@ -4011,10 +4013,10 @@ export const RaiseInspectionCallForm = ({
                           {formData.final_lots_data.map((lot) => {
                             const totalAvailable = Math.max(0, (lot.acceptedQtyProcess || 0) - (lot.offeredEarlier || 0));
                             const currentOffered = parseInt(lot.offeredQty) || 0;
-                            const dynamicBalance = Math.max(0, totalAvailable - currentOffered);
-                            const isQtyInvalid = currentOffered > totalAvailable;
+                            const dynamicBalance = isViewMode ? 0 : Math.max(0, totalAvailable - currentOffered);
+                            const isQtyInvalid = !isViewMode && (currentOffered > totalAvailable);
                             const minBagsRequired = Math.ceil(currentOffered / 50);
-                            const isBagsInvalid = lot.noOfBags > 0 && lot.noOfBags < minBagsRequired;
+                            const isBagsInvalid = !isViewMode && (lot.noOfBags > 0 && lot.noOfBags < minBagsRequired);
 
                             return (
                               <tr key={lot.lotNumber}>
@@ -4033,7 +4035,8 @@ export const RaiseInspectionCallForm = ({
                                     onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                                     placeholder="Quantity"
                                     max={totalAvailable}
-                                    style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                                    disabled={isViewMode}
+                                    style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : (isViewMode ? { backgroundColor: '#f9fafb', cursor: 'default' } : {})}
                                   />
                                   {isQtyInvalid && (
                                     <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
@@ -4048,7 +4051,8 @@ export const RaiseInspectionCallForm = ({
                                     value={lot.noOfBags}
                                     onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'noOfBags', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                                     placeholder="Bags"
-                                    style={isBagsInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
+                                    disabled={isViewMode}
+                                    style={isBagsInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : (isViewMode ? { backgroundColor: '#f9fafb', cursor: 'default' } : {})}
                                   />
                                   {isBagsInvalid && (
                                     <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>

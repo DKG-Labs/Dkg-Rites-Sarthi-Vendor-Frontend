@@ -879,13 +879,20 @@ const inspectionCallService = {
    * specific heat and lot
    * @param {string} heatNo - Heat number
    * @param {string} lotNo - Lot number
+   * @param {string} [poNo] - Purchase Order Number
+   * @param {string} [poSerialNo] - PO Serial Number
    * @returns {Promise<Object>} - API response with offered quantity
    */
-  getOfferedEarlierQuantity: async (heatNo, lotNo) => {
+  getOfferedEarlierQuantity: async (heatNo, lotNo, poNo, poSerialNo) => {
     try {
-      const response = await httpClient.get(
-        `/final-material/offered-earlier?heatNo=${encodeURIComponent(heatNo)}&lotNo=${encodeURIComponent(lotNo)}`
-      );
+      let url = `/final-material/offered-earlier?heatNo=${encodeURIComponent(heatNo)}&lotNo=${encodeURIComponent(lotNo)}`;
+      if (poNo) {
+        url += `&poNo=${encodeURIComponent(poNo)}`;
+      }
+      if (poSerialNo) {
+        url += `&poSerialNo=${encodeURIComponent(poSerialNo)}`;
+      }
+      const response = await httpClient.get(url);
       return response;
     } catch (error) {
       console.error('Error fetching offered earlier quantity:', error);
