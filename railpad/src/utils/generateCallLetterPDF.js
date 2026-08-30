@@ -363,6 +363,32 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     const totalPoValDisplay = merged.totalPoValue || merged.poValue || '-';
     const rawMatDetailsDisplay = merged.rawMaterialDetails || '-';
     const prodSelectedVendor = merged.productSelectedByVendor || merged.ercType || merged.type_of_erc || merged.erc_type || merged.product || merged.productType || merged.railPadType || '-';
+    const placeOfInspectionDisplay = merged.placeOfInspection || merged.plantId || vendorAddress || '-';
+    const offeredInstallmentNoDisplay = merged.offeredInstallmentNo || merged.offeredInstallmentNumber || merged.offeredInstNo || '1';
+
+    // Format Batches / Stores Details to be Offered
+    let batchesDisplay = '-';
+    if (Array.isArray(merged.lots) && merged.lots.length > 0) {
+        const lines = [];
+        merged.lots.forEach((l, idx) => {
+            const lotNo = l.lotNo || l.lot_no || `Lot ${idx + 1}`;
+            const lotSize = l.lotSize || l.offeredQty || l.totalQty || '';
+            const lotBatches = (l.batches || l.rows || []);
+            if (lotBatches.length > 0) {
+                const batchStrs = lotBatches.map(b => `Batch ${b.batchNo || b.batch_no || '-'}: ${b.qtyToUse || b.quantity || b.qty || '-'} Nos.`);
+                lines.push(`${lotNo}${lotSize ? ` (Qty: ${lotSize})` : ''}: ${batchStrs.join(', ')}`);
+            } else {
+                lines.push(`${lotNo}${lotSize ? ` - Qty: ${lotSize} Nos.` : ''}`);
+            }
+        });
+        batchesDisplay = lines.join('\n') || '-';
+    } else if (merged.drawingRequirementSummary && Array.isArray(merged.drawingRequirementSummary) && merged.drawingRequirementSummary.length > 0) {
+        batchesDisplay = merged.drawingRequirementSummary.map(d => `Drawing ${d.drawingNo}: Offered ${d.offeredQty} Nos.`).join('\n');
+    } else if (merged.heatDetails && Array.isArray(merged.heatDetails) && merged.heatDetails.length > 0) {
+        batchesDisplay = merged.heatDetails.map(h => `${h.heatNo || 'Batch'}: ${val(h.tcNo)}, Qty: ${val(h.qtyOffered)} Nos.`).join('\n');
+    } else if (merged.noOfLots) {
+        batchesDisplay = `Total Lots Offered: ${merged.noOfLots} | Total Offered: ${effectiveOfferedQty} ${effectiveUom}`;
+    }
 
     const mainTableBody = [
         ['From', redVal(displayFrom)],
@@ -377,6 +403,7 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         ['Product Selected By Vendor', redValNormal(prodSelectedVendor)],
         ['PO Sr. No. Qty', redVal(poQtyDisplay)],
         ['Call Qty', redVal(callQtyDisplay)],
+        ['Offered Installment No.', redVal(offeredInstallmentNoDisplay)],
         ['Orignal DP Date', redVal(origDpDisplay)],
         ['Ext DP Date', redValNormal(extDpDisplay)],
         ['Desired Date of Inspection', redVal(desiredInspDate)],
@@ -384,9 +411,12 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         ['Consignee', redVal(consigneeDisplay)],
         ['Bill Paying Authority', redValNormal(bpoDisplay)],
         ['Manufacturer\'s Name', redVal(manufacturerDisplay)],
+        ['Place of Inspection', redVal(placeOfInspectionDisplay)],
+        ['Raw Material Qty Already Passed for the PO Sr No.', redValNormal('-')],
         ['Final Accepted Qty of this PO Sr. No.', redVal(finalAccQty)],
         ['Total PO Quantity', redVal(totalPoQtyVal)],
         ['Total PO Value', redVal(totalPoValDisplay)],
+        ['Batches / Stores Details to be Offered', redValNormal(batchesDisplay)],
         [{ content: 'I hereby accept all the Terms and Conditions.', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
         [{ content: 'Thanking you,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
         [{ content: 'Yours Faithfully,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
