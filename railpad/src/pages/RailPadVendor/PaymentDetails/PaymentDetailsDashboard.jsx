@@ -445,49 +445,75 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                                <button
-                                                    disabled={!hasIbsCallNo}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (hasIbsCallNo) {
-                                                            setPaymentRedirectCall(row);
-                                                        }
-                                                    }}
-                                                    title={!hasIbsCallNo ? "IBS Call Sr. No. is not available yet" : "Click to pay cancellation/rejection charges"}
-                                                    style={{
-                                                        padding: '6px 14px',
-                                                        borderRadius: '6px',
-                                                        border: hasIbsCallNo ? 'none' : '1px solid #cbd5e1',
-                                                        background: hasIbsCallNo ? '#16a34a' : '#94a3b8',
-                                                        color: '#fff',
+                                                {Boolean(
+                                                    row.payment_status === 'Approved by RITES Finance' || 
+                                                    row.payment_status === 'PAID' || 
+                                                    row.payment_status === 'Payment Completed' || 
+                                                    row.payment_status === 'COMPLETED' || 
+                                                    row.payment_status === 'APPROVED'
+                                                ) ? (
+                                                    <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '5px 12px',
+                                                        borderRadius: '20px',
+                                                        background: '#f0fdf4',
+                                                        color: '#16a34a',
                                                         fontSize: '12px',
                                                         fontWeight: 700,
-                                                        cursor: hasIbsCallNo ? 'pointer' : 'not-allowed',
-                                                        opacity: hasIbsCallNo ? 1 : 0.65,
-                                                        boxShadow: hasIbsCallNo ? '0 1px 2px rgba(22, 163, 74, 0.2)' : 'none',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                >
-                                                    Pay Charges
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                    }}
-                                                    style={{
-                                                        padding: '6px 14px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #0284c7',
-                                                        background: '#e0f2fe',
-                                                        color: '#0369a1',
-                                                        fontSize: '12px',
-                                                        fontWeight: 700,
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                >
-                                                    Verify Payment
-                                                </button>
+                                                        border: '1px solid #bbf7d0'
+                                                    }}>
+                                                        <CheckCircle2 size={14} /> Completed
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            disabled={!hasIbsCallNo}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (hasIbsCallNo) {
+                                                                    setPaymentRedirectCall(row);
+                                                                }
+                                                            }}
+                                                            title={!hasIbsCallNo ? "IBS Call Sr. No. is not available yet" : "Click to pay cancellation/rejection charges"}
+                                                            style={{
+                                                                padding: '6px 14px',
+                                                                borderRadius: '6px',
+                                                                border: hasIbsCallNo ? 'none' : '1px solid #cbd5e1',
+                                                                background: hasIbsCallNo ? '#16a34a' : '#94a3b8',
+                                                                color: '#fff',
+                                                                fontSize: '12px',
+                                                                fontWeight: 700,
+                                                                cursor: hasIbsCallNo ? 'pointer' : 'not-allowed',
+                                                                opacity: hasIbsCallNo ? 1 : 0.65,
+                                                                boxShadow: hasIbsCallNo ? '0 1px 2px rgba(22, 163, 74, 0.2)' : 'none',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                        >
+                                                            Pay Charges
+                                                        </button>
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                await fetchPlantCalls();
+                                                            }}
+                                                            style={{
+                                                                padding: '6px 14px',
+                                                                borderRadius: '6px',
+                                                                border: '1px solid #0284c7',
+                                                                background: '#e0f2fe',
+                                                                color: '#0369a1',
+                                                                fontSize: '12px',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                        >
+                                                            Verify Payment
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

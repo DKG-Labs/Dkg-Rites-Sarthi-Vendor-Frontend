@@ -50,6 +50,7 @@ const DRAWING_MAPPING = {
     "10.00mm CGRSP": ["RT-8528", "RT-8694", "RT-8747", "RT-8998"],
     "6.00mm NCRGRSP": [
         "RT-6154",
+        "RT-6155",
         "RT-8779",
         "RT-9774",
         "RT-4218",
@@ -76,6 +77,7 @@ const DRAWING_MAPPING = {
         "RT-10070",
         "RT-4734",
         "RT-6154",
+        "RT-6155",
         "RT-4733",
         "RT-4867",
         "RT-5691",
