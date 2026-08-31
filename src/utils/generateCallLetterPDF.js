@@ -408,7 +408,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
         : call.tcNumber
             ? `Heat No.: -, TC No. - ${val(call.tcNumber)}, Qty Offered: ${val(call.callQty || call.subPoQuantity || call.quantity)} MT\n\nTotal Qty Offered - ${val(call.callQty || call.subPoQuantity || call.quantity)} MT`
             : '-';
-    drawRow('Raw Material Details to be offered', heatDetails);
+    drawRow('Batches / Stores Details to be Offered', heatDetails);
 
     // ─── Terms & Closing ─────────────────────────────────────────────
     checkPageBreak(40);
