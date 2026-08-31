@@ -89,26 +89,64 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     : data;
 
                 const mappedBatches = filteredData.map(b => {
-                    const goodList = (b.goodSleepers || []).filter(s => s.callRaised !== true && s.callRaised !== "true");
-                    const badList = (b.badSleepers || []).filter(s => s.callRaised !== true && s.callRaised !== "true");
+                    // All good/bad sleepers (including already-raised ones)
+                    const allGoodList = (b.goodSleepers || []);
+                    const allBadList  = (b.badSleepers  || []);
 
-                    const uniqueGood = Array.from(new Set(goodList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
-                    const uniqueBad = Array.from(new Set(badList.map(s => (s.sleeperNo ? String(s.sleeperNo).trim() : s.sleeperId.toString()))));
+                    // Eligible = not yet raised in a previous call
+                    const goodList = allGoodList.filter(s => s.callRaised !== true && s.callRaised !== "true");
+                    const badList  = allBadList.filter(s => s.callRaised !== true && s.callRaised !== "true");
 
-                    // Sort in ascending order (natural alphanumeric sort)
-                    uniqueGood.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-                    uniqueBad.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-                    
+                    // Helper: deduplicate by sleeperId (unique per DB record).
+                    // Same sleeperNo declared multiple times → each entry kept separately,
+                    // displayed with its raw number (no suffix). Checkbox key = sleeperId.
+                    const buildDisplayList = (list) => {
+                        const seenIds = new Set();
+                        return list.filter(s => {
+                            const id = String(s.sleeperId);
+                            if (seenIds.has(id)) return false;
+                            seenIds.add(id);
+                            return true;
+                        }).map(s => ({
+                            sleeperId: s.sleeperId,
+                            displayNo: s.sleeperNo ? String(s.sleeperNo).trim() : String(s.sleeperId)
+                        }));
+                    };
+
+                    // Build display lists (deduplicated by sleeperId, with suffix for duplicates)
+                    const allGoodDisplay = buildDisplayList(allGoodList);
+                    const allBadDisplay  = buildDisplayList(allBadList);
+                    const goodDisplay    = buildDisplayList(goodList);
+                    const badDisplay     = buildDisplayList(badList);
+
+                    // Sort in ascending order (natural alphanumeric sort by display label)
+                    const sortDisplay = arr => arr.sort((a, b) => a.displayNo.localeCompare(b.displayNo, undefined, { numeric: true, sensitivity: 'base' }));
+                    sortDisplay(allGoodDisplay);
+                    sortDisplay(allBadDisplay);
+                    sortDisplay(goodDisplay);
+                    sortDisplay(badDisplay);
+
                     return {
                         batchNo: b.batchNumber || b.batchId.toString(),
                         castDate: b.castDate || 'N/A',
                         totalCasted: b.totalSleepers || 0,
                         castedAsType: sleeperType,
                         previouslyOffered: 0, // Fallback for now
-                        goodSleepers: uniqueGood.length,
-                        badSleepers: uniqueBad.length,
-                        goodSleeperIds: uniqueGood,
-                        badSleeperIds: uniqueBad,
+                        // Total counts (all sleepers including previously raised)
+                        goodSleepers: allGoodDisplay.length,
+                        badSleepers: allBadDisplay.length,
+                        // Eligible counts (only those not yet raised)
+                        goodSleepersEligible: goodDisplay.length,
+                        badSleepersEligible: badDisplay.length,
+                        // Checkbox keys = sleeperId strings (always unique, even for duplicate sleeperNos)
+                        goodSleeperIds: goodDisplay.map(s => String(s.sleeperId)),
+                        badSleeperIds:  badDisplay.map(s => String(s.sleeperId)),
+                        // Label maps: sleeperId → sleeperNo for display only
+                        goodSleeperLabels: Object.fromEntries(goodDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+                        badSleeperLabels:  Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+                        // Full objects needed to map sleeperId on submit
+                        goodSleepersDisplay: goodDisplay,
+                        badSleepersDisplay:  badDisplay,
                         goodSleepersData: goodList,
                         badSleepersData: badList,
                         plantId: b.plantId
@@ -127,8 +165,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         fetchBatches();
     }, [sleeperType]);
 
-    // Eligible for offering = goodSleepers - previouslyOffered (min 0)
-    const getEligible = (batch) => Math.max(0, batch.goodSleepers - batch.previouslyOffered);
+    // Eligible for offering = eligible good sleepers - previouslyOffered (min 0)
+    const getEligible = (batch) => Math.max(0, batch.goodSleepersEligible - batch.previouslyOffered);
 
     // ── Computed Summary ──────────────────────────────────────────────────────
     const summary = useMemo(() => {
@@ -418,13 +456,21 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Good / Bad</div>
                                             <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                                                <span style={{ fontWeight: 700, fontSize: 13, color: '#166534', background: '#f0fdf4', padding: '2px 8px', borderRadius: 6 }}>
+                                                <span
+                                                    title={batch.goodSleepersEligible < batch.goodSleepers ? `${batch.goodSleepers - batch.goodSleepersEligible} already raised` : undefined}
+                                                    style={{ fontWeight: 700, fontSize: 13, color: '#166534', background: '#f0fdf4', padding: '2px 8px', borderRadius: 6 }}
+                                                >
                                                     ✓ {batch.goodSleepers}
                                                 </span>
                                                 <span style={{ fontWeight: 700, fontSize: 13, color: '#dc2626', background: '#fef2f2', padding: '2px 8px', borderRadius: 6 }}>
                                                     ✕ {batch.badSleepers}
                                                 </span>
                                             </div>
+                                            {batch.goodSleepersEligible < batch.goodSleepers && (
+                                                <div style={{ fontSize: 9, color: '#92400e', marginTop: 2, fontWeight: 600 }}>
+                                                    ({batch.goodSleepers - batch.goodSleepersEligible} already raised)
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Previously Offered */}
@@ -488,10 +534,13 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                     gap: 5
                                                 }}>
                                                     {batch.goodSleeperIds.map((sid, idx) => {
+                                                        // sid = sleeperId string (unique key)
+                                                        // label = sleeperNo for display (may repeat for duplicates)
+                                                        const label = (batch.goodSleeperLabels || {})[sid] || sid;
                                                         const isEligible = idx < eligible;
                                                         const isChecked = goodSelected.has(sid);
                                                         return (
-                                                            <label key={`${sid}-idx-${idx}`} style={{
+                                                            <label key={sid} style={{
                                                                 display: 'flex', alignItems: 'center', gap: 6,
                                                                 cursor: isEligible ? 'pointer' : 'not-allowed',
                                                                 padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
@@ -508,7 +557,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                     style={{ width: 13, height: 13, flexShrink: 0 }}
                                                                 />
                                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {sid}
+                                                                    {label}
                                                                 </span>
                                                             </label>
                                                         );
@@ -661,11 +710,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                         const batch = batches.find(b => b.batchNo === batchNo);
                                         const badSleepers = batch ? batch.badSleeperIds : [];
                                         
-                                        // Map sleeper numbers to IDs
-                                        const goodSleeperIds = Array.from(selection.goodSelected).map(sno => {
-                                            const found = batch.goodSleepersData.find(s => String(s.sleeperNo).trim() === String(sno).trim());
-                                            return found ? found.sleeperId : null;
-                                        }).filter(id => id !== null);
+                                        // goodSelected now stores sleeperId strings directly — no mapping needed
+                                        const goodSleeperIds = Array.from(selection.goodSelected)
+                                            .map(id => parseInt(id, 10))
+                                            .filter(id => !isNaN(id));
 
                                         const badSleeperIds = (batch.badSleepersData || []).map(s => s.sleeperId);
 
