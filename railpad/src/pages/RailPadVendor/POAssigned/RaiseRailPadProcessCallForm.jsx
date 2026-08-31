@@ -19,6 +19,7 @@ const RAIL_PAD_TYPES = [
 // Unified Master NCRGRSP Main Drawings (Merged 6mm & 10mm from Official Main Drawing Specifications)
 const UNIFIED_NCRGRSP_DRAWINGS = [
     { code: "RT-6154", label: "RT-6154 (1 in 12 TWB Switch for 60 Kg)", category: "6mm & 10mm", is6mm: true, is10mm: true },
+    { code: "RT-6155", label: "RT-6155 (1 in 12 60kg TWS Drg. No. T-6155)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-8779", label: "RT-8779 (60 kg 1 in 12 Turnout per Set Alt-3)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-9774", label: "RT-9774 (TWS 60 Kg 1 in 8.5 Alt-2)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4218", label: "RT-4218 (60 kg 1 in 12 Turnout Alt.6)", category: "6mm", is6mm: true, is10mm: false },

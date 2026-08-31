@@ -59,6 +59,19 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-7015', qtyPerSet: 1, description: 'Crossing Portion' },
     { drawingNo: 'RT-7014', qtyPerSet: 1, description: 'Crossing Portion' }
   ],
+  // RT-6155 – 1 in 12 60kg TWS drg. No. T-6155 (Total 120 Pads / 10 Items)
+  'RT-6155': [
+    { drawingNo: 'RT-9630', qtyPerSet: 12, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8907', qtyPerSet: 6, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8955', qtyPerSet: 42, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8954', qtyPerSet: 2, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8889', qtyPerSet: 4, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8896', qtyPerSet: 6, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8895', qtyPerSet: 6, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8894', qtyPerSet: 2, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8893', qtyPerSet: 36, description: '1 in 12 60kg TWS' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: '1 in 12 60kg TWS' }
+  ],
   // TYPE 3 – Source: PL-60217250 | Date: 03.09.2025
   'RT-4733': [
     { drawingNo: 'RT-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
