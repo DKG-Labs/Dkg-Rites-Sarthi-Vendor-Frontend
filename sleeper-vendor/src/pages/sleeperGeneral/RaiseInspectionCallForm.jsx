@@ -97,20 +97,25 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     const goodList = allGoodList.filter(s => s.callRaised !== true && s.callRaised !== "true");
                     const badList  = allBadList.filter(s => s.callRaised !== true && s.callRaised !== "true");
 
-                    // Helper: deduplicate by sleeperId (unique per DB record).
-                    // Same sleeperNo declared multiple times → each entry kept separately,
-                    // displayed with its raw number (no suffix). Checkbox key = sleeperId.
+                    // Helper: deduplicate by sleeperId or sleeperNo
                     const buildDisplayList = (list) => {
-                        const seenIds = new Set();
-                        return list.filter(s => {
-                            const id = String(s.sleeperId);
-                            if (seenIds.has(id)) return false;
-                            seenIds.add(id);
+                        const seenKeys = new Set();
+                        return list.filter((s, idx) => {
+                            const uniqueKey = (s.sleeperId && String(s.sleeperId) !== '0') 
+                                ? String(s.sleeperId) 
+                                : (s.sleeperNo ? String(s.sleeperNo).trim() : `item-${idx}`);
+                            if (seenKeys.has(uniqueKey)) return false;
+                            seenKeys.add(uniqueKey);
                             return true;
-                        }).map(s => ({
-                            sleeperId: s.sleeperId,
-                            displayNo: s.sleeperNo ? String(s.sleeperNo).trim() : String(s.sleeperId)
-                        }));
+                        }).map((s, idx) => {
+                            const sid = (s.sleeperId && String(s.sleeperId) !== '0') 
+                                ? String(s.sleeperId) 
+                                : (s.sleeperNo ? String(s.sleeperNo).trim() : `item-${idx}`);
+                            return {
+                                sleeperId: sid,
+                                displayNo: s.sleeperNo ? String(s.sleeperNo).trim() : (s.sleeperId ? String(s.sleeperId) : 'N/A')
+                            };
+                        });
                     };
 
                     // Build display lists (deduplicated by sleeperId, with suffix for duplicates)
@@ -576,27 +581,30 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
                                                         gap: 5
                                                     }}>
-                                                        {batch.badSleeperIds.map((sid, idx) => (
-                                                            <label key={`${sid}-idx-${idx}`} style={{
-                                                                display: 'flex', alignItems: 'center', gap: 6,
-                                                                cursor: 'not-allowed',
-                                                                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                                                                background: 'rgba(220,38,38,0.06)',
-                                                                border: '1px solid #fca5a5',
-                                                                color: '#dc2626', transition: 'all 0.15s'
-                                                            }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={true}
-                                                                    disabled={true}
-                                                                    readOnly
-                                                                    style={{ width: 13, height: 13, flexShrink: 0, accentColor: '#dc2626' }}
-                                                                />
-                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {sid}
-                                                                </span>
-                                                            </label>
-                                                        ))}
+                                                        {batch.badSleeperIds.map((sid, idx) => {
+                                                            const label = (batch.badSleeperLabels || {})[sid] || sid;
+                                                            return (
+                                                                <label key={`${sid}-idx-${idx}`} style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                                    cursor: 'not-allowed',
+                                                                    padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                                                                    background: 'rgba(220,38,38,0.06)',
+                                                                    border: '1px solid #fca5a5',
+                                                                    color: '#dc2626', transition: 'all 0.15s'
+                                                                }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={true}
+                                                                        disabled={true}
+                                                                        readOnly
+                                                                        style={{ width: 13, height: 13, flexShrink: 0, accentColor: '#dc2626' }}
+                                                                    />
+                                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                        {label}
+                                                                    </span>
+                                                                </label>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             )}
@@ -708,19 +716,22 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 for (const [batchNo, selection] of Object.entries(batchSelections)) {
                                     if (selection.batchTouched && selection.goodSelected && selection.goodSelected.size > 0) {
                                         const batch = batches.find(b => b.batchNo === batchNo);
-                                        const badSleepers = batch ? batch.badSleeperIds : [];
+                                        const goodLabels = batch ? (batch.goodSleeperLabels || {}) : {};
+                                        const goodSleepers = Array.from(selection.goodSelected).map(sid => goodLabels[sid] || sid);
+                                        const badSleepers = batch ? (batch.badSleepersDisplay || []).map(s => s.displayNo) : [];
                                         
-                                        // goodSelected now stores sleeperId strings directly — no mapping needed
                                         const goodSleeperIds = Array.from(selection.goodSelected)
                                             .map(id => parseInt(id, 10))
-                                            .filter(id => !isNaN(id));
+                                            .filter(id => !isNaN(id) && id > 0);
 
-                                        const badSleeperIds = (batch.badSleepersData || []).map(s => s.sleeperId);
+                                        const badSleeperIds = (batch?.badSleepersData || [])
+                                            .map(s => parseInt(s.sleeperId, 10))
+                                            .filter(id => !isNaN(id) && id > 0);
 
                                         payload.batchesSelected.push({
                                             batchNo,
-                                            goodSleepers: Array.from(selection.goodSelected),
-                                            badSleepers: badSleepers || [],
+                                            goodSleepers,
+                                            badSleepers,
                                             goodSleeperIds,
                                             badSleeperIds
                                         });
