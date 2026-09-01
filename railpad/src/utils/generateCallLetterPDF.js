@@ -136,7 +136,7 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     const poDate = merged.poDate || '';
     const poFullNo = poNo ? (poDate ? `${poNo} Dated:${poDate}` : poNo) : '';
     const purchaser = merged.purchaserDetail || merged.purchaser || merged.purchasingAuthority || '';
-    const caseNo = merged.caseNo || merged.callNo || merged.call_no || '';
+    const caseNo = merged.caseNo || merged.case_no || '';
 
     // Item details / Description of stores
     let itemDescStr = merged.itemDesc || merged.itemDescription || (merged.drawingNo ? `COMPOSITE GROOVED RUBBER SOLE PLATES 10 MM THICK FOR WIDER PSC SLEEPERS TO USE WITH 60KG (UIC) & 52KG RAILS TO RDSO DRG NO ${merged.drawingNo}, WITH LATEST ALTERATION IF ANY, SPECIFICATION: IRS T 55-2025 WITH LATEST ALTERATIONS.` : '');
@@ -365,6 +365,7 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
     const prodSelectedVendor = merged.productSelectedByVendor || merged.ercType || merged.type_of_erc || merged.erc_type || merged.product || merged.productType || merged.railPadType || '-';
     const placeOfInspectionDisplay = merged.placeOfInspection || merged.plantId || vendorAddress || '-';
     const offeredInstallmentNoDisplay = merged.offeredInstallmentNo || merged.offeredInstallmentNumber || merged.offeredInstNo || '1';
+    const remarks = merged.remarks || merged.remark || '-';
 
     // Format Batches / Stores Details to be Offered
     let batchesDisplay = '-';
@@ -396,6 +397,7 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         ['To', redValNormal(displayTo)],
         [{ content: 'Dear Sir,\nPlease arrange to inspect following goods lying ready with us. It is certified that the stores offered conform to governing specifications.', colSpan: 2, styles: { fontSize: 8, fontStyle: 'normal', textColor: labelTextColor } }],
         ['Inspection Call Number', redVal(callNo)],
+        ['Case No.', redVal(caseNo || '-')],
         ['IE', redValNormal(ieName || '-')],
         ['Stage of Inspection', { content: stageDisplay, styles: { textColor: [30, 41, 59], fontStyle: 'normal' } }],
         ['PO Number & Date', redVal(displayPoNoDate)],
@@ -417,6 +419,7 @@ export const generateRailpadCallLetterPDF = async (call, shouldDownload = true) 
         ['Total PO Quantity', redVal(totalPoQtyVal)],
         ['Total PO Value', redVal(totalPoValDisplay)],
         ['Batches / Stores Details to be Offered', redValNormal(batchesDisplay)],
+        ['Remarks', redValNormal(remarks || '-')],
         [{ content: 'I hereby accept all the Terms and Conditions.', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
         [{ content: 'Thanking you,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
         [{ content: 'Yours Faithfully,', colSpan: 2, styles: { fontSize: 8.5, textColor: labelTextColor } }],
