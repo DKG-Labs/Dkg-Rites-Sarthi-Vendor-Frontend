@@ -2,10 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './PaymentDetails.css';
 import PaymentFormModal from './PaymentFormModal';
 import inspectionCallService from '../../../services/inspectionCallService';
+import { API_BASE_URL } from '../../../services/config';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 import { 
     Search, CreditCard, Clock, CheckCircle2, AlertCircle, 
-    XCircle, FileText, ChevronRight, Eye, RefreshCw, Filter, ArrowUpRight, Loader2 
+    XCircle, FileText, ChevronRight, Eye, RefreshCw, Filter, ArrowUpRight, Loader2,
+    Download, ExternalLink
 } from 'lucide-react';
 
 const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
@@ -30,15 +32,61 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
     const [editingPayment, setEditingPayment] = useState(null);
     const [paymentRedirectCall, setPaymentRedirectCall] = useState(null);
 
+    // Cancellation Document Viewer state
+    const [viewingDocCall, setViewingDocCall] = useState(null);
+    const [docBlobUrl, setDocBlobUrl] = useState(null);
+    const [docFileName, setDocFileName] = useState('Cancellation_Document.pdf');
+    const [docLoading, setDocLoading] = useState(false);
+    const [docError, setDocError] = useState(null);
+
     const getRioEmail = (call) => {
-        if (call?.rio_email) return call.rio_email;
-        if (call?.rioEmail) return call.rioEmail;
         const rioStr = (call?.rio || call?.plant_id || plantId || '').toUpperCase();
-        if (rioStr.includes('EAST') || rioStr.includes('KOLKATA') || rioStr.includes('ER') || rioStr.includes('SER') || rioStr.includes('ECR')) return 'sbu.einsp@rites.com';
-        if (rioStr.includes('WEST') || rioStr.includes('MUMBAI') || rioStr.includes('WR') || rioStr.includes('CR')) return 'sbu.winsp@rites.com';
-        if (rioStr.includes('SOUTH') || rioStr.includes('CHENNAI') || rioStr.includes('SR') || rioStr.includes('SCR') || rioStr.includes('SWR')) return 'sbu.sinsp@rites.com';
-        if (rioStr.includes('CENT') || rioStr.includes('BHILAI') || rioStr.includes('RAIPUR') || rioStr.includes('SECR') || rioStr.includes('WCR')) return 'sbu.cinsp@rites.com';
-        return 'sbu.ninsp@rites.com';
+        if (rioStr.includes('EAST') || rioStr.includes('KOLKATA') || rioStr.includes('ER') || rioStr.includes('SER') || rioStr.includes('ECR') || rioStr.includes('ERIO')) return 'callletter.er@rites.com';
+        if (rioStr.includes('WEST') || rioStr.includes('MUMBAI') || rioStr.includes('WR') || rioStr.includes('WRIO')) return 'dfo.wrio@rites.com';
+        if (rioStr.includes('SOUTH') || rioStr.includes('CHENNAI') || rioStr.includes('SR') || rioStr.includes('SCR') || rioStr.includes('SWR') || rioStr.includes('SRIO')) return 'dfo.srio@rites.com';
+        if (rioStr.includes('CENT') || rioStr.includes('BHILAI') || rioStr.includes('RAIPUR') || rioStr.includes('SECR') || rioStr.includes('WCR') || rioStr.includes('CR') || rioStr.includes('CRIO')) return 'dfo.crio@rites.com';
+        if (rioStr.includes('NORTH') || rioStr.includes('DELHI') || rioStr.includes('NR') || rioStr.includes('NCR') || rioStr.includes('NWR') || rioStr.includes('NRIO')) return 'nrinspn.fin@rites.com';
+
+        if (call?.rio_email && !call.rio_email.startsWith('sbu.')) return call.rio_email;
+        if (call?.rioEmail && !call.rioEmail.startsWith('sbu.')) return call.rioEmail;
+
+        return 'nrinspn.fin@rites.com';
+    };
+
+    const handleOpenCancellationDoc = async (call) => {
+        const callNo = call?.call_no || call?.callNo || call?.inspection_call_number;
+        if (!callNo) return;
+        setViewingDocCall(call);
+        setDocLoading(true);
+        setDocError(null);
+        setDocBlobUrl(null);
+        const defaultName = call?.document_name || call?.documentName || `Cancellation_${callNo}.pdf`;
+        setDocFileName(defaultName);
+
+        try {
+            const certData = await inspectionCallService.getSignedCertificate(callNo);
+            if (certData && certData.signedData) {
+                const cleanBase64 = String(certData.signedData).replace(/^data:application\/pdf;base64,/, '').trim();
+                const byteCharacters = atob(cleanBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                setDocBlobUrl(url);
+                if (certData.fileName) setDocFileName(certData.fileName);
+            } else {
+                const directUrl = `${API_BASE_URL}/certificate-storage/view/${encodeURIComponent(callNo)}.pdf`;
+                setDocBlobUrl(directUrl);
+            }
+        } catch (err) {
+            console.error("Error fetching cancellation document:", err);
+            setDocError("Cancellation document could not be loaded or is not available for this call.");
+        } finally {
+            setDocLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -397,7 +445,7 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                             <th>IBS Call No.</th>
                             <th>Reason</th>
                             <th>Charges (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Action</th>
+                            <th style={{ textAlign: 'center' }}>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -436,15 +484,40 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                                         <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.ibs_case_no || '-'}</td>
                                         <td style={{ color: '#64748b', fontWeight: hasIbsCallNo ? 700 : 400 }}>{row.ibs_call_no || '-'}</td>
                                         <td>
-                                            <span style={{ fontWeight: 600, color: row.payment_reason === 'Cancellation' ? '#dc2626' : '#2563eb' }}>
+                                            <span style={{ fontWeight: 700, color: row.payment_reason === 'Cancellation' ? '#dc2626' : '#2563eb' }}>
                                                 {row.payment_reason || 'Cancellation'}
                                             </span>
                                         </td>
                                         <td style={{ fontWeight: 800, color: '#0f172a' }}>
                                             ₹{Number(row.total_payable_amount || 0).toLocaleString('en-IN')}
                                         </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenCancellationDoc(row);
+                                                    }}
+                                                    title="View Cancellation Letter / Document"
+                                                    style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#1e293b',
+                                                        fontSize: '12px',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    <FileText size={13} style={{ color: '#dc2626' }} /> Letter
+                                                </button>
+
                                                 {Boolean(
                                                     row.payment_status === 'Approved by RITES Finance' || 
                                                     row.payment_status === 'PAID' || 
@@ -610,6 +683,27 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                                         {formatDateDDMMYY(paymentRedirectCall.call_date || paymentRedirectCall.callDate)}
                                     </span>
                                 </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: '#64748b', fontWeight: 600 }}>• Cancellation Letter:</span>
+                                    <button
+                                        onClick={() => handleOpenCancellationDoc(paymentRedirectCall)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            background: '#fef2f2',
+                                            border: '1px solid #fecaca',
+                                            color: '#b91c1c',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <FileText size={13} /> View Cancellation Document
+                                    </button>
+                                </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '8px' }}>
                                     <span style={{ color: '#b91c1c', fontWeight: 700 }}>• Cancellation/Rejection Charges:</span>
                                     <span style={{ fontWeight: 900, color: '#dc2626', fontSize: '15px' }}>
@@ -634,7 +728,7 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                             }}>
                                 After successful payment, please email the payment receipt to{' '}
                                 <strong style={{ fontWeight: 800, textDecoration: 'underline' }}>
-                                    {paymentRedirectCall.rio_email || paymentRedirectCall.rioEmail || getRioEmail(paymentRedirectCall)}
+                                    {getRioEmail(paymentRedirectCall)}
                                 </strong>.
                             </div>
 
@@ -686,6 +780,149 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                             >
                                 OK
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancellation Document Viewer Modal */}
+            {viewingDocCall && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 10000, padding: '16px'
+                }}>
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: '16px',
+                        maxWidth: '900px',
+                        width: '100%',
+                        height: '88vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        overflow: 'hidden'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: '16px 24px',
+                            borderBottom: '1px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: '#f8fafc'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FileText size={22} style={{ color: '#dc2626' }} />
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                                        Cancellation Document
+                                    </h3>
+                                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                                        Call No: {viewingDocCall.call_no || viewingDocCall.callNo} | {docFileName}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {docBlobUrl && (
+                                    <>
+                                        <a
+                                            href={docBlobUrl}
+                                            download={docFileName}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '6px 12px',
+                                                borderRadius: '6px',
+                                                background: '#eff6ff',
+                                                color: '#1d4ed8',
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                textDecoration: 'none',
+                                                border: '1px solid #bfdbfe'
+                                            }}
+                                        >
+                                            <Download size={13} /> Download
+                                        </a>
+                                        <a
+                                            href={docBlobUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '6px 12px',
+                                                borderRadius: '6px',
+                                                background: '#f1f5f9',
+                                                color: '#334155',
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                textDecoration: 'none',
+                                                border: '1px solid #cbd5e1'
+                                            }}
+                                        >
+                                            <ExternalLink size={13} /> Open in New Tab
+                                        </a>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setViewingDocCall(null);
+                                        setDocBlobUrl(null);
+                                    }}
+                                    style={{
+                                        border: 'none', background: 'transparent',
+                                        fontSize: '20px', color: '#94a3b8', cursor: 'pointer', fontWeight: 700,
+                                        padding: '4px 8px'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div style={{ flex: 1, position: 'relative', background: '#f1f5f9', overflow: 'hidden' }}>
+                            {docLoading ? (
+                                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <Loader2 size={40} className="spin-animation" style={{ color: '#2563eb' }} />
+                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
+                                        Loading cancellation document...
+                                    </div>
+                                </div>
+                            ) : docError ? (
+                                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px' }}>
+                                    <AlertCircle size={40} style={{ color: '#dc2626' }} />
+                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#b91c1c', textAlign: 'center' }}>
+                                        {docError}
+                                    </div>
+                                    <button
+                                        onClick={() => handleOpenCancellationDoc(viewingDocCall)}
+                                        style={{
+                                            padding: '6px 16px',
+                                            borderRadius: '6px',
+                                            background: '#2563eb',
+                                            color: '#fff',
+                                            border: 'none',
+                                            fontWeight: 700,
+                                            fontSize: '12px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            ) : docBlobUrl ? (
+                                <iframe
+                                    src={docBlobUrl}
+                                    title="Cancellation Letter PDF"
+                                    style={{ width: '100%', height: '100%', border: 'none' }}
+                                />
+                            ) : null}
                         </div>
                     </div>
                 </div>

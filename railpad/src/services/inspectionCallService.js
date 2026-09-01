@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_CONFIG } from './config';
+import { API_CONFIG, API_BASE_URL } from './config';
 
 const BASE_URL = API_CONFIG.RAIL_INSPECTION_CALL;
 
