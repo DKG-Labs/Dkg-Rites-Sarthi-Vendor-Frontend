@@ -460,8 +460,28 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10169', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10161', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' }
   ],
-  // RT-4865 – 6 mm Thick Pocket Type NCR GRSP – 1 in 8.5 Turnout (Total 216 Pads / 17 Items)
-  'RT-4865': [
+  // RT-4865 Alt-8 – Source: Annexure -E | 6 mm thick Nylon Cord reinforced GRSP for 1 in 8.5 Turnout with 60E1 rail Alt-8 (Total 216 Pads / 17 Items)
+  'RT-4865 Alt-8': [
+    { drawingNo: 'RT-8887', qtyPerSet: 116, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8888', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8889', qtyPerSet: 30, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8955', qtyPerSet: 12, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8911', qtyPerSet: 22, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8914', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8914/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8915', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8915/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8916', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8917', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8918', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8919', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8920', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8921', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-4865 Alt-9 – 6 mm Thick Pocket Type NCR GRSP – 1 in 8.5 Turnout Alt-09 (Total 216 Pads / 17 Items)
+  'RT-4865 Alt-9': [
     { drawingNo: 'RT-10162', qtyPerSet: 30, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10160', qtyPerSet: 116, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-8911', qtyPerSet: 22, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -526,6 +546,16 @@ const normalizeDwg = (dwg) => (dwg || '').replace(/^RDSO[\/-]/i, '').replace(/^(
 const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
   if (!dwgOrType && (!lotsData || lotsData.length === 0)) {
     return 'RT-9790';
+  }
+
+  const str = String(dwgOrType || '').toLowerCase();
+  if (str.includes('4865')) {
+    if (str.includes('alt-8') || str.includes('alt 8') || str.includes('alt.8') || str.includes('alt08') || str.includes('alt-08')) {
+      return 'RT-4865 Alt-8';
+    }
+    if (str.includes('alt-9') || str.includes('alt 9') || str.includes('alt.9') || str.includes('alt09') || str.includes('alt-09')) {
+      return 'RT-4865 Alt-9';
+    }
   }
   
   // 1. Direct key match
