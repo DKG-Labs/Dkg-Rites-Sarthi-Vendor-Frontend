@@ -287,6 +287,9 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     // Inspection Call Number
     drawRow('Inspection Call Number', val(call.callNumber), { rowH: 9 });
 
+    // Case Number
+    drawRow('Case No.', val(call.caseNo || call.case_no), { rowH: 9 });
+
     // IE (empty until verified)
     const assignedIeStr = call.assignedIeName || call.ieName || call.assignedIE;
     const isIeAssigned = assignedIeStr && assignedIeStr !== 'Not Assigned' && assignedIeStr !== '-';
@@ -409,6 +412,9 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
             ? `Heat No.: -, TC No. - ${val(call.tcNumber)}, Qty Offered: ${val(call.callQty || call.subPoQuantity || call.quantity)} MT\n\nTotal Qty Offered - ${val(call.callQty || call.subPoQuantity || call.quantity)} MT`
             : '-';
     drawRow('Batches / Stores Details to be Offered', heatDetails);
+
+    // Remarks
+    drawRow('Remarks', val(call.remarks || call.remark), { rowH: 9 });
 
     // ─── Terms & Closing ─────────────────────────────────────────────
     checkPageBreak(40);
