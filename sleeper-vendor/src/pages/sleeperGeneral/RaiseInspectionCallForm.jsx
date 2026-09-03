@@ -1003,7 +1003,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         onClick={async () => {
                             setIsSubmitting(true);
                             try {
-                                const userId = sessionStorage.getItem('userId');
+                                const rawUserId = sessionStorage.getItem('userId');
+                                const parsedUserId = parseInt(rawUserId, 10);
+                                const numericUserId = (!isNaN(parsedUserId) && parsedUserId > 0) ? parsedUserId : 1;
                                 const vendorCode = sessionStorage.getItem('vendorCode');
                                 
                                 const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
@@ -1014,11 +1016,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType: mainSleeperType,
-                                    totalOffered: summary.totalPassedCount,
-                                    totalRejected: summary.totalRejectedCount,
-                                    createdBy: userId,
-                                    vendorCode: vendorCode,
-                                    plantId: currentPlantId,
+                                    totalOffered: Number(summary.totalPassedCount) || 0,
+                                    totalRejected: Number(summary.totalRejectedCount) || 0,
+                                    createdBy: numericUserId,
+                                    vendorCode: vendorCode || '',
+                                    plantId: currentPlantId ? String(currentPlantId) : '',
                                     batchesSelected: []
                                 };
                                 
@@ -1027,16 +1029,20 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                         const batch = batches.find(b => (b.batchKey || b.batchNo) === batchKey);
                                         if (!batch) continue;
                                         const goodLabels = batch.goodSleeperLabels || {};
-                                        const goodSleepers = Array.from(selection.goodSelected).map(sid => goodLabels[sid] || sid);
-                                        const badSleepers = (batch.badSleepersDisplay || []).map(s => s.displayNo);
+                                        const goodSleepers = Array.from(selection.goodSelected).map(sid => goodLabels[sid] || String(sid));
+                                        const badSleepers = (batch.badSleepersDisplay || []).map(s => String(s.displayNo));
                                         
                                         const goodSleeperIds = Array.from(selection.goodSelected)
-                                            .map(id => parseInt(id, 10))
-                                            .filter(id => !isNaN(id) && id > 0);
+                                            .map(id => {
+                                                const num = parseInt(id, 10);
+                                                return (!isNaN(num) && num > 0) ? num : 0;
+                                            });
 
                                         const badSleeperIds = (batch?.badSleepersData || [])
-                                            .map(s => parseInt(s.sleeperId, 10))
-                                            .filter(id => !isNaN(id) && id > 0);
+                                            .map(s => {
+                                                const num = parseInt(s.sleeperId, 10);
+                                                return (!isNaN(num) && num > 0) ? num : 0;
+                                            });
 
                                         payload.batchesSelected.push({
                                             batchNo: batch.batchNo,
