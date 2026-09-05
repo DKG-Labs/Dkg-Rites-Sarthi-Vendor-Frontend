@@ -435,9 +435,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
     };
 
     const renderInputView = () => {
-        const availableVendorPos = vendorPos.filter(po => {
-            const caseNo = po.caseNo || po.case_no || po.caseNumber || po.CASE_NO;
-            return !caseNo || String(caseNo).trim() === '' || String(caseNo).trim().toUpperCase() === 'N/A' || String(caseNo).trim().toLowerCase() === 'null';
+        // Sort POs: those without caseNo first, but allow all vendor POs to be selectable
+        const availableVendorPos = [...vendorPos].sort((a, b) => {
+            const hasA = !!(a.caseNo || a.case_no || a.caseNumber || a.CASE_NO);
+            const hasB = !!(b.caseNo || b.case_no || b.caseNumber || b.CASE_NO);
+            return (hasA === hasB) ? 0 : hasA ? 1 : -1;
         });
 
         return (
@@ -510,8 +512,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                                 {poLoading 
                                                     ? 'Loading Vendor POs...' 
                                                     : (availableVendorPos.length === 0 
-                                                        ? 'No pending POs (All POs have Case Numbers)' 
-                                                        : '-- Select PO to Fetch Case Number --')
+                                                        ? 'No POs found for this vendor' 
+                                                        : '-- Select PO to Fetch IBS Case Number --')
                                                 }
                                             </span>
                                         )}
@@ -526,6 +528,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                             const poNoVal = po.poNo || po.po_no || '';
                                             const rlyVal = po.rlyCd || po.rly_cd || po.rlyShortName || po.rly || 'N/A';
                                             const dateVal = po.poDate || po.po_dt || 'N/A';
+                                            const existingCaseNo = po.caseNo || po.case_no || po.caseNumber || po.CASE_NO;
+                                            const isPending = !existingCaseNo || String(existingCaseNo).trim() === '' || String(existingCaseNo).trim().toUpperCase() === 'N/A' || String(existingCaseNo).trim().toLowerCase() === 'null';
                                             const isSelected = String(poIdVal) === String(selectedPoId);
 
                                             return (
@@ -551,16 +555,27 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                                         <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>
                                                             PO No: <span style={{ color: '#0284c7' }}>{poNoVal}</span>
                                                         </span>
-                                                        <span style={{ 
-                                                            backgroundColor: '#e0f2fe', 
-                                                            color: '#0369a1', 
-                                                            fontSize: '11px', 
-                                                            fontWeight: '700', 
-                                                            padding: '2px 8px', 
-                                                            borderRadius: '6px' 
-                                                        }}>
-                                                            RLY {rlyVal}
-                                                        </span>
+                                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                            {isPending ? (
+                                                                <span style={{ backgroundColor: '#fef3c7', color: '#b45309', fontSize: '10.5px', fontWeight: '700', padding: '2px 7px', borderRadius: '4px' }}>
+                                                                    ⏳ Pending
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ backgroundColor: '#ecfdf5', color: '#047857', fontSize: '10.5px', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={existingCaseNo}>
+                                                                    ✓ {existingCaseNo}
+                                                                </span>
+                                                            )}
+                                                            <span style={{ 
+                                                                backgroundColor: '#e0f2fe', 
+                                                                color: '#0369a1', 
+                                                                fontSize: '11px', 
+                                                                fontWeight: '700', 
+                                                                padding: '2px 8px', 
+                                                                borderRadius: '6px' 
+                                                            }}>
+                                                                RLY {rlyVal}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#64748b' }}>
                                                         <span>PO Key: {po.po_key || po.poKey || po.pokey || poNoVal}</span>
@@ -702,18 +717,43 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
     const renderReviewView = () => {
         if (syncType === 'IBS_CASE_NO' && ibsResult) {
+            const rawCaseNo = ibsResult.CASE_NO || ibsResult.caseNo || '';
+            const caseNoList = typeof rawCaseNo === 'string'
+                ? rawCaseNo.split(',').map(s => s.trim()).filter(Boolean)
+                : (Array.isArray(rawCaseNo) ? rawCaseNo : [rawCaseNo]);
+
             return (
                 <div style={styles.body}>
                     <div style={styles.heroCaseCard}>
                         <div style={styles.heroCaseHeader}>
-                            <span style={styles.heroCaseLabel}>IBS CASE NUMBER</span>
+                            <span style={styles.heroCaseLabel}>
+                                {caseNoList.length > 1 ? `IBS CASE NUMBERS (${caseNoList.length})` : 'IBS CASE NUMBER'}
+                            </span>
                             <span style={styles.statusBadge}>
                                 {ibsResult.STATUS || ibsResult.status || 'AVAILABLE'}
                             </span>
                         </div>
-                        <div style={styles.heroCaseNumber}>
-                            {ibsResult.CASE_NO || ibsResult.caseNo || 'N/A'}
-                        </div>
+                        {caseNoList.length > 1 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                                {caseNoList.map((cNo, idx) => (
+                                    <span key={idx} style={{
+                                        backgroundColor: '#0369a1',
+                                        color: '#ffffff',
+                                        padding: '4px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '15px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        🔢 {cNo}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={styles.heroCaseNumber}>
+                                {caseNoList[0] || 'N/A'}
+                            </div>
+                        )}
                     </div>
 
                     <div style={styles.reviewGridCard}>
