@@ -34,18 +34,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
     useEffect(() => {
         if (isOpen) {
             resetModal();
-            let vcode = propVendorCode || 
-                         localStorage.getItem('sleeper_vendorCode') || 
-                         localStorage.getItem('vendorCode') || 
-                         sessionStorage.getItem('vendorCode') || 
-                         sessionStorage.getItem('vcode') || ":41647";
-            
+            let vcode = propVendorCode ||
+                localStorage.getItem('sleeper_vendorCode') ||
+                localStorage.getItem('vendorCode') ||
+                sessionStorage.getItem('vendorCode') ||
+                sessionStorage.getItem('vcode') || ":41647";
+
             if (!vcode && plantId && plantId.includes(':')) {
                 const parts = plantId.split('/');
                 const colonPart = parts.find(p => p.includes(':'));
                 if (colonPart) vcode = colonPart;
             }
-            
+
             setFormData(prev => ({ ...prev, vcode }));
         } else {
             resetModal();
@@ -84,7 +84,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             setRailwayLoading(true);
             try {
                 const list = await apiService.getRlyList();
-                const sorted = [...list].sort((a, b) => 
+                const sorted = [...list].sort((a, b) =>
                     String(a.rlyCd).localeCompare(String(b.rlyCd), undefined, { numeric: true })
                 );
                 setRailways(sorted);
@@ -197,7 +197,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
             if (syncType === 'POMA DATA') {
                 const formattedMaDate = formatDate(formData.maDate);
                 let poDateFormatted = '';
-                
+
                 // Fetch PO date from /Vendorsync/po-date?poNo=...
                 if (formData.poNo) {
                     try {
@@ -231,14 +231,14 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
                 console.log('Final MA Payload being sent (sleeper):', maPayload);
                 const res = await (apiService.getIMMSMAData ? apiService.getIMMSMAData(maPayload) : apiService.getIMMSPOData(maPayload));
-                
+
                 const hasData = res && (
-                    res.PoHdr || 
-                    res.data?.PoHdr || 
-                    res.data?.MMP_POMA_HDR || 
-                    res.MMP_POMA_HDR || 
-                    res.data?.MMP_PO_HDR || 
-                    res.MMP_PO_HDR || 
+                    res.PoHdr ||
+                    res.data?.PoHdr ||
+                    res.data?.MMP_POMA_HDR ||
+                    res.MMP_POMA_HDR ||
+                    res.data?.MMP_PO_HDR ||
+                    res.MMP_PO_HDR ||
                     (res.data?.PoDtl && res.data.PoDtl.length > 0) ||
                     (res.PoDtl && res.PoDtl.length > 0) ||
                     (res.data?.MMP_POMA_DTL && res.data.MMP_POMA_DTL.length > 0) ||
@@ -266,10 +266,10 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
                 const res = await apiService.getIMMSPOData(payload);
                 const hasData = res && (
-                    res.PoHdr || 
-                    res.data?.PoHdr || 
-                    res.data?.MMP_PO_HDR || 
-                    res.MMP_PO_HDR || 
+                    res.PoHdr ||
+                    res.data?.PoHdr ||
+                    res.data?.MMP_PO_HDR ||
+                    res.MMP_PO_HDR ||
                     (res.data?.PoDtl && res.data.PoDtl.length > 0) ||
                     (res.PoDtl && res.PoDtl.length > 0) ||
                     (res.data?.MMP_PO_DTL && res.data.MMP_PO_DTL.length > 0) ||
@@ -353,12 +353,12 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 };
                 const res = await (apiService.savePoMaData ? apiService.savePoMaData(saveMaPayload) : apiService.savePoMaToSarthi(saveMaPayload));
                 const isSuccess = res && (
-                    res.status === 'Success' || 
-                    res.status === 200 || 
-                    res.status === 'SAVED' || 
-                    res.responseStatus?.statusCode === 0 || 
-                    res.responseStatus?.statusCode === 200 || 
-                    res.responseStatus?.statusCode === '0' || 
+                    res.status === 'Success' ||
+                    res.status === 200 ||
+                    res.status === 'SAVED' ||
+                    res.responseStatus?.statusCode === 0 ||
+                    res.responseStatus?.statusCode === 200 ||
+                    res.responseStatus?.statusCode === '0' ||
                     res.responseStatus?.statusCode === '200'
                 );
                 if (isSuccess) {
@@ -406,12 +406,12 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
                 const res = await (apiService.savePOData ? apiService.savePOData(savePayload) : apiService.savePOToSarthi(savePayload));
                 const isSuccess = res && (
-                    res.status === 'Success' || 
-                    res.status === 200 || 
-                    res.status === 'SAVED' || 
-                    res.responseStatus?.statusCode === 0 || 
-                    res.responseStatus?.statusCode === 200 || 
-                    res.responseStatus?.statusCode === '0' || 
+                    res.status === 'Success' ||
+                    res.status === 200 ||
+                    res.status === 'SAVED' ||
+                    res.responseStatus?.statusCode === 0 ||
+                    res.responseStatus?.statusCode === 200 ||
+                    res.responseStatus?.statusCode === '0' ||
                     res.responseStatus?.statusCode === '200'
                 );
                 if (isSuccess) {
@@ -485,7 +485,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         <div style={styles.formGroup}>
                             <label style={styles.label}>Select Purchase Order (PO)</label>
                             <div ref={poDropdownRef} style={{ position: 'relative' }}>
-                                <div 
+                                <div
                                     onClick={() => !poLoading && availableVendorPos.length > 0 && setIsPoDropdownOpen(!isPoDropdownOpen)}
                                     style={{
                                         ...styles.input,
@@ -507,10 +507,10 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                             </span>
                                         ) : (
                                             <span style={{ color: availableVendorPos.length === 0 ? '#94a3b8' : '#64748b', fontSize: '13px', fontWeight: '500' }}>
-                                                {poLoading 
-                                                    ? 'Loading Vendor POs...' 
-                                                    : (availableVendorPos.length === 0 
-                                                        ? 'No POs found for this vendor' 
+                                                {poLoading
+                                                    ? 'Loading Vendor POs...'
+                                                    : (availableVendorPos.length === 0
+                                                        ? 'No POs found for this vendor'
                                                         : '-- Select PO to Fetch IBS Case Number --')
                                                 }
                                             </span>
@@ -531,7 +531,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                             const isSelected = String(poIdVal) === String(selectedPoId);
 
                                             return (
-                                                <div 
+                                                <div
                                                     key={poIdVal || index}
                                                     onClick={() => {
                                                         handlePoSelectForIbs(poIdVal);
@@ -563,13 +563,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                                                     ✓ {existingCaseNo}
                                                                 </span>
                                                             )}
-                                                            <span style={{ 
-                                                                backgroundColor: '#e0f2fe', 
-                                                                color: '#0369a1', 
-                                                                fontSize: '11px', 
-                                                                fontWeight: '700', 
-                                                                padding: '2px 8px', 
-                                                                borderRadius: '6px' 
+                                                            <span style={{
+                                                                backgroundColor: '#e0f2fe',
+                                                                color: '#0369a1',
+                                                                fontSize: '11px',
+                                                                fontWeight: '700',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '6px'
                                                             }}>
                                                                 RLY {rlyVal}
                                                             </span>
@@ -593,9 +593,9 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                     <div style={styles.poSummaryItem}>
                                         <span style={styles.poSummaryLabel}>PO Key</span>
                                         <span style={styles.poSummaryValue}>
-                                            {vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.po_key || 
-                                             vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.poKey || 
-                                             vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.pokey || selectedPoId}
+                                            {vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.po_key ||
+                                                vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.poKey ||
+                                                vendorPos.find(p => String(p.id || p.poNo) === String(selectedPoId))?.pokey || selectedPoId}
                                         </span>
                                     </div>
                                     <div style={styles.poSummaryItem}>
@@ -619,7 +619,7 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                         <div style={styles.formGroup}>
                             <label style={styles.label}>Railway Code (Rly)</label>
                             <div ref={dropdownRef} style={{ position: 'relative' }}>
-                                <div 
+                                <div
                                     onClick={() => !railwayLoading && setIsDropdownOpen(!isDropdownOpen)}
                                     style={{
                                         ...styles.input,
@@ -631,18 +631,18 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                                     }}
                                 >
                                     <span style={{ color: !formData.rly ? '#94a3b8' : '#0f172a', fontWeight: formData.rly ? '600' : '400', fontSize: '13px' }}>
-                                        {formData.rly 
+                                        {formData.rly
                                             ? (railways.find(r => r.rlyCd === formData.rly) ? `${formData.rly} - ${railways.find(r => r.rlyCd === formData.rly).rlyShortName}` : formData.rly)
                                             : (railwayLoading ? 'Loading Railways...' : '-- Select Railway --')
                                         }
                                     </span>
                                     <span style={{ fontSize: '10px', color: '#64748b', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
                                 </div>
-                                
+
                                 {isDropdownOpen && (
                                     <div style={styles.dropdownList}>
                                         {railways.map(r => (
-                                            <div 
+                                            <div
                                                 key={r.rlyCd}
                                                 onClick={() => {
                                                     handleInputChange({ target: { name: 'rly', value: r.rlyCd } });
@@ -777,9 +777,9 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
                     <div style={styles.footer}>
                         <button onClick={resetModal} style={styles.cancelBtn}>Back</button>
-                        <button 
-                            onClick={handleSave} 
-                            disabled={loading} 
+                        <button
+                            onClick={handleSave}
+                            disabled={loading}
                             style={{ ...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
                         >
                             {loading ? 'Saving...' : 'Save Case Number to PO'}
@@ -799,11 +799,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
 
         const allowedCategory = "PSC Mainline Sleeper";
         const dashboardRole = "Sleeper";
-        
+
         const isMaSync = syncType === 'POMA DATA';
         const currentCat = h.ITEM_CAT_DESCR;
         const isNullRequest = !isMaSync && !currentCat;
-        
+
         const isMatch = isMaSync || currentCat === allowedCategory;
         const isMismatch = !isMaSync && currentCat && !isMatch;
 
@@ -831,8 +831,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     {!isMaSync && (
                         <div style={{ ...styles.reviewGridItem, gridColumn: 'span 2' }}>
                             <span style={styles.reviewGridLabel}>Detected Category</span>
-                            <span style={{ 
-                                ...styles.reviewGridValue, 
+                            <span style={{
+                                ...styles.reviewGridValue,
                                 color: isMatch ? '#059669' : (isMismatch ? '#dc2626' : '#d97706'),
                                 fontWeight: '700'
                             }}>
@@ -849,11 +849,11 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 ) : isNullRequest ? (
                     <div style={styles.warningBanner}>
                         <label style={{ ...styles.label, color: '#92400e', marginBottom: '4px', display: 'block' }}>Select Mandatory Category:</label>
-                        <select 
-                            value={manualCategory} 
+                        <select
+                            value={manualCategory}
                             onChange={(e) => setManualCategory(e.target.value)}
                             style={{
-                                ...styles.input, 
+                                ...styles.input,
                                 height: '42px',
                                 borderColor: !manualCategory ? '#ef4444' : '#cbd5e1',
                                 cursor: 'pointer',
@@ -878,13 +878,13 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 )}
 
                 {status === 'error' && <div style={styles.errorBanner}>⚠️ {errorMsg}</div>}
-                
+
                 <div style={styles.footer}>
                     <button onClick={resetModal} style={styles.cancelBtn}>Back</button>
                     {!isMismatch && (
-                        <button 
-                            onClick={handleSave} 
-                            disabled={loading || (isNullRequest && !manualCategory)} 
+                        <button
+                            onClick={handleSave}
+                            disabled={loading || (isNullRequest && !manualCategory)}
                             style={{ ...styles.syncBtn, backgroundColor: '#10b981', backgroundImage: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
                         >
                             {loading ? 'Saving...' : `Sync & Save ${isMaSync ? 'MA' : 'PO'}`}
@@ -920,8 +920,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                 {status === 'success' && (
                     <div style={{ ...styles.overlay, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1001 }} onClick={handleClose}>
                         <div style={{ ...styles.successModalCard, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                            <button 
-                                onClick={handleClose} 
+                            <button
+                                onClick={handleClose}
                                 style={{ ...styles.closeBtn, position: 'absolute', top: '16px', right: '16px' }}
                             >
                                 &times;
@@ -933,12 +933,12 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                             <p style={{ color: '#64748b', margin: '0 0 20px 0', fontSize: '13px' }}>
                                 {syncType === 'IBS_CASE_NO' ? 'The IBS Case Number has been saved to PO Header.' : 'The data has been synced to your dashboard.'}
                             </p>
-                            <button 
-                                onClick={handleClose} 
-                                style={{ 
-                                    ...styles.syncBtn, 
-                                    width: '100%', 
-                                    backgroundColor: '#10b981', 
+                            <button
+                                onClick={handleClose}
+                                style={{
+                                    ...styles.syncBtn,
+                                    width: '100%',
+                                    backgroundColor: '#10b981',
                                     backgroundImage: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
                                 }}
