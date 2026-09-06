@@ -871,7 +871,7 @@ export const apiService = {
     getVendorPOs: async (vendorCode) => {
         try {
             const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
-            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper`);
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=${encodeURIComponent('PSC Mainline Sleeper')}`);
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();
             return data.responseData || [];

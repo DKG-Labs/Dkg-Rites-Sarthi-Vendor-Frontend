@@ -1315,22 +1315,33 @@ export const RaiseInspectionCallForm = ({
           // Fetch values if heatNo is available
           if (heatNo) {
             try {
-              // 1. Fetch acceptedQtyProcess across all request IDs
-              let fetchedAcceptedQty = 0;
+              // 1. Fetch acceptedQtyProcess across all request IDs (summing quantities from all selected Process ICs)
+              let totalFetchedAcceptedQty = 0;
               for (const requestId of requestIds) {
                 try {
                   const acceptedRes = await inspectionCallService.getAcceptedQtyForLot(requestId, lotNumber, heatNo);
                   if (acceptedRes && acceptedRes.success && acceptedRes.data > 0) {
-                    fetchedAcceptedQty = acceptedRes.data;
-                    break;
+                    totalFetchedAcceptedQty += (parseInt(acceptedRes.data, 10) || 0);
                   }
                 } catch (err) {
                   console.warn(`Error fetching accepted qty with reqId ${requestId}:`, err.message);
                 }
               }
 
-              if (fetchedAcceptedQty > 0) {
-                acceptedQtyProcess = fetchedAcceptedQty;
+              // Fallback: If no qty found with individual requestIds, try without requestId
+              if (totalFetchedAcceptedQty === 0) {
+                try {
+                  const fallbackRes = await inspectionCallService.getAcceptedQtyForLot('', lotNumber, heatNo);
+                  if (fallbackRes && fallbackRes.success && fallbackRes.data > 0) {
+                    totalFetchedAcceptedQty = parseInt(fallbackRes.data, 10) || 0;
+                  }
+                } catch (fallbackErr) {
+                  console.warn(`Fallback accepted qty query failed for ${lotNumber}:`, fallbackErr.message);
+                }
+              }
+
+              if (totalFetchedAcceptedQty > 0) {
+                acceptedQtyProcess = totalFetchedAcceptedQty;
               }
 
               // 2. Fetch offeredEarlier for this specific PO and PO Serial Number

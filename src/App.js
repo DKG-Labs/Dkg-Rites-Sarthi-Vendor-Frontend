@@ -14,6 +14,7 @@ import { isAuthenticated, getStoredUser, getActiveRole } from './services/authSe
 import LoginPage from './pages/LoginPage';
 import SleeperVendorHost from './pages/SleeperVendorHost';
 import RailpadHost from './pages/RailpadHost';
+import VersionUpdateBanner from './components/common/VersionUpdateBanner';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('vendor-dashboard');
@@ -91,129 +92,132 @@ const App = () => {
     (user?.roleName?.length === 1 && (hasRole(user.roleName, 'Rail Vendor') || hasRole(user.roleName, 'RAILPAD_USER')));
 
   return (
-    !isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (
-      <LoginPage />
-    ) : isSleeperRole ? (
-      <SleeperVendorHost />
-    ) : isRailPadRole ? (
-      <RailpadHost />
-    ) : (
-      <div>
-        <Header setIsSidebarOpen={setIsSidebarOpen} />
-        {/* <header className="app-header">
-        <div className="header-left">
-          <div className="app-logo">SARTHI</div>
-          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            Inspection Engineer Dashboard
-          </div>
-        </div>
-
-        <div className="header-right">
-          <button
-            className="btn btn-sm btn-outline hamburger-btn"
-            onClick={() => setIsSidebarOpen(open => !open)}
-            aria-label="Toggle menu"
-            style={{ marginRight: '8px' }}
-          >
-            ☰
-          </button>
-
-          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            {new Date('2025-11-14T17:00:00').toLocaleString()}
-          </div>
-
-          <div className="user-info">
-            <div className="user-avatar">IE</div>
-            <div>
-              <div style={{ fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text)' }}>
-                Vendor Dashboard
-              </div>
-              <div>{userEmail}</div>
+    <>
+      <VersionUpdateBanner />
+      {!isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (
+        <LoginPage />
+      ) : isSleeperRole ? (
+        <SleeperVendorHost />
+      ) : isRailPadRole ? (
+        <RailpadHost />
+      ) : (
+        <div>
+          <Header setIsSidebarOpen={setIsSidebarOpen} />
+          {/* <header className="app-header">
+          <div className="header-left">
+            <div className="app-logo">SARTHI</div>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+              Inspection Engineer Dashboard
             </div>
           </div>
 
-          <button className="btn btn-sm btn-outline">Logout</button>
+          <div className="header-right">
+            <button
+              className="btn btn-sm btn-outline hamburger-btn"
+              onClick={() => setIsSidebarOpen(open => !open)}
+              aria-label="Toggle menu"
+              style={{ marginRight: '8px' }}
+            >
+              ☰
+            </button>
+
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+              {new Date('2025-11-14T17:00:00').toLocaleString()}
+            </div>
+
+            <div className="user-info">
+              <div className="user-avatar">IE</div>
+              <div>
+                <div style={{ fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text)' }}>
+                  Vendor Dashboard
+                </div>
+                <div>{userEmail}</div>
+              </div>
+            </div>
+
+            <button className="btn btn-sm btn-outline">Logout</button>
+          </div>
+        </header> */}
+
+          <div className="app-container">
+
+            <main className="main-content">
+
+              {currentPage === 'landing' && (
+                <IELandingPage
+                  onStartInspection={handleStartInspection}
+                  onStartMultipleInspections={handleStartMultipleInspections}
+                />
+              )}
+
+              {currentPage === 'initiation' && selectedCall && (
+                <InspectionInitiationPage
+                  call={selectedCall}
+                  onProceed={handleProceedToInspection}
+                  onBack={handleBackToLanding}
+                />
+              )}
+
+              {currentPage === 'multi-initiation' && selectedCalls.length > 0 && (
+                <MultiTabInspectionInitiationPage
+                  calls={selectedCalls}
+                  onProceed={handleProceedToInspection}
+                  onBack={handleBackToLanding}
+                />
+              )}
+
+              {currentPage === 'raw-material' && (
+                <RawMaterialDashboard
+                  onBack={handleBackToLanding}
+                  onNavigateToSubModule={handleNavigateToSubModule}
+                  onHeatsChange={setRmHeats}
+                  onProductModelChange={setRmProductModel}
+                />
+              )}
+
+              {currentPage === 'process' && (
+                <ProcessDashboard onBack={handleBackToLanding} />
+              )}
+
+              {currentPage === 'final-product' && (
+                <FinalProductDashboard onBack={handleBackToLanding} />
+              )}
+
+              {/* ⭐ Vendor Dashboard Page Render */}
+              {currentPage === 'vendor-dashboard' && (
+                <VendorDashboardPage onBack={handleBackToLanding} />
+              )}
+
+              {/* Sub Module Pages */}
+              {currentPage === 'calibration-documents' && (
+                <CalibrationDocumentsPage
+                  onBack={handleBackToRawMaterial}
+                  heats={rmHeats}
+                />
+              )}
+
+              {currentPage === 'visual-material-testing' && (
+                <VisualMaterialTestingPage
+                  onBack={handleBackToRawMaterial}
+                  heats={rmHeats}
+                  productModel={rmProductModel}
+                />
+              )}
+
+              {currentPage === 'summary-reports' && (
+                <SummaryReportsPage onBack={handleBackToRawMaterial} />
+              )}
+
+            </main>
+          </div>
         </div>
-      </header> */}
-
-        <div className="app-container">
-
-          <main className="main-content">
-
-            {currentPage === 'landing' && (
-              <IELandingPage
-                onStartInspection={handleStartInspection}
-                onStartMultipleInspections={handleStartMultipleInspections}
-              />
-            )}
-
-            {currentPage === 'initiation' && selectedCall && (
-              <InspectionInitiationPage
-                call={selectedCall}
-                onProceed={handleProceedToInspection}
-                onBack={handleBackToLanding}
-              />
-            )}
-
-            {currentPage === 'multi-initiation' && selectedCalls.length > 0 && (
-              <MultiTabInspectionInitiationPage
-                calls={selectedCalls}
-                onProceed={handleProceedToInspection}
-                onBack={handleBackToLanding}
-              />
-            )}
-
-            {currentPage === 'raw-material' && (
-              <RawMaterialDashboard
-                onBack={handleBackToLanding}
-                onNavigateToSubModule={handleNavigateToSubModule}
-                onHeatsChange={setRmHeats}
-                onProductModelChange={setRmProductModel}
-              />
-            )}
-
-            {currentPage === 'process' && (
-              <ProcessDashboard onBack={handleBackToLanding} />
-            )}
-
-            {currentPage === 'final-product' && (
-              <FinalProductDashboard onBack={handleBackToLanding} />
-            )}
-
-            {/* ⭐ Vendor Dashboard Page Render */}
-            {currentPage === 'vendor-dashboard' && (
-              <VendorDashboardPage onBack={handleBackToLanding} />
-            )}
-
-            {/* Sub Module Pages */}
-            {currentPage === 'calibration-documents' && (
-              <CalibrationDocumentsPage
-                onBack={handleBackToRawMaterial}
-                heats={rmHeats}
-              />
-            )}
-
-            {currentPage === 'visual-material-testing' && (
-              <VisualMaterialTestingPage
-                onBack={handleBackToRawMaterial}
-                heats={rmHeats}
-                productModel={rmProductModel}
-              />
-            )}
-
-            {currentPage === 'summary-reports' && (
-              <SummaryReportsPage onBack={handleBackToRawMaterial} />
-            )}
-
-          </main>
-        </div>
-      </div>
-    )
+      )}
+    </>
   );
-
 };
 
 export default App;
+
 
 
 

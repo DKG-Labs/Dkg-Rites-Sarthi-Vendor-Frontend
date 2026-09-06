@@ -19,9 +19,30 @@ jobs:
         with:
           submodules: true
           lfs: false
+      - name: Generate Deployment Version Metadata
+        id: version_meta
+        run: |
+          node scripts/bump-version.js
+          VERSION=$(node -e "console.log(require('./public/version.json').version)")
+          BUILD_TIME=$(node -e "console.log(require('./public/version.json').buildTime)")
+          COMMIT_SHA=$(node -e "console.log(require('./public/version.json').gitCommit)")
+
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "APP_BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
+          echo "APP_GIT_COMMIT=$COMMIT_SHA" >> $GITHUB_ENV
+
+          echo "✅ Generated version.json with version: $VERSION, buildTime: $BUILD_TIME, commit: $COMMIT_SHA"
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          REACT_APP_VERSION: ${{ env.APP_VERSION }}
+          REACT_APP_BUILD_TIME: ${{ env.APP_BUILD_TIME }}
+          REACT_APP_GIT_COMMIT: ${{ env.APP_GIT_COMMIT }}
+          VITE_APP_VERSION: ${{ env.APP_VERSION }}
+          VITE_APP_BUILD_TIME: ${{ env.APP_BUILD_TIME }}
+          VITE_APP_GIT_COMMIT: ${{ env.APP_GIT_COMMIT }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DELIGHTFUL_GRASS_0A9A50000 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
