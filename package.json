@@ -1,6 +1,6 @@
 {
   "name": "sarthi-vendor-app",
-  "version": "1.2.20",
+  "version": "1.2.21",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.14.0",
