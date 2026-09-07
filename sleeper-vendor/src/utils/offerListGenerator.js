@@ -104,7 +104,8 @@ export const generateOfferListPDF = (call) => {
 
     if (rawBatches.length > 0) {
         tableData = rawBatches.map((batch, index) => {
-            const batchNo = batch.batchNo || batch.name || `Batch ${index + 1}`;
+            const rawBatchNo = batch.batchNo || batch.name || `Batch ${index + 1}`;
+            const batchNo = String(rawBatchNo).startsWith('Batch ') ? String(rawBatchNo) : `Batch ${rawBatchNo}`;
             const castDate = batch.castDate || batch.castingDate || batch.date || call.callDate || '-';
             
             const goodCount = Array.isArray(batch.goodSleepers) 
@@ -113,22 +114,32 @@ export const generateOfferListPDF = (call) => {
                 
             const badCount = Array.isArray(batch.badSleepers)
                 ? batch.badSleepers.length
-                : (typeof batch.badSleepers === 'number' ? batch.badSleepers : (batch.totalRejected || 0));
+                : (typeof batch.badSleepers === 'number' ? batch.badSleepers : (batch.totalRejected || (typeof batch.badSleepersCount === 'number' ? batch.badSleepersCount : 0)));
 
-            const totalCast = batch.totalCasted || (goodCount + badCount) || goodCount;
-            const prevOffrd = batch.previouslyOffered || 0;
+            // Nos. Cast = total sleeper present in that batch
+            const totalCast = batch.totalCasted !== undefined && batch.totalCasted !== null && Number(batch.totalCasted) > 0
+                ? Number(batch.totalCasted)
+                : ((goodCount + badCount) || goodCount);
+
+            const prevOffrd = Number(batch.previouslyOffered) || 0;
             const nowOffrd = goodCount;
 
-            const normAccepted = batch.acceptedNorm || batch.norm || (call.status === 'Accepted' || call.status === 'Completed' ? goodCount : 0);
-            const etAccepted = batch.acceptedEt || 0;
-            const mftAccepted = batch.acceptedMft || 0;
+            const normAccepted = batch.normAccepted !== undefined ? batch.normAccepted : (batch.acceptedNorm || batch.norm || (call.status === 'Accepted' || call.status === 'Completed' ? goodCount : 0));
+            const etAccepted = batch.etAccepted !== undefined ? batch.etAccepted : (batch.acceptedEt || 0);
+            const mftAccepted = batch.mftAccepted !== undefined ? batch.mftAccepted : (batch.acceptedMft || 0);
 
             const surfRej = batch.rejSurf || 0;
             const dimRej = batch.rejDim || 0;
-            const othRej = batch.rejOth || badCount;
+            const othRej = batch.rejOth !== undefined ? batch.rejOth : badCount;
             const sbtRej = batch.rejSbt || 0;
 
-            const notOffrd = batch.notOffered || (totalCast - nowOffrd - prevOffrd > 0 ? totalCast - nowOffrd - prevOffrd : 0);
+            const notOffrd = batch.notOffered !== undefined 
+                ? batch.notOffered 
+                : Math.max(0, totalCast - nowOffrd - prevOffrd - badCount);
+
+            // Remarks columns
+            const etNoStr = batch.etNo || (Array.isArray(batch.etSleepers) ? batch.etSleepers.join(', ') : '');
+            const rejNoStr = batch.rejNo || (Array.isArray(batch.badSleepersList) ? batch.badSleepersList.join(', ') : (Array.isArray(batch.badSleepers) ? batch.badSleepers.join(', ') : ''));
 
             return [
                 (index + 1).toString().padStart(2, '0'),
@@ -149,8 +160,8 @@ export const generateOfferListPDF = (call) => {
                 // Not Offrd
                 notOffrd.toString(),
                 // REMARKS (ET No, Rej No, MF No)
-                batch.etNo || '',
-                batch.rejNo || '',
+                etNoStr,
+                rejNoStr,
                 batch.mfNo || ''
             ];
         });
@@ -159,7 +170,7 @@ export const generateOfferListPDF = (call) => {
         const totalQty = call.qtyOffered || call.totalOffered || 0;
         tableData = [[
             '01',
-            call.batchNo || batchRange !== '-' ? batchRange : 'Batch-1',
+            call.batchNo || (batchRange !== '-' ? batchRange : 'Batch-1'),
             call.callDate || '-',
             totalQty.toString(),
             '0',

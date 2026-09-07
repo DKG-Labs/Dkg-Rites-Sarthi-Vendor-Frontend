@@ -178,6 +178,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         };
     };
 
+    // Eligible Now = total casted - previously offered
+    const getEligible = (batch) => Math.max(0, (batch.totalCasted || 0) - (batch.previouslyOffered || 0));
+
     // Fetch batches for all selected sleeper types
     useEffect(() => {
         if (!selectedSleeperTypes || selectedSleeperTypes.length === 0) {
@@ -205,7 +208,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 });
 
                 const results = await Promise.all(batchPromises);
-                setBatches(results.flat());
+                const allBatches = results.flat();
+                // Filter out batches where all sleepers have already been offered or eligible now is 0
+                const eligibleBatches = allBatches.filter(b => getEligible(b) > 0 && (b.goodSleepersEligible || 0) > 0);
+                setBatches(eligibleBatches);
             } catch (err) {
                 console.error("Failed to fetch batches", err);
                 setBatches([]);
@@ -216,9 +222,6 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
         fetchBatches();
     }, [selectedSleeperTypes]);
-
-    // Eligible Now = total casted - previously offered
-    const getEligible = (batch) => Math.max(0, (batch.totalCasted || 0) - (batch.previouslyOffered || 0));
 
     // ── Computed Summary ──────────────────────────────────────────────────────
     const summary = useMemo(() => {
@@ -1049,7 +1052,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                             goodSleepers,
                                             badSleepers,
                                             goodSleeperIds,
-                                            badSleeperIds
+                                            badSleeperIds,
+                                            totalCasted: batch.totalCasted,
+                                            castDate: batch.castDate,
+                                            previouslyOffered: batch.previouslyOffered
                                         });
                                     }
                                 }

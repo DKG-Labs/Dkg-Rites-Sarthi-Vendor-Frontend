@@ -685,13 +685,31 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                 poNo: call.poNo || details?.poNo,
                 consignee: details?.consigneeDetail || call.consignee || call.consigneeDetail,
                 poDate: details?.poDate || call.poDate,
-                batchesSelected: (call.batchesSelected && call.batchesSelected.length > 0)
-                    ? call.batchesSelected
-                    : (details?.heatDetails?.map(h => ({
-                        batchNo: h.heatNo,
-                        goodSleepers: parseInt(h.qtyOffered) || 0,
-                        totalCasted: parseInt(h.qtyOffered) || 0
-                    })))
+                batchesSelected: (details?.batchesSelected && details.batchesSelected.length > 0)
+                    ? details.batchesSelected
+                    : ((details?.heatDetails && details.heatDetails.length > 0)
+                        ? details.heatDetails.map(h => ({
+                            batchNo: h.heatNo,
+                            castDate: h.castDate,
+                            totalCasted: h.totalCasted !== undefined ? h.totalCasted : (parseInt(h.qtyOffered) || 0),
+                            previouslyOffered: h.previouslyOffered || 0,
+                            goodSleepers: h.goodSleepers || h.goodCount || parseInt(h.qtyOffered) || 0,
+                            badSleepers: h.badSleepers || h.badCount || 0,
+                            etNo: h.etNo || '',
+                            rejNo: h.rejNo || '',
+                            mfNo: h.mfNo || '',
+                            normAccepted: h.normAccepted || 0,
+                            etAccepted: h.etAccepted || 0,
+                            mftAccepted: h.mftAccepted || 0,
+                            rejSurf: h.rejSurf || 0,
+                            rejDim: h.rejDim || 0,
+                            rejOth: h.rejOth !== undefined ? h.rejOth : (Array.isArray(h.badSleepers) ? h.badSleepers.length : (h.badCount || 0)),
+                            rejSbt: h.rejSbt || 0,
+                            notOffered: h.notOffered || 0
+                        }))
+                        : ((call.batchesSelected && call.batchesSelected.length > 0)
+                            ? call.batchesSelected
+                            : []))
             };
             generateOfferListPDF(enrichedCall);
             showToast(`Offer list downloaded successfully!`);
