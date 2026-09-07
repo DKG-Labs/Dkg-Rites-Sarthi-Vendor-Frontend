@@ -182,8 +182,8 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
             try {
                 setLoadingProcessCalls(true);
-                const poSrNo = srItem?.itemSrNo || srItem?.srNo || '';
-                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, poNo, poSrNo);
+                const cleanPo = poNo ? String(poNo).split('/')[0].trim() : '';
+                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, '');
                 const sortedData = Array.isArray(data) ? [...data].sort((a, b) => {
                     const dateA = new Date(a.createdAt || a.created_at || a.createdOn || 0);
                     const dateB = new Date(b.createdAt || b.created_at || b.createdOn || 0);
@@ -202,7 +202,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId, poNo, srItem?.itemSrNo, srItem?.srNo]);
+    }, [railPadType, drawingNo, plantId, poNo]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
