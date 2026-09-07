@@ -3,6 +3,7 @@ import MainLayout from './components/Layout/MainLayout';
 import RailPadVendorDashboard from './pages/RailPadVendor/RailPadVendorDashboard';
 import PlantDeclarationDashboard from './pages/RailPadVendor/PlantDeclaration/PlantDeclarationDashboard';
 import { logoutUser } from './services/authService.js';
+import VersionUpdateBanner from './components/common/VersionUpdateBanner';
 
 /**
  * App Component - Standalone Vendor Application
@@ -97,6 +98,7 @@ const App = () => {
 
   return (
     <>
+      <VersionUpdateBanner />
       <MainLayout 
           activeItem={activeItem} 
           onItemClick={setActiveItem} 
