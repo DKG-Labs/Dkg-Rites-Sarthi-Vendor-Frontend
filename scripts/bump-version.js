@@ -36,7 +36,7 @@ function bumpVersion() {
     
     let buildTime = new Date().toISOString();
     let gitCommit = getGitCommitSha();
-    let currentVersion = '1.2.21';
+    let currentVersion = '1.2.25';
     if (fs.existsSync(packageJsonPath)) {
         try {
             const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -51,7 +51,7 @@ function bumpVersion() {
 
     let newVersion;
     const commitCount = getCommitCount();
-    // Offset 395: commit 415 -> 1.2.20, commit 417 -> 1.2.22, etc.
+    // Offset 395: commit 415 -> 1.2.20, commit 421 -> 1.2.26, etc.
     if (commitCount && commitCount > 395) {
         const patch = commitCount - 395;
         newVersion = `1.2.${patch}`;
@@ -74,10 +74,10 @@ function bumpVersion() {
         gitCommit: gitCommit
     };
 
-    // 1. Write back to public/version.json
+    // 1. Write back to root public/version.json
     fs.writeFileSync(versionFilePath, JSON.stringify(newVersionData, null, 2));
 
-    // 2. Also keep package.json version in sync
+    // 2. Keep root package.json version in sync
     if (fs.existsSync(packageJsonPath)) {
         try {
             const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -86,7 +86,7 @@ function bumpVersion() {
         } catch (e) {}
     }
 
-    // 3. Write directly into src/config/version.js
+    // 3. Write directly into root src/config/version.js
     const versionJsContent = `/**
  * Sarthi Vendor Application Version Configuration
  * Represents the version of the currently running frontend bundle.
@@ -111,14 +111,32 @@ export const setAcknowledgedVersion = (version) => {
   }
 };
 `;
+    fs.mkdirSync(path.dirname(versionConfigPath), { recursive: true });
     fs.writeFileSync(versionConfigPath, versionJsContent);
 
-    // 4. Sync version.json to sub-apps public directories
+    // 4. Sync version.json, package.json, and src/config/version.js to sub-apps
     const subApps = ['railpad', 'sleeper-vendor'];
     subApps.forEach(sub => {
-        const subPublic = path.join(__dirname, '..', sub, 'public');
-        if (fs.existsSync(subPublic)) {
-            fs.writeFileSync(path.join(subPublic, 'version.json'), JSON.stringify(newVersionData, null, 2));
+        const subDir = path.join(__dirname, '..', sub);
+        if (fs.existsSync(subDir)) {
+            // public/version.json
+            const subPublic = path.join(subDir, 'public');
+            if (fs.existsSync(subPublic)) {
+                fs.writeFileSync(path.join(subPublic, 'version.json'), JSON.stringify(newVersionData, null, 2));
+            }
+            // package.json
+            const subPkgPath = path.join(subDir, 'package.json');
+            if (fs.existsSync(subPkgPath)) {
+                try {
+                    const subPkg = JSON.parse(fs.readFileSync(subPkgPath, 'utf8'));
+                    subPkg.version = newVersion;
+                    fs.writeFileSync(subPkgPath, JSON.stringify(subPkg, null, 2));
+                } catch (e) {}
+            }
+            // src/config/version.js
+            const subConfigPath = path.join(subDir, 'src', 'config', 'version.js');
+            fs.mkdirSync(path.dirname(subConfigPath), { recursive: true });
+            fs.writeFileSync(subConfigPath, versionJsContent);
         }
     });
 
