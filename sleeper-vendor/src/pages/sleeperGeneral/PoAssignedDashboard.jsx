@@ -192,11 +192,22 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                     >
                         <button
                             disabled={shouldDisableRaiseCall}
-                            onClick={(e) => {
+                            onClick={async (e) => {
                                 if (isCaseNoMissing) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     return;
+                                }
+                                try {
+                                    const plantId = sessionStorage.getItem('plantId') || '';
+                                    const vendorCode = sessionStorage.getItem('vendorCode') || '';
+                                    const blockRes = await apiService.checkPlantPaymentBlock(plantId, vendorCode);
+                                    if (blockRes?.blocked) {
+                                        alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
+                                        return;
+                                    }
+                                } catch (err) {
+                                    console.error("Payment block check error:", err);
                                 }
                                 setShowForm(true);
                             }}
@@ -233,9 +244,31 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
     );
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const resolveCaseNoForPlant = (rawCaseNo, rio) => {
+    if (!rawCaseNo) return '';
+    const str = String(rawCaseNo).trim();
+    if (!str.includes(',')) return str;
+    const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+    if (rio && typeof rio === 'string' && rio.trim()) {
+        const firstLetter = rio.trim().charAt(0).toUpperCase();
+        const match = parts.find(p => p.toUpperCase().startsWith(firstLetter));
+        if (match) return match;
+    }
+    return parts[0] || str;
+};
+
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
 const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
     const [expanded, setExpanded] = useState(false);
+
+    const selectedPlant = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem('selectedPlant')) || null;
+        } catch {
+            return null;
+        }
+    }, []);
 
     // Sort items by their embedded SR No / Serial suffix
     const items = [...(po.poItem || po.srItems || [])].sort((a, b) => {
@@ -253,7 +286,8 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
     const activeSrCount = items.filter(s => s.due > 0).length;
     // Total ordered quantity = sum of all SR ordered quantities
     const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
-    const caseNoValue = po.caseNo || po.case_no || '';
+    const rawCaseNo = po.caseNo || po.case_no || '';
+    const caseNoValue = resolveCaseNoForPlant(rawCaseNo, selectedPlant?.rio);
     const isCaseNoMissing = !caseNoValue || caseNoValue === 'N/A' || caseNoValue.trim() === '' || caseNoValue === '-';
 
     return (
@@ -440,7 +474,17 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
     const fetchPos = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await apiService.getVendorPOs();
+            let activePlantId = null;
+            try {
+                const savedPlant = localStorage.getItem('selectedPlant');
+                if (savedPlant) {
+                    const parsed = JSON.parse(savedPlant);
+                    activePlantId = parsed?.plantId;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            const data = await apiService.getVendorPOs(undefined, activePlantId);
             setPoDataList(data || []);
         } catch(e) {
             console.error(e);

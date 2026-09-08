@@ -868,10 +868,23 @@ export const apiService = {
         }
     },
 
-    getVendorPOs: async (vendorCode) => {
+    getVendorPOs: async (vendorCode, plantId) => {
         try {
             const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
-            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=${encodeURIComponent('PSC Mainline Sleeper')}`);
+            let activePlantId = plantId;
+            if (!activePlantId) {
+                try {
+                    const savedPlant = localStorage.getItem('selectedPlant');
+                    if (savedPlant) {
+                        const parsed = JSON.parse(savedPlant);
+                        activePlantId = parsed?.plantId;
+                    }
+                } catch (e) {
+                    console.error('Error reading plantId from localStorage', e);
+                }
+            }
+            const plantParam = activePlantId ? `&plantId=${encodeURIComponent(activePlantId)}` : '';
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`);
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();
             return data.responseData || [];
@@ -1391,6 +1404,63 @@ export const apiService = {
         } catch (error) {
             console.error('Error saving IBS Case Number:', error);
             throw error;
+        }
+    },
+
+    getCancelledCallsForPayment: async (plantId, vendorCode) => {
+        try {
+            const params = new URLSearchParams();
+            if (plantId) params.append('plantId', plantId);
+            if (vendorCode) params.append('vendorCode', vendorCode);
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/cancelledCallsForPayment?${params.toString()}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('Error fetching cancelled calls for payment:', error);
+            return [];
+        }
+    },
+
+    checkPlantPaymentBlock: async (plantId, vendorCode) => {
+        try {
+            const params = new URLSearchParams();
+            if (plantId) params.append('plantId', plantId);
+            if (vendorCode) params.append('vendorCode', vendorCode);
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/checkPlantPaymentBlock?${params.toString()}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            return data.responseData || { blocked: false };
+        } catch (error) {
+            console.error('Error checking plant payment block:', error);
+            return { blocked: false };
+        }
+    },
+
+    getCancellationDetails: async (callNo) => {
+        try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch(`${BASE_URL}/sleeper-workflow/cancellationDetails/${encodeURIComponent(callNo)}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            return data.responseData || null;
+        } catch (error) {
+            console.error('Error fetching cancellation details:', error);
+            return null;
         }
     }
 };

@@ -6,10 +6,18 @@
 
 import jsPDF from 'jspdf';
 
-/**
- * Helper: safely get a value or fallback string
- */
 const val = (v, fallback = '-') => (v !== null && v !== undefined && v !== '' ? String(v) : fallback);
+
+const resolveSleeperCaseNo = (rawCaseNo, rio) => {
+    if (!rawCaseNo || !String(rawCaseNo).trim()) return null;
+    const parts = String(rawCaseNo).split(',').map(s => s.trim()).filter(Boolean);
+    if (rio && String(rio).trim()) {
+        const firstLetter = String(rio).trim().charAt(0).toUpperCase();
+        const matched = parts.find(p => p.toUpperCase().startsWith(firstLetter));
+        return matched || null;
+    }
+    return parts[0] || null;
+};
 
 /**
  * Main function to generate and download the Call Letter PDF
@@ -291,7 +299,9 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('Inspection Call Number', callNumberStr, { rowH: 9 });
 
     // Case Number
-    drawRow('Case No.', val(call.caseNo || call.case_no), { rowH: 9 });
+    const rawCaseNo = call.caseNo || call.case_no || call.ibsCaseNo || call.poCaseNo;
+    const resolvedCaseNo = resolveSleeperCaseNo(rawCaseNo, call.rio || call.rioName || (typeof localStorage !== 'undefined' && localStorage.getItem('plantRio')));
+    drawRow('Case No.', val(resolvedCaseNo), { rowH: 9 });
 
     // IE (empty until verified)
     const assignedIeStr = call.assignedIeName || call.ieName || call.assignedIE;

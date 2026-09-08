@@ -6,6 +6,7 @@ import PoAssignedDashboard from './PoAssignedDashboard';
 import CallsRequestedDashboard from './CallsRequestedDashboard';
 import CallsCompletedDashboard from './CallsCompletedDashboard';
 import FinanceDashboard from './FinanceDashboard';
+import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
 import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
 // import VendorFeedback from '../../components/Feedback/VendorFeedback';
@@ -56,14 +57,15 @@ const VendorDashboard = () => {
     const pendingCount = inspectionCalls.filter(c => c.status === 'Pending for verification').length;
 
     const modules = [
-        { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', count: poCount },
+        { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: inspectionCalls.length },
         { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
-        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
-        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true, hidden: true },
-        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
+        { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
+        { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
+        { id: 'payment-module', title: 'Payment Details', subtitle: 'Payment Details Updating Module', icon: '💳' },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
+        { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true, hidden: true },
         { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄', underDevelopment: true, hidden: true },
         { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔', hidden: true },
         { id: 'feedback', title: 'Feedback', subtitle: 'Send feedback to Board', icon: '💬', hidden: true }
@@ -86,6 +88,8 @@ const VendorDashboard = () => {
                 return <CallsRequestedDashboard inspectionCalls={inspectionCalls} onRefresh={fetchInitialCounts} />;
             case 'calls-completed':
                 return <CallsCompletedDashboard inspectionCalls={inspectionCalls} />;
+            case 'payment-module':
+                return <PaymentDetailsDashboard plantId={sessionStorage.getItem('plantId')} vendorCode={sessionStorage.getItem('vendorCode')} />;
             case 'finance':
                 return <FinanceDashboard inspectionCalls={inspectionCalls} />;
             /*
@@ -117,7 +121,7 @@ const VendorDashboard = () => {
             }}>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '10px'
                 }}>
                     {modules.map(mod => (
