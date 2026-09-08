@@ -116,9 +116,21 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 const sid = (s.sleeperId && String(s.sleeperId) !== '0') 
                     ? String(s.sleeperId) 
                     : (s.sleeperNo ? String(s.sleeperNo).trim() : `item-${idx}`);
+                
+                let formName = s.moduleName || '';
+                if (!formName && s.moduleId) {
+                    if (s.moduleId === 1) formName = 'Visual';
+                    else if (s.moduleId === 2) formName = 'Critical Dim';
+                    else if (s.moduleId === 3) formName = 'Non-Critical Dim';
+                    else if (s.moduleId === 4) formName = 'Demoulding';
+                    else formName = `Module ${s.moduleId}`;
+                }
+
                 return {
                     sleeperId: sid,
-                    displayNo: s.sleeperNo ? String(s.sleeperNo).trim() : (s.sleeperId ? String(s.sleeperId) : 'N/A')
+                    displayNo: s.sleeperNo ? String(s.sleeperNo).trim() : (s.sleeperId ? String(s.sleeperId) : 'N/A'),
+                    formName: formName || '',
+                    reason: s.reason || ''
                 };
             });
         };
@@ -167,7 +179,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
             // Label maps: sleeperId → sleeperNo for display only
             goodSleeperLabels: Object.fromEntries(goodDisplay.map(s => [String(s.sleeperId), s.displayNo])),
             badSleeperLabels:  Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+            badSleeperForms:   Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.formName])),
+            badSleeperReasons: Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.reason])),
             raisedBadSleeperLabels: Object.fromEntries(raisedBadDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+            raisedBadSleeperForms:  Object.fromEntries(raisedBadDisplay.map(s => [String(s.sleeperId), s.formName])),
             // Full objects needed to map sleeperId on submit
             goodSleepersDisplay: goodDisplay,
             badSleepersDisplay:  badDisplay,
@@ -178,8 +193,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         };
     };
 
-    // Eligible Now = total casted - previously offered
-    const getEligible = (batch) => Math.max(0, (batch.totalCasted || 0) - (batch.previouslyOffered || 0));
+    // Eligible Now = eligible good + eligible bad (actual selectable count, not raw totalCasted math)
+    const getEligible = (batch) => (batch.goodSleepersEligible || 0) + (batch.badSleepersEligible || 0);
+
 
     // Fetch batches for all selected sleeper types
     useEffect(() => {
@@ -723,7 +739,23 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                             <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 1, fontWeight: 600 }}>
                                                 Type: {batch.castedAsType}
                                             </div>
+                                            {/* Discrepancy warning: uninspected sleepers detected */}
+                                            {batch.totalCasted > (batch.goodSleepers || 0) + (batch.badSleepers || 0) && (
+                                                <div
+                                                    title={`${batch.totalCasted - (batch.goodSleepers || 0) - (batch.badSleepers || 0)} sleeper(s) found in production records but missing from inspection results`}
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                        marginTop: 4, padding: '2px 7px', borderRadius: 10,
+                                                        background: '#fef9c3', border: '1px solid #fde047',
+                                                        fontSize: 10, fontWeight: 700, color: '#854d0e',
+                                                        cursor: 'help'
+                                                    }}
+                                                >
+                                                    ⚠ {batch.totalCasted - (batch.goodSleepers || 0) - (batch.badSleepers || 0)} uninspected
+                                                </div>
+                                            )}
                                         </div>
+
 
                                         {/* Total Casted */}
                                         <div style={{ textAlign: 'center' }}>
@@ -853,21 +885,25 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                 ✕ Bad Sleepers — {batch.badSleepersEligible} to be reported in this call (automatically included)
                                                             </div>
                                                             <div style={{
-                                                                maxHeight: 120, overflowY: 'auto',
-                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                                                                gap: 5
+                                                                maxHeight: 140, overflowY: 'auto',
+                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                                                                gap: 6
                                                             }}>
                                                                 {batch.badSleeperIds.map((sid, idx) => {
                                                                     const label = (batch.badSleeperLabels || {})[sid] || sid;
+                                                                    const formName = (batch.badSleeperForms || {})[sid] || '';
+                                                                    const reason = (batch.badSleeperReasons || {})[sid] || '';
                                                                     return (
-                                                                        <label key={`${sid}-idx-${idx}`} style={{
-                                                                            display: 'flex', alignItems: 'center', gap: 6,
-                                                                            cursor: 'not-allowed',
-                                                                            padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                                                                            background: 'rgba(220,38,38,0.06)',
-                                                                            border: '1px solid #fca5a5',
-                                                                            color: '#dc2626', transition: 'all 0.15s'
-                                                                        }}>
+                                                                        <label key={`${sid}-idx-${idx}`} 
+                                                                            title={reason ? `Form: ${formName || 'Inspection'}\nReason: ${reason}` : (formName ? `Form: ${formName}` : 'Rejected')}
+                                                                            style={{
+                                                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                                                cursor: 'not-allowed',
+                                                                                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                                                                                background: 'rgba(220,38,38,0.06)',
+                                                                                border: '1px solid #fca5a5',
+                                                                                color: '#dc2626', transition: 'all 0.15s'
+                                                                            }}>
                                                                             <input
                                                                                 type="checkbox"
                                                                                 checked={true}
@@ -875,13 +911,27 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                                 readOnly
                                                                                 style={{ width: 13, height: 13, flexShrink: 0, accentColor: '#dc2626' }}
                                                                             />
-                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                            {label}
+                                                                            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                                {label}
                                                                             </span>
+                                                                            {formName && (
+                                                                                <span style={{
+                                                                                    fontSize: 9.5,
+                                                                                    color: '#991b1b',
+                                                                                    background: '#fee2e2',
+                                                                                    padding: '1px 5px',
+                                                                                    borderRadius: 4,
+                                                                                    fontWeight: 600,
+                                                                                    marginLeft: 'auto',
+                                                                                    whiteSpace: 'nowrap'
+                                                                                }}>
+                                                                                    {formName}
+                                                                                </span>
+                                                                            )}
                                                                         </label>
                                                                     );
                                                                 })}
-                                                            </div>
+                                                             </div>
                                                         </div>
                                                     )}
 
@@ -892,27 +942,45 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                 ✓ Bad Sleepers — {batch.badSleepersRaised} already raised in previous call (not included in this call)
                                                             </div>
                                                             <div style={{
-                                                                maxHeight: 120, overflowY: 'auto',
-                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-                                                                gap: 5
+                                                                maxHeight: 140, overflowY: 'auto',
+                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                                                                gap: 6
                                                             }}>
-                                                                {(batch.raisedBadSleepersDisplay || []).map((s, idx) => (
-                                                                    <div key={`raised-bad-${s.sleeperId}-${idx}`} style={{
-                                                                        display: 'flex', alignItems: 'center', gap: 6,
-                                                                        padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                                                                        background: '#f8fafc',
-                                                                        border: '1px dashed #cbd5e1',
-                                                                        color: '#64748b'
-                                                                    }}>
-                                                                        <span style={{ color: '#059669', fontSize: 10 }}>✓</span>
-                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                            {s.displayNo}
-                                                                        </span>
-                                                                        <span style={{ fontSize: 9, color: '#b45309', background: '#fef3c7', padding: '1px 4px', borderRadius: 4, marginLeft: 'auto' }}>
-                                                                            Raised
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
+                                                                {(batch.raisedBadSleepersDisplay || []).map((s, idx) => {
+                                                                    const formName = s.formName || (batch.raisedBadSleeperForms || {})[String(s.sleeperId)] || '';
+                                                                    return (
+                                                                        <div key={`raised-bad-${s.sleeperId}-${idx}`} 
+                                                                            title={formName ? `Form: ${formName}` : 'Raised in previous call'}
+                                                                            style={{
+                                                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                                                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                                                                background: '#f8fafc',
+                                                                                border: '1px dashed #cbd5e1',
+                                                                                color: '#64748b'
+                                                                            }}>
+                                                                            <span style={{ color: '#059669', fontSize: 10 }}>✓</span>
+                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                                {s.displayNo}
+                                                                            </span>
+                                                                            {formName && (
+                                                                                <span style={{
+                                                                                    fontSize: 9,
+                                                                                    color: '#475569',
+                                                                                    background: '#f1f5f9',
+                                                                                    padding: '1px 4px',
+                                                                                    borderRadius: 4,
+                                                                                    marginLeft: 'auto',
+                                                                                    whiteSpace: 'nowrap'
+                                                                                }}>
+                                                                                    {formName}
+                                                                                </span>
+                                                                            )}
+                                                                            <span style={{ fontSize: 9, color: '#b45309', background: '#fef3c7', padding: '1px 4px', borderRadius: 4, marginLeft: formName ? 4 : 'auto' }}>
+                                                                                Raised
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     )}
