@@ -215,7 +215,46 @@ const inspectionCallService = {
             console.error('Error checking plant payment block:', error);
             return { isBlocked: false };
         }
+    },
+
+    /**
+     * Calls the backend proxy which in turn calls the IBS get-bill-details API.
+     * @param {string} caseNo     IBS case number
+     * @param {string} callDate   Call date in DD-MM-YYYY format
+     * @param {number} ibsCallSno IBS call serial number
+     * @returns {Promise<Object>} IBS response with resultFlag, bill_details, payment_details
+     */
+    verifyIbsPayment: async (caseNo, callDate, ibsCallSno) => {
+        try {
+            const response = await axios.post(`${API_CONFIG.RAILPAD_WORKFLOW}/verify-ibs-payment`, {
+                caseNo,
+                callDate,
+                ibsCallSno: Number(ibsCallSno)
+            });
+            return response.data?.responseData || response.data;
+        } catch (error) {
+            console.error('Error verifying IBS payment:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Marks a call's payment as "Approved by RITES Finance" in the backend.
+     * This unblocks call raising for the plant/vendor.
+     * @param {string} callNo The internal call number (e.g. RPF-082526001)
+     */
+    markPaymentApproved: async (callNo) => {
+        try {
+            const response = await axios.post(`${API_CONFIG.RAILPAD_WORKFLOW}/mark-payment-approved`, {
+                callNo
+            });
+            return response.data?.responseData || response.data;
+        } catch (error) {
+            console.error('Error marking payment approved:', error);
+            throw error;
+        }
     }
 };
 
 export default inspectionCallService;
+

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './PaymentDetails.css';
 import PaymentFormModal from './PaymentFormModal';
+import VerifyPaymentModal from './VerifyPaymentModal';
 import inspectionCallService from '../../../services/inspectionCallService';
 import { API_BASE_URL } from '../../../services/config';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
@@ -38,6 +39,13 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
     const [docFileName, setDocFileName] = useState('Cancellation_Document.pdf');
     const [docLoading, setDocLoading] = useState(false);
     const [docError, setDocError] = useState(null);
+
+    // IBS Verify Payment state
+    const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+    const [verifyingCall, setVerifyingCall] = useState(null);  // callNo of row being checked
+    const [verifyRowRef, setVerifyRowRef] = useState(null);    // the actual row object
+    const [ibsResult, setIbsResult] = useState(null);
+    const [verifyLoading, setVerifyLoading] = useState(null); // stores callNo of the row being verified
 
     const getRioEmail = (call) => {
         const rioStr = (call?.rio || call?.plant_id || plantId || '').toUpperCase();
@@ -265,6 +273,75 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
     const handleOpenPaymentModal = (item = null) => {
         setEditingPayment(item);
         setIsPaymentModalOpen(true);
+    };
+
+    /**
+     * Formats a date string (YYYY-MM-DD or ISO) to DD-MM-YYYY for the IBS API.
+     */
+    const formatForIbs = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d)) return dateStr;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}-${mm}-${yyyy}`;
+        } catch { return dateStr; }
+    };
+
+    /**
+     * Called when vendor clicks "Verify Payment".
+     * Calls the IBS API via backend proxy and opens the result modal.
+     */
+    const handleVerifyPayment = async (row) => {
+        const caseNo = row.ibs_case_no;
+        const ibsCallSno = row.ibs_call_no;
+        const callDate = formatForIbs(row.call_date);
+
+        if (!caseNo || !ibsCallSno || !callDate) {
+            alert('IBS Case No., IBS Call Sr. No. and Call Date are required to verify payment.');
+            return;
+        }
+
+        setVerifyingCall(row.call_no);
+        setVerifyRowRef(row);
+        setVerifyModalOpen(false);
+        setIbsResult(null);
+
+        try {
+            const result = await inspectionCallService.verifyIbsPayment(caseNo, callDate, ibsCallSno);
+            setIbsResult(result);
+            setVerifyingCall(null);
+            setVerifyModalOpen(true);
+        } catch (err) {
+            setVerifyingCall(null);
+            setIbsResult({
+                resultFlag: 0,
+                message: 'Failed to reach verification service. Please try again.',
+                bill_details: [],
+                payment_details: [],
+                bill_details_error: err?.message || 'Network error',
+                payment_details_error: null
+            });
+            setVerifyModalOpen(true);
+        }
+    };
+
+    /**
+     * Called by VerifyPaymentModal when the vendor successfully marks payment as approved.
+     * Updates local state so the row immediately reflects the new status.
+     */
+    const handlePaymentApproved = (callNo) => {
+        setSavedPaymentsMap(prev => ({
+            ...prev,
+            [callNo]: {
+                ...(prev[callNo] || {}),
+                payment_status: 'Approved by RITES Finance'
+            }
+        }));
+        // Re-fetch to sync with backend
+        setTimeout(() => fetchPlantCalls(), 800);
     };
 
     const handleClosePaymentModal = () => {
@@ -567,10 +644,12 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                                                             Pay Charges
                                                         </button>
                                                         <button
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                await fetchPlantCalls();
+                                                                handleVerifyPayment(row);
                                                             }}
+                                                            disabled={verifyingCall === row.call_no}
+                                                            title={!hasIbsCallNo ? 'IBS Call Sr. No. is not available yet' : 'Verify payment status with IBS'}
                                                             style={{
                                                                 padding: '6px 14px',
                                                                 borderRadius: '6px',
@@ -579,11 +658,18 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                                                                 color: '#0369a1',
                                                                 fontSize: '12px',
                                                                 fontWeight: 700,
-                                                                cursor: 'pointer',
-                                                                transition: 'all 0.2s'
+                                                                cursor: verifyingCall === row.call_no ? 'not-allowed' : 'pointer',
+                                                                transition: 'all 0.2s',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                opacity: verifyingCall === row.call_no ? 0.7 : 1
                                                             }}
                                                         >
-                                                            Verify Payment
+                                                            {verifyingCall === row.call_no
+                                                                ? <><Loader2 size={12} className="spin-animation" /> Verifying...</>
+                                                                : 'Verify Payment'
+                                                            }
                                                         </button>
                                                     </>
                                                 )}
@@ -604,6 +690,18 @@ const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
                 onSubmit={handleSubmitPayment}
                 editData={editingPayment}
                 selectedCall={editingPayment}
+            />
+
+            {/* IBS Verify Payment Modal */}
+            <VerifyPaymentModal
+                isOpen={verifyModalOpen}
+                onClose={() => {
+                    setVerifyModalOpen(false);
+                    setIbsResult(null);
+                }}
+                ibsResult={ibsResult}
+                callRow={verifyRowRef}
+                onApproved={handlePaymentApproved}
             />
 
             {/* Payment Redirect Pop-up Modal */}
