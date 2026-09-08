@@ -1,7 +1,7 @@
 {
   "name": "rites-sarthi",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.26",
   "type": "module",
   "scripts": {
     "dev": "vite",
