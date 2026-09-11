@@ -193,8 +193,15 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         };
     };
 
-    // Eligible Now = eligible good + eligible bad (actual selectable count, not raw totalCasted math)
-    const getEligible = (batch) => (batch.goodSleepersEligible || 0) + (batch.badSleepersEligible || 0);
+    // Eligible Now = eligible good + eligible bad (capped at remaining unoffered casted sleepers)
+    const getEligible = (batch) => {
+        const sumEligible = (batch.goodSleepersEligible || 0) + (batch.badSleepersEligible || 0);
+        if (batch.totalCasted && batch.totalCasted > 0) {
+            const maxRemaining = Math.max(0, batch.totalCasted - (batch.previouslyOffered || 0));
+            return Math.min(sumEligible, maxRemaining);
+        }
+        return sumEligible;
+    };
 
 
     // Fetch batches for all selected sleeper types
