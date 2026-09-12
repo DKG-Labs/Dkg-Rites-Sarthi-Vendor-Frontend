@@ -100,6 +100,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         // Eligible = not yet raised in a previous call
         const goodList = allGoodList.filter(s => s.callRaised !== true && s.callRaised !== "true");
         const badList  = allBadList.filter(s => s.callRaised !== true && s.callRaised !== "true");
+        const raisedGoodList = allGoodList.filter(s => s.callRaised === true || s.callRaised === "true");
         const raisedBadList = allBadList.filter(s => s.callRaised === true || s.callRaised === "true");
 
         // Helper: deduplicate by sleeperId or sleeperNo
@@ -140,6 +141,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         const allBadDisplay     = buildDisplayList(allBadList);
         const goodDisplay       = buildDisplayList(goodList);
         const badDisplay        = buildDisplayList(badList);
+        const raisedGoodDisplay = buildDisplayList(raisedGoodList);
         const raisedBadDisplay  = buildDisplayList(raisedBadList);
 
         // Sort in ascending order (natural alphanumeric sort by display label)
@@ -148,6 +150,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         sortDisplay(allBadDisplay);
         sortDisplay(goodDisplay);
         sortDisplay(badDisplay);
+        sortDisplay(raisedGoodDisplay);
         sortDisplay(raisedBadDisplay);
 
         const previouslyOfferedGood  = allGoodDisplay.length - goodDisplay.length;
@@ -172,6 +175,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
             // Eligible counts (only those not yet raised)
             goodSleepersEligible: goodDisplay.length,
             badSleepersEligible: badDisplay.length,
+            goodSleepersRaised: raisedGoodDisplay.length,
             badSleepersRaised: raisedBadDisplay.length,
             // Checkbox keys = sleeperId strings
             goodSleeperIds: goodDisplay.map(s => String(s.sleeperId)),
@@ -186,6 +190,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
             // Full objects needed to map sleeperId on submit
             goodSleepersDisplay: goodDisplay,
             badSleepersDisplay:  badDisplay,
+            raisedGoodSleepersDisplay: raisedGoodDisplay,
             raisedBadSleepersDisplay: raisedBadDisplay,
             goodSleepersData: goodList,
             badSleepersData: badList,
@@ -216,7 +221,12 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     try {
                         const data = await apiService.getCompletedBatches(sType);
                         const filteredData = currentPlantId 
-                            ? data.filter(b => !b.plantId || String(b.plantId) === String(currentPlantId))
+                            ? data.filter(b => {
+                                if (!b.plantId) return true;
+                                const bPid = String(b.plantId).replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+                                const cPid = String(currentPlantId).replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+                                return !cPid || !bPid || bPid.includes(cPid) || cPid.includes(bPid);
+                            })
                             : data;
                         return filteredData.map(b => mapBatch(b, sType));
                     } catch (e) {
@@ -227,9 +237,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
                 const results = await Promise.all(batchPromises);
                 const allBatches = results.flat();
-                // Filter out batches where all sleepers have already been offered or eligible now is 0
-                const eligibleBatches = allBatches.filter(b => getEligible(b) > 0 && (b.goodSleepersEligible || 0) > 0);
-                setBatches(eligibleBatches);
+                setBatches(allBatches);
             } catch (err) {
                 console.error("Failed to fetch batches", err);
                 setBatches([]);
@@ -304,8 +312,6 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     };
 
     const handleToggleExpand = (batchKey) => {
-        const batch = batches.find(b => (b.batchKey || b.batchNo) === batchKey);
-        if (batch && getEligible(batch) === 0) return;
         setExpandedBatch(prev => prev === batchKey ? null : batchKey);
         setBatchSelections(prev => {
             if (!prev[batchKey]) return { ...prev, [batchKey]: { goodSelected: new Set(), batchTouched: false } };
@@ -813,19 +819,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                 {allGoodOffered ? '✓ All Offered' : 'Offer All'}
                                             </button>
                                             <button
-                                                disabled={eligible === 0}
-                                                onClick={() => eligible > 0 && handleToggleExpand(batchKey)}
+                                                onClick={() => handleToggleExpand(batchKey)}
                                                 style={{
                                                     padding: '6px 12px', borderRadius: 20, fontSize: 11,
                                                     fontWeight: 700,
-                                                    cursor: eligible === 0 ? 'not-allowed' : 'pointer',
+                                                    cursor: 'pointer',
                                                     border: '1.5px solid #e2e8f0',
-                                                    background: eligible === 0 ? '#f1f5f9' : (isExpanded ? '#f0f7ff' : '#fff'),
-                                                    color: eligible === 0 ? '#94a3b8' : (isExpanded ? '#2563eb' : '#475569'),
+                                                    background: isExpanded ? '#f0f7ff' : '#fff',
+                                                    color: isExpanded ? '#2563eb' : '#475569',
                                                     transition: 'all 0.2s', whiteSpace: 'nowrap'
                                                 }}
                                             >
-                                                {isExpanded ? '▲ Collapse' : `▼ Select${goodSelected.size > 0 ? ` (${goodSelected.size})` : ''}`}
+                                                {isExpanded ? '▲ Collapse' : (eligible > 0 ? `▼ Select${goodSelected.size > 0 ? ` (${goodSelected.size})` : ''}` : '▼ View')}
                                             </button>
                                         </div>
                                     </div>
@@ -837,45 +842,79 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                             padding: '14px 16px',
                                             background: '#fff'
                                         }}>
-                                            {/* Good Sleepers */}
-                                            <div style={{ marginBottom: 12 }}>
-                                                <div style={{ fontSize: 11, color: '#166534', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                                    ✓ Good Sleepers — {goodSelected.size} of {eligible} selected (eligible: {eligible})
+                                            {/* Good Sleepers (Eligible) */}
+                                            {batch.goodSleepersEligible > 0 && (
+                                                <div style={{ marginBottom: 12 }}>
+                                                    <div style={{ fontSize: 11, color: '#166534', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                        ✓ Eligible Good Sleepers — {goodSelected.size} of {eligible} selected
+                                                    </div>
+                                                    <div style={{
+                                                        maxHeight: 180, overflowY: 'auto',
+                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                                                        gap: 5
+                                                    }}>
+                                                        {batch.goodSleeperIds.map((sid, idx) => {
+                                                            const label = (batch.goodSleeperLabels || {})[sid] || sid;
+                                                            const isEligible = idx < eligible;
+                                                            const isChecked = goodSelected.has(sid);
+                                                            return (
+                                                                <label key={sid} style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                                    cursor: isEligible ? 'pointer' : 'not-allowed',
+                                                                    padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                                                                    background: isChecked ? 'rgba(33,128,141,0.08)' : (isEligible ? '#f8fafc' : '#f1f5f9'),
+                                                                    border: `1px solid ${isChecked ? '#21808d' : '#e2e8f0'}`,
+                                                                    color: isEligible ? '#0f172a' : '#94a3b8',
+                                                                    transition: 'all 0.15s', opacity: isEligible ? 1 : 0.5
+                                                                }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        disabled={!isEligible}
+                                                                        onChange={() => isEligible && handleToggleGoodSleeper(batchKey, sid)}
+                                                                        style={{ width: 13, height: 13, flexShrink: 0 }}
+                                                                    />
+                                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                        {label}
+                                                                    </span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                                <div style={{
-                                                    maxHeight: 180, overflowY: 'auto',
-                                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                                                    gap: 5
-                                                }}>
-                                                    {batch.goodSleeperIds.map((sid, idx) => {
-                                                        const label = (batch.goodSleeperLabels || {})[sid] || sid;
-                                                        const isEligible = idx < eligible;
-                                                        const isChecked = goodSelected.has(sid);
-                                                        return (
-                                                            <label key={sid} style={{
+                                            )}
+
+                                            {/* Previously Offered Good Sleepers */}
+                                            {batch.goodSleepersRaised > 0 && (
+                                                <div style={{ marginBottom: 12 }}>
+                                                    <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        ✓ Good Sleepers — {batch.goodSleepersRaised} already raised in previous call (not included in this call)
+                                                    </div>
+                                                    <div style={{
+                                                        maxHeight: 140, overflowY: 'auto',
+                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                                                        gap: 5
+                                                    }}>
+                                                        {(batch.raisedGoodSleepersDisplay || []).map((s, idx) => (
+                                                            <div key={`raised-good-${s.sleeperId}-${idx}`} style={{
                                                                 display: 'flex', alignItems: 'center', gap: 6,
-                                                                cursor: isEligible ? 'pointer' : 'not-allowed',
                                                                 padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                                                                background: isChecked ? 'rgba(33,128,141,0.08)' : (isEligible ? '#f8fafc' : '#f1f5f9'),
-                                                                border: `1px solid ${isChecked ? '#21808d' : '#e2e8f0'}`,
-                                                                color: isEligible ? '#0f172a' : '#94a3b8',
-                                                                transition: 'all 0.15s', opacity: isEligible ? 1 : 0.5
+                                                                background: '#f0f9ff',
+                                                                border: '1px dashed #bae6fd',
+                                                                color: '#0369a1'
                                                             }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={isChecked}
-                                                                    disabled={!isEligible}
-                                                                    onChange={() => isEligible && handleToggleGoodSleeper(batchKey, sid)}
-                                                                    style={{ width: 13, height: 13, flexShrink: 0 }}
-                                                                />
+                                                                <span style={{ color: '#0284c7', fontSize: 10 }}>✓</span>
                                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {label}
+                                                                    {s.displayNo}
                                                                 </span>
-                                                            </label>
-                                                        );
-                                                    })}
+                                                                <span style={{ fontSize: 9, color: '#0284c7', background: '#e0f2fe', padding: '1px 4px', borderRadius: 4, marginLeft: 'auto' }}>
+                                                                    Offered
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* Bad Sleepers */}
                                             {(batch.badSleepersEligible > 0 || batch.badSleepersRaised > 0) && (
@@ -1169,3 +1208,4 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 };
 
 export default RaiseInspectionCallForm;
+
