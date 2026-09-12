@@ -76,10 +76,10 @@ export const generateOfferListPDF = (call) => {
         batchRange = first === last ? `${first}` : `${first} To ${last}`;
     }
 
-    drawRow('Shed-2 Batch No.', `: ${call.shed2BatchNo || batchRange}`, 4);
+    drawRow('Shed-1 Batch No.', `: ${call.shed1BatchNo || batchRange}`, 4);
     drawRowRight('IC NO.', `: ${call.callNo || call.callNumber || call.requestId || '-'}`, 4);
     
-    drawRow('Shed-1 Batch No.', `: ${call.shed1BatchNo || '-'}`, 5);
+    drawRow('Shed-2 Batch No.', `: ${call.shed2BatchNo || '-'}`, 5);
     drawRowRight('IC DATE.', `: ${call.callDate || call.submissionDate || call.desiredInspectionDate || '-'}`, 5);
 
     // Draw border around header section

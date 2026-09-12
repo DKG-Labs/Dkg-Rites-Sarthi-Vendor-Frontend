@@ -193,8 +193,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         };
     };
 
-    // Eligible Now = eligible good + eligible bad (actual selectable count, not raw totalCasted math)
-    const getEligible = (batch) => (batch.goodSleepersEligible || 0) + (batch.badSleepersEligible || 0);
+    // Eligible Now = eligible good sleepers
+    const getEligible = (batch) => {
+        return batch.goodSleepersEligible || 0;
+    };
 
 
     // Fetch batches for all selected sleeper types
