@@ -2,9 +2,18 @@
  * Version Management Service for Sleeper Vendor
  */
 
-import { APP_VERSION as CONFIG_APP_VERSION } from '../config/version.js';
+import { 
+  APP_VERSION as CONFIG_APP_VERSION, 
+  GIT_COMMIT as CONFIG_GIT_COMMIT, 
+  BUILD_TIME as CONFIG_BUILD_TIME,
+  getActiveAppVersion,
+  getActiveGitCommit,
+  getActiveBuildTime 
+} from '../config/version.js';
 
-export const APP_VERSION = CONFIG_APP_VERSION || import.meta.env.VITE_APP_VERSION || '1.2.25';
+export const APP_VERSION = (typeof getActiveAppVersion === 'function' ? getActiveAppVersion() : CONFIG_APP_VERSION) || import.meta.env.VITE_APP_VERSION || '1.2.25';
+export const GIT_COMMIT = (typeof getActiveGitCommit === 'function' ? getActiveGitCommit() : CONFIG_GIT_COMMIT) || import.meta.env.VITE_GIT_COMMIT || '';
+export const BUILD_TIME = (typeof getActiveBuildTime === 'function' ? getActiveBuildTime() : CONFIG_BUILD_TIME) || '';
 
 export const compareVersions = (local, remote) => {
   if (!local || !remote) return 0;
@@ -60,12 +69,15 @@ export const isLocalDevelopment = () => {
 
 export const fetchVersionStatus = async (timeoutMs = 10000) => {
   const currentVersion = APP_VERSION;
+  const currentGitCommit = GIT_COMMIT;
+  const currentBuildTime = BUILD_TIME;
 
   if (isLocalDevelopment()) {
     return {
       updateAvailable: false,
       serverVersion: null,
       currentVersion,
+      currentGitCommit,
       isLocal: true
     };
   }
@@ -109,27 +121,45 @@ export const fetchVersionStatus = async (timeoutMs = 10000) => {
     clearTimeout(timeoutId);
 
     if (!response || !response.ok) {
-      return { updateAvailable: false, serverVersion: null, currentVersion };
+      return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
     }
 
     const data = await response.json();
     const serverVersion = data.version ? String(data.version).trim() : null;
+    const serverGitCommit = data.gitCommit ? String(data.gitCommit).trim() : null;
+    const serverBuildTime = data.buildTime ? String(data.buildTime).trim() : null;
 
     if (!serverVersion) {
-      return { updateAvailable: false, serverVersion: null, currentVersion };
+      return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
     }
 
-    const isNewer = compareVersions(currentVersion, serverVersion) > 0;
+    const isSemverNewer = compareVersions(currentVersion, serverVersion) > 0;
+    const isCommitChanged = Boolean(
+      serverGitCommit &&
+      currentGitCommit &&
+      serverGitCommit !== 'dev' &&
+      currentGitCommit !== 'dev' &&
+      serverGitCommit.toLowerCase() !== currentGitCommit.toLowerCase()
+    );
+    const isBuildTimeNewer = Boolean(
+      serverBuildTime &&
+      currentBuildTime &&
+      new Date(serverBuildTime).getTime() > new Date(currentBuildTime).getTime()
+    );
+
+    const updateAvailable = isSemverNewer || isCommitChanged || isBuildTimeNewer;
 
     return {
-      updateAvailable: isNewer,
+      updateAvailable,
       serverVersion,
       currentVersion,
-      buildTime: data.buildTime,
-      gitCommit: data.gitCommit
+      serverGitCommit,
+      currentGitCommit,
+      buildTime: serverBuildTime,
+      gitCommit: serverGitCommit
     };
   } catch (err) {
     clearTimeout(timeoutId);
-    return { updateAvailable: false, serverVersion: null, currentVersion };
+    return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
   }
 };

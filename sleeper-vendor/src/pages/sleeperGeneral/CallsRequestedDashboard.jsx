@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { apiService } from '../../services/api';
 import { generateOfferListPDF } from '../../utils/offerListGenerator';
 import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
+import RaiseInspectionCallForm from './RaiseInspectionCallForm';
 
 // ─── Status Configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -103,13 +105,13 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     const statusLabel = (call.status === 'Scheduled by IE' && call.scheduledDate)
         ? `Scheduled (${call.scheduledDate})` : (call.status === 'Locked' ? 'Completed Calls' : call.status);
 
-    return (
+    return createPortal(
         <div
             style={{
                 position: 'fixed', inset: 0,
                 background: 'rgba(13,59,63,0.72)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: 5000, backdropFilter: 'blur(6px)', padding: 16
+                zIndex: 99999, backdropFilter: 'blur(6px)', padding: 16
             }}
             onClick={e => e.target === e.currentTarget && onClose()}
         >
@@ -430,7 +432,8 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -438,11 +441,11 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
 const WorkflowModal = ({ call, actionType, onConfirm, onClose }) => {
     const [reason, setReason] = useState('');
     if (!call) return null;
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 6000, backdropFilter: 'blur(4px)', padding: 16
+            zIndex: 99999, backdropFilter: 'blur(4px)', padding: 16
         }} onClick={e => e.target === e.currentTarget && onClose()}>
             <div style={{
                 background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480,
@@ -507,18 +510,19 @@ const WorkflowModal = ({ call, actionType, onConfirm, onClose }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
 // ─── Withdraw Confirm Modal (no-workflow) ─────────────────────────────────────
 const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
     if (!call) return null;
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 6000, backdropFilter: 'blur(4px)', padding: 16
+            zIndex: 99999, backdropFilter: 'blur(4px)', padding: 16
         }} onClick={e => e.target === e.currentTarget && onClose()}>
             <div style={{
                 background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420,
@@ -543,7 +547,8 @@ const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 // ─── Filter Tab ───────────────────────────────────────────────────────────────
@@ -569,6 +574,7 @@ const FilterTab = ({ label, count, active, color, onClick }) => (
 const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
     const [filterStatus, setFilterStatus] = useState('All');
     const [selectedCall, setSelectedCall] = useState(null);
+    const [editCall, setEditCall] = useState(null);
     const [workflowModal, setWorkflowModal] = useState(null);
     const [withdrawSimpleModal, setWithdrawSimpleModal] = useState(null);
     const [toast, setToast] = useState(null);
@@ -615,7 +621,7 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
         if (cfg?.needsWorkflow) {
             setWorkflowModal({ call, actionType: 'modify' });
         } else {
-            showToast(`Modification form for ${call.callNo} would open here.`, 'info');
+            setEditCall(call);
         }
     };
 
@@ -641,9 +647,15 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
 
     const handleWithdrawConfirm = async (call) => {
         setWithdrawSimpleModal(null);
-        showToast(`Withdrawing ${call.callNo}...`, 'info');
-        if (onRefresh) await onRefresh();
-        showToast(`${call.callNo} has been withdrawn successfully.`);
+        showToast(`Withdrawing call ${call.callNo}...`, 'info');
+        try {
+            await apiService.withdrawSleeperInspectionCall(call.callNo);
+            showToast(`Call ${call.callNo} has been withdrawn successfully.`, 'success');
+            if (onRefresh) await onRefresh();
+        } catch (err) {
+            console.error('Error withdrawing call:', err);
+            showToast(`Failed to withdraw call ${call.callNo}. Please try again.`, 'error');
+        }
     };
 
     const handleDownloadCallLetter = async (call) => {
@@ -914,6 +926,30 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                     call={withdrawSimpleModal}
                     onConfirm={handleWithdrawConfirm}
                     onClose={() => setWithdrawSimpleModal(null)}
+                />
+            )}
+
+            {/* ── Modify Inspection Call Modal ── */}
+            {editCall && (
+                <RaiseInspectionCallForm
+                    isEdit={true}
+                    editCall={editCall}
+                    poNo={editCall.poNo}
+                    srItem={{
+                        itemSrNo: editCall.srNo,
+                        srNo: editCall.srNo,
+                        description: editCall.itemDesc || editCall.description || editCall.poDes || `Sleeper PO Item ${editCall.srNo}`,
+                        due: 999999,
+                        orderedQty: editCall.poQty || editCall.orderedQty || 0,
+                        acceptedTillNow: editCall.acceptedTillNow || 0,
+                        offeredTillNow: editCall.qtyOffered || 0
+                    }}
+                    onClose={() => setEditCall(null)}
+                    onSubmitInspectionCall={async () => {
+                        setEditCall(null);
+                        showToast(`Call ${editCall.callNo} modified successfully!`, 'success');
+                        if (onRefresh) await onRefresh();
+                    }}
                 />
             )}
 

@@ -13,6 +13,8 @@ const DEFAULT_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
  *   updateAvailable: boolean,
  *   latestVersion: string|null,
  *   currentVersion: string,
+ *   latestCommit: string|null,
+ *   currentCommit: string,
  *   dismissed: boolean,
  *   checkForUpdate: () => Promise<void>,
  *   dismissUpdate: () => void
@@ -28,7 +30,9 @@ export const useVersionCheck = ({
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [latestVersion, setLatestVersion] = useState(null);
   const [currentVersion, setCurrentVersion] = useState('');
-  const [dismissedVersion, setDismissedVersion] = useState(null);
+  const [latestCommit, setLatestCommit] = useState(null);
+  const [currentCommit, setCurrentCommit] = useState('');
+  const [dismissedKey, setDismissedKey] = useState(null);
 
   const isCheckingRef = useRef(false);
 
@@ -42,9 +46,11 @@ export const useVersionCheck = ({
     try {
       const status = await fetchVersionStatus();
       setCurrentVersion(status.currentVersion);
+      setCurrentCommit(status.currentGitCommit || '');
 
-      if (status.updateAvailable && status.serverVersion) {
+      if (status.updateAvailable) {
         setLatestVersion(status.serverVersion);
+        setLatestCommit(status.serverGitCommit || status.gitCommit || null);
         setUpdateAvailable(true);
       } else {
         setUpdateAvailable(false);
@@ -54,11 +60,13 @@ export const useVersionCheck = ({
     }
   }, [isLocal]);
 
+  const currentKey = `${latestVersion || ''}_${latestCommit || ''}`;
+
   const dismissUpdate = useCallback(() => {
-    if (latestVersion) {
-      setDismissedVersion(latestVersion);
+    if (currentKey) {
+      setDismissedKey(currentKey);
     }
-  }, [latestVersion]);
+  }, [currentKey]);
 
   useEffect(() => {
     if (!shouldEnable) return;
@@ -93,12 +101,14 @@ export const useVersionCheck = ({
     };
   }, [shouldEnable, intervalMs, checkForUpdate]);
 
-  const isDismissed = Boolean(dismissedVersion && latestVersion && dismissedVersion === latestVersion);
+  const isDismissed = Boolean(dismissedKey && currentKey && dismissedKey === currentKey);
 
   return {
     updateAvailable: updateAvailable && !isDismissed,
     latestVersion,
     currentVersion,
+    latestCommit,
+    currentCommit,
     dismissed: isDismissed,
     checkForUpdate,
     dismissUpdate

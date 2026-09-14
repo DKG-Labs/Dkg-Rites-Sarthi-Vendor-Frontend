@@ -1,4 +1,4 @@
-import { getActiveAppVersion } from '../config/version.js';
+import { getActiveAppVersion, getActiveGitCommit, getActiveBuildTime, APP_VERSION, GIT_COMMIT, BUILD_TIME } from '../config/version.js';
 
 /**
  * Parses and compares two semantic version strings or date-based deployment IDs.
@@ -77,10 +77,12 @@ export const isLocalDevelopment = () => {
  * Fetches the version manifest from the server with strict cache-busting and timeout protection.
  *
  * @param {number} timeoutMs - Request timeout in milliseconds (default: 10000ms)
- * @returns {Promise<{updateAvailable: boolean, serverVersion: string|null, currentVersion: string, buildTime?: string, gitCommit?: string}>}
+ * @returns {Promise<{updateAvailable: boolean, serverVersion: string|null, currentVersion: string, currentGitCommit: string, serverGitCommit?: string, buildTime?: string, gitCommit?: string}>}
  */
 export const fetchVersionStatus = async (timeoutMs = 10000) => {
-  const currentVersion = getActiveAppVersion();
+  const currentVersion = typeof getActiveAppVersion === 'function' ? getActiveAppVersion() : APP_VERSION;
+  const currentGitCommit = typeof getActiveGitCommit === 'function' ? getActiveGitCommit() : (typeof GIT_COMMIT !== 'undefined' ? GIT_COMMIT : '');
+  const currentBuildTime = typeof getActiveBuildTime === 'function' ? getActiveBuildTime() : (typeof BUILD_TIME !== 'undefined' ? BUILD_TIME : '');
 
   // Suppress version checks and update alerts on local development environments
   if (isLocalDevelopment()) {
@@ -88,6 +90,7 @@ export const fetchVersionStatus = async (timeoutMs = 10000) => {
       updateAvailable: false,
       serverVersion: null,
       currentVersion,
+      currentGitCommit,
       isLocal: true
     };
   }
@@ -110,27 +113,50 @@ export const fetchVersionStatus = async (timeoutMs = 10000) => {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return { updateAvailable: false, serverVersion: null, currentVersion };
+      return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
     }
 
     const data = await response.json();
     if (!data || typeof data.version !== 'string') {
-      return { updateAvailable: false, serverVersion: null, currentVersion };
+      return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
     }
 
     const serverVersion = data.version.trim();
-    const isNewer = compareVersions(currentVersion, serverVersion) > 0;
+    const serverGitCommit = data.gitCommit ? String(data.gitCommit).trim() : null;
+    const serverBuildTime = data.buildTime ? String(data.buildTime).trim() : null;
+
+    // 1. SemVer comparison
+    const isSemverNewer = compareVersions(currentVersion, serverVersion) > 0;
+
+    // 2. Git Commit comparison (Primary detection when git commit SHA changes)
+    const isCommitChanged = Boolean(
+      serverGitCommit &&
+      currentGitCommit &&
+      serverGitCommit !== 'dev' &&
+      currentGitCommit !== 'dev' &&
+      serverGitCommit.toLowerCase() !== currentGitCommit.toLowerCase()
+    );
+
+    // 3. Build time comparison (Fallback for newer builds)
+    const isBuildTimeNewer = Boolean(
+      serverBuildTime &&
+      currentBuildTime &&
+      new Date(serverBuildTime).getTime() > new Date(currentBuildTime).getTime()
+    );
+
+    const updateAvailable = isSemverNewer || isCommitChanged || isBuildTimeNewer;
 
     return {
-      updateAvailable: isNewer,
+      updateAvailable,
       serverVersion,
       currentVersion,
-      buildTime: data.buildTime || null,
-      gitCommit: data.gitCommit || null
+      serverGitCommit,
+      currentGitCommit,
+      buildTime: serverBuildTime,
+      gitCommit: serverGitCommit
     };
   } catch (error) {
     clearTimeout(timeoutId);
-    // Graceful silent return on abort/network offline
-    return { updateAvailable: false, serverVersion: null, currentVersion };
+    return { updateAvailable: false, serverVersion: null, currentVersion, currentGitCommit };
   }
 };

@@ -3,14 +3,16 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 function getGitCommitSha() {
+    if (process.env.VERCEL_GIT_COMMIT_SHA) {
+        return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
+    }
+    if (process.env.GITHUB_SHA) {
+        return process.env.GITHUB_SHA.slice(0, 7);
+    }
     try {
         return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
     } catch (e) {
-        return (
-            (process.env.VERCEL_GIT_COMMIT_SHA && process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)) ||
-            (process.env.GITHUB_SHA && process.env.GITHUB_SHA.slice(0, 7)) ||
-            'dev'
-        );
+        return 'dev';
     }
 }
 
@@ -99,6 +101,14 @@ export const GIT_COMMIT = '${gitCommit}';
 
 export const getActiveAppVersion = () => {
   return APP_VERSION;
+};
+
+export const getActiveGitCommit = () => {
+  return GIT_COMMIT;
+};
+
+export const getActiveBuildTime = () => {
+  return BUILD_TIME;
 };
 
 export const setAcknowledgedVersion = (version) => {
