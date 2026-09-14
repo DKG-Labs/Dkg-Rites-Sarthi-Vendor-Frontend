@@ -36,14 +36,15 @@ const StatBox = ({ label, value, highlight, color }) => (
 );
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
-const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall }) => {
-    const callDate = new Date().toLocaleDateString('en-IN');
+const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall, isEdit = false, editCall = null }) => {
+    const callDate = isEdit && editCall?.callDate ? editCall.callDate : new Date().toLocaleDateString('en-IN');
+    const editCallNo = isEdit ? (editCall?.callNo || editCall?.callNumber || editCall?.id) : null;
 
     // Section A & B state
     const [sleeperTypes, setSleeperTypes] = useState([]);
     const [isLoadingTypes, setIsLoadingTypes] = useState(true);
-    const [mainSleeperType, setMainSleeperType] = useState('');
-    const [selectedSleeperTypes, setSelectedSleeperTypes] = useState([]);
+    const [mainSleeperType, setMainSleeperType] = useState(isEdit && editCall?.sleeperType ? editCall.sleeperType : '');
+    const [selectedSleeperTypes, setSelectedSleeperTypes] = useState(isEdit && editCall?.sleeperType ? [editCall.sleeperType] : []);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [typeSearchText, setTypeSearchText] = useState('');
     const dropdownRef = useRef(null);
@@ -52,6 +53,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const [batchSelections, setBatchSelections] = useState({}); // { batchKey: { goodSelected: Set<id>, batchTouched: boolean } }
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedBatch, setExpandedBatch] = useState(null);
+    const [editCallDetails, setEditCallDetails] = useState(null);
+    const [initialSelectionsApplied, setInitialSelectionsApplied] = useState(false);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -64,32 +67,59 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Fetch distinct sleeper types dynamically on mount
+    // ── 1. Fetch distinct sleeper types & call details on mount ───────────────
     useEffect(() => {
-        const fetchSleeperTypes = async () => {
+        let isCancelled = false;
+
+        const initializeData = async () => {
             setIsLoadingTypes(true);
             try {
                 const vendorCode = sessionStorage.getItem('vendorCode') || '';
-                const types = await apiService.getDistinctSleeperTypes(vendorCode);
-                setSleeperTypes(types);
-                if (types.length > 0) {
-                    const matchedType = types.find(t => 
+                const typesPromise = apiService.getDistinctSleeperTypes(vendorCode);
+                const detailsPromise = (isEdit && editCallNo)
+                    ? apiService.getSleeperInspectionCallDetails(editCallNo)
+                    : Promise.resolve(null);
+
+                const [types, details] = await Promise.all([typesPromise, detailsPromise]);
+
+                if (isCancelled) return;
+
+                const validTypes = Array.isArray(types) ? types : [];
+                setSleeperTypes(validTypes);
+
+                let initialType = '';
+                if (details && details.sleeperType) {
+                    setEditCallDetails(details);
+                    initialType = details.sleeperType;
+                } else if (editCall?.sleeperType) {
+                    initialType = editCall.sleeperType;
+                } else if (validTypes.length > 0) {
+                    const matchedType = validTypes.find(t =>
                         (srItem?.sleeperType && t.toLowerCase().includes(srItem.sleeperType.toLowerCase())) ||
                         (srItem?.itemDescription && t.toLowerCase().includes(srItem.itemDescription.toLowerCase()))
-                    ) || types[0];
+                    ) || validTypes[0];
+                    initialType = matchedType;
+                }
 
-                    setMainSleeperType(matchedType);
-                    setSelectedSleeperTypes([matchedType]);
+                if (initialType) {
+                    setMainSleeperType(initialType);
+                    setSelectedSleeperTypes([initialType]);
                 }
             } catch (err) {
-                console.error('Failed to fetch sleeper types', err);
-                setSleeperTypes([]);
+                console.error("Initialization error in RaiseInspectionCallForm:", err);
             } finally {
-                setIsLoadingTypes(false);
+                if (!isCancelled) {
+                    setIsLoadingTypes(false);
+                }
             }
         };
-        fetchSleeperTypes();
-    }, [srItem]);
+
+        initializeData();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [isEdit, editCallNo]);
 
     // Helper: Map a single batch response with its sleeper type
     const mapBatch = (b, sType) => {
@@ -203,23 +233,94 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         return batch.goodSleepersEligible || 0;
     };
 
+    // Helper to convert an editCallDetails batch into a complete batch card format
+    const convertCallBatchToBatchCard = (eb, sType) => {
+        const batchNum = String(eb.batchNo || '');
+        const batchKey = `${sType}_${batchNum}`;
 
-    // Fetch batches for all selected sleeper types
+        const goodList = (eb.goodSleepers || []).map((sno, idx) => {
+            const sid = (eb.goodSleeperIds && eb.goodSleeperIds[idx]) ? String(eb.goodSleeperIds[idx]) : `good-${idx}`;
+            return {
+                sleeperId: sid,
+                displayNo: String(sno).trim(),
+                formName: 'Good',
+                reason: ''
+            };
+        });
+
+        const badList = (eb.badSleepers || []).map((sno, idx) => {
+            const sid = (eb.badSleeperIds && eb.badSleeperIds[idx]) ? String(eb.badSleeperIds[idx]) : `bad-${idx}`;
+            return {
+                sleeperId: sid,
+                displayNo: String(sno).trim(),
+                formName: 'Defect',
+                reason: ''
+            };
+        });
+
+        const goodDisplay = goodList;
+        const badDisplay = badList;
+
+        return {
+            batchKey,
+            batchNo: batchNum,
+            castDate: eb.castDate || 'N/A',
+            totalCasted: eb.totalCasted || (goodDisplay.length + badDisplay.length),
+            castedAsType: sType,
+            previouslyOffered: eb.previouslyOffered || 0,
+            previouslyOfferedGood: 0,
+            previouslyOfferedBad: 0,
+            goodSleepers: goodDisplay.length,
+            badSleepers: badDisplay.length,
+            goodSleepersEligible: goodDisplay.length,
+            badSleepersEligible: badDisplay.length,
+            goodSleepersRaised: 0,
+            badSleepersRaised: 0,
+            goodSleeperIds: goodDisplay.map(s => String(s.sleeperId)),
+            badSleeperIds: badDisplay.map(s => String(s.sleeperId)),
+            goodSleeperLabels: Object.fromEntries(goodDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+            badSleeperLabels: Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.displayNo])),
+            badSleeperForms: Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.formName])),
+            badSleeperReasons: Object.fromEntries(badDisplay.map(s => [String(s.sleeperId), s.reason])),
+            raisedBadSleeperLabels: {},
+            raisedBadSleeperForms: {},
+            goodSleepersDisplay: goodDisplay,
+            badSleepersDisplay: badDisplay,
+            raisedGoodSleepersDisplay: [],
+            raisedBadSleepersDisplay: [],
+            goodSleepersData: goodList,
+            badSleepersData: badList,
+            plantId: eb.plantId || editCallDetails?.plantId
+        };
+    };
+
+    const editCallDetailsRef = useRef(editCallDetails);
+    useEffect(() => {
+        editCallDetailsRef.current = editCallDetails;
+    }, [editCallDetails]);
+
+    const selectedTypesKey = (selectedSleeperTypes || []).join('|');
+
+    // ── 2. Fetch batches for all selected sleeper types ───────────────────────
     useEffect(() => {
         if (!selectedSleeperTypes || selectedSleeperTypes.length === 0) {
             setBatches([]);
             return;
         }
 
+        let isCancelled = false;
+
         const fetchBatches = async () => {
             setIsLoadingBatches(true);
             try {
                 const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
                 const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
+                const vendorCode = sessionStorage.getItem('vendorCode') || '';
+                const excludeCallNo = isEdit ? editCallNo : null;
 
                 const batchPromises = selectedSleeperTypes.map(async (sType) => {
                     try {
-                        const data = await apiService.getCompletedBatches(sType);
+                        const data = await apiService.getCompletedBatches(sType, vendorCode, excludeCallNo);
                         const filteredData = currentPlantId 
                             ? data.filter(b => {
                                 if (!b.plantId) return true;
@@ -228,7 +329,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 return !cPid || !bPid || bPid.includes(cPid) || cPid.includes(bPid);
                             })
                             : data;
-                        return filteredData.map(b => mapBatch(b, sType));
+                        return (filteredData.length > 0 ? filteredData : data).map(b => mapBatch(b, sType));
                     } catch (e) {
                         console.error(`Failed to fetch batches for ${sType}`, e);
                         return [];
@@ -236,18 +337,134 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 });
 
                 const results = await Promise.all(batchPromises);
-                const allBatches = results.flat();
+                if (isCancelled) return;
+
+                let allBatches = results.flat();
+
+                // Merge with existing call batches in edit mode to ensure they always display
+                const currentDetails = editCallDetailsRef.current;
+                if (isEdit && currentDetails && currentDetails.batchesSelected) {
+                    currentDetails.batchesSelected.forEach(eb => {
+                        const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                        const exists = allBatches.some(b => {
+                            const bNo = String(b.batchNo || '').trim().toLowerCase();
+                            return bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                        });
+                        if (!exists) {
+                            const callType = currentDetails.sleeperType || mainSleeperType || selectedSleeperTypes[0] || 'Sleeper';
+                            allBatches.unshift(convertCallBatchToBatchCard(eb, callType));
+                        }
+                    });
+                }
+
                 setBatches(allBatches);
             } catch (err) {
-                console.error("Failed to fetch batches", err);
-                setBatches([]);
+                if (!isCancelled) {
+                    console.error("Failed to fetch batches", err);
+                    setBatches([]);
+                }
             } finally {
-                setIsLoadingBatches(false);
+                if (!isCancelled) {
+                    setIsLoadingBatches(false);
+                }
             }
         };
 
         fetchBatches();
-    }, [selectedSleeperTypes]);
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [selectedTypesKey, isEdit, editCallNo]);
+
+    // ── Merge call details into batches in-memory when editCallDetails loads without refetching from network ──
+    useEffect(() => {
+        if (isEdit && editCallDetails && editCallDetails.batchesSelected && batches.length > 0) {
+            setBatches(prevBatches => {
+                const newBatches = [...prevBatches];
+                let changed = false;
+                editCallDetails.batchesSelected.forEach(eb => {
+                    const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                    const exists = newBatches.some(b => {
+                        const bNo = String(b.batchNo || '').trim().toLowerCase();
+                        return bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                    });
+                    if (!exists) {
+                        const callType = editCallDetails.sleeperType || mainSleeperType || selectedSleeperTypes[0] || 'Sleeper';
+                        newBatches.unshift(convertCallBatchToBatchCard(eb, callType));
+                        changed = true;
+                    }
+                });
+                return changed ? newBatches : prevBatches;
+            });
+        }
+    }, [editCallDetails]);
+
+    // ── 3. Apply pre-selected batches and good sleepers when in edit mode ────
+    useEffect(() => {
+        if (isEdit && editCallDetails && editCallDetails.batchesSelected && batches.length > 0 && !initialSelectionsApplied) {
+            const initialSelections = {};
+            let firstExpandedKey = null;
+
+            editCallDetails.batchesSelected.forEach(eb => {
+                const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                const matchingBatch = batches.find(b => {
+                    const bNo = String(b.batchNo || '').trim().toLowerCase();
+                    return bNo === ebNo 
+                        || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') 
+                        || ebNo === bNo.replace(/^batch\s*[-_]?/i, '')
+                        || bNo.includes(ebNo)
+                        || ebNo.includes(bNo);
+                });
+
+                if (matchingBatch) {
+                    const key = matchingBatch.batchKey || matchingBatch.batchNo;
+                    if (!firstExpandedKey) firstExpandedKey = key;
+
+                    const selectedIds = new Set();
+                    const ebSleeperIds = (eb.goodSleeperIds || []).map(String);
+                    const ebSleeperNos = (eb.goodSleepers || []).map(s => String(s).trim().toLowerCase());
+
+                    (matchingBatch.goodSleepersDisplay || []).forEach(gs => {
+                        const sidStr = String(gs.sleeperId);
+                        const dispStr = String(gs.displayNo).trim().toLowerCase();
+                        if (ebSleeperIds.includes(sidStr) || ebSleeperNos.includes(dispStr) || ebSleeperNos.includes(dispStr.replace(/^0+/, ''))) {
+                            selectedIds.add(sidStr);
+                        }
+                    });
+
+                    if (selectedIds.size === 0 && ebSleeperIds.length > 0) {
+                        ebSleeperIds.forEach(id => {
+                            if (matchingBatch.goodSleeperIds.includes(id)) {
+                                selectedIds.add(id);
+                            }
+                        });
+                    }
+
+                    if (selectedIds.size === 0 && ebSleeperNos.length > 0) {
+                        (matchingBatch.goodSleepersDisplay || []).slice(0, ebSleeperNos.length).forEach(gs => {
+                            selectedIds.add(String(gs.sleeperId));
+                        });
+                    }
+
+                    if (selectedIds.size > 0) {
+                        initialSelections[key] = {
+                            goodSelected: selectedIds,
+                            batchTouched: true
+                        };
+                    }
+                }
+            });
+
+            if (Object.keys(initialSelections).length > 0) {
+                setBatchSelections(prev => ({ ...prev, ...initialSelections }));
+                setInitialSelectionsApplied(true);
+                if (firstExpandedKey) {
+                    setExpandedBatch(firstExpandedKey);
+                }
+            }
+        }
+    }, [isEdit, editCallDetails, batches, initialSelectionsApplied]);
 
     // ── Computed Summary ──────────────────────────────────────────────────────
     const summary = useMemo(() => {
@@ -327,7 +544,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         position: 'fixed', inset: 0,
         background: 'rgba(13,59,63,0.7)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 3000, backdropFilter: 'blur(6px)', padding: '16px'
+        zIndex: 99999, backdropFilter: 'blur(6px)', padding: '16px'
     };
     const modalStyle = {
         background: '#fff', borderRadius: 16,
@@ -348,10 +565,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 }}>
                     <div>
                         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', marginBottom: 4 }}>
-                            RAISE FINAL INSPECTION CALL
+                            {isEdit ? 'MODIFY FINAL INSPECTION CALL' : 'RAISE FINAL INSPECTION CALL'}
                         </div>
                         <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>
                             {poNo} — SR. No. {srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A')}
+                            {isEdit && editCallNo ? ` (${editCallNo})` : ''}
                         </div>
                         <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 }}>
                             {srItem.description}
@@ -1150,7 +1368,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                 return (!isNaN(num) && num > 0) ? num : 0;
                                             });
 
-                                        const badSleeperIds = (batch?.badSleepersData || [])
+                                        const badSleeperIds = (batch?.badSleepersDisplay || batch?.badSleepersData || [])
                                             .map(s => {
                                                 const num = parseInt(s.sleeperId, 10);
                                                 return (!isNaN(num) && num > 0) ? num : 0;
@@ -1169,22 +1387,36 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     }
                                 }
 
-                                const result = await apiService.submitSleeperInspectionCall(payload);
-                                
-                                if (onSubmitInspectionCall) {
-                                    onSubmitInspectionCall({
-                                        ...payload,
-                                        callNo: result.responseData?.callNo || result.responseData?.inspectionCallNo,
-                                        id: result.responseData?.id,
-                                        batchesSelectedCount: summary.batchesSelected
-                                    });
+                                if (isEdit) {
+                                    payload.callNo = editCallNo;
+                                    const result = await apiService.modifySleeperInspectionCall(payload);
+                                    if (onSubmitInspectionCall) {
+                                        onSubmitInspectionCall({
+                                            ...payload,
+                                            callNo: editCallNo,
+                                            batchesSelectedCount: summary.batchesSelected
+                                        });
+                                    } else {
+                                        alert(`✅ Inspection Call ${editCallNo} modified successfully!\n\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}`);
+                                    }
                                 } else {
-                                    const realCallNo = result.responseData?.callNo || result.responseData?.inspectionCallNo || 'N/A';
-                                    alert(`✅ Inspection Call submitted!\n\nCall No: ${realCallNo}\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
+                                    const result = await apiService.submitSleeperInspectionCall(payload);
+                                    
+                                    if (onSubmitInspectionCall) {
+                                        onSubmitInspectionCall({
+                                            ...payload,
+                                            callNo: result.responseData?.callNo || result.responseData?.inspectionCallNo,
+                                            id: result.responseData?.id,
+                                            batchesSelectedCount: summary.batchesSelected
+                                        });
+                                    } else {
+                                        const realCallNo = result.responseData?.callNo || result.responseData?.inspectionCallNo || 'N/A';
+                                        alert(`✅ Inspection Call submitted!\n\nCall No: ${realCallNo}\nPO: ${payload.poNo} | SR: ${payload.srNo}\nPassed Sleepers: ${payload.totalOffered}\nRejected Sleepers: ${payload.totalRejected}\nBatches: ${summary.batchesSelected}\n\nThis call has been pushed to the IE Dashboard.`);
+                                    }
                                 }
                                 onClose();
                             } catch (error) {
-                                alert("Failed to submit inspection call. Please try again.");
+                                alert(isEdit ? "Failed to modify inspection call. Please try again." : "Failed to submit inspection call. Please try again.");
                                 setIsSubmitting(false);
                             }
                         }}
@@ -1198,7 +1430,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             transition: 'all 0.2s'
                         }}
                     >
-                        {isSubmitting ? 'Submitting...' : 'Submit Inspection Call'}
+                        {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Inspection Call' : 'Submit Inspection Call')}
                     </button>
                 </div>
             </div>

@@ -800,6 +800,47 @@ export const apiService = {
         }
     },
 
+    withdrawSleeperInspectionCall: async (callNo) => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/withdraw-call?callNo=${encodeURIComponent(callNo)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error('Failed to withdraw inspection call');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error withdrawing inspection call:', error);
+            throw error;
+        }
+    },
+
+    getSleeperInspectionCallDetails: async (callNo) => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/call-details?callNo=${encodeURIComponent(callNo)}`);
+            if (!response.ok) throw new Error('Failed to fetch inspection call details');
+            const data = await response.json();
+            return data.responseData || null;
+        } catch (error) {
+            console.error('API Error fetching inspection call details:', error);
+            throw error;
+        }
+    },
+
+    modifySleeperInspectionCall: async (payload) => {
+        try {
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/modify-inspection-call`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Failed to modify inspection call');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error modifying inspection call:', error);
+            throw error;
+        }
+    },
+
     getVendorPlants: async (vendorCode) => {
         try {
             const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(vendorCode)}/plants`;
@@ -833,20 +874,24 @@ export const apiService = {
                 'Content-Type': 'application/json',
                 ...(token && { 'Authorization': `Bearer ${token}` }),
             };
-            const response = await fetch(`${BASE_URL}/call-letter/details?requestId=${encodeURIComponent(requestId)}`, { headers });
+            const response = await fetch(`${BASE_URL}/call-letters/details?requestId=${encodeURIComponent(requestId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch call letter details');
             const data = await response.json();
-            return data.responseData || data.data || data;
+            return data.responseData || null;
         } catch (error) {
             console.error('API Error fetching call letter details:', error);
             return null;
         }
     },
 
-    getCompletedBatches: async (sleeperType, userId) => {
+    getCompletedBatches: async (sleeperType, userId, excludeCallNo) => {
         try {
             const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
-            const response = await fetch(`${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(finalUserId)}`);
+            let url = `${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(finalUserId)}`;
+            if (excludeCallNo) {
+                url += `&excludeCallNo=${encodeURIComponent(excludeCallNo)}`;
+            }
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch completed batches');
             const data = await response.json();
             return data.responseData || [];
