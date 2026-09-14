@@ -54,6 +54,7 @@ const DRAWING_MAPPING = {
         "RT-8779",
         "RT-9774",
         "RT-4218",
+        "RT-4218_1",
         "RT-4865 Alt-8",
         "RT-4865 Alt-9",
         "RT-4220",
@@ -74,6 +75,8 @@ const DRAWING_MAPPING = {
         "RT-9841"
     ],
     "10.00mm NCRGRSP": [
+        "RT-4218",
+        "RT-4218_1",
         "RT-9790",
         "RT-10070",
         "RT-4734",
@@ -229,6 +232,60 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
         setTimeout(() => setToast(null), 4000);
     };
 
+    // Check if call is scheduled or beyond in workflow transactions
+    const isCallScheduled = useMemo(() => {
+        const target = controlPanelCall || selectedCall;
+        if (!target) return false;
+
+        // 1. Check direct status on the call object
+        const status = String(target.status || target.workflowStatus || target.latestAction || '').toUpperCase();
+        if (
+            status.includes('SCHEDULE') || 
+            status.includes('INITIATE') || 
+            status.includes('IN_PROGRESS') || 
+            status.includes('PAUSE') || 
+            status.includes('RESUME') || 
+            status.includes('COMPLET') || 
+            status.includes('APPROVED') || 
+            status.includes('REJECT')
+        ) {
+            return true;
+        }
+
+        if (target.scheduleStatus === 'Scheduled' || target.scheduled === true || target.scheduledDate) {
+            return true;
+        }
+
+        // 2. Check workflow transaction history from rail_workflow_transaction
+        if (Array.isArray(transitionHistory) && transitionHistory.length > 0) {
+            return transitionHistory.some(tx => {
+                const act = String(tx.action || tx.actionName || '').toUpperCase();
+                const jStatus = String(tx.jobStatus || tx.job_status || tx.status || '').toUpperCase();
+                const toStage = String(tx.toStage || tx.stageName || '').toUpperCase();
+
+                return (
+                    act.includes('SCHEDULE') ||
+                    act.includes('INITIATE') ||
+                    act.includes('IN_PROGRESS') ||
+                    act.includes('PAUSE') ||
+                    act.includes('RESUME') ||
+                    act.includes('COMPLET') ||
+                    act.includes('INSPECT') ||
+                    jStatus.includes('SCHEDULE') ||
+                    jStatus.includes('INITIATE') ||
+                    jStatus.includes('IN_PROGRESS') ||
+                    jStatus.includes('PAUSED') ||
+                    jStatus.includes('RESUMED') ||
+                    jStatus.includes('COMPLETED') ||
+                    toStage.includes('SCHEDULE') ||
+                    toStage.includes('INSPECTION')
+                );
+            });
+        }
+
+        return false;
+    }, [controlPanelCall, selectedCall, transitionHistory]);
+
     const handleDownloadCallLetter = async (call) => {
         const target = call || controlPanelCall || selectedCall;
         if (!target) return;
@@ -293,6 +350,10 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleModifyCall = async (call) => {
+        if (isCallScheduled) {
+            showToast('error', 'Cannot modify call: This inspection call has already been scheduled.');
+            return;
+        }
         let target = call || controlPanelCall || selectedCall;
         if (!target) return;
 
@@ -362,6 +423,10 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleWithdrawSubmit = async () => {
+        if (isCallScheduled) {
+            showToast('error', 'Cannot withdraw call: This inspection call has already been scheduled.');
+            return;
+        }
         if (!withdrawRemarks.trim()) return;
         const targetCall = controlPanelCall;
         const callNo = targetCall?.callNo || targetCall?.call_no;
@@ -830,6 +895,18 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </div>
                                     </div>
 
+                                    {/* Scheduled Call Info Notice */}
+                                    {isCallScheduled && (
+                                        <div style={{
+                                            background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px',
+                                            padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px',
+                                            fontSize: '13px', color: '#1e40af', fontWeight: 600
+                                        }}>
+                                            <Calendar size={18} color="#2563eb" />
+                                            <span>This inspection call has been scheduled. Modification and withdrawal operations are disabled.</span>
+                                        </div>
+                                    )}
+
                                     {/* Operations Header */}
                                     <div style={{ fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <LayoutGrid size={14} /> AVAILABLE OPERATIONS
@@ -870,34 +947,96 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </button>
 
                                         {/* Operation 3: Modify Call */}
-                                        <button onClick={() => handleModifyCall(controlPanelCall)} style={{
-                                            display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
-                                            background: '#ffffff', border: '1.5px solid #e2e8f0', borderLeft: '4px solid #f59e0b',
-                                            borderRadius: '16px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                                        }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#f59e0b'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <button 
+                                            onClick={() => {
+                                                if (isCallScheduled) {
+                                                    showToast('error', 'Modify Call is disabled because this call is already scheduled.');
+                                                    return;
+                                                }
+                                                handleModifyCall(controlPanelCall);
+                                            }} 
+                                            disabled={isCallScheduled}
+                                            title={isCallScheduled ? 'Cannot modify call: Inspection has already been scheduled' : 'Update inspection call parameters'}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
+                                                background: isCallScheduled ? '#f8fafc' : '#ffffff', 
+                                                border: '1.5px solid #e2e8f0', 
+                                                borderLeft: `4px solid ${isCallScheduled ? '#94a3b8' : '#f59e0b'}`,
+                                                borderRadius: '16px', 
+                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer', 
+                                                textAlign: 'left', 
+                                                transition: 'all 0.2s',
+                                                boxShadow: isCallScheduled ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+                                                opacity: isCallScheduled ? 0.6 : 1
+                                            }} 
+                                            onMouseEnter={(e) => { 
+                                                if (!isCallScheduled) {
+                                                    e.currentTarget.style.borderColor = '#f59e0b'; 
+                                                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                                                }
+                                            }} 
+                                            onMouseLeave={(e) => { 
+                                                if (!isCallScheduled) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0'; 
+                                                    e.currentTarget.style.transform = 'translateY(0)'; 
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: isCallScheduled ? '#f1f5f9' : '#fffbeb', color: isCallScheduled ? '#94a3b8' : '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <Edit size={22} />
                                             </div>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '15px', color: '#0f172a' }}>Modify Call</div>
-                                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Update inspection call parameters</div>
+                                                <div style={{ fontWeight: 800, fontSize: '15px', color: isCallScheduled ? '#64748b' : '#0f172a' }}>Modify Call</div>
+                                                <div style={{ fontSize: '12px', color: isCallScheduled ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                                                    {isCallScheduled ? 'Disabled: Call is already scheduled' : 'Update inspection call parameters'}
+                                                </div>
                                             </div>
                                         </button>
 
                                         {/* Operation 4: Withdraw Call */}
-                                        <button onClick={() => setIsWithdrawModalOpen(true)} style={{
-                                            display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
-                                            background: '#ffffff', border: '1.5px solid #e2e8f0', borderLeft: '4px solid #ef4444',
-                                            borderRadius: '16px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                                        }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <button 
+                                            onClick={() => {
+                                                if (isCallScheduled) {
+                                                    showToast('error', 'Withdraw Call is disabled because this call is already scheduled.');
+                                                    return;
+                                                }
+                                                setIsWithdrawModalOpen(true);
+                                            }} 
+                                            disabled={isCallScheduled}
+                                            title={isCallScheduled ? 'Cannot withdraw call: Inspection has already been scheduled' : 'Cancel inspection request'}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
+                                                background: isCallScheduled ? '#f8fafc' : '#ffffff', 
+                                                border: '1.5px solid #e2e8f0', 
+                                                borderLeft: `4px solid ${isCallScheduled ? '#94a3b8' : '#ef4444'}`,
+                                                borderRadius: '16px', 
+                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer', 
+                                                textAlign: 'left', 
+                                                transition: 'all 0.2s',
+                                                boxShadow: isCallScheduled ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+                                                opacity: isCallScheduled ? 0.6 : 1
+                                            }} 
+                                            onMouseEnter={(e) => { 
+                                                if (!isCallScheduled) {
+                                                    e.currentTarget.style.borderColor = '#ef4444'; 
+                                                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                                                }
+                                            }} 
+                                            onMouseLeave={(e) => { 
+                                                if (!isCallScheduled) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0'; 
+                                                    e.currentTarget.style.transform = 'translateY(0)'; 
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: isCallScheduled ? '#f1f5f9' : '#fef2f2', color: isCallScheduled ? '#94a3b8' : '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <XCircle size={22} />
                                             </div>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '15px', color: '#dc2626' }}>Withdraw Call</div>
-                                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Cancel inspection request</div>
+                                                <div style={{ fontWeight: 800, fontSize: '15px', color: isCallScheduled ? '#94a3b8' : '#dc2626' }}>Withdraw Call</div>
+                                                <div style={{ fontSize: '12px', color: isCallScheduled ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                                                    {isCallScheduled ? 'Disabled: Call is already scheduled' : 'Cancel inspection request'}
+                                                </div>
                                             </div>
                                         </button>
                                     </div>

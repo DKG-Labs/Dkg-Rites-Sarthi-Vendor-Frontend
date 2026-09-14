@@ -1,7 +1,7 @@
 {
   "name": "rites-sarthi",
   "private": true,
-  "version": "1.2.26",
+  "version": "1.2.31",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5175",

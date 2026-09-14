@@ -6,7 +6,7 @@ import { isLocalDevelopment } from '../../services/versionService';
  * VersionUpdateBanner for Sleeper Vendor - Ultra-modern enterprise update modal with SARTHI branding.
  */
 const VersionUpdateBanner = () => {
-  const { updateAvailable, latestVersion, currentVersion } = useVersionCheck();
+  const { updateAvailable, latestVersion, currentVersion, latestCommit, currentCommit } = useVersionCheck();
   const [isUpdating, setIsUpdating] = useState(false);
 
   if (isLocalDevelopment() || !updateAvailable) {
@@ -30,7 +30,15 @@ const VersionUpdateBanner = () => {
   };
 
   const formattedCurrent = String(currentVersion || '1.0.0').replace(/^v/i, '');
-  const formattedLatest = String(latestVersion || '1.0.1').replace(/^v/i, '');
+  const formattedLatest = String(latestVersion || formattedCurrent).replace(/^v/i, '');
+
+  const displayCurrent = currentCommit && currentCommit !== 'dev' 
+    ? `v${formattedCurrent} (${currentCommit})`
+    : `v${formattedCurrent}`;
+
+  const displayLatest = latestCommit && latestCommit !== 'dev'
+    ? `v${formattedLatest} (${latestCommit})`
+    : `v${formattedLatest}`;
 
   return (
     <div
@@ -169,7 +177,7 @@ const VersionUpdateBanner = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
             background: '#f8fafc',
-            padding: '12px 20px',
+            padding: '12px 18px',
             borderRadius: '16px',
             border: '1px solid #e2e8f0',
             width: '100%',
@@ -178,14 +186,14 @@ const VersionUpdateBanner = () => {
         >
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current</div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#475569', marginTop: '2px' }}>v{formattedCurrent}</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569', marginTop: '2px' }}>{displayCurrent}</div>
           </div>
           
           <div style={{ color: '#2563eb', fontSize: '20px', fontWeight: 'bold' }}>&rarr;</div>
 
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '10.5px', color: '#2563eb', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>New Version</div>
-            <div style={{ fontSize: '14px', fontWeight: '800', color: '#2563eb', marginTop: '2px' }}>v{formattedLatest}</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: '#2563eb', marginTop: '2px' }}>{displayLatest}</div>
           </div>
         </div>
 

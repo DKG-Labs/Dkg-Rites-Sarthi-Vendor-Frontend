@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import './PaymentDetails.css';
-import PaymentFormModal from './PaymentFormModal';
 import VerifyPaymentModal from './VerifyPaymentModal';
-import { apiService, API_BASE_URL } from '../../../services/api';
+import inspectionCallService from '../../services/inspectionCallService';
+import { getBaseUrl } from '../../services/apiConfig';
 import { 
-    Search, CreditCard, Clock, CheckCircle2, AlertCircle, 
-    XCircle, FileText, Eye, RefreshCw, Filter, ArrowUpRight, Loader2,
+    Search, CheckCircle2, AlertCircle, 
+    FileText, ArrowUpRight, Loader2,
     Download, ExternalLink
-} from 'lucide-react';
+} from './icons';
 
 export const formatDateDDMMYY = (dateStr) => {
     if (!dateStr) return '-';
@@ -29,7 +29,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
 
     const [savedPaymentsMap, setSavedPaymentsMap] = useState(() => {
         try {
-            const saved = localStorage.getItem('sleeper_vendor_payments_map');
+            const saved = localStorage.getItem('erc_vendor_payments_map');
             return saved ? JSON.parse(saved) : {};
         } catch (e) {
             return {};
@@ -39,13 +39,8 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
     const [cancelledCalls, setCancelledCalls] = useState([]);
     const [loading, setLoading] = useState(false);
     const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
-    const [showOldApproved, setShowOldApproved] = useState(false);
+    const [showOldApproved] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedPaymentCall, setSelectedPaymentCall] = useState(null);
-
-    // Modal state
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-    const [editingPayment, setEditingPayment] = useState(null);
     const [paymentRedirectCall, setPaymentRedirectCall] = useState(null);
 
     // IBS Verification modal state
@@ -86,7 +81,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         setDocFileName(defaultName);
 
         try {
-            const rawBase = API_BASE_URL || 'http://localhost:8080/sarthi-backend/api';
+            const rawBase = getBaseUrl() || 'http://localhost:8080/sarthi-backend/api';
             const cleanBase = rawBase.replace(/\/api\/?$/, '');
             const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token');
             const headers = {
@@ -109,90 +104,105 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                     const blob = new Blob([byteArray], { type: 'application/pdf' });
                     const url = URL.createObjectURL(blob);
                     setDocBlobUrl(url);
-                    if (certData.fileName) setDocFileName(certData.fileName);
+                    setDocLoading(false);
                     return;
                 }
             }
-            const directUrl = `${cleanBase}/api/certificate-storage/view/${encodeURIComponent(callNo)}.pdf`;
-            setDocBlobUrl(directUrl);
+
+            const docResp = await fetch(`${cleanBase}/api/workflow/cancellation-documents/download/${encodeURIComponent(callNo)}`, { headers });
+            if (docResp.ok) {
+                const blob = await docResp.blob();
+                const url = URL.createObjectURL(blob);
+                setDocBlobUrl(url);
+                setDocLoading(false);
+                return;
+            }
+
+            setDocError('Cancellation letter PDF is not available for this call.');
+            setDocLoading(false);
         } catch (err) {
-            console.error("Error fetching cancellation document:", err);
-            setDocError("Cancellation document could not be loaded or is not available for this call.");
-        } finally {
+            console.error('Error fetching cancellation document:', err);
+            setDocError('Failed to load cancellation document. Please try again.');
             setDocLoading(false);
         }
     };
 
-    useEffect(() => {
-        localStorage.setItem('sleeper_vendor_payments_map', JSON.stringify(savedPaymentsMap));
-    }, [savedPaymentsMap]);
-
-    const fetchPlantCalls = async () => {
+    const fetchPlantCalls = useCallback(async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const data = await apiService.getCancelledCallsForPayment(effectivePlantId, effectiveVendorCode);
-            if (Array.isArray(data)) {
-                setCancelledCalls(data);
-            } else {
-                setCancelledCalls([]);
-            }
+            const data = await inspectionCallService.getCancelledCallsForPayment(effectivePlantId, effectiveVendorCode);
+            setCancelledCalls(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error("Error fetching calls for payment module:", err);
+            console.error('Failed to load cancelled calls for payment:', err);
             setCancelledCalls([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [effectivePlantId, effectiveVendorCode]);
 
     useEffect(() => {
         fetchPlantCalls();
-    }, [effectivePlantId, effectiveVendorCode]);
+    }, [fetchPlantCalls]);
 
-    // Combine verified cancelled calls with saved payment submissions
+    useEffect(() => {
+        try {
+            localStorage.setItem('erc_vendor_payments_map', JSON.stringify(savedPaymentsMap));
+        } catch (e) {
+            console.error('Failed to save payment map to storage', e);
+        }
+    }, [savedPaymentsMap]);
+
     const allCombinedPaymentItems = useMemo(() => {
-        return cancelledCalls.map(c => {
-            const callNo = c.callNo || c.call_no || c.requestId;
-            const saved = savedPaymentsMap[callNo] || {};
-            const isPaymentBlocked = String(c.status || '').toLowerCase().includes('payment');
+        const list = [];
+        cancelledCalls.forEach(call => {
+            const callNo = call.callNo || call.call_no;
+            const saved = savedPaymentsMap[callNo];
 
-            const baseAmount = saved.base_payable_amount !== undefined ? saved.base_payable_amount : (c.basePayableAmount !== undefined ? c.basePayableAmount : (c.base_payable_amount || 0));
-            const gst = saved.gst !== undefined ? saved.gst : (c.gst !== undefined ? c.gst : Math.round((baseAmount * 18) / 100));
-            const total = saved.total_payable_amount !== undefined ? saved.total_payable_amount : (c.totalPayableAmount !== undefined ? c.totalPayableAmount : (c.total_payable_amount || (baseAmount + gst)));
+            let paymentStatus = call.paymentStatus || 'Payment Pending';
+            if (saved?.payment_status) {
+                paymentStatus = saved.payment_status;
+            } else if (
+                paymentStatus === 'PAID' || 
+                paymentStatus === 'Payment Completed' || 
+                paymentStatus === 'COMPLETED' || 
+                paymentStatus === 'APPROVED' || 
+                paymentStatus === 'Approved by RITES Finance'
+            ) {
+                paymentStatus = 'Approved by RITES Finance';
+            }
 
-            return {
-                id: c.id || c.workflowTransitionId || callNo,
+            list.push({
+                ...call,
                 call_no: callNo,
-                call_date: c.callDate || c.cancelDate || c.inspectionDate || c.createdAt || new Date().toISOString().split('T')[0],
-                po_no: c.poNo || c.po_no || '-',
-                po_item_no: c.poSr || c.po_item_no || c.srNo || '001',
-                ibs_case_no: c.ibsCaseNo || c.caseNo || c.ibs_case_no || '-',
-                ibs_call_no: c.ibsCallNo || c.ibs_call_no || '',
-                payment_reason: c.paymentReason || saved.payment_reason || 'Cancellation',
-                offered_qty: c.offeredQty !== undefined ? c.offeredQty : (c.totalQty || c.totalOffered || 0),
-                charge_type: saved.charge_type || c.chargeType || 'Cancellation',
-                bank_account_details: saved.bank_account_details || c.bankAccountDetails || c.bank_account_details || '',
-                base_payable_amount: baseAmount,
-                gst: gst,
-                total_payable_amount: total,
-                payment_mode: saved.payment_mode || '',
-                transaction_reference_number: saved.transaction_reference_number || '',
-                payment_date: saved.payment_date || null,
-                payment_proof_filename: saved.payment_proof_filename || '',
-                remarks: saved.remarks || c.cancelRemarks || c.remarks || '',
-                rejection_reason: c.cancelRemarks || c.rejectionReason || '',
-                payment_status: saved.payment_status || c.paymentStatus || (isPaymentBlocked ? 'Payment Pending' : 'Payment Pending')
-            };
+                call_date: call.callDate || call.createdDate,
+                po_no: call.poNo,
+                po_sr: call.poSr,
+                offered_qty: call.offeredQty || 0,
+                erc_type: call.ercType || 'ERC',
+                ibs_case_no: call.ibsCaseNo || call.caseNo || '',
+                ibs_call_no: call.ibsCallNo || '',
+                payment_reason: call.paymentReason || 'Cancellation',
+                charge_type: call.chargeType || 'Cancellation',
+                base_payable_amount: call.basePayableAmount || 0,
+                gst: call.gst || 0,
+                total_payable_amount: call.totalPayableAmount || 0,
+                bank_account_details: call.bankAccountDetails || 'SBI A/c: 39482910482, IFSC: SBIN0001234, Branch: RITES Central',
+                payment_status: paymentStatus,
+                rio: call.rio || 'Northern',
+                rio_email: call.rioEmail || 'nrinspn.fin@rites.com',
+                document_name: call.documentName || null,
+                cancel_remarks: call.cancelRemarks || '',
+                ...(saved || {})
+            });
         });
+        return list;
     }, [cancelledCalls, savedPaymentsMap]);
 
-    // Filtered items based on status, search, and 30-day rule
     const filteredPaymentItems = useMemo(() => {
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
+        const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         return allCombinedPaymentItems.filter(item => {
-            // Status filter
             if (paymentStatusFilter !== 'all') {
                 if (paymentStatusFilter === 'Payment Pending' && item.payment_status !== 'Payment Pending' && item.payment_status !== 'Payment Pending for Approval' && item.payment_status !== 'Not Approved by RITES Finance') {
                     return false;
@@ -202,7 +212,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 }
             }
 
-            // Search filter
             if (searchTerm.trim()) {
                 const s = searchTerm.toLowerCase();
                 const matches = (item.call_no || '').toLowerCase().includes(s) ||
@@ -212,7 +221,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 if (!matches) return false;
             }
 
-            // 30 Days filter for Approved items
             if (item.payment_status === 'Approved by RITES Finance' && !showOldApproved) {
                 const approvedDate = item.approved_date ? new Date(item.approved_date) : new Date(item.call_date);
                 if (approvedDate < thirtyDaysAgo) return false;
@@ -222,19 +230,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         });
     }, [allCombinedPaymentItems, paymentStatusFilter, searchTerm, showOldApproved]);
 
-    const handleOpenPaymentModal = (item = null) => {
-        setEditingPayment(item);
-        setIsPaymentModalOpen(true);
-    };
-
-    const handleClosePaymentModal = () => {
-        setIsPaymentModalOpen(false);
-        setEditingPayment(null);
-    };
-
-    /**
-     * Formats a date string (YYYY-MM-DD or ISO) to DD-MM-YYYY for the IBS API.
-     */
     const formatForIbs = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -247,10 +242,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         } catch { return dateStr; }
     };
 
-    /**
-     * Called when vendor clicks "Verify Payment".
-     * Calls the IBS API via backend proxy and opens the result modal.
-     */
     const handleVerifyPayment = async (row) => {
         const caseNo = row.ibs_case_no;
         const ibsCallSno = row.ibs_call_no;
@@ -267,7 +258,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         setIbsResult(null);
 
         try {
-            const result = await apiService.verifyIbsPayment({ caseNo, callDate, ibsCallSno });
+            const result = await inspectionCallService.verifyIbsPayment(caseNo, callDate, ibsCallSno);
             setIbsResult(result);
             setVerifyingCall(null);
             setVerifyModalOpen(true);
@@ -285,10 +276,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         }
     };
 
-    /**
-     * Called by VerifyPaymentModal when the vendor successfully marks payment as approved.
-     * Updates local state so the row immediately reflects the new status.
-     */
     const handlePaymentApproved = (callNo) => {
         setSavedPaymentsMap(prev => ({
             ...prev,
@@ -297,29 +284,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 payment_status: 'Approved by RITES Finance'
             }
         }));
-        // Re-fetch to sync with backend
         setTimeout(() => fetchPlantCalls(), 800);
-    };
-
-    const handleSubmitPayment = (formData) => {
-        if (editingPayment) {
-            const callNo = editingPayment.call_no || formData.inspection_call_number;
-            if (callNo) {
-                setSavedPaymentsMap(prev => ({
-                    ...prev,
-                    [callNo]: {
-                        ...editingPayment,
-                        ...formData,
-                        call_no: callNo,
-                        payment_status: 'Payment Pending for Approval'
-                    }
-                }));
-            }
-            if (selectedPaymentCall && selectedPaymentCall.call_no === callNo) {
-                setSelectedPaymentCall(prev => ({ ...prev, ...formData, payment_status: 'Payment Pending for Approval' }));
-            }
-        }
-        handleClosePaymentModal();
     };
 
     const pendingCount = allCombinedPaymentItems.filter(i => 
@@ -397,7 +362,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
+                                gap: '5px',
                                 boxShadow: paymentStatusFilter === 'Payment Pending' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                                 transition: 'all 0.15s'
                             }}
@@ -425,7 +390,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
+                                gap: '5px',
                                 boxShadow: paymentStatusFilter === 'Approved by RITES Finance' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                                 transition: 'all 0.15s'
                             }}
@@ -482,74 +447,93 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '60px 16px', color: '#64748b' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                        <Loader2 size={36} className="spin-animation" style={{ color: '#2563eb' }} />
-                                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
-                                            Loading payment records...
-                                        </div>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#64748b' }}>
+                                        <Loader2 size={18} className="spin-animation" />
+                                        <span>Loading payment records...</span>
                                     </div>
                                 </td>
                             </tr>
                         ) : filteredPaymentItems.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '48px 16px', color: '#94a3b8' }}>
-                                    <CreditCard size={36} style={{ opacity: 0.3, marginBottom: '8px' }} />
-                                    <div>No payment records found.</div>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
+                                    No cancelled or payment pending inspection calls found.
                                 </td>
                             </tr>
                         ) : (
                             filteredPaymentItems.map((row) => {
-                                const isSelected = selectedPaymentCall?.call_no === row.call_no;
-                                const hasIbsCallNo = Boolean(
-                                    row.ibs_call_no && 
-                                    String(row.ibs_call_no).trim() !== '' && 
-                                    String(row.ibs_call_no).trim() !== '-'
-                                );
-
+                                const hasIbsCallNo = !!(row.ibs_call_no && String(row.ibs_call_no).trim().length > 0);
                                 return (
-                                    <tr key={row.id || row.call_no}>
-                                        <td style={{ fontWeight: 800, color: '#1e3a5f' }}>{row.call_no}</td>
-                                        <td>{formatDateDDMMYY(row.call_date)}</td>
-                                        <td style={{ fontWeight: 600 }}>{row.po_no}</td>
-                                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.ibs_case_no || '-'}</td>
-                                        <td style={{ color: '#64748b', fontWeight: hasIbsCallNo ? 700 : 400 }}>{row.ibs_call_no || '-'}</td>
+                                    <tr key={row.call_no}>
                                         <td>
-                                            <span style={{ fontWeight: 700, color: row.payment_reason === 'Cancellation' ? '#dc2626' : '#2563eb' }}>
-                                                {row.payment_reason || 'Cancellation'}
-                                            </span>
-                                        </td>
-                                        <td style={{ fontWeight: 800, color: '#0f172a' }}>
-                                            ₹{Number(row.total_payable_amount || 0).toLocaleString('en-IN')}
-                                        </td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{row.call_no}</span>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleOpenCancellationDoc(row);
                                                     }}
-                                                    title="View Cancellation Letter / Document"
+                                                    title="View Official RITES Cancellation Letter (PDF)"
                                                     style={{
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #cbd5e1',
-                                                        background: '#fff',
-                                                        color: '#1e293b',
-                                                        fontSize: '12px',
-                                                        fontWeight: 700,
+                                                        border: 'none',
+                                                        background: '#eff6ff',
+                                                        color: '#2563eb',
+                                                        padding: '3px 6px',
+                                                        borderRadius: '4px',
                                                         cursor: 'pointer',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
-                                                        gap: '4px',
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                                        transition: 'all 0.2s'
+                                                        gap: '3px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700
                                                     }}
                                                 >
-                                                    <FileText size={13} style={{ color: '#dc2626' }} /> Letter
+                                                    <FileText size={12} /> Letter
                                                 </button>
-
-                                                {Boolean(
+                                            </div>
+                                        </td>
+                                        <td>{formatDateDDMMYY(row.call_date)}</td>
+                                        <td>
+                                            <span style={{ fontWeight: 600 }}>{row.po_no}</span>
+                                            {row.po_sr && <span style={{ color: '#64748b', fontSize: '11px', marginLeft: '4px' }}>({row.po_sr})</span>}
+                                        </td>
+                                        <td>
+                                            <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                {row.ibs_case_no || '-'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{ 
+                                                fontWeight: 700, 
+                                                color: hasIbsCallNo ? '#0f172a' : '#94a3b8',
+                                                background: hasIbsCallNo ? '#f1f5f9' : 'transparent',
+                                                padding: hasIbsCallNo ? '2px 8px' : '0',
+                                                borderRadius: '4px',
+                                                fontSize: '12px'
+                                            }}>
+                                                {hasIbsCallNo ? row.ibs_call_no : '-'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                background: '#fef2f2',
+                                                color: '#dc2626'
+                                            }}>
+                                                {row.payment_reason}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{ fontWeight: 800, color: '#0f172a' }}>
+                                                ₹{Number(row.total_payable_amount || 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                                {(
                                                     row.payment_status === 'Approved by RITES Finance' || 
                                                     row.payment_status === 'PAID' || 
                                                     row.payment_status === 'Payment Completed' || 
@@ -637,15 +621,6 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 </table>
             </div>
 
-            {/* Payment Form Modal */}
-            <PaymentFormModal
-                isOpen={isPaymentModalOpen}
-                onClose={handleClosePaymentModal}
-                onSubmit={handleSubmitPayment}
-                editData={editingPayment}
-                selectedCall={editingPayment}
-            />
-
             {/* IBS Verify Payment Modal */}
             <VerifyPaymentModal
                 isOpen={verifyModalOpen}
@@ -717,141 +692,117 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                 flexDirection: 'column',
                                 gap: '10px'
                             }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: '#64748b', fontWeight: 600 }}>• IBS Case No.:</span>
-                                    <span style={{ fontWeight: 800, color: '#0f172a' }}>
-                                        {paymentRedirectCall.ibs_case_no || paymentRedirectCall.ibsCaseNo || paymentRedirectCall.case_no || '-'}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>IBS Case No:</span>
+                                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                                        {paymentRedirectCall.ibs_case_no || '-'}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>IBS Call Sr. No:</span>
+                                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                                        {paymentRedirectCall.ibs_call_no || '-'}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Call Date:</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                                        {formatDateDDMMYY(paymentRedirectCall.call_date)}
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: '#64748b', fontWeight: 600 }}>• IBS Call Sr. No.:</span>
-                                    <span style={{ fontWeight: 800, color: '#0f172a' }}>
-                                        {paymentRedirectCall.ibs_call_no || paymentRedirectCall.ibsCallNo || paymentRedirectCall.ibs_call_sr_no || '-'}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: '#64748b', fontWeight: 600 }}>• Call Date:</span>
-                                    <span style={{ fontWeight: 800, color: '#0f172a' }}>
-                                        {formatDateDDMMYY(paymentRedirectCall.call_date || paymentRedirectCall.callDate)}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: '#64748b', fontWeight: 600 }}>• Cancellation Letter:</span>
-                                    <button
-                                        onClick={() => handleOpenCancellationDoc(paymentRedirectCall)}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '5px',
-                                            padding: '4px 10px',
-                                            borderRadius: '6px',
-                                            background: '#fef2f2',
-                                            border: '1px solid #fecaca',
-                                            color: '#b91c1c',
-                                            fontSize: '12px',
-                                            fontWeight: 700,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <FileText size={13} /> View Cancellation Document
-                                    </button>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '8px' }}>
-                                    <span style={{ color: '#b91c1c', fontWeight: 700 }}>• Cancellation/Rejection Charges:</span>
-                                    <span style={{ fontWeight: 900, color: '#dc2626', fontSize: '15px' }}>
-                                        ₹{Number(paymentRedirectCall.total_payable_amount || paymentRedirectCall.totalPayableAmount || paymentRedirectCall.charges || 0).toLocaleString('en-IN')}
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Total Payable (incl. GST):</span>
+                                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#16a34a' }}>
+                                        ₹{Number(paymentRedirectCall.total_payable_amount || 0).toLocaleString('en-IN')}
                                     </span>
                                 </div>
                             </div>
-
-                            <p style={{ marginBottom: '14px', color: '#475569', fontSize: '13.5px' }}>
-                                Please enter these details on the payment page to complete the payment.
-                            </p>
 
                             <div style={{
                                 background: '#eff6ff',
                                 border: '1px solid #bfdbfe',
                                 borderRadius: '10px',
                                 padding: '12px 16px',
-                                marginBottom: '18px',
+                                fontSize: '12.5px',
                                 color: '#1e40af',
-                                fontSize: '13px',
-                                lineHeight: 1.5
+                                marginBottom: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px'
                             }}>
-                                After successful payment, please email the payment receipt to{' '}
-                                <strong style={{ fontWeight: 800, textDecoration: 'underline' }}>
-                                    {getRioEmail(paymentRedirectCall)}
-                                </strong>.
+                                <div>
+                                    <span style={{ fontWeight: 700 }}>Note:</span> Please share the payment receipt with the respective RITES Finance Division:
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#1d4ed8' }}>
+                                    ✉️ <a href={`mailto:${getRioEmail(paymentRedirectCall)}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>
+                                        {getRioEmail(paymentRedirectCall)}
+                                    </a>
+                                </div>
                             </div>
 
-                            <p style={{ margin: 0, fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
-                                Click “OK” to proceed to the payment page.
-                            </p>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div style={{
-                            padding: '16px 24px',
-                            background: '#f8fafc',
-                            borderTop: '1px solid #e2e8f0',
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: '12px'
-                        }}>
-                            <button
-                                onClick={() => setPaymentRedirectCall(null)}
-                                style={{
-                                    padding: '9px 18px',
-                                    borderRadius: '8px',
-                                    border: '1.5px solid #cbd5e1',
-                                    background: '#fff',
-                                    color: '#475569',
-                                    fontWeight: 700,
-                                    fontSize: '13px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => {
-                                    window.open('https://ritesinsp.com/ibs2/OnlinePaymentGateway', '_blank');
-                                    setPaymentRedirectCall(null);
-                                }}
-                                style={{
-                                    padding: '9px 24px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: '#16a34a',
-                                    color: '#fff',
-                                    fontWeight: 800,
-                                    fontSize: '13px',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 4px rgba(22, 163, 74, 0.3)'
-                                }}
-                            >
-                                OK
-                            </button>
+                            {/* Modal Actions */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                <button
+                                    onClick={() => setPaymentRedirectCall(null)}
+                                    style={{
+                                        padding: '9px 18px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#fff',
+                                        color: '#475569',
+                                        fontWeight: 700,
+                                        fontSize: '13px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <a
+                                    href="https://ritesinsp.com/RBS/Vendor_charges.aspx"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={() => setPaymentRedirectCall(null)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '9px 20px',
+                                        borderRadius: '8px',
+                                        background: '#16a34a',
+                                        color: '#fff',
+                                        fontWeight: 800,
+                                        fontSize: '13px',
+                                        textDecoration: 'none',
+                                        boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
+                                    }}
+                                >
+                                    Proceed to Pay <ArrowUpRight size={15} />
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Cancellation Document Viewer Modal */}
+            {/* Official RITES Cancellation Letter Viewer Modal */}
             {viewingDocCall && (
                 <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.7)',
                     backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 10000, padding: '16px'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10000,
+                    padding: '24px'
                 }}>
                     <div style={{
                         background: '#fff',
                         borderRadius: '16px',
-                        maxWidth: '900px',
                         width: '100%',
-                        height: '88vh',
+                        maxWidth: '900px',
+                        height: '90vh',
                         display: 'flex',
                         flexDirection: 'column',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
@@ -866,15 +817,21 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                             justifyContent: 'space-between',
                             background: '#f8fafc'
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <FileText size={22} style={{ color: '#dc2626' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px',
+                                    background: '#eff6ff', color: '#2563eb',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <FileText size={20} />
+                                </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                                        Cancellation Document
+                                        Official RITES Cancellation Letter
                                     </h3>
-                                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-                                        Call No: {viewingDocCall.call_no || viewingDocCall.callNo} | {docFileName}
-                                    </div>
+                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                                        Call No: <span style={{ fontWeight: 700, color: '#0f172a' }}>{viewingDocCall.call_no || viewingDocCall.callNo}</span>
+                                    </p>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -890,7 +847,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                                 padding: '6px 12px',
                                                 borderRadius: '6px',
                                                 background: '#eff6ff',
-                                                color: '#1d4ed8',
+                                                color: '#2563eb',
                                                 fontSize: '12px',
                                                 fontWeight: 700,
                                                 textDecoration: 'none',

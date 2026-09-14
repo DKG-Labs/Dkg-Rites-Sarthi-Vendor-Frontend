@@ -6,7 +6,6 @@ import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm } from '../components/CalibrationForms';
 import { getDetailedStatus } from '../utils/statusMapper';
 import InitialCalibrationRegistration from '../components/InitialCalibrationRegistration';
-import { PaymentForm } from '../components/PaymentForm';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
 import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
 import NewInventoryEntryForm from '../components/NewInventoryEntryForm';
@@ -25,12 +24,10 @@ import {
   VENDOR_CALIBRATION_ITEMS,
   VENDOR_APPROVAL_ITEMS,
   VENDOR_GAUGE_ITEMS,
-  VENDOR_PAYMENT_ITEMS,
   VENDOR_MASTER_ITEMS,
   VENDOR_RAISE_CALL_PO,
   // VENDOR_INVENTORY_ENTRIES,
   CALIBRATION_MASTER_DATA,
-  PAYMENT_MASTER_DATA,
   CALIBRATION_REQUIREMENTS,
   VENDOR_PRODUCT_TYPE,
   VENDOR_SUB_PO_LIST
@@ -52,6 +49,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
+import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
 
 // Set worker source for pdfjs-dist locally
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -115,9 +113,6 @@ const VendorDashboardPage = ({ onBack }) => {
   // Modal states for Calibration forms
   const [isInstrumentModalOpen, setIsInstrumentModalOpen] = useState(false);
 
-  // Modal state for Payment form
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-
   // Modal state for Raise Inspection Request form
   const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
   const [selectedPOItem, setSelectedPOItem] = useState(null);
@@ -180,17 +175,12 @@ const VendorDashboardPage = ({ onBack }) => {
   const [hoveredDisabledPoItemId, setHoveredDisabledPoItemId] = useState(null);
 
 
-  // Payment filter state
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
-  const [showOldApproved, setShowOldApproved] = useState(false);
-  const [selectedPaymentCall, setSelectedPaymentCall] = useState(null);
   const [isCalibrationLoading, setIsCalibrationLoading] = useState(true);
 
   // Data state (for future API integration - currently using mock data)
   const [instrumentItems, setInstrumentItems] = useState(VENDOR_CALIBRATION_ITEMS);
   const [approvalItems, setApprovalItems] = useState(VENDOR_APPROVAL_ITEMS);
   const [gaugeItems, setGaugeItems] = useState(VENDOR_GAUGE_ITEMS);
-  const [paymentItems, setPaymentItems] = useState(VENDOR_PAYMENT_ITEMS);
   const [subPOList, setSubPOList] = useState(VENDOR_SUB_PO_LIST);
   // const [inventoryEntries, setInventoryEntries] = useState(VENDOR_INVENTORY_ENTRIES);
   const [inventoryEntries, setInventoryEntries] = useState([]);
@@ -667,44 +657,6 @@ const VendorDashboardPage = ({ onBack }) => {
     fetchRequestedCalls();
   }, [fetchRequestedCalls]);
 
-  // Filtered payment items based on status and date
-  const filteredPaymentItems = useMemo(() => {
-    // Start with existing payment items
-    let items = [...paymentItems];
-
-    // Add cancelled calls from requestedCalls that need payment
-    const cancelledCallsForPayment = requestedCalls.filter(
-      c => c.status === 'Call cancelled & payment Pending'
-    ).map(c => ({
-      id: `cancelled-${c.id}`,
-      call_no: c.call_no,
-      po_no: c.po_no,
-      inspection_type: c.stage,
-      payment_status: 'Payment Pending',
-      total_payable_amount: 0,
-      call_date: c.call_date
-    }));
-
-    items = [...items, ...cancelledCallsForPayment];
-
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    return items.filter(item => {
-      // Status filter
-      if (paymentStatusFilter !== 'all' && item.payment_status !== paymentStatusFilter) {
-        return false;
-      }
-      // Hide approved items older than 30 days unless showOldApproved is true
-      if (item.payment_status === 'Approved by RITES Finance' && !showOldApproved) {
-        const approvedDate = item.approved_date ? new Date(item.approved_date) : new Date(item.call_date);
-        if (approvedDate < thirtyDaysAgo) return false;
-      }
-      return true;
-    });
-  }, [paymentItems, requestedCalls, paymentStatusFilter, showOldApproved]);
-
   // ============ COMPLIANCE STATUS CALCULATION ============
   // Get requirements for current vendor's product type
   const productRequirements = useMemo(() => {
@@ -947,7 +899,6 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Edit state (null means add new, object means edit existing)
   const [editingInstrument, setEditingInstrument] = useState(null);
-  const [editingPayment, setEditingPayment] = useState(null);
 
   // States for Upcoming Expiry Reminders details popup
   const [selectedExpiryItem, setSelectedExpiryItem] = useState(null);
@@ -1044,38 +995,6 @@ const VendorDashboardPage = ({ onBack }) => {
       } finally {
         setIsLoading(false);
       }
-    }
-  };
-
-  // ============ PAYMENT HANDLERS ============
-  const handleOpenPaymentModal = (payment = null) => {
-    setEditingPayment(payment);
-    setIsPaymentModalOpen(true);
-  };
-
-  const handleClosePaymentModal = () => {
-    setIsPaymentModalOpen(false);
-    setEditingPayment(null);
-  };
-
-  const handleSubmitPayment = async (data) => {
-    setIsLoading(true);
-    try {
-      // TODO: Replace with API call
-      // For file upload, would need to use FormData and multipart/form-data
-      if (editingPayment) {
-        setPaymentItems(prev =>
-          prev.map(item => item.id === editingPayment.id ? { ...data, id: item.id } : item)
-        );
-      } else {
-        const newId = Math.max(...paymentItems.map(i => i.id), 0) + 1;
-        setPaymentItems(prev => [...prev, { ...data, id: newId, payment_status: 'Pending' }]);
-      }
-      handleClosePaymentModal();
-    } catch (error) {
-      console.error('Error saving payment:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -3784,18 +3703,6 @@ const VendorDashboardPage = ({ onBack }) => {
 
 
 
-  // Payment columns as per requirement
-  const paymentColumns = [
-    { key: 'call_no', label: 'Call No.' },
-    { key: 'call_date', label: 'Call Date', render: (v, row) => getCallDateFromCallNo(row?.call_no || row?.callNo, v) },
-    { key: 'po_no', label: 'PO No.' },
-    { key: 'po_item_no', label: 'Item No.' },
-    { key: 'payment_reason', label: 'Reason' },
-    { key: 'offered_qty', label: 'Offered Qty' },
-    { key: 'total_payable_amount', label: 'Charges (₹)', render: (v) => v?.toLocaleString('en-IN') || '-' },
-    { key: 'payment_status', label: 'Status', render: (v) => <StatusBadge status={v} /> }
-  ];
-
   const masterColumns = [
     { key: 'company_name', label: 'Company Name' },
     { key: 'unit_name', label: 'Unit Name' },
@@ -5172,131 +5079,11 @@ const VendorDashboardPage = ({ onBack }) => {
 
           {/* 8. Payment Details Updating Module */}
           {activeTab === 'payment-module' && (
-            <>
-              <div className="vendor-section-header">
-                <div>
-                  <h3 className="vendor-section-header-title">Payment Details Updating Module</h3>
-                  <p className="vendor-section-header-desc">
-                    View and manage inspection calls requiring payment (Cancelled/Rejected/Advance Payment).
-                  </p>
-                </div>
-              </div>
-
-              {/* Payment Filters */}
-              <div className="payment-filters">
-                <div className="payment-filter-group">
-                  <label className="payment-filter-label">Status Filter:</label>
-                  <select
-                    className="payment-filter-select"
-                    value={paymentStatusFilter}
-                    onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Payment Pending">Payment Pending</option>
-                    <option value="Payment Pending for Approval">Pending for Approval</option>
-                    <option value="Approved by RITES Finance">Approved by RITES</option>
-                    <option value="Not Approved by RITES Finance">Not Approved</option>
-                  </select>
-                </div>
-                <div className="payment-filter-group">
-                  <label className="payment-filter-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={showOldApproved}
-                      onChange={(e) => setShowOldApproved(e.target.checked)}
-                    />
-                    Show approved calls older than 30 days
-                  </label>
-                </div>
-              </div>
-
-              {/* Payment Status Summary Cards */}
-              <div className="payment-summary-cards">
-                {[
-                  { status: 'Payment Pending', label: 'Payment Pending', color: '#dc2626' },
-                  { status: 'Payment Pending for Approval', label: 'Pending Approval', color: '#f59e0b' },
-                  { status: 'Approved by RITES Finance', label: 'Approved', color: '#16a34a' },
-                  { status: 'Not Approved by RITES Finance', label: 'Not Approved', color: '#7c3aed' }
-                ].map(({ status, label, color }) => (
-                  <div
-                    key={status}
-                    className={`payment-summary-card ${paymentStatusFilter === status ? 'active' : ''}`}
-                    onClick={() => setPaymentStatusFilter(paymentStatusFilter === status ? 'all' : status)}
-                    style={{ borderColor: color }}
-                  >
-                    <span className="payment-summary-count" style={{ color }}>
-                      {paymentItems.filter(i => i.payment_status === status).length}
-                    </span>
-                    <span className="payment-summary-label">{label}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Payment Table */}
-              <DataTable
-                columns={paymentColumns}
-                data={filteredPaymentItems}
-                onRowClick={(row) => {
-                  setSelectedPaymentCall(row);
-                  handleOpenPaymentModal(row);
-                }}
-                selectable={false}
-                selectedRows={[]}
-                onSelectionChange={() => { }}
-              />
-
-              {/* Selected Payment Details */}
-              {selectedPaymentCall && (
-                <div className="payment-details-card">
-                  <div className="payment-details-header">
-                    <h4>Payment Details - {selectedPaymentCall.call_no}</h4>
-                    <button className="btn btn-sm btn-outline" onClick={() => setSelectedPaymentCall(null)}>
-                      Close
-                    </button>
-                  </div>
-                  <div className="payment-details-grid">
-                    <div className="payment-detail-item">
-                      <span className="payment-detail-label">Charge Type</span>
-                      <span className="payment-detail-value">{selectedPaymentCall.charge_type}</span>
-                    </div>
-                    <div className="payment-detail-item">
-                      <span className="payment-detail-label">Base Amount</span>
-                      <span className="payment-detail-value">₹{selectedPaymentCall.base_payable_amount?.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="payment-detail-item">
-                      <span className="payment-detail-label">GST (18%)</span>
-                      <span className="payment-detail-value">₹{selectedPaymentCall.gst?.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="payment-detail-item">
-                      <span className="payment-detail-label">Total Payable</span>
-                      <span className="payment-detail-value payment-total">₹{selectedPaymentCall.total_payable_amount?.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="payment-detail-item full-width">
-                      <span className="payment-detail-label">Bank Account Details</span>
-                      <span className="payment-detail-value">{selectedPaymentCall.bank_account_details}</span>
-                    </div>
-                    {selectedPaymentCall.rejection_reason && (
-                      <div className="payment-detail-item full-width rejection">
-                        <span className="payment-detail-label">Rejection Reason</span>
-                        <span className="payment-detail-value">{selectedPaymentCall.rejection_reason}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="payment-details-actions">
-                    {selectedPaymentCall.payment_status === 'Payment Pending' && (
-                      <button className="btn btn-primary" onClick={() => handleOpenPaymentModal(selectedPaymentCall)}>
-                        Enter Payment Details
-                      </button>
-                    )}
-                    {selectedPaymentCall.payment_status === 'Not Approved by RITES Finance' && (
-                      <button className="btn btn-primary" onClick={() => handleOpenPaymentModal(selectedPaymentCall)}>
-                        Update Payment Details
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+            <PaymentDetailsDashboard
+              plantId={sessionStorage.getItem('plantId') || ''}
+              vendorCode={user?.userName || sessionStorage.getItem('vendorCode') || ''}
+              vendorName={user?.vendorName || ''}
+            />
           )}
 
           {/* 9. New Inventory Entry */}
@@ -5408,18 +5195,6 @@ const VendorDashboardPage = ({ onBack }) => {
         masterData={CALIBRATION_MASTER_DATA}
         editData={editingInstrument}
         plants={vendorPlants}
-        isLoading={isLoading}
-      />
-
-
-
-      {/* ============ PAYMENT FORM MODAL ============ */}
-      <PaymentForm
-        isOpen={isPaymentModalOpen}
-        onClose={handleClosePaymentModal}
-        onSubmit={handleSubmitPayment}
-        masterData={PAYMENT_MASTER_DATA}
-        editData={editingPayment}
         isLoading={isLoading}
       />
 

@@ -252,7 +252,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10136', qtyPerSet: 1, description: '10 mm Thick Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10095', qtyPerSet: 14, description: '10 mm Thick Nylon Cord Reinforced GRSP' }
   ],
-  // RT-4218 – Nylon Cord Reinforced GRSP – 60kg 1 in 12 Turnout (Total 321 Pads)
+  // RT-4218 – Nylon Cord Reinforced GRSP – 60kg 1 in 12 Turnout (Total 321 Pads / 22 Items)
   'RT-4218': [
     { drawingNo: 'RT-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-7014/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
@@ -276,6 +276,30 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-8955', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' }
+  ],
+  // RT-4218_1 – Annexure -E (Total 321 Pads / 21 Items)
+  'RT-4218_1': [
+    { drawingNo: 'RT-10162', qtyPerSet: 46, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10159', qtyPerSet: 182, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8955', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8896', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8895', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8894', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8893', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10215', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10214', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10213', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10212', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10211', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10210', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10209', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10208', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10207', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10206', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10205', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10204', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10203', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
   ],
   // RT-8779 – 60 kg 1 in 12 Turnout per Set (Total 351 Pads / 30 Items)
   'RT-8779': [
@@ -549,6 +573,12 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
   }
 
   const str = String(dwgOrType || '').toLowerCase();
+  if (str.includes('4218_1') || str.includes('4218-1') || str.includes('4218_01') || str.includes('4218 (1)') || str.includes('4218 annexure')) {
+    return 'RT-4218_1';
+  }
+  if (str.includes('4218')) {
+    return 'RT-4218';
+  }
   if (str.includes('4865')) {
     if (str.includes('alt-8') || str.includes('alt 8') || str.includes('alt.8') || str.includes('alt08') || str.includes('alt-08')) {
       return 'RT-4865 Alt-8';

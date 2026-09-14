@@ -32,6 +32,7 @@ const DRAWING_MAPPING = {
         "RT-8779",
         "RT-9774",
         "RT-4218",
+        "RT-4218_1",
         "RT-4865 Alt-8",
         "RT-4865 Alt-9",
         "RT-4220",
@@ -52,6 +53,8 @@ const DRAWING_MAPPING = {
         "RT-9841"
     ],
     "10.00mm NCRGRSP": [
+        "RT-4218",
+        "RT-4218_1",
         "RT-9790",
         "RT-10070",
         "RT-4734",

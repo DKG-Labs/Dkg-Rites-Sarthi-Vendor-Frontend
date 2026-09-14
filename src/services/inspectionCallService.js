@@ -1099,6 +1099,81 @@ const inspectionCallService = {
       console.error('❌ Error fetching Heat Details:', error);
       throw error;
     }
+  },
+
+  /**
+   * Fetch cancelled calls requiring charges payment for ERC vendor
+   */
+  getCancelledCallsForPayment: async (plantId, vendorCode) => {
+    try {
+      const params = {};
+      if (plantId) params.plantId = plantId;
+      if (vendorCode) params.vendorCode = vendorCode;
+      const response = await httpClient.get('/cancelledCallsForPayment', { params });
+      return response?.responseData || response?.data || response || [];
+    } catch (error) {
+      console.error('Error fetching cancelled calls for payment:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Check if plant is blocked from raising new calls due to unpaid cancellation charges
+   */
+  checkPlantPaymentBlock: async (plantId, vendorCode) => {
+    try {
+      const params = {};
+      if (plantId) params.plantId = plantId;
+      if (vendorCode) params.vendorCode = vendorCode;
+      const response = await httpClient.get('/checkPlantPaymentBlock', { params });
+      return response?.responseData || response?.data || { blocked: false };
+    } catch (error) {
+      console.error('Error checking plant payment block:', error);
+      return { blocked: false };
+    }
+  },
+
+  /**
+   * Get detailed cancellation records for a call
+   */
+  getCancellationDetails: async (callNo) => {
+    try {
+      const response = await httpClient.get(`/cancellationDetails/${encodeURIComponent(callNo)}`);
+      return response?.responseData || response?.data || null;
+    } catch (error) {
+      console.error('Error fetching cancellation details:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Verify IBS Payment status via backend proxy
+   */
+  verifyIbsPayment: async (caseNo, callDate, ibsCallSno) => {
+    try {
+      const response = await httpClient.post('/verify-ibs-payment', {
+        caseNo,
+        callDate,
+        ibsCallSno: Number(ibsCallSno)
+      });
+      return response?.responseData || response?.data || response;
+    } catch (error) {
+      console.error('Error in verifyIbsPayment:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Mark cancelled call payment as approved in backend liability table
+   */
+  markPaymentApproved: async (callNo) => {
+    try {
+      const response = await httpClient.post('/mark-payment-approved', { callNo });
+      return response?.responseData || response?.data || response;
+    } catch (error) {
+      console.error('Error in markPaymentApproved:', error);
+      throw error;
+    }
   }
 };
 

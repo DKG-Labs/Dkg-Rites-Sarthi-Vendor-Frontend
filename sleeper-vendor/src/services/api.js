@@ -1509,5 +1509,35 @@ export const apiService = {
             console.error('Error fetching cancellation details:', error);
             return null;
         }
+    },
+
+    verifyIbsPayment: async (payload) => {
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        const response = await fetch(`${BASE_URL}/sleeper-workflow/verify-ibs-payment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        return data.responseData || data;
+    },
+
+    markPaymentApproved: async (callNo) => {
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        const response = await fetch(`${BASE_URL}/sleeper-workflow/mark-payment-approved`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ callNo })
+        });
+        const data = await response.json();
+        return data.responseData || data;
     }
 };
+
+export default apiService;

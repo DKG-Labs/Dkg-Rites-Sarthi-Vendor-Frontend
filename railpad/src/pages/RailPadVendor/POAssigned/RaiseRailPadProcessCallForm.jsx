@@ -23,6 +23,7 @@ const UNIFIED_NCRGRSP_DRAWINGS = [
     { code: "RT-8779", label: "RT-8779 (60 kg 1 in 12 Turnout per Set Alt-3)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-9774", label: "RT-9774 (TWS 60 Kg 1 in 8.5 Alt-2)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4218", label: "RT-4218 (60 kg 1 in 12 Turnout Alt.6)", category: "6mm", is6mm: true, is10mm: false },
+    { code: "RT-4218_1", label: "RT-4218_1 (Annexure-E 60 kg 1 in 12 Turnout)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-4865 Alt-8", label: "RT-4865 Alt-8 (6 mm 1 in 8.5 Turnout with 60E1 rail Alt-8)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4865 Alt-9", label: "RT-4865 Alt-9 (6 mm Thick Pocket Type 1 in 8.5 Alt-09)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4220", label: "RT-4220 (6 mm Turnout)", category: "6mm", is6mm: true, is10mm: false },
