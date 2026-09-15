@@ -14,9 +14,11 @@ import {
     downloadAllCallDocuments 
 } from '../../../utils/generateDocumentPDFs';
 
-const getCallStatusInfo = (statusStr) => {
-    const raw = String(statusStr || 'COMPLETED').toUpperCase().trim();
-    if (raw.includes('CANCEL')) {
+const getCallStatusInfo = (statusStr, actionStr) => {
+    const rawStatus = String(statusStr || '').toUpperCase().trim();
+    const act = String(actionStr || '').toUpperCase().trim();
+
+    if (rawStatus.includes('CANCEL') || act.includes('CANCEL')) {
         return {
             label: 'CANCELLED',
             bg: '#fee2e2',
@@ -25,7 +27,7 @@ const getCallStatusInfo = (statusStr) => {
             icon: <AlertCircle size={12} />
         };
     }
-    if (raw.includes('WITHDRAW')) {
+    if (rawStatus.includes('WITHDRAW') || act.includes('WITHDRAW')) {
         return {
             label: 'WITHDRAWN',
             bg: '#fee2e2',
@@ -34,26 +36,74 @@ const getCallStatusInfo = (statusStr) => {
             icon: <AlertCircle size={12} />
         };
     }
-    if (raw.includes('COMPLETE') || raw.includes('CONFIRM') || raw.includes('FINISH') || raw.includes('IC_ISSUE') || raw.includes('GENERATE_IC') || raw.includes('IC_GENERATION') || raw.includes('APPROVED')) {
+
+    // 1. If action is GENERATE_IC / DSC_SIGN_IC / E-SIGN -> Completed - E-Signed
+    if (
+        act.includes('GENERATE_IC') || 
+        act.includes('IC_GENERATION') || 
+        act.includes('DSC_SIGN') || 
+        act.includes('E_SIGN') || 
+        act.includes('ESIGN') ||
+        rawStatus === 'GENERATE_IC' ||
+        rawStatus === 'IC_GENERATION'
+    ) {
         return {
-            label: raw === 'COMPLETED' ? 'INSPECTION COMPLETE CONFIRM' : raw.replace(/_/g, ' '),
+            label: 'Completed - E-Signed',
             bg: '#dcfce7',
             color: '#15803d',
             border: '#86efac',
             icon: <CheckCircle2 size={12} />
         };
     }
-    if (raw.includes('PENDING') || raw.includes('PROGRESS') || raw.includes('VERIFY')) {
+
+    // 2. If action is IC_ISSUE / ISSUE_IC / IC_ISSUED -> Completed - IC Issued
+    if (
+        act.includes('IC_ISSUE') || 
+        act.includes('ISSUE_IC') || 
+        act.includes('IC_ISSUED') || 
+        rawStatus === 'IC_ISSUE' ||
+        rawStatus === 'IC_ISSUED'
+    ) {
         return {
-            label: raw.replace(/_/g, ' '),
+            label: 'Completed - IC Issued',
+            bg: '#dcfce7',
+            color: '#15803d',
+            border: '#86efac',
+            icon: <CheckCircle2 size={12} />
+        };
+    }
+
+    // 3. If action is FINISH / COMPLETE / CONFIRM -> Completed
+    if (
+        act.includes('FINISH') || 
+        act.includes('COMPLETE') || 
+        act.includes('CONFIRM') ||
+        rawStatus === 'COMPLETED' || 
+        rawStatus.includes('COMPLETE') || 
+        rawStatus.includes('CONFIRM') || 
+        rawStatus.includes('APPROVED')
+    ) {
+        return {
+            label: 'Completed',
+            bg: '#dcfce7',
+            color: '#15803d',
+            border: '#86efac',
+            icon: <CheckCircle2 size={12} />
+        };
+    }
+
+    if (rawStatus.includes('PENDING') || rawStatus.includes('PROGRESS') || rawStatus.includes('VERIFY')) {
+        return {
+            label: (act || rawStatus).replace(/_/g, ' '),
             bg: '#fef9c3',
             color: '#854d0e',
             border: '#fef08a',
             icon: <Clock size={12} />
         };
     }
+
     return {
-        label: raw.replace(/_/g, ' '),
+        label: (act || rawStatus || 'Completed').replace(/_/g, ' '),
         bg: '#eff6ff',
         color: '#1d4ed8',
         border: '#bfdbfe',
@@ -88,24 +138,10 @@ export const formatPoSrNo = (call, includeRly = true) => {
     return fullPoSr;
 };
 
-const checkIsIcAvailable = (call, history) => {
+const checkIsIcAvailable = (call) => {
     if (!call) return false;
-    const rawStatus = String(call.status || call.workflowStatus || '').toUpperCase().trim();
-    // If call is withdrawn or cancelled, IC is never available
-    if (rawStatus.includes('WITHDRAW') || rawStatus.includes('CANCEL')) {
-        return false;
-    }
-    if (call.isIcGenerated === true) return true;
-    if (call.latestAction === 'IC_GENERATION' || call.latestAction === 'IC_ISSUE') return true;
-    if (rawStatus === 'IC_GENERATION' || rawStatus === 'IC_ISSUE' || rawStatus === 'GENERATE_IC' || rawStatus === 'COMPLETED') return true;
-    if (Array.isArray(history) && history.length > 0) {
-        return history.some(tx => {
-            const act = String(tx.action || '').toUpperCase();
-            const st = String(tx.status || tx.jobStatus || '').toUpperCase();
-            return act === 'IC_GENERATION' || act === 'IC_ISSUE' || st === 'IC_GENERATION' || st === 'IC_ISSUE';
-        });
-    }
-    return false;
+    const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
+    return statusInfo?.label === 'Completed - E-Signed';
 };
 
 const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
@@ -216,9 +252,9 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadIC = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call, transitionHistory);
+        const isIcAvailable = checkIsIcAvailable(call);
         if (!isIcAvailable) {
-            showToast('info', 'Inspection Certificate (IC) is only available after the IC_GENERATION action is completed.');
+            showToast('info', 'Inspection Certificate (IC) is only available when status is Completed - E-Signed.');
             return;
         }
 
@@ -236,7 +272,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadAll = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call, transitionHistory);
+        const isIcAvailable = checkIsIcAvailable(call);
         try {
             setDownloadingDoc('all');
             if (isIcAvailable) {
@@ -258,7 +294,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
-    const isCurrentIcAvailable = checkIsIcAvailable(selectedCall, transitionHistory);
+    const isCurrentIcAvailable = checkIsIcAvailable(selectedCall);
 
     const SkeletonRow = () => (
         <div style={{ 
@@ -370,7 +406,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                         </thead>
                         <tbody>
                             {filteredCalls.map((call, idx) => {
-                                const statusInfo = getCallStatusInfo(call.status || call.workflowStatus);
+                                const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
                                 return (
                                     <tr key={call.id || idx} style={{ borderBottom: idx === filteredCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ padding: '20px 24px' }}>
@@ -568,18 +604,25 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                     <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                                         STATUS
                                     </div>
-                                    <span style={{
-                                        display: 'inline-block',
-                                        background: '#f1f5f9',
-                                        color: '#334155',
-                                        border: '1px solid #cbd5e1',
-                                        padding: '4px 12px',
-                                        borderRadius: '16px',
-                                        fontSize: '11px',
-                                        fontWeight: 800
-                                    }}>
-                                        {(selectedCall.status || 'INSPECTION COMPLETE CONFIRM').replace(/_/g, ' ')}
-                                    </span>
+                                    {(() => {
+                                        const modalStatus = getCallStatusInfo(selectedCall.status || selectedCall.workflowStatus, selectedCall.latestAction || selectedCall.action || selectedCall.workflowAction);
+                                        return (
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                background: modalStatus.bg,
+                                                color: modalStatus.color,
+                                                border: `1px solid ${modalStatus.border}`,
+                                                padding: '4px 12px',
+                                                borderRadius: '16px',
+                                                fontSize: '11px',
+                                                fontWeight: 800
+                                            }}>
+                                                {modalStatus.icon} {modalStatus.label}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>

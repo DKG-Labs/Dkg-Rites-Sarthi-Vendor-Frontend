@@ -224,12 +224,13 @@ const inspectionCallService = {
      * @param {number} ibsCallSno IBS call serial number
      * @returns {Promise<Object>} IBS response with resultFlag, bill_details, payment_details
      */
-    verifyIbsPayment: async (caseNo, callDate, ibsCallSno) => {
+    verifyIbsPayment: async (caseNo, callDate, ibsCallSno, callNo) => {
         try {
             const response = await axios.post(`${API_CONFIG.RAILPAD_WORKFLOW}/verify-ibs-payment`, {
                 caseNo,
                 callDate,
-                ibsCallSno: Number(ibsCallSno)
+                ibsCallSno: Number(ibsCallSno),
+                callNo
             });
             return response.data?.responseData || response.data;
         } catch (error) {

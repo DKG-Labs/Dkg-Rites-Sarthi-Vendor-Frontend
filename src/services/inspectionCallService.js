@@ -1149,12 +1149,13 @@ const inspectionCallService = {
   /**
    * Verify IBS Payment status via backend proxy
    */
-  verifyIbsPayment: async (caseNo, callDate, ibsCallSno) => {
+  verifyIbsPayment: async (caseNo, callDate, ibsCallSno, callNo) => {
     try {
       const response = await httpClient.post('/verify-ibs-payment', {
         caseNo,
         callDate,
-        ibsCallSno: Number(ibsCallSno)
+        ibsCallSno: Number(ibsCallSno),
+        callNo
       });
       return response?.responseData || response?.data || response;
     } catch (error) {

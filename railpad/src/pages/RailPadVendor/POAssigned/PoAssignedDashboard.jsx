@@ -544,8 +544,16 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const onSubmitInspectionCall = async (payload) => {
         try {
             const res = await inspectionCallService.create(payload);
-            const callNo = res?.callNo || res?.responseData?.callNo || res?.data?.callNo || 'RPF-SUCCESS';
-            showNotification(`✅ Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
+            const callNo = (typeof res === 'string' && res)
+                || res?.callNo
+                || res?.responseData?.callNo
+                || res?.data?.callNo
+                || res?.responseData
+                || (payload?.callType === 'PROCESS' ? 'RPP-SUCCESS' : 'RPF-SUCCESS');
+            
+            const isProcess = payload?.callType === 'PROCESS' || String(callNo).startsWith('RPP');
+            const callTypeLabel = isProcess ? 'Process' : 'Final';
+            showNotification(`✅ ${callTypeLabel} Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
             
             // Immediate and delayed re-fetches so backend DB update completes and reflects automatically
             fetchPoData();
