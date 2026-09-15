@@ -469,6 +469,7 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
     const [drawingNo, setDrawingNo] = useState(savedDraft?.drawingNo || srItem?.drawingNo || '');
     const [desiredQty, setDesiredQty] = useState(savedDraft?.desiredQty || '');
     const [productionDate, setProductionDate] = useState(savedDraft?.productionDate || new Date().toISOString().split('T')[0]);
+    const [remarks, setRemarks] = useState(savedDraft?.remarks || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [notification, setNotification] = useState(null);
 
@@ -479,13 +480,14 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                 railPadType,
                 drawingNo,
                 desiredQty,
-                productionDate
+                productionDate,
+                remarks
             };
             localStorage.setItem(storageKey, JSON.stringify(draftData));
         } catch (e) {
             console.warn('Error saving process call draft:', e);
         }
-    }, [storageKey, railPadType, drawingNo, desiredQty, productionDate]);
+    }, [storageKey, railPadType, drawingNo, desiredQty, productionDate, remarks]);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type });
@@ -555,6 +557,7 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                 productionInitiationDate: productionDate,
                 totalQty: qtyOfferedNow,
                 inspectionDate: productionDate,
+                remarks: remarks ? remarks.trim() : '',
                 createdBy: userId,
                 updatedBy: userId,
                 // Process calls typically do not require 'lots' array, but passing empty if backend expects it
@@ -577,7 +580,12 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                 console.warn('Error clearing process call draft:', e);
             }
 
-            const callNo = result?.callNo || result?.responseData?.callNo || result?.data?.callNo || result;
+            const callNo = (typeof result === 'string' && result)
+                || result?.callNo
+                || result?.responseData?.callNo
+                || result?.data?.callNo
+                || result?.responseData
+                || result;
             showNotification(`✅ Process Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
         } catch (error) {
             console.error("[Submit Process Call] Error:", error);
@@ -733,6 +741,36 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                             </div>
                         </div>
 
+                    </div>
+
+                    {/* ════ SECTION C ════ */}
+                    <div style={{
+                        background: '#fff', border: '1px solid #e2e8f0',
+                        borderRadius: '10px', padding: '12px 16px', marginBottom: '16px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                    }}>
+                        <SectionHeader step="C" label="Remarks / Special Instructions" color="#059669" />
+                        <div>
+                            <textarea
+                                rows={3}
+                                value={remarks}
+                                onChange={e => setRemarks(e.target.value)}
+                                placeholder="Enter any specific remarks, vendor notes, or special instructions for process inspection (optional)..."
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    color: '#1e293b',
+                                    fontFamily: 'inherit',
+                                    outline: 'none',
+                                    resize: 'vertical',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                }}
+                            />
+                        </div>
                     </div>
 
                 </div>

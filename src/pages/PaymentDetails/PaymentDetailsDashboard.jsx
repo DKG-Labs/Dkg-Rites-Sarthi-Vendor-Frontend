@@ -5,8 +5,9 @@ import inspectionCallService from '../../services/inspectionCallService';
 import { getBaseUrl } from '../../services/apiConfig';
 import { 
     Search, CheckCircle2, AlertCircle, 
-    FileText, ArrowUpRight, Loader2,
-    Download, ExternalLink
+    FileText, Loader2,
+    Download, ExternalLink, CreditCard, Copy, Check, Mail, Info,
+    ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight
 } from './icons';
 
 export const formatDateDDMMYY = (dateStr) => {
@@ -27,6 +28,15 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
     const effectivePlantId = propPlantId || sessionStorage.getItem('plantId') || localStorage.getItem('plantId') || localStorage.getItem('selectedPlantId') || '';
     const effectiveVendorCode = propVendorCode || sessionStorage.getItem('vendorCode') || localStorage.getItem('vendorCode') || localStorage.getItem('vendor_code') || '';
 
+    const [copiedField, setCopiedField] = useState(null);
+
+    const handleCopyText = (text, fieldName) => {
+        if (!text || text === '-') return;
+        navigator.clipboard.writeText(text);
+        setCopiedField(fieldName);
+        setTimeout(() => setCopiedField(null), 2000);
+    };
+
     const [savedPaymentsMap, setSavedPaymentsMap] = useState(() => {
         try {
             const saved = localStorage.getItem('erc_vendor_payments_map');
@@ -42,6 +52,10 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
     const [showOldApproved] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [paymentRedirectCall, setPaymentRedirectCall] = useState(null);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     // IBS Verification modal state
     const [verifyingCall, setVerifyingCall] = useState(null);
@@ -152,23 +166,32 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         }
     }, [savedPaymentsMap]);
 
+    // Reset page to 1 whenever filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [paymentStatusFilter, searchTerm, pageSize]);
+
     const allCombinedPaymentItems = useMemo(() => {
         const list = [];
         cancelledCalls.forEach(call => {
             const callNo = call.callNo || call.call_no;
             const saved = savedPaymentsMap[callNo];
 
-            let paymentStatus = call.paymentStatus || 'Payment Pending';
-            if (saved?.payment_status) {
+            let paymentStatus = 'Payment Pending';
+            const rawStatus = call.paymentStatus || call.payment_status;
+            if (rawStatus) {
+                const s = String(rawStatus).toUpperCase().trim();
+                if (s === 'APPROVED BY RITES FINANCE' || s === 'APPROVED' || s === 'PAID' || s === 'COMPLETED' || s === 'PAYMENT COMPLETED') {
+                    paymentStatus = 'Approved by RITES Finance';
+                } else if (s === 'PAYMENT PENDING FOR APPROVAL') {
+                    paymentStatus = 'Payment Pending for Approval';
+                } else if (s === 'NOT APPROVED BY RITES FINANCE' || s === 'REJECTED') {
+                    paymentStatus = 'Not Approved by RITES Finance';
+                } else {
+                    paymentStatus = 'Payment Pending';
+                }
+            } else if (saved?.payment_status) {
                 paymentStatus = saved.payment_status;
-            } else if (
-                paymentStatus === 'PAID' || 
-                paymentStatus === 'Payment Completed' || 
-                paymentStatus === 'COMPLETED' || 
-                paymentStatus === 'APPROVED' || 
-                paymentStatus === 'Approved by RITES Finance'
-            ) {
-                paymentStatus = 'Approved by RITES Finance';
             }
 
             list.push({
@@ -187,27 +210,35 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 gst: call.gst || 0,
                 total_payable_amount: call.totalPayableAmount || 0,
                 bank_account_details: call.bankAccountDetails || 'SBI A/c: 39482910482, IFSC: SBIN0001234, Branch: RITES Central',
-                payment_status: paymentStatus,
                 rio: call.rio || 'Northern',
                 rio_email: call.rioEmail || 'nrinspn.fin@rites.com',
                 document_name: call.documentName || null,
                 cancel_remarks: call.cancelRemarks || '',
-                ...(saved || {})
+                ...(saved || {}),
+                payment_status: paymentStatus
             });
         });
         return list;
     }, [cancelledCalls, savedPaymentsMap]);
+
+    const isPaymentApproved = (status) => {
+        if (!status) return false;
+        const s = String(status).toUpperCase().trim();
+        return s === 'APPROVED BY RITES FINANCE' || s === 'APPROVED' || s === 'PAID' || s === 'COMPLETED' || s === 'PAYMENT COMPLETED';
+    };
 
     const filteredPaymentItems = useMemo(() => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         return allCombinedPaymentItems.filter(item => {
+            const approved = isPaymentApproved(item.payment_status);
+
             if (paymentStatusFilter !== 'all') {
-                if (paymentStatusFilter === 'Payment Pending' && item.payment_status !== 'Payment Pending' && item.payment_status !== 'Payment Pending for Approval' && item.payment_status !== 'Not Approved by RITES Finance') {
+                if (paymentStatusFilter === 'Payment Pending' && approved) {
                     return false;
                 }
-                if (paymentStatusFilter === 'Approved by RITES Finance' && item.payment_status !== 'Approved by RITES Finance') {
+                if (paymentStatusFilter === 'Approved by RITES Finance' && !approved) {
                     return false;
                 }
             }
@@ -221,7 +252,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 if (!matches) return false;
             }
 
-            if (item.payment_status === 'Approved by RITES Finance' && !showOldApproved) {
+            if (approved && !showOldApproved) {
                 const approvedDate = item.approved_date ? new Date(item.approved_date) : new Date(item.call_date);
                 if (approvedDate < thirtyDaysAgo) return false;
             }
@@ -229,6 +260,16 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
             return true;
         });
     }, [allCombinedPaymentItems, paymentStatusFilter, searchTerm, showOldApproved]);
+
+    // Pagination calculations
+    const totalItems = filteredPaymentItems.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+    const paginatedPaymentItems = useMemo(() => {
+        const startIdx = (validCurrentPage - 1) * pageSize;
+        return filteredPaymentItems.slice(startIdx, startIdx + pageSize);
+    }, [filteredPaymentItems, validCurrentPage, pageSize]);
 
     const formatForIbs = (dateStr) => {
         if (!dateStr) return '';
@@ -247,8 +288,27 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         const ibsCallSno = row.ibs_call_no;
         const callDate = formatForIbs(row.call_date);
 
-        if (!caseNo || !ibsCallSno || !callDate) {
-            alert('IBS Case No., IBS Call Sr. No. and Call Date are required to verify payment.');
+        const hasValidCase = Boolean(caseNo && String(caseNo).trim() !== '' && String(caseNo).trim() !== '-');
+        const hasValidCallSno = Boolean(ibsCallSno && String(ibsCallSno).trim() !== '' && String(ibsCallSno).trim() !== '-');
+        const hasValidDate = Boolean(callDate && String(callDate).trim() !== '' && String(callDate).trim() !== '-');
+
+        if (!hasValidCase || !hasValidCallSno || !hasValidDate) {
+            const missing = [];
+            if (!hasValidCase) missing.push('IBS Case No.');
+            if (!hasValidCallSno) missing.push('IBS Call Sr. No.');
+            if (!hasValidDate) missing.push('Call Date');
+
+            setVerifyRowRef(row);
+            setIbsResult({
+                resultFlag: 'missing',
+                isMissingParams: true,
+                message: `IBS verification cannot proceed because ${missing.join(', ')} is missing or not yet generated in IBS.`,
+                bill_details: [],
+                payment_details: [],
+                bill_details_error: `Missing parameters: ${missing.join(', ')}`,
+                payment_details_error: null
+            });
+            setVerifyModalOpen(true);
             return;
         }
 
@@ -258,9 +318,15 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         setIbsResult(null);
 
         try {
-            const result = await inspectionCallService.verifyIbsPayment(caseNo, callDate, ibsCallSno);
+            const result = await inspectionCallService.verifyIbsPayment(caseNo, callDate, ibsCallSno, row.call_no);
             setIbsResult(result);
             setVerifyingCall(null);
+
+            const rf = Number(result?.resultFlag ?? 0);
+            if (rf === 1 || rf === 2) {
+                handlePaymentApproved(row.call_no);
+            }
+
             setVerifyModalOpen(true);
         } catch (err) {
             setVerifyingCall(null);
@@ -276,7 +342,12 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
         }
     };
 
-    const handlePaymentApproved = (callNo) => {
+    const handlePaymentApproved = async (callNo) => {
+        try {
+            await inspectionCallService.markPaymentApproved(callNo);
+        } catch (err) {
+            console.error('Error in markPaymentApproved:', err);
+        }
         setSavedPaymentsMap(prev => ({
             ...prev,
             [callNo]: {
@@ -284,20 +355,11 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 payment_status: 'Approved by RITES Finance'
             }
         }));
-        setTimeout(() => fetchPlantCalls(), 800);
+        setTimeout(() => fetchPlantCalls(), 600);
     };
 
-    const pendingCount = allCombinedPaymentItems.filter(i => 
-        i.payment_status === 'Payment Pending' || 
-        i.payment_status === 'Payment Pending for Approval' || 
-        i.payment_status === 'Not Approved by RITES Finance'
-    ).length;
-
-    const approvedCount = allCombinedPaymentItems.filter(i => 
-        i.payment_status === 'Approved by RITES Finance' ||
-        i.payment_status === 'PAID' ||
-        i.payment_status === 'Completed'
-    ).length;
+    const pendingCount = allCombinedPaymentItems.filter(i => !isPaymentApproved(i.payment_status)).length;
+    const approvedCount = allCombinedPaymentItems.filter(i => isPaymentApproved(i.payment_status)).length;
 
     return (
         <div className="payment-module-container fade-in" style={{ padding: '16px 20px', background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
@@ -461,7 +523,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                 </td>
                             </tr>
                         ) : (
-                            filteredPaymentItems.map((row) => {
+                            paginatedPaymentItems.map((row) => {
                                 const hasIbsCallNo = !!(row.ibs_call_no && String(row.ibs_call_no).trim().length > 0);
                                 return (
                                     <tr key={row.call_no}>
@@ -533,13 +595,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                         </td>
                                         <td style={{ textAlign: 'center' }}>
                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                                {(
-                                                    row.payment_status === 'Approved by RITES Finance' || 
-                                                    row.payment_status === 'PAID' || 
-                                                    row.payment_status === 'Payment Completed' || 
-                                                    row.payment_status === 'COMPLETED' || 
-                                                    row.payment_status === 'APPROVED'
-                                                ) ? (
+                                                {isPaymentApproved(row.payment_status) ? (
                                                     <span style={{
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
@@ -602,7 +658,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                                                                 alignItems: 'center',
                                                                 gap: '5px',
                                                                 opacity: verifyingCall === row.call_no ? 0.7 : 1
-                                                            }}
+                                                             }}
                                                         >
                                                             {verifyingCall === row.call_no
                                                                 ? <><Loader2 size={12} className="spin-animation" /> Verifying...</>
@@ -621,6 +677,187 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 </table>
             </div>
 
+            {/* Modern Pagination Footer */}
+            {filteredPaymentItems.length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderTop: '1px solid #e2e8f0',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    background: '#fafbfd',
+                    borderBottomLeftRadius: '14px',
+                    borderBottomRightRadius: '14px'
+                }}>
+                    {/* Left: Item Counter & Page Size Selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+                            Showing <strong style={{ color: '#0f172a' }}>{totalItems === 0 ? 0 : (validCurrentPage - 1) * pageSize + 1}</strong> to <strong style={{ color: '#0f172a' }}>{Math.min(validCurrentPage * pageSize, totalItems)}</strong> of <strong style={{ color: '#0f172a' }}>{totalItems}</strong> calls
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', color: '#94a3b8' }}>Per page:</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => setPageSize(Number(e.target.value))}
+                                style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#ffffff',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: '#334155',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value={5}>5</option>
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Right: Page Navigation Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                            type="button"
+                            disabled={validCurrentPage === 1}
+                            onClick={() => setCurrentPage(1)}
+                            title="First Page"
+                            style={{
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                background: validCurrentPage === 1 ? '#f8fafc' : '#ffffff',
+                                color: validCurrentPage === 1 ? '#cbd5e1' : '#475569',
+                                cursor: validCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <ChevronsLeft size={14} />
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={validCurrentPage === 1}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            title="Previous Page"
+                            style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                background: validCurrentPage === 1 ? '#f8fafc' : '#ffffff',
+                                color: validCurrentPage === 1 ? '#cbd5e1' : '#475569',
+                                cursor: validCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <ChevronLeft size={14} />
+                            <span>Prev</span>
+                        </button>
+
+                        {/* Page Numbers */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                                .filter(p => p === 1 || p === totalPages || (p >= validCurrentPage - 1 && p <= validCurrentPage + 1))
+                                .map((page, index, array) => {
+                                    const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                                    return (
+                                        <React.Fragment key={page}>
+                                            {showEllipsis && (
+                                                <span style={{ padding: '0 4px', color: '#94a3b8', fontSize: '12px' }}>...</span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentPage(page)}
+                                                style={{
+                                                    minWidth: '28px',
+                                                    height: '28px',
+                                                    padding: '0 6px',
+                                                    borderRadius: '6px',
+                                                    border: page === validCurrentPage ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                                                    background: page === validCurrentPage ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : '#ffffff',
+                                                    color: page === validCurrentPage ? '#ffffff' : '#334155',
+                                                    fontWeight: page === validCurrentPage ? 700 : 500,
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    boxShadow: page === validCurrentPage ? '0 2px 4px rgba(2,132,199,0.25)' : 'none',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                            >
+                                                {page}
+                                            </button>
+                                        </React.Fragment>
+                                    );
+                                })}
+                        </div>
+
+                        <button
+                            type="button"
+                            disabled={validCurrentPage === totalPages || totalPages === 0}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            title="Next Page"
+                            style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                background: (validCurrentPage === totalPages || totalPages === 0) ? '#f8fafc' : '#ffffff',
+                                color: (validCurrentPage === totalPages || totalPages === 0) ? '#cbd5e1' : '#475569',
+                                cursor: (validCurrentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <span>Next</span>
+                            <ChevronRight size={14} />
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={validCurrentPage === totalPages || totalPages === 0}
+                            onClick={() => setCurrentPage(totalPages)}
+                            title="Last Page"
+                            style={{
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                background: (validCurrentPage === totalPages || totalPages === 0) ? '#f8fafc' : '#ffffff',
+                                color: (validCurrentPage === totalPages || totalPages === 0) ? '#cbd5e1' : '#475569',
+                                cursor: (validCurrentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <ChevronsRight size={14} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* IBS Verify Payment Modal */}
             <VerifyPaymentModal
                 isOpen={verifyModalOpen}
@@ -637,39 +874,71 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
             {paymentRedirectCall && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-                    backdropFilter: 'blur(4px)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(8px)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 9999, padding: '20px'
+                    zIndex: 9999, padding: '20px',
+                    animation: 'fadeIn 0.2s ease-out'
                 }}>
                     <div style={{
-                        background: '#fff',
-                        borderRadius: '16px',
-                        maxWidth: '520px',
+                        background: '#ffffff',
+                        borderRadius: '20px',
+                        maxWidth: '540px',
                         width: '100%',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                        overflow: 'hidden'
+                        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.06)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }}>
                         {/* Modal Header */}
                         <div style={{
-                            padding: '18px 24px',
-                            borderBottom: '1px solid #e2e8f0',
+                            padding: '20px 24px 18px',
+                            borderBottom: '1px solid #e0f2fe',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            background: '#f8fafc'
+                            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)'
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '20px' }}>💳</span>
-                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>
-                                    Payment Information
-                                </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+                                    color: '#ffffff',
+                                    flexShrink: 0
+                                }}>
+                                    <CreditCard size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                                        Payment Information
+                                    </h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#0369a1', fontWeight: 600 }}>
+                                        Review billing details before IBS redirection
+                                    </p>
+                                </div>
                             </div>
                             <button
                                 onClick={() => setPaymentRedirectCall(null)}
                                 style={{
-                                    border: 'none', background: 'transparent',
-                                    fontSize: '18px', color: '#94a3b8', cursor: 'pointer', fontWeight: 700
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(186, 230, 253, 0.8)',
+                                    background: 'rgba(255, 255, 255, 0.8)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '14px',
+                                    color: '#64748b',
+                                    cursor: 'pointer',
+                                    fontWeight: 700,
+                                    transition: 'all 0.15s ease'
                                 }}
                             >
                                 ✕
@@ -677,108 +946,256 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                         </div>
 
                         {/* Modal Body */}
-                        <div style={{ padding: '24px', fontSize: '14px', color: '#334155', lineHeight: 1.6 }}>
-                            <p style={{ marginTop: 0, marginBottom: '16px', color: '#334155', fontWeight: 500 }}>
-                                You will now be redirected to the payment page. Please note the following details:
-                            </p>
-
+                        <div style={{ padding: '22px 24px 18px', fontSize: '13.5px', color: '#334155' }}>
                             <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '16px',
+                                padding: '8px 12px',
                                 background: '#f8fafc',
+                                borderRadius: '8px',
+                                border: '1px solid #f1f5f9',
+                                color: '#475569',
+                                fontSize: '12.5px',
+                                fontWeight: 500
+                            }}>
+                                <Info size={15} style={{ color: '#0284c7', flexShrink: 0 }} />
+                                <span>You will be redirected to the RITES online portal. Please use these details:</span>
+                            </div>
+
+                            {/* Details Card */}
+                            <div style={{
+                                background: 'linear-gradient(180deg, #fafbfd 0%, #f4f6fa 100%)',
                                 border: '1px solid #e2e8f0',
-                                borderRadius: '12px',
-                                padding: '16px 20px',
+                                borderRadius: '16px',
+                                padding: '16px 18px',
                                 marginBottom: '16px',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '10px'
+                                gap: '12px',
+                                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.8)'
                             }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>IBS Case No:</span>
-                                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                                        {paymentRedirectCall.ibs_case_no || '-'}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>IBS Call Sr. No:</span>
-                                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                                        {paymentRedirectCall.ibs_call_no || '-'}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Call Date:</span>
-                                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-                                        {formatDateDDMMYY(paymentRedirectCall.call_date)}
-                                    </span>
-                                </div>
+                                {/* IBS Case No */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Total Payable (incl. GST):</span>
-                                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#16a34a' }}>
-                                        ₹{Number(paymentRedirectCall.total_payable_amount || 0).toLocaleString('en-IN')}
-                                    </span>
+                                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '13px' }}>IBS Case No.</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{
+                                            fontFamily: 'monospace',
+                                            fontWeight: 800,
+                                            fontSize: '14px',
+                                            color: '#0f172a',
+                                            background: '#ffffff',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #cbd5e1'
+                                        }}>
+                                            {paymentRedirectCall.ibs_case_no || paymentRedirectCall.ibsCaseNo || paymentRedirectCall.case_no || '-'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(paymentRedirectCall.ibs_case_no || paymentRedirectCall.ibsCaseNo || paymentRedirectCall.case_no, 'case_no')}
+                                            title="Copy Case No."
+                                            style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #e2e8f0',
+                                                background: '#ffffff',
+                                                color: copiedField === 'case_no' ? '#16a34a' : '#64748b',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}
+                                        >
+                                            {copiedField === 'case_no' ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div style={{
-                                background: '#eff6ff',
-                                border: '1px solid #bfdbfe',
-                                borderRadius: '10px',
-                                padding: '12px 16px',
-                                fontSize: '12.5px',
-                                color: '#1e40af',
-                                marginBottom: '20px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '6px'
-                            }}>
-                                <div>
-                                    <span style={{ fontWeight: 700 }}>Note:</span> Please share the payment receipt with the respective RITES Finance Division:
+                                {/* IBS Call Sr No */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '13px' }}>IBS Call Sr. No.</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{
+                                            fontFamily: 'monospace',
+                                            fontWeight: 800,
+                                            fontSize: '14px',
+                                            color: '#0f172a',
+                                            background: '#ffffff',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #cbd5e1'
+                                        }}>
+                                            {paymentRedirectCall.ibs_call_no || paymentRedirectCall.ibsCallNo || paymentRedirectCall.ibs_call_sr_no || '-'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(paymentRedirectCall.ibs_call_no || paymentRedirectCall.ibsCallNo || paymentRedirectCall.ibs_call_sr_no, 'call_no')}
+                                            title="Copy Call Sr. No."
+                                            style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #e2e8f0',
+                                                background: '#ffffff',
+                                                color: copiedField === 'call_no' ? '#16a34a' : '#64748b',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}
+                                        >
+                                            {copiedField === 'call_no' ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#1d4ed8' }}>
-                                    ✉️ <a href={`mailto:${getRioEmail(paymentRedirectCall)}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>
-                                        {getRioEmail(paymentRedirectCall)}
-                                    </a>
-                                </div>
-                            </div>
 
-                            {/* Modal Actions */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                <button
-                                    onClick={() => setPaymentRedirectCall(null)}
-                                    style={{
-                                        padding: '9px 18px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #cbd5e1',
-                                        background: '#fff',
-                                        color: '#475569',
+                                {/* Call Date */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Call Date</span>
+                                    <span style={{
                                         fontWeight: 700,
                                         fontSize: '13px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <a
-                                    href="https://ritesinsp.com/RBS/Vendor_charges.aspx"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={() => setPaymentRedirectCall(null)}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '9px 20px',
-                                        borderRadius: '8px',
-                                        background: '#16a34a',
-                                        color: '#fff',
-                                        fontWeight: 800,
-                                        fontSize: '13px',
-                                        textDecoration: 'none',
-                                        boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
-                                    }}
-                                >
-                                    Proceed to Pay <ArrowUpRight size={15} />
-                                </a>
+                                        color: '#0f172a',
+                                        background: '#ffffff',
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #e2e8f0'
+                                    }}>
+                                        {formatDateDDMMYY(paymentRedirectCall.call_date || paymentRedirectCall.callDate)}
+                                    </span>
+                                </div>
+
+                                {/* Cancellation Document */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Cancellation Letter</span>
+                                    <button
+                                        onClick={() => handleOpenCancellationDoc(paymentRedirectCall)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            padding: '5px 12px',
+                                            borderRadius: '6px',
+                                            background: '#fff',
+                                            border: '1px solid #fca5a5',
+                                            color: '#dc2626',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            boxShadow: '0 1px 2px rgba(220, 38, 38, 0.05)',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        <FileText size={13} /> View Document
+                                    </button>
+                                </div>
+
+                                {/* Highlight Charges Box */}
+                                <div style={{
+                                    marginTop: '4px',
+                                    background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                                    border: '1px solid #fecdd3',
+                                    borderRadius: '12px',
+                                    padding: '12px 16px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#9f1239', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Cancellation / Rejection Charges
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#be123c', fontWeight: 500, marginTop: '1px' }}>
+                                            Total Payable Amount
+                                        </div>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '20px',
+                                        fontWeight: 900,
+                                        color: '#be123c',
+                                        letterSpacing: '-0.02em'
+                                    }}>
+                                        ₹{Number(paymentRedirectCall.total_payable_amount || paymentRedirectCall.totalPayableAmount || paymentRedirectCall.charges || 0).toLocaleString('en-IN')}
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Email Receipt Guidance */}
+                            <div style={{
+                                background: '#f0fdf4',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '12px',
+                                padding: '12px 16px',
+                                marginBottom: '6px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '10px'
+                            }}>
+                                <Mail size={16} style={{ color: '#16a34a', marginTop: '2px', flexShrink: 0 }} />
+                                <div style={{ fontSize: '12.5px', color: '#166534', lineHeight: 1.45 }}>
+                                    After payment completion, please email your transaction receipt to{' '}
+                                    <strong style={{ fontWeight: 800, color: '#15803d', wordBreak: 'break-all' }}>
+                                        {getRioEmail(paymentRedirectCall)}
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{
+                            padding: '16px 24px 20px',
+                            background: '#f8fafc',
+                            borderTop: '1px solid #e2e8f0',
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
+                            <button
+                                onClick={() => setPaymentRedirectCall(null)}
+                                style={{
+                                    padding: '9px 18px',
+                                    borderRadius: '10px',
+                                    border: '1.5px solid #cbd5e1',
+                                    background: '#ffffff',
+                                    color: '#475569',
+                                    fontWeight: 700,
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    window.open('https://ritesinsp.com/ibs2/OnlinePaymentGateway', '_blank');
+                                    setPaymentRedirectCall(null);
+                                }}
+                                style={{
+                                    padding: '9px 22px',
+                                    borderRadius: '10px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                                    color: '#ffffff',
+                                    fontWeight: 800,
+                                    fontSize: '13.5px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 3px 10px rgba(22, 163, 74, 0.35)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '7px',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <span>Proceed to Payment</span>
+                                <ExternalLink size={14} />
+                            </button>
                         </div>
                     </div>
                 </div>

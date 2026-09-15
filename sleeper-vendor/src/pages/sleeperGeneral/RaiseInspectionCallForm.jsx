@@ -838,9 +838,15 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                         key={type}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            setSelectedSleeperTypes(prev =>
-                                                                                prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-                                                                            );
+                                                                            setSelectedSleeperTypes(prev => {
+                                                                                const next = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
+                                                                                if (next.length > 0 && (!mainSleeperType || !next.includes(mainSleeperType))) {
+                                                                                    setMainSleeperType(next[0]);
+                                                                                } else if (next.length === 0) {
+                                                                                    setMainSleeperType('');
+                                                                                }
+                                                                                return next;
+                                                                            });
                                                                         }}
                                                                         style={{
                                                                             display: 'flex', alignItems: 'center', gap: 10,
@@ -1355,9 +1361,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 };
                                 
                                 for (const [batchKey, selection] of Object.entries(batchSelections)) {
-                                    if (selection.batchTouched && selection.goodSelected && selection.goodSelected.size > 0) {
-                                        const batch = batches.find(b => (b.batchKey || b.batchNo) === batchKey);
-                                        if (!batch) continue;
+                                    if (selection && selection.goodSelected && selection.goodSelected.size > 0) {
+                                        const batch = batches.find(b => 
+                                            (b.batchKey || b.batchNo) === batchKey ||
+                                            b.batchKey === batchKey ||
+                                            b.batchNo === batchKey ||
+                                            (b.batchNo && (batchKey.endsWith('_' + b.batchNo) || batchKey === b.batchNo)) ||
+                                            (b.batchKey && (batchKey.endsWith(b.batchKey) || batchKey === b.batchKey))
+                                        );
+                                        if (!batch) {
+                                            console.warn("Could not match batch for key:", batchKey);
+                                            continue;
+                                        }
                                         const goodLabels = batch.goodSleeperLabels || {};
                                         const goodSleepers = Array.from(selection.goodSelected).map(sid => goodLabels[sid] || String(sid));
                                         const badSleepers = (batch.badSleepersDisplay || []).map(s => String(s.displayNo));
@@ -1380,9 +1395,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                             badSleepers,
                                             goodSleeperIds,
                                             badSleeperIds,
-                                            totalCasted: batch.totalCasted,
-                                            castDate: batch.castDate,
-                                            previouslyOffered: batch.previouslyOffered
+                                            totalCasted: batch.totalCasted || (goodSleepers.length + badSleepers.length),
+                                            castDate: batch.castDate || 'N/A',
+                                            previouslyOffered: batch.previouslyOffered || 0
                                         });
                                     }
                                 }

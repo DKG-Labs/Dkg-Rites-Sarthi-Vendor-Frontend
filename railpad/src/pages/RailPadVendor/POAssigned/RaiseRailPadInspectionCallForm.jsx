@@ -147,6 +147,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     const [desiredDate, setDesiredDate] = useState(savedDraft?.desiredDate || new Date().toISOString().split('T')[0]);
     const [totalQtyToOffer, setTotalQtyToOffer] = useState(savedDraft?.totalQtyToOffer || '');
     const [noOfLots, setNoOfLots] = useState(savedDraft?.noOfLots !== undefined ? savedDraft.noOfLots : 1);
+    const [remarks, setRemarks] = useState(savedDraft?.remarks || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [loadingInventory, setLoadingInventory] = useState(false);
@@ -167,13 +168,14 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 desiredDate,
                 totalQtyToOffer,
                 noOfLots,
-                lots
+                lots,
+                remarks
             };
             localStorage.setItem(storageKey, JSON.stringify(draftData));
         } catch (e) {
             console.warn('Error persisting standard final call draft:', e);
         }
-    }, [storageKey, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots]);
+    }, [storageKey, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots, remarks]);
 
     // ─── ALL EFFECTS (must all be declared before any conditional return) ─────
     // Fetch process calls matching railPadType and drawingNo
@@ -377,6 +379,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 totalQty: parseInt(totalQtyToOffer),
                 noOfLots: parseInt(noOfLots),
                 inspectionDate: desiredDate,
+                remarks: remarks ? remarks.trim() : '',
                 createdBy: userId,
                 updatedBy: userId,
                 lots: lots.map(lot => ({
@@ -398,7 +401,12 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 }))
             };
 
-            const result = await inspectionCallService.create(payload);
+            let result;
+            if (onSubmitInspectionCall) {
+                result = await onSubmitInspectionCall(payload);
+            } else {
+                result = await inspectionCallService.create(payload);
+            }
 
             // Clear standard draft and wrapper draft on successful submission
             try {
@@ -409,7 +417,14 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 console.warn('Error clearing standard draft:', e);
             }
 
-            showNotification(`✅ Inspection Call raised successfully!\nCall No: ${result}`, 'success');
+            const callNo = (typeof result === 'string' && result)
+                || result?.callNo
+                || result?.responseData?.callNo
+                || result?.data?.callNo
+                || result?.responseData
+                || result;
+
+            showNotification(`✅ Final Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
         } catch (error) {
             console.error("[Submit Inspection Call] Error:", error);
             showNotification("❌ Failed to raise inspection call.", 'error');
@@ -843,6 +858,35 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                     </p>
                                 )}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* ════ SECTION E ════ */}
+                    <div style={{
+                        background: '#fff', border: '1px solid #e2e8f0',
+                        borderRadius: '10px', padding: '12px 14px', marginBottom: '10px'
+                    }}>
+                        <SectionHeader step="E" label="Remarks / Special Instructions" color="#059669" />
+                        <div style={{ paddingLeft: '8px' }}>
+                            <textarea
+                                rows={3}
+                                value={remarks}
+                                onChange={e => setRemarks(e.target.value)}
+                                placeholder="Enter any specific remarks, vendor notes, or special instructions for final inspection (optional)..."
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    color: '#1e293b',
+                                    fontFamily: 'inherit',
+                                    outline: 'none',
+                                    resize: 'vertical',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                }}
+                            />
                         </div>
                     </div>
                 </div>

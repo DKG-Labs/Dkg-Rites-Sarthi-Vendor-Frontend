@@ -825,30 +825,45 @@ const NCRGRSPFinalInspectionCall = ({
               const dwg = b.drawingNo || b.drawing_no || '';
               const manufactured = Number(b.qtyManufactured || b.quantityProduced || b.quantity || b.totalQty || 0);
               const rejected = Number(b.verificationRejectedQty || b.rejectedQty || b.qtyRejected || 0);
-              const netAccepted = Math.max(0, manufactured - rejected);
+              const netAccepted = (b.qtyAccepted !== undefined && b.qtyAccepted !== null)
+                ? Number(b.qtyAccepted)
+                : Math.max(0, manufactured - rejected);
               const previouslyOffered = Number(b.previouslyOfferedQty || b.alreadyOfferedQty || 0);
               const remainingQty = Math.max(0, netAccepted - previouslyOffered);
 
-              const dwgInfo = {
-                availableQty: netAccepted,
-                previouslyOfferedQty: previouslyOffered,
-                remainingQty: remainingQty
-              };
-
               if (b.drawings) {
                 Object.entries(b.drawings).forEach(([dNo, val]) => {
+                  const normDwg = normalizeDwg(dNo);
+                  let existingKey = Object.keys(transformed[bNo].drawings).find(k => normalizeDwg(k) === normDwg);
+                  const targetKey = existingKey || dNo;
+                  const prev = transformed[bNo].drawings[targetKey] || { availableQty: 0, previouslyOfferedQty: 0, remainingQty: 0 };
+
                   if (typeof val === 'object' && val !== null) {
-                    transformed[bNo].drawings[dNo] = val;
+                    transformed[bNo].drawings[targetKey] = {
+                      availableQty: (prev.availableQty || 0) + (val.availableQty || 0),
+                      previouslyOfferedQty: (prev.previouslyOfferedQty || 0) + (val.previouslyOfferedQty || 0),
+                      remainingQty: (prev.remainingQty || 0) + (val.remainingQty || 0)
+                    };
                   } else {
-                    transformed[bNo].drawings[dNo] = {
-                      availableQty: Number(val) || 0,
-                      previouslyOfferedQty: 0,
-                      remainingQty: Number(val) || 0
+                    const addQty = Number(val) || 0;
+                    transformed[bNo].drawings[targetKey] = {
+                      availableQty: (prev.availableQty || 0) + addQty,
+                      previouslyOfferedQty: prev.previouslyOfferedQty || 0,
+                      remainingQty: (prev.remainingQty || 0) + addQty
                     };
                   }
                 });
               } else if (dwg) {
-                transformed[bNo].drawings[dwg] = dwgInfo;
+                const normDwg = normalizeDwg(dwg);
+                let existingKey = Object.keys(transformed[bNo].drawings).find(k => normalizeDwg(k) === normDwg);
+                const targetKey = existingKey || dwg;
+                const prev = transformed[bNo].drawings[targetKey] || { availableQty: 0, previouslyOfferedQty: 0, remainingQty: 0 };
+
+                transformed[bNo].drawings[targetKey] = {
+                  availableQty: (prev.availableQty || 0) + netAccepted,
+                  previouslyOfferedQty: (prev.previouslyOfferedQty || 0) + previouslyOffered,
+                  remainingQty: (prev.remainingQty || 0) + remainingQty
+                };
               }
             });
           }
@@ -1423,9 +1438,16 @@ const NCRGRSPFinalInspectionCall = ({
         console.warn('Error clearing draft:', e);
       }
 
+      const callNo = (typeof res === 'string' && res)
+        || res?.callNo
+        || res?.responseData?.callNo
+        || res?.data?.callNo
+        || res?.responseData
+        || ('RPF-NCR-' + Date.now().toString().slice(-6));
+
       setNotification({
         type: 'success',
-        message: 'NCRGRSP Final Inspection Call Raised Successfully!\nCall Reference: ' + (res?.callNo || res?.data?.callNo || ('FIC-NCR-' + Date.now().toString().slice(-6)))
+        message: 'NCRGRSP Final Inspection Call Raised Successfully!\nCall Reference: ' + callNo
       });
 
       setTimeout(() => {

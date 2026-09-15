@@ -99,6 +99,26 @@ export const ChevronRight = ({ size = 20, className = '', style = {}, color = 'c
   </svg>
 );
 
+export const ChevronLeft = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+export const ChevronsLeft = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <polyline points="11 17 6 12 11 7" />
+    <polyline points="18 17 13 12 18 7" />
+  </svg>
+);
+
+export const ChevronsRight = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <polyline points="13 17 18 12 13 7" />
+    <polyline points="6 17 11 12 6 7" />
+  </svg>
+);
+
 export const Info = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
     <circle cx="12" cy="12" r="10" />
@@ -114,8 +134,36 @@ export const BadgeCheck = ({ size = 20, className = '', style = {}, color = 'cur
   </svg>
 );
 
+export const Copy = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </svg>
+);
+
+export const Check = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+export const Mail = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+);
+
 export const Loader2 = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`animate-spin ${className}`} style={{ animation: 'spin 1s linear infinite', ...style }} {...props}>
     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
   </svg>
 );
+
+export const Clock = ({ size = 20, className = '', style = {}, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
