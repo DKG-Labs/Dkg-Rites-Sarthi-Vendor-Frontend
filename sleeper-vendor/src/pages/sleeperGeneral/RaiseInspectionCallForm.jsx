@@ -35,15 +35,69 @@ const StatBox = ({ label, value, highlight, color }) => (
     </div>
 );
 
+// ─── Helper for Date Parsing ──────────────────────────────────────────────────
+const toInputDateFormat = (dStr) => {
+    if (!dStr) return new Date().toISOString().split('T')[0];
+    const s = String(dStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+        const [d, m, y] = s.split('/');
+        return `${y}-${m}-${d}`;
+    }
+    if (/^\d{2}-\d{2}-\d{4}/.test(s)) {
+        const [d, m, y] = s.split('-');
+        return `${y}-${m}-${d}`;
+    }
+    try {
+        const dt = new Date(s);
+        if (!isNaN(dt.getTime())) {
+            return dt.toISOString().split('T')[0];
+        }
+    } catch (e) {}
+    return new Date().toISOString().split('T')[0];
+};
+
 // ─── Main Form ────────────────────────────────────────────────────────────────
 const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall, isEdit = false, editCall = null }) => {
     const callDate = isEdit && editCall?.callDate ? editCall.callDate : new Date().toLocaleDateString('en-IN');
     const editCallNo = isEdit ? (editCall?.callNo || editCall?.callNumber || editCall?.id) : null;
+    const uom = srItem?.uom || srItem?.unit || srItem?.poUnit || srItem?.itemUom || 'Nos.';
+    const isSetUom = Boolean(
+        (uom && uom.toUpperCase().includes('SET')) ||
+        (srItem?.uom && String(srItem.uom).toUpperCase().includes('SET')) ||
+        (srItem?.unit && String(srItem.unit).toUpperCase().includes('SET')) ||
+        (srItem?.itemDesc && String(srItem.itemDesc).toUpperCase().includes('SET')) ||
+        (srItem?.description && String(srItem.description).toUpperCase().includes('SET')) ||
+        (srItem?.poDes && String(srItem.poDes).toUpperCase().includes('SET')) ||
+        (srItem?.sleeperType && String(srItem.sleeperType).toUpperCase().includes('PNC')) ||
+        (srItem?.sleeperType && String(srItem.sleeperType).toUpperCase().includes('TURNOUT'))
+    );
 
     // Section A & B state
+    const [mainSleeperType, setMainSleeperType] = useState(isEdit && editCall?.sleeperType ? editCall.sleeperType : '');
+    const isEffectiveSetUom = isSetUom || Boolean(
+        mainSleeperType && (
+            mainSleeperType.toUpperCase().includes('PNC') ||
+            mainSleeperType.toUpperCase().includes('TURNOUT') ||
+            mainSleeperType.toUpperCase().includes('SET')
+        )
+    );
+    const displayUom = isEffectiveSetUom ? (uom && uom.toUpperCase().includes('SET') ? uom : 'Set') : uom;
+
+    const [dateOfInspection, setDateOfInspection] = useState(() => {
+        if (isEdit && (editCall?.desiredInspectionDate || editCall?.inspectionDate)) {
+            return toInputDateFormat(editCall.desiredInspectionDate || editCall.inspectionDate);
+        }
+        return new Date().toISOString().split('T')[0];
+    });
+    const [toBeOffered, setToBeOffered] = useState(() => {
+        if (isEdit && editCall?.totalOffered) return editCall.totalOffered;
+        if (isEdit && editCall?.qtyOffered) return editCall.qtyOffered;
+        if (isSetUom || isEffectiveSetUom) return Math.min(1, srItem?.due !== undefined && srItem?.due > 0 ? srItem.due : 1);
+        return '';
+    });
     const [sleeperTypes, setSleeperTypes] = useState([]);
     const [isLoadingTypes, setIsLoadingTypes] = useState(true);
-    const [mainSleeperType, setMainSleeperType] = useState(isEdit && editCall?.sleeperType ? editCall.sleeperType : '');
     const [selectedSleeperTypes, setSelectedSleeperTypes] = useState(isEdit && editCall?.sleeperType ? [editCall.sleeperType] : []);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [typeSearchText, setTypeSearchText] = useState('');
@@ -88,9 +142,15 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 setSleeperTypes(validTypes);
 
                 let initialType = '';
-                if (details && details.sleeperType) {
+                if (details) {
                     setEditCallDetails(details);
-                    initialType = details.sleeperType;
+                    if (details.sleeperType) initialType = details.sleeperType;
+                    if (details.desiredInspectionDate) {
+                        setDateOfInspection(toInputDateFormat(details.desiredInspectionDate));
+                    }
+                    if (details.totalOffered) {
+                        setToBeOffered(details.totalOffered);
+                    }
                 } else if (editCall?.sleeperType) {
                     initialType = editCall.sleeperType;
                 } else if (validTypes.length > 0) {
@@ -490,11 +550,51 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         });
 
         const due = srItem.due !== undefined ? srItem.due : null;
-        const exceedsCap = due !== null ? totalPassedCount > due : false;
-        const afterOffering = due !== null ? due - totalPassedCount : null;
 
-        return { batchesSelected, totalSleeperCount, totalPassedCount, totalRejectedCount, exceedsCap, afterOffering, due };
-    }, [batchSelections, batches, srItem]);
+        let exceedsCap = false;
+        let afterOffering = null;
+        let offeredQtyValue = 0;
+
+        if (isEffectiveSetUom) {
+            // When UOM is SET, validate "To Be Offered" (Sets) against due (Sets)
+            // DO NOT validate individual sleeper pieces (e.g. 37 or 71 pieces) against due (Sets)
+            offeredQtyValue = (toBeOffered !== '' && toBeOffered !== null && toBeOffered !== undefined) ? Number(toBeOffered) : 0;
+            exceedsCap = (due !== null && due !== undefined && offeredQtyValue > 0) ? (offeredQtyValue > due) : false;
+            afterOffering = (due !== null && due !== undefined && offeredQtyValue > 0) ? (due - offeredQtyValue) : null;
+        } else {
+            // When UOM is Nos./standard, validate totalPassedCount / toBeOffered against due (Nos.)
+            offeredQtyValue = (toBeOffered !== '' && toBeOffered !== null && toBeOffered !== undefined) ? Number(toBeOffered) : totalPassedCount;
+            exceedsCap = (due !== null && due !== undefined) ? (offeredQtyValue > due) : false;
+            afterOffering = (due !== null && due !== undefined) ? (due - offeredQtyValue) : null;
+        }
+
+        return { 
+            batchesSelected, 
+            totalSleeperCount, 
+            totalPassedCount, 
+            totalRejectedCount, 
+            exceedsCap, 
+            afterOffering, 
+            due,
+            offeredQtyValue
+        };
+    }, [batchSelections, batches, srItem, isEffectiveSetUom, toBeOffered]);
+
+    // Keep toBeOffered in sync when batches are selected ONLY if UOM is NOT 'SET'
+    useEffect(() => {
+        if (isEffectiveSetUom) {
+            setToBeOffered(prev => {
+                if (prev === '' || prev === null || prev === undefined || (prev === summary.totalPassedCount && summary.totalPassedCount > (srItem?.due || 1))) {
+                    return (srItem?.due !== undefined && srItem?.due > 0) ? 1 : 1;
+                }
+                return prev;
+            });
+        } else {
+            if (summary.totalPassedCount > 0) {
+                setToBeOffered(summary.totalPassedCount);
+            }
+        }
+    }, [summary.totalPassedCount, isEffectiveSetUom, srItem?.due]);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleOfferAllGood = (batchKey, batch) => {
@@ -595,11 +695,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
                         {/* Call info row */}
                         <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1, minWidth: 140 }}>
+                            <div style={{ flex: 1, minWidth: 120 }}>
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>PO NO.</div>
                                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{poNo}</div>
                             </div>
-                            <div style={{ flex: 1, minWidth: 100 }}>
+                            <div style={{ flex: 0.8, minWidth: 80 }}>
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>SR. NO.</div>
                                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A')}</div>
                             </div>
@@ -607,7 +707,25 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>CALL DATE</div>
                                 <div style={{ fontWeight: 700, color: '#21808d', fontSize: 14 }}>{callDate}</div>
                             </div>
-                            <div style={{ flex: 1.6, minWidth: 260 }}>
+                            <div style={{ flex: 1.2, minWidth: 150 }}>
+                                <div style={{ fontSize: 11, color: '#475569', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Date of Inspection <span style={{ color: '#dc2626' }}>*</span>
+                                </div>
+                                <input
+                                    type="date"
+                                    value={dateOfInspection}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setDateOfInspection(e.target.value)}
+                                    style={{
+                                        width: '100%', height: 38, padding: '0 10px',
+                                        border: '1.5px solid #21808d', borderRadius: 8,
+                                        fontSize: 13, fontWeight: 700, color: '#0f172a',
+                                        background: '#fff', cursor: 'pointer', outline: 'none',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ flex: 1.6, minWidth: 240 }}>
                                 <div style={{ fontSize: 11, color: '#475569', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                     Select Sleeper Type for Inspection <span style={{ color: '#dc2626' }}>*</span>
                                 </div>
@@ -654,11 +772,56 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                             PO Status Tracker
                         </div>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
                             <StatBox label="Quantity on Order" value={(srItem.orderedQty || srItem.ordered || 0).toLocaleString()} />
+                            <StatBox label="UOM" value={displayUom} />
                             <StatBox label="Cumm. Qty Offered Previously" value={(srItem.offeredTillNow || 0).toLocaleString()} color="#7c3aed" />
                             <StatBox label="Qty. Passed Previously" value={(srItem.acceptedTillNow || 0).toLocaleString()} color="#16a34a" />
                             <StatBox label="Qty Pending for Verification" value={(srItem.due || 0).toLocaleString()} highlight={(srItem.due || 0) === 0} />
+                            <div style={{
+                                background: '#fff',
+                                border: '1.5px solid #21808d',
+                                borderRadius: 10, padding: '8px 12px', minWidth: 150, flex: '1 1 150px',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                                boxShadow: '0 2px 6px rgba(33,128,141,0.08)'
+                            }}>
+                                <div style={{ fontSize: 11, color: '#21808d', fontWeight: 700, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>To Be Offered ({displayUom}) <span style={{ color: '#dc2626' }}>*</span></span>
+                                    {isEffectiveSetUom && srItem.due !== undefined && (
+                                        <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Max: {srItem.due}</span>
+                                    )}
+                                </div>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={srItem.due !== undefined ? srItem.due : undefined}
+                                    step="1"
+                                    value={toBeOffered}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setToBeOffered(val === '' ? '' : parseInt(val, 10) || 0);
+                                    }}
+                                    placeholder={isEffectiveSetUom ? "1" : "0"}
+                                    style={{
+                                        width: '100%',
+                                        height: 28,
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: 6,
+                                        padding: '2px 8px',
+                                        fontSize: 17,
+                                        fontWeight: 800,
+                                        color: '#0d3b3f',
+                                        outline: 'none',
+                                        background: '#f8fafc',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                                {isEffectiveSetUom && (
+                                    <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 3 }}>
+                                        Enter number of <strong>Sets</strong> (e.g. 1)
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1273,7 +1436,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 label="No. of Passed Sleepers"
                                 value={summary.totalPassedCount.toLocaleString()}
                                 color="#16a34a"
-                                highlight={summary.exceedsCap}
+                                highlight={summary.exceedsCap && !isEffectiveSetUom}
                             />
                             <StatBox
                                 label="No. of Rejected Sleepers"
@@ -1290,7 +1453,19 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 color: '#dc2626', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center'
                             }}>
                                 <span style={{ fontSize: 16 }}>⚠️</span>
-                                Offered quantity ({summary.totalPassedCount}) cannot exceed sleepers due for dispatch ({summary.due}). Please reduce your selection.
+                                {isEffectiveSetUom
+                                    ? `Offered quantity (${summary.offeredQtyValue} ${displayUom}) cannot exceed ${displayUom} due for dispatch (${summary.due} ${displayUom}). Please reduce "To Be Offered".`
+                                    : `Offered quantity (${summary.offeredQtyValue}) cannot exceed sleepers due for dispatch (${summary.due}). Please reduce your selection.`
+                                }
+                            </div>
+                        ) : isEffectiveSetUom && (!toBeOffered || Number(toBeOffered) <= 0) ? (
+                            <div style={{
+                                background: '#fffbeb', border: '1px solid #fde68a',
+                                borderRadius: 8, padding: '10px 14px', fontSize: 12,
+                                color: '#b45309', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center'
+                            }}>
+                                <span>ℹ️</span>
+                                Please enter the quantity of {displayUom} in "To Be Offered" above.
                             </div>
                         ) : summary.totalPassedCount > 0 ? (
                             <div style={{
@@ -1298,10 +1473,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 borderRadius: 8, padding: '10px 14px', fontSize: 12,
                                 color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8
                             }}>
-                                <span>✓ Quantity selected</span>
+                                <span>✓ Quantity selected ({summary.totalPassedCount} individual sleepers{isEffectiveSetUom && toBeOffered ? ` for ${toBeOffered} ${displayUom}` : ''})</span>
                                 {summary.afterOffering !== null && (
                                     <span style={{ fontWeight: 700 }}>
-                                        Sleepers Due After This Offering: <span style={{ fontSize: 15 }}>{summary.afterOffering.toLocaleString()}</span>
+                                        {isEffectiveSetUom ? `${displayUom} Due After This Offering:` : 'Sleepers Due After This Offering:'} <span style={{ fontSize: 15 }}>{summary.afterOffering.toLocaleString()}</span>
                                     </span>
                                 )}
                             </div>
@@ -1335,7 +1510,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         Cancel
                     </button>
                     <button
-                        disabled={summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || isSubmitting}
+                        disabled={
+                            isEffectiveSetUom
+                                ? (!toBeOffered || Number(toBeOffered) <= 0 || (srItem.due !== undefined && srItem.due !== null && Number(toBeOffered) > srItem.due) || summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                : ((toBeOffered !== '' ? Number(toBeOffered) <= 0 : summary.totalPassedCount === 0) || (srItem.due !== undefined && srItem.due !== null && (toBeOffered !== '' ? Number(toBeOffered) > srItem.due : summary.exceedsCap)) || !mainSleeperType || !dateOfInspection || isSubmitting)
+                        }
                         onClick={async () => {
                             setIsSubmitting(true);
                             try {
@@ -1347,13 +1526,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
                                 const currentPlantId = selectedPlant ? selectedPlant.plantId : null;
                                 
+                                const effectiveOffered = isEffectiveSetUom
+                                    ? (toBeOffered !== '' ? Number(toBeOffered) : 1)
+                                    : (toBeOffered !== '' ? Number(toBeOffered) : (Number(summary.totalPassedCount) || 0));
+
                                 // Call's sleeperType is ALWAYS the Main Sleeper Type selected in Section A
                                 const payload = {
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType: mainSleeperType,
-                                    totalOffered: Number(summary.totalPassedCount) || 0,
+                                    totalOffered: effectiveOffered,
                                     totalRejected: Number(summary.totalRejectedCount) || 0,
+                                    desiredInspectionDate: dateOfInspection || null,
                                     createdBy: numericUserId,
                                     vendorCode: vendorCode || '',
                                     plantId: currentPlantId ? String(currentPlantId) : '',
@@ -1363,11 +1547,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 for (const [batchKey, selection] of Object.entries(batchSelections)) {
                                     if (selection && selection.goodSelected && selection.goodSelected.size > 0) {
                                         const batch = batches.find(b => 
-                                            (b.batchKey || b.batchNo) === batchKey ||
-                                            b.batchKey === batchKey ||
-                                            b.batchNo === batchKey ||
-                                            (b.batchNo && (batchKey.endsWith('_' + b.batchNo) || batchKey === b.batchNo)) ||
-                                            (b.batchKey && (batchKey.endsWith(b.batchKey) || batchKey === b.batchKey))
+                                             (b.batchKey || b.batchNo) === batchKey ||
+                                             b.batchKey === batchKey ||
+                                             b.batchNo === batchKey ||
+                                             (b.batchNo && (batchKey.endsWith('_' + b.batchNo) || batchKey === b.batchNo)) ||
+                                             (b.batchKey && (batchKey.endsWith(b.batchKey) || batchKey === b.batchKey))
                                         );
                                         if (!batch) {
                                             console.warn("Could not match batch for key:", batchKey);
@@ -1437,11 +1621,23 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         }}
                         style={{
                             padding: '9px 24px', borderRadius: 8, border: 'none',
-                            background: (summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || isSubmitting)
+                            background: (
+                                isEffectiveSetUom
+                                    ? (!toBeOffered || Number(toBeOffered) <= 0 || (srItem.due !== undefined && srItem.due !== null && Number(toBeOffered) > srItem.due) || summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                    : ((toBeOffered !== '' ? Number(toBeOffered) <= 0 : summary.totalPassedCount === 0) || (srItem.due !== undefined && srItem.due !== null && (toBeOffered !== '' ? Number(toBeOffered) > srItem.due : summary.exceedsCap)) || !mainSleeperType || !dateOfInspection || isSubmitting)
+                            )
                                 ? '#e2e8f0' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                            color: (summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || isSubmitting) ? '#94a3b8' : '#fff',
+                            color: (
+                                isEffectiveSetUom
+                                    ? (!toBeOffered || Number(toBeOffered) <= 0 || (srItem.due !== undefined && srItem.due !== null && Number(toBeOffered) > srItem.due) || summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                    : ((toBeOffered !== '' ? Number(toBeOffered) <= 0 : summary.totalPassedCount === 0) || (srItem.due !== undefined && srItem.due !== null && (toBeOffered !== '' ? Number(toBeOffered) > srItem.due : summary.exceedsCap)) || !mainSleeperType || !dateOfInspection || isSubmitting)
+                            ) ? '#94a3b8' : '#fff',
                             fontWeight: 700, fontSize: 13, cursor:
-                                (summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || isSubmitting) ? 'not-allowed' : 'pointer',
+                                (
+                                    isEffectiveSetUom
+                                        ? (!toBeOffered || Number(toBeOffered) <= 0 || (srItem.due !== undefined && srItem.due !== null && Number(toBeOffered) > srItem.due) || summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                        : ((toBeOffered !== '' ? Number(toBeOffered) <= 0 : summary.totalPassedCount === 0) || (srItem.due !== undefined && srItem.due !== null && (toBeOffered !== '' ? Number(toBeOffered) > srItem.due : summary.exceedsCap)) || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                ) ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s'
                         }}
                     >
