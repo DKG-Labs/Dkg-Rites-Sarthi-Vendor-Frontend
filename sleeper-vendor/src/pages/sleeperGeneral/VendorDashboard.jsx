@@ -28,6 +28,7 @@ const VendorDashboard = () => {
     // ── Shared State (lifted up) ─────────────────────────────────────────────
     const [inspectionCalls, setInspectionCalls] = useState([]);
     const [poCount, setPoCount] = useState(0);
+    const [completedCalls, setCompletedCalls] = useState([]);
     const [completedCallsCount, setCompletedCallsCount] = useState(0);
     const cleanPlantStr = (s) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
@@ -91,8 +92,9 @@ const VendorDashboard = () => {
             
             const filteredCompleted = plantId && Array.isArray(completedData)
                 ? completedData.filter(item => isPlantMatching(item.plantId, [plantId]))
-                : completedData;
-            setCompletedCallsCount(Array.isArray(filteredCompleted) ? filteredCompleted.length : 0);
+                : (Array.isArray(completedData) ? completedData : []);
+            setCompletedCalls(filteredCompleted);
+            setCompletedCallsCount(filteredCompleted.length);
         } catch (err) {
             console.error("Failed to fetch dashboard counts", err);
         }
@@ -145,7 +147,7 @@ const VendorDashboard = () => {
             case 'calls-requested':
                 return <CallsRequestedDashboard inspectionCalls={inspectionCalls} onRefresh={fetchInitialCounts} />;
             case 'calls-completed':
-                return <CallsCompletedDashboard plantId={currentPlantId} onRefresh={fetchInitialCounts} />;
+                return <CallsCompletedDashboard plantId={currentPlantId} initialCalls={completedCalls} onRefresh={fetchInitialCounts} />;
             case 'payment-module':
                 return <PaymentDetailsDashboard plantId={currentPlantId} vendorCode={sessionStorage.getItem('vendorCode')} />;
             case 'finance':
