@@ -1261,7 +1261,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                         onChange={() => isEligible && handleToggleGoodSleeper(batchKey, sid)}
                                                                         style={{ width: 13, height: 13, flexShrink: 0 }}
                                                                     />
-                                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    <span style={{ fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                         {label}
                                                                     </span>
                                                                 </label>
@@ -1279,7 +1279,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                     </div>
                                                     <div style={{
                                                         maxHeight: 140, overflowY: 'auto',
-                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                                                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))',
                                                         gap: 5
                                                     }}>
                                                         {(batch.raisedGoodSleepersDisplay || []).map((s, idx) => (
@@ -1290,11 +1290,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                 border: '1px dashed #bae6fd',
                                                                 color: '#0369a1'
                                                             }}>
-                                                                <span style={{ color: '#0284c7', fontSize: 10 }}>✓</span>
-                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                <span style={{ color: '#0284c7', fontSize: 10, flexShrink: 0 }}>✓</span>
+                                                                <span style={{ fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                     {s.displayNo}
                                                                 </span>
-                                                                <span style={{ fontSize: 9, color: '#0284c7', background: '#e0f2fe', padding: '1px 4px', borderRadius: 4, marginLeft: 'auto' }}>
+                                                                <span style={{ fontSize: 9, color: '#0284c7', background: '#e0f2fe', padding: '1px 4px', borderRadius: 4, marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                     Offered
                                                                 </span>
                                                             </div>
@@ -1314,7 +1314,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                             </div>
                                                             <div style={{
                                                                 maxHeight: 140, overflowY: 'auto',
-                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                                                                 gap: 6
                                                             }}>
                                                                 {batch.badSleeperIds.map((sid, idx) => {
@@ -1339,7 +1339,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                                 readOnly
                                                                                 style={{ width: 13, height: 13, flexShrink: 0, accentColor: '#dc2626' }}
                                                                             />
-                                                                            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                            <span style={{ fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                                 {label}
                                                                             </span>
                                                                             {formName && (
@@ -1359,7 +1359,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                         </label>
                                                                     );
                                                                 })}
-                                                             </div>
+                                                            </div>
                                                         </div>
                                                     )}
 
@@ -1371,7 +1371,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                             </div>
                                                             <div style={{
                                                                 maxHeight: 140, overflowY: 'auto',
-                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
                                                                 gap: 6
                                                             }}>
                                                                 {(batch.raisedBadSleepersDisplay || []).map((s, idx) => {
@@ -1386,8 +1386,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                                 border: '1px dashed #cbd5e1',
                                                                                 color: '#64748b'
                                                                             }}>
-                                                                            <span style={{ color: '#059669', fontSize: 10 }}>✓</span>
-                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                            <span style={{ color: '#059669', fontSize: 10, flexShrink: 0 }}>✓</span>
+                                                                            <span style={{ fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                                 {s.displayNo}
                                                                             </span>
                                                                             {formName && (
@@ -1403,7 +1403,16 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                                                                     {formName}
                                                                                 </span>
                                                                             )}
-                                                                            <span style={{ fontSize: 9, color: '#b45309', background: '#fef3c7', padding: '1px 4px', borderRadius: 4, marginLeft: formName ? 4 : 'auto' }}>
+                                                                            <span style={{
+                                                                                fontSize: 9,
+                                                                                color: '#b45309',
+                                                                                background: '#fef3c7',
+                                                                                padding: '1px 4px',
+                                                                                borderRadius: 4,
+                                                                                marginLeft: formName ? 4 : 'auto',
+                                                                                whiteSpace: 'nowrap',
+                                                                                flexShrink: 0
+                                                                            }}>
                                                                                 Raised
                                                                             </span>
                                                                         </div>
