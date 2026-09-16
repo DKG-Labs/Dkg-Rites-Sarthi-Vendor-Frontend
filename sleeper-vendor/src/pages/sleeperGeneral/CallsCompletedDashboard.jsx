@@ -57,6 +57,13 @@ const ClockIcon = ({ size = 12, color = 'currentColor' }) => (
     </svg>
 );
 
+const AwardIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="7" />
+        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+    </svg>
+);
+
 const ClipboardListIcon = ({ size = 64, color = '#94a3b8' }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -80,54 +87,60 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
     const raw = String(actionStr || jobStatusStr || statusStr || 'COMPLETED').toUpperCase().trim();
     if (raw.includes('CANCEL')) {
         return {
-            label: 'CANCELLED',
-            bg: '#fee2e2',
-            color: '#dc2626',
-            border: '#fca5a5',
+            label: 'Cancelled',
+            bg: '#fef2f2',
+            color: '#b91c1c',
+            border: '#fecaca',
+            dot: '#ef4444',
             type: 'cancel'
         };
     }
     if (raw.includes('WITHDRAW')) {
         return {
-            label: 'WITHDRAWN',
-            bg: '#fee2e2',
+            label: 'Withdrawn',
+            bg: '#fef2f2',
             color: '#991b1b',
-            border: '#fca5a5',
+            border: '#fecaca',
+            dot: '#dc2626',
             type: 'withdraw'
         };
     }
-    if (raw.includes('IC_ISSUE') || raw.includes('IC_GENERATION') || raw.includes('GENERATE_IC') || raw.includes('DSC_SIGN_IC') || raw.includes('IC_SIGNED')) {
+    if (raw.includes('IC_ISSUE') || raw.includes('IC_GENERATION') || raw.includes('GENERATE_IC') || raw.includes('DSC_SIGN_IC') || raw.includes('IC_SIGNED') || raw === 'IC ISSUED') {
         return {
-            label: 'IC ISSUED',
-            bg: '#dcfce7',
-            color: '#15803d',
-            border: '#86efac',
+            label: 'IC Issued',
+            bg: '#ecfdf5',
+            color: '#047857',
+            border: '#a7f3d0',
+            dot: '#10b981',
             type: 'complete'
         };
     }
     if (raw.includes('FINISH') || raw.includes('COMPLETE') || raw.includes('CONFIRM') || raw.includes('APPROVED') || raw.includes('ACCEPTED')) {
         return {
-            label: 'INSPECTION COMPLETE CONFIRM',
-            bg: '#dcfce7',
-            color: '#15803d',
-            border: '#86efac',
+            label: 'Inspection Confirmed',
+            bg: '#ecfdf5',
+            color: '#047857',
+            border: '#a7f3d0',
+            dot: '#10b981',
             type: 'complete'
         };
     }
     if (raw.includes('PENDING') || raw.includes('PROGRESS') || raw.includes('VERIFY')) {
         return {
-            label: raw.replace(/_/g, ' '),
-            bg: '#fef9c3',
-            color: '#854d0e',
+            label: 'In Progress',
+            bg: '#fefce8',
+            color: '#a16207',
             border: '#fef08a',
+            dot: '#eab308',
             type: 'pending'
         };
     }
     return {
-        label: raw.replace(/_/g, ' '),
+        label: 'Completed',
         bg: '#eff6ff',
         color: '#1d4ed8',
         border: '#bfdbfe',
+        dot: '#3b82f6',
         type: 'default'
     };
 };
@@ -225,9 +238,9 @@ const getEffectivePlantId = (propPlantId) => {
     return '';
 };
 
-const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
-    const [calls, setCalls] = useState([]);
-    const [loading, setLoading] = useState(true);
+const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh }) => {
+    const [calls, setCalls] = useState(initialCalls || []);
+    const [loading, setLoading] = useState(initialCalls === undefined || initialCalls === null);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(0);
@@ -249,6 +262,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
             const list = Array.isArray(data) ? data : [];
             const plantFiltered = plantId ? list.filter(item => isPlantMatching(item.plantId, [plantId])) : list;
             setCalls(plantFiltered);
+            if (onRefresh) onRefresh();
         } catch (err) {
             console.error('Error fetching completed calls:', err);
             setError('Failed to load completed inspection calls.');
@@ -258,19 +272,25 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
     };
 
     useEffect(() => {
-        fetchCompletedCalls();
-    }, [plantId]);
+        if (initialCalls !== undefined && initialCalls !== null && initialCalls.length > 0) {
+            setCalls(initialCalls);
+            setLoading(false);
+        } else {
+            fetchCompletedCalls();
+        }
+    }, [initialCalls, plantId]);
 
     const filteredCalls = useMemo(() => {
         if (!search.trim()) return calls;
         const q = search.toLowerCase();
         return calls.filter(call => {
             const callNo = (call.requestId || call.callNo || '').toLowerCase();
-            const icNo = (call.icNo || '').toLowerCase();
+            const icNo = (call.icNo || call.icNumber || call.certificateNo || '').toLowerCase();
+            const icDate = (call.icDate ? formatDateDDMMYY(call.icDate) : '').toLowerCase();
             const poNo = (call.poNo || '').toLowerCase();
             const sleeperType = (call.sleeperType || call.productType || '').toLowerCase();
             const ieName = (call.assignedToUserName || call.ieName || '').toLowerCase();
-            return callNo.includes(q) || icNo.includes(q) || poNo.includes(q) || sleeperType.includes(q) || ieName.includes(q);
+            return callNo.includes(q) || icNo.includes(q) || icDate.includes(q) || poNo.includes(q) || sleeperType.includes(q) || ieName.includes(q);
         });
     }, [calls, search]);
 
@@ -320,39 +340,49 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
     }
 
     return (
-        <div className="fade-in">
+        <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', fontFamily: '"Inter", -apple-system, sans-serif' }}>
+            <style>{`
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                    100% { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            `}</style>
+
             {/* Toast Notification */}
             {toast && (
                 <div style={{
-                    position: 'fixed', top: 20, right: 24, zIndex: 11000,
-                    padding: '12px 20px', borderRadius: 10,
-                    color: '#fff', fontWeight: 600, fontSize: 13,
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
-                    background: toast.type === 'success' ? '#059669' : (toast.type === 'error' ? '#dc2626' : '#2563eb'),
-                    animation: 'slideIn 0.3s ease'
+                    position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999,
+                    background: toast.type === 'error' ? '#ef4444' : (toast.type === 'success' ? '#059669' : '#0f172a'),
+                    color: '#fff', padding: '12px 24px', borderRadius: '12px',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '8px',
+                    fontWeight: 600, fontSize: '14px', animation: 'slideUp 0.3s ease-out'
                 }}>
-                    {toast.type === 'success' && <CheckCircleIcon size={18} color="#fff" />}
                     {toast.type === 'error' && <AlertCircleIcon size={18} color="#fff" />}
+                    {toast.type === 'success' && <CheckCircleIcon size={18} color="#fff" />}
                     {toast.type === 'info' && <InfoIcon size={18} color="#fff" />}
                     <span>{toast.message}</span>
                 </div>
             )}
 
             {/* Header with Title & Search */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0 }}>Completed Calls</h2>
-                    <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>View and manage your completed inspection requests and download certificates</p>
+                    <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>Completed Calls</h1>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>View and manage your completed inspection requests and download certificates</p>
                 </div>
                 
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                         <SearchIcon size={18} color="#94a3b8" />
                     </div>
                     <input 
                         type="text"
-                        placeholder="Search Call No / PO No..."
+                        placeholder="Search Call No / PO No / IC No..."
                         value={search}
                         onChange={(e) => {
                             setSearch(e.target.value);
@@ -362,7 +392,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
                             padding: '12px 12px 12px 40px',
                             borderRadius: '12px',
                             border: '1px solid #e2e8f0',
-                            width: '300px',
+                            width: '320px',
                             fontSize: '14px',
                             outline: 'none',
                             transition: 'all 0.2s',
@@ -393,15 +423,16 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
                     <p style={{ marginTop: '4px' }}>{search ? "No calls match your search criteria." : "Completed inspection calls and certificates will appear here."}</p>
                 </div>
             ) : (
-                <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 20px -4px rgba(0,0,0,0.05)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#fcf8ee', borderBottom: '1px solid #f2e9d8' }}>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO Reference</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Call Details</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PO Reference</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Item Details</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>IC Number & Date</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
+                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -412,22 +443,24 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
                                 const offeredQuantity = Number(call.offeredQty || call.qtyOffered || call.totalCastedSleepers || 0);
                                 const acceptedQuantity = Number(call.acceptedQty != null ? call.acceptedQty : (call.totalOffered != null ? call.totalOffered : (call.qtyAccepted != null ? call.qtyAccepted : offeredQuantity)));
                                 const statusInfo = getCallStatusInfo(call.status, call.action, call.jobStatus);
+                                const icNumber = call.icNo || call.icNumber || call.certificateNo || (call.status === 'IC ISSUED' || call.status === 'INSPECTION COMPLETE CONFIRM' ? (`IC-${call.requestId || call.callNo || ''}`) : null);
+                                const icDate = call.icDate || call.updatedDate || call.callDate;
 
                                 return (
                                     <tr 
                                         key={call.workflowTransitionId || call.id || idx} 
-                                        style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} 
+                                        style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} 
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                     >
                                         {/* 1. Call Details */}
-                                        <td style={{ padding: '18px 24px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <FileTextIcon size={18} color="#2563eb" />
+                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #dbeafe' }}>
+                                                    <FileTextIcon size={17} color="#2563eb" />
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '14px' }}>{callNo}</div>
+                                                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>{callNo}</div>
                                                     <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                                         <CalendarIcon size={12} color="#64748b" /> {formatDateDDMMYY(inspectionDate)}
                                                     </div>
@@ -436,56 +469,76 @@ const CallsCompletedDashboard = ({ plantId: propPlantId }) => {
                                         </td>
 
                                         {/* 2. PO Reference */}
-                                        <td style={{ padding: '18px 24px' }}>
+                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
                                             <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                                                 {formatPoSrNo(call)}
                                             </div>
                                         </td>
 
                                         {/* 3. Item & Quantities */}
-                                        <td style={{ padding: '18px 24px' }}>
-                                            <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{sleeperItem}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span>Off: <strong>{offeredQuantity.toLocaleString()}</strong></span>
-                                                <span style={{ color: '#cbd5e1' }}>|</span>
-                                                <span style={{ color: '#15803d', fontWeight: 800, background: '#dcfce7', padding: '1px 6px', borderRadius: '6px' }}>
+                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                            <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '13px' }}>{sleeperItem}</div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '5px', fontWeight: 600 }}>Off: {offeredQuantity.toLocaleString()}</span>
+                                                <span style={{ color: '#15803d', fontWeight: 800, background: '#dcfce7', padding: '1px 7px', borderRadius: '5px', border: '1px solid #bbf7d0' }}>
                                                     Acc: {acceptedQuantity.toLocaleString()} (Nos.)
                                                 </span>
                                             </div>
                                         </td>
 
-                                        {/* 4. Status */}
-                                        <td style={{ padding: '18px 24px' }}>
+                                        {/* 4. IC Number & IC Date */}
+                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                            {icNumber ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #d1fae5' }}>
+                                                        <AwardIcon size={18} color="#059669" />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', letterSpacing: '-0.01em' }}>
+                                                            {icNumber}
+                                                        </div>
+                                                        {icDate ? (
+                                                            <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                                <CalendarIcon size={12} color="#64748b" /> {formatDateDDMMYY(icDate)}
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>-</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>-</span>
+                                            )}
+                                        </td>
+
+                                        {/* 5. Status */}
+                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
                                             <div style={{ 
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                padding: '5px 12px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700,
+                                                whiteSpace: 'nowrap',
                                                 background: statusInfo.bg, color: statusInfo.color, border: `1px solid ${statusInfo.border}`
                                             }}>
-                                                {statusInfo.type === 'cancel' || statusInfo.type === 'withdraw' ? (
-                                                    <AlertCircleIcon size={12} color={statusInfo.color} />
-                                                ) : statusInfo.type === 'pending' ? (
-                                                    <ClockIcon size={12} color={statusInfo.color} />
-                                                ) : (
-                                                    <CheckCircleIcon size={12} color={statusInfo.color} />
-                                                )}
+                                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusInfo.dot || statusInfo.color, flexShrink: 0 }} />
                                                 {statusInfo.label}
                                             </div>
                                         </td>
 
-                                        {/* 5. Action */}
-                                        <td style={{ padding: '18px 24px', textAlign: 'right' }}>
+                                        {/* 6. Action */}
+                                        <td style={{ padding: '16px 20px', textAlign: 'right', verticalAlign: 'middle' }}>
                                             <button 
                                                 onClick={() => handleViewActions(call)}
                                                 style={{ 
-                                                    padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0',
-                                                    background: '#fff', color: '#1e293b', fontSize: '13px', fontWeight: 700,
+                                                    padding: '7px 14px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                                    background: '#fff', color: '#1e293b', fontSize: '12.5px', fontWeight: 700,
                                                     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                    transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                    whiteSpace: 'nowrap',
+                                                    transition: 'all 0.15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
                                                 }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
                                                 onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
                                             >
-                                                <EyeIcon size={16} color="#1e293b" /> View Actions
+                                                <EyeIcon size={14} color="#475569" /> View Actions
                                             </button>
                                         </td>
                                     </tr>

@@ -912,12 +912,15 @@ export const apiService = {
         }
     },
 
-    getCompletedBatches: async (sleeperType, userId, excludeCallNo) => {
+    getCompletedBatches: async (sleeperType, userId, excludeCallNo, plantId) => {
         try {
             const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
             let url = `${BASE_URL}/FinalInspectionController/completed-batches?sleeperType=${encodeURIComponent(sleeperType)}&userId=${encodeURIComponent(finalUserId)}`;
             if (excludeCallNo) {
                 url += `&excludeCallNo=${encodeURIComponent(excludeCallNo)}`;
+            }
+            if (plantId) {
+                url += `&plantId=${encodeURIComponent(plantId)}`;
             }
             const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch completed batches');
