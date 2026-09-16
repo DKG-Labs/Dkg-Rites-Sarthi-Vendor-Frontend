@@ -616,8 +616,8 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   const handleTcFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      setNotification({ message: 'File too large. Maximum 15 MB allowed.', type: 'error' });
+    if (file.size > 5 * 1024 * 1024) {
+      setNotification({ message: 'File too large. Maximum 5 MB allowed.', type: 'error' });
       return;
     }
     const reader = new FileReader();
@@ -753,7 +753,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
                         title="Remove file">✕</button>
                     </span>
                   ) : (
-                    <span style={{ fontSize: '12px', color: '#6b7280' }}>Max 15 MB · PDF only</span>
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>Max 5 MB · PDF only</span>
                   )}
                   {/* Show existing TC file link when editing */}
                   {editData?.tcFilePath && !tcFileName && (

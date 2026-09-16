@@ -11,16 +11,16 @@ const dimensionHeaderRows = [
     { label: "Lot No.", rowSpan: 2 },
     { label: "Qty. (Nos.)", rowSpan: 2 },
     { label: "Sample size", rowSpan: 2 },
-    { label: "Main gauge acceptance Yes/No", rowSpan: 2 },
+    { label: "Main Gauge Acceptance (Yes/No)", rowSpan: 2 },
     { label: "Falling in Gauges", colSpan: 2 },
-    { label: "Flat bearing length", rowSpan: 2 },
+    { label: "Flat Bearing Length", rowSpan: 2 },
     { label: "No. of defectives", rowSpan: 2 },
     { label: "Cumulative No. of defectives", rowSpan: 2 },
     { label: "Accepted / Not accepted", rowSpan: 2 }
   ],
   [
-    { label: "Go Dimension" },
-    { label: "No Go Dimension" }
+    { label: "Go Dim." },
+    { label: "No Go" }
   ]
 ];
 
