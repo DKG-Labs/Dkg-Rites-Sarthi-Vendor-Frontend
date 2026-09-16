@@ -62,26 +62,28 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const callDate = isEdit && editCall?.callDate ? editCall.callDate : new Date().toLocaleDateString('en-IN');
     const editCallNo = isEdit ? (editCall?.callNo || editCall?.callNumber || editCall?.id) : null;
     const uom = srItem?.uom || srItem?.unit || srItem?.poUnit || srItem?.itemUom || 'Nos.';
+    const isSetTypeString = (str) => {
+        if (!str) return false;
+        const s = String(str).toUpperCase();
+        return s.includes('SET') || s.includes('PNC') || s.includes('TURNOUT') || 
+               s.includes('8746') || s.includes('4218') || s.includes('4865') || 
+               s.includes('9790') || s.includes('4732') || s.includes('DERAIL') ||
+               s.includes('1 IN 12') || s.includes('1 IN 8.5');
+    };
+
     const isSetUom = Boolean(
-        (uom && uom.toUpperCase().includes('SET')) ||
-        (srItem?.uom && String(srItem.uom).toUpperCase().includes('SET')) ||
-        (srItem?.unit && String(srItem.unit).toUpperCase().includes('SET')) ||
-        (srItem?.itemDesc && String(srItem.itemDesc).toUpperCase().includes('SET')) ||
-        (srItem?.description && String(srItem.description).toUpperCase().includes('SET')) ||
-        (srItem?.poDes && String(srItem.poDes).toUpperCase().includes('SET')) ||
-        (srItem?.sleeperType && String(srItem.sleeperType).toUpperCase().includes('PNC')) ||
-        (srItem?.sleeperType && String(srItem.sleeperType).toUpperCase().includes('TURNOUT'))
+        (uom && isSetTypeString(uom)) ||
+        isSetTypeString(srItem?.uom) ||
+        isSetTypeString(srItem?.unit) ||
+        isSetTypeString(srItem?.itemDesc) ||
+        isSetTypeString(srItem?.description) ||
+        isSetTypeString(srItem?.poDes) ||
+        isSetTypeString(srItem?.sleeperType)
     );
 
     // Section A & B state
     const [mainSleeperType, setMainSleeperType] = useState(isEdit && editCall?.sleeperType ? editCall.sleeperType : '');
-    const isEffectiveSetUom = isSetUom || Boolean(
-        mainSleeperType && (
-            mainSleeperType.toUpperCase().includes('PNC') ||
-            mainSleeperType.toUpperCase().includes('TURNOUT') ||
-            mainSleeperType.toUpperCase().includes('SET')
-        )
-    );
+    const isEffectiveSetUom = isSetUom || isSetTypeString(mainSleeperType);
     const displayUom = isEffectiveSetUom ? (uom && uom.toUpperCase().includes('SET') ? uom : 'Set') : uom;
 
     const [dateOfInspection, setDateOfInspection] = useState(() => {
@@ -380,16 +382,16 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
                 const batchPromises = selectedSleeperTypes.map(async (sType) => {
                     try {
-                        const data = await apiService.getCompletedBatches(sType, vendorCode, excludeCallNo);
+                        const data = await apiService.getCompletedBatches(sType, vendorCode, excludeCallNo, currentPlantId);
                         const filteredData = currentPlantId 
                             ? data.filter(b => {
                                 if (!b.plantId) return true;
                                 const bPid = String(b.plantId).replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
                                 const cPid = String(currentPlantId).replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
-                                return !cPid || !bPid || bPid.includes(cPid) || cPid.includes(bPid);
+                                return !cPid || !bPid || bPid === cPid || bPid.includes(cPid) || cPid.includes(bPid);
                             })
                             : data;
-                        return (filteredData.length > 0 ? filteredData : data).map(b => mapBatch(b, sType));
+                        return filteredData.map(b => mapBatch(b, sType));
                     } catch (e) {
                         console.error(`Failed to fetch batches for ${sType}`, e);
                         return [];
