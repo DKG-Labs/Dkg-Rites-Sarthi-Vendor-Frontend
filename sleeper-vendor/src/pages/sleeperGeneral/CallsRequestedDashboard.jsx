@@ -59,6 +59,22 @@ const STATUS_CONFIG = {
     },
 };
 
+export const getCallUom = (call) => {
+    if (call?.uom && String(call.uom).trim() !== '') {
+        const u = String(call.uom).trim();
+        return u.toUpperCase().includes('SET') ? 'Set' : u;
+    }
+    if (call?.unit && String(call.unit).trim() !== '') {
+        const u = String(call.unit).trim();
+        return u.toUpperCase().includes('SET') ? 'Set' : u;
+    }
+    const st = (call?.sleeperType || '').toUpperCase();
+    if (st.includes('SET') || st.includes('PNC') || st.includes('TURNOUT') || st.includes('8746') || st.includes('4218') || st.includes('4865') || st.includes('9790') || st.includes('4732') || st.includes('DERAIL')) {
+        return 'Set';
+    }
+    return 'Nos.';
+};
+
 // ─── No Mock Data ─────────────────────────────────────────────────────────────
 const MOCK_CALLS = [];
 
@@ -169,7 +185,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             { label: 'SR No.', value: call.srNo },
                             { label: 'Call Date', value: call.callDate },
                             { label: 'Sleeper Type', value: call.sleeperType },
-                            { label: 'Qty Offered', value: `${(Number(call.qtyOffered) || 0).toLocaleString()} Nos.` },
+                            { label: 'Qty Offered', value: `${(Number(call.qtyOffered) || 0).toLocaleString()} ${getCallUom(call)}` },
                             { label: 'Batches', value: `${call.batches}` },
                         ].map(m => (
                             <div key={m.label}>
@@ -592,6 +608,7 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
             srNo: c.srNo,
             callDate: c.callDate || new Date().toLocaleDateString('en-IN'),
             sleeperType: c.sleeperType,
+            uom: c.uom || getCallUom(c),
             qtyOffered: Number(c.qtyOffered) || 0,
             batches: Number(c.batches) || 0,
             status: status,
@@ -849,7 +866,7 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                                             {/* Sleeper Info */}
                                             <td style={{ padding: '14px 16px' }}>
                                                 <div style={{ fontWeight: 700, fontSize: 12, color: '#7c3aed' }}>{call.sleeperType}</div>
-                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{(Number(call.qtyOffered) || 0).toLocaleString()} Nos.</div>
+                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{(Number(call.qtyOffered) || 0).toLocaleString()} {getCallUom(call)}</div>
                                                 <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{call.batches} batch{call.batches !== 1 ? 'es' : ''}</div>
                                             </td>
 
@@ -942,7 +959,8 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
                         due: 999999,
                         orderedQty: editCall.poQty || editCall.orderedQty || 0,
                         acceptedTillNow: editCall.acceptedTillNow || 0,
-                        offeredTillNow: editCall.qtyOffered || 0
+                        offeredTillNow: editCall.qtyOffered || 0,
+                        uom: editCall.uom || getCallUom(editCall)
                     }}
                     onClose={() => setEditCall(null)}
                     onSubmitInspectionCall={async () => {

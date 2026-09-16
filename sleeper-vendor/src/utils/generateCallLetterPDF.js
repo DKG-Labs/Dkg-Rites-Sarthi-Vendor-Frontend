@@ -364,9 +364,10 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('PO Sr. No. Qty', poSrNoQty, { rowH: 9 });
 
     // Call Qty
+    const effectiveUom = call.uom || call.callUnit || ((call.sleeperType && (call.sleeperType.includes('8746') || call.sleeperType.includes('4218') || call.sleeperType.includes('4865') || call.sleeperType.includes('9790') || call.sleeperType.includes('4732') || call.sleeperType.includes('PNC') || call.sleeperType.includes('TURNOUT') || call.sleeperType.includes('SET'))) ? 'Set' : 'Nos.');
     const callQtyStr = call.callQty
-        ? `${call.callQty}${call.callUnit ? ' ' + call.callUnit : ''}`
-        : (call.totalOffered || call.qtyOffered ? `${call.totalOffered || call.qtyOffered} Nos.` : '-');
+        ? `${call.callQty} ${effectiveUom}`
+        : (call.totalOffered || call.qtyOffered ? `${call.totalOffered || call.qtyOffered} ${effectiveUom}` : '-');
     drawRow('Call Qty', callQtyStr, { rowH: 9 });
 
     // DP Dates

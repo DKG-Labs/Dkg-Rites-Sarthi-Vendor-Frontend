@@ -27,15 +27,71 @@ const VendorDashboard = () => {
     // ── Shared State (lifted up) ─────────────────────────────────────────────
     const [inspectionCalls, setInspectionCalls] = useState([]);
     const [poCount, setPoCount] = useState(0);
+    const [completedCallsCount, setCompletedCallsCount] = useState(0);
+    const cleanPlantStr = (s) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    const isPlantMatching = (callPlantId, allowedPlantList) => {
+        if (!allowedPlantList || allowedPlantList.length === 0 || !allowedPlantList[0]) return true;
+        const cleanCall = cleanPlantStr(callPlantId);
+        if (!cleanCall) return false;
+
+        return allowedPlantList.some(target => {
+            const cleanTarget = cleanPlantStr(target);
+            if (!cleanTarget) return false;
+            
+            if (cleanCall === cleanTarget) return true;
+            
+            if (cleanCall.includes(cleanTarget) || cleanTarget.includes(cleanCall)) {
+                const callParts = String(callPlantId).split(/[/:]/).filter(Boolean);
+                const targetParts = String(target).split(/[/:]/).filter(Boolean);
+                if (callParts.length > 1 && targetParts.length > 1) {
+                    const callUnit = cleanPlantStr(callParts[callParts.length - 1]);
+                    const targetUnit = cleanPlantStr(targetParts[targetParts.length - 1]);
+                    return callUnit === targetUnit || callUnit.includes(targetUnit) || targetUnit.includes(callUnit);
+                }
+                return true;
+            }
+            return false;
+        });
+    };
+
+    const getEffectivePlantId = () => {
+        const sessionPlant = sessionStorage.getItem('plantId');
+        if (sessionPlant) return sessionPlant;
+        const localPlant = localStorage.getItem('plantId');
+        if (localPlant) return localPlant;
+        try {
+            const savedPlant = localStorage.getItem('selectedPlant');
+            if (savedPlant) {
+                const parsed = JSON.parse(savedPlant);
+                if (parsed?.plantId) return parsed.plantId;
+            }
+        } catch (e) {}
+        return '';
+    };
 
     const fetchInitialCounts = async () => {
         try {
             const userId = sessionStorage.getItem('userId') || 118;
-            const calls = await apiService.getVendorInspectionCalls(userId);
-            setInspectionCalls(calls || []);
+            const plantId = getEffectivePlantId();
 
-            const pos = await apiService.getVendorPOs();
-            setPoCount(pos?.length || 0);
+            const [calls, pos, completed] = await Promise.allSettled([
+                apiService.getVendorInspectionCalls(userId),
+                apiService.getVendorPOs(),
+                apiService.getCompletedFinalCalls(plantId)
+            ]);
+
+            const callsData = calls.status === 'fulfilled' ? calls.value : [];
+            const posData = pos.status === 'fulfilled' ? pos.value : [];
+            const completedData = completed.status === 'fulfilled' ? completed.value : [];
+
+            setInspectionCalls(callsData || []);
+            setPoCount(posData?.length || 0);
+            
+            const filteredCompleted = plantId && Array.isArray(completedData)
+                ? completedData.filter(item => isPlantMatching(item.plantId, [plantId]))
+                : completedData;
+            setCompletedCallsCount(Array.isArray(filteredCompleted) ? filteredCompleted.length : 0);
         } catch (err) {
             console.error("Failed to fetch dashboard counts", err);
         }
@@ -59,7 +115,7 @@ const VendorDashboard = () => {
     const modules = [
         { id: 'po-assigned', title: 'PO Assigned to Vendor', subtitle: 'PO status & details', icon: '📦' },
         { id: 'calls-requested', title: 'Requested Calls', subtitle: 'Request Inspection Call Status', count: inspectionCalls.length },
-        { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: 4 },
+        { id: 'calls-completed', title: 'Completed Calls', subtitle: 'Inspection Calls & IC Download', count: completedCallsCount },
         { id: 'inventory-management', title: 'Inventory Management System', subtitle: 'Stock & consumption', icon: '📦', underDevelopment: true },
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
@@ -73,6 +129,7 @@ const VendorDashboard = () => {
 
 
     const renderContent = () => {
+        const currentPlantId = getEffectivePlantId();
         switch (selectedModule) {
             case 'requested-changes':
                 return <VendorIncomingRequests />;
@@ -87,9 +144,9 @@ const VendorDashboard = () => {
             case 'calls-requested':
                 return <CallsRequestedDashboard inspectionCalls={inspectionCalls} onRefresh={fetchInitialCounts} />;
             case 'calls-completed':
-                return <CallsCompletedDashboard inspectionCalls={inspectionCalls} />;
+                return <CallsCompletedDashboard plantId={currentPlantId} onRefresh={fetchInitialCounts} />;
             case 'payment-module':
-                return <PaymentDetailsDashboard plantId={sessionStorage.getItem('plantId')} vendorCode={sessionStorage.getItem('vendorCode')} />;
+                return <PaymentDetailsDashboard plantId={currentPlantId} vendorCode={sessionStorage.getItem('vendorCode')} />;
             case 'finance':
                 return <FinanceDashboard inspectionCalls={inspectionCalls} />;
             /*

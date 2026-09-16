@@ -867,6 +867,34 @@ export const apiService = {
         }
     },
 
+    getCompletedFinalCalls: async (plantId) => {
+        try {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token && { 'Authorization': `Bearer ${token}` }),
+            };
+            let activePlantId = plantId || sessionStorage.getItem('plantId') || localStorage.getItem('plantId');
+            if (!activePlantId) {
+                try {
+                    const savedPlant = localStorage.getItem('selectedPlant');
+                    if (savedPlant) {
+                        const parsed = JSON.parse(savedPlant);
+                        activePlantId = parsed?.plantId;
+                    }
+                } catch (e) { }
+            }
+            const url = `${BASE_URL}/sleeper-workflow/allFInalCallCompletedCalls${activePlantId ? `?plantId=${encodeURIComponent(activePlantId)}` : ''}`;
+            const response = await fetch(url, { headers });
+            if (!response.ok) throw new Error('Failed to fetch completed final calls');
+            const data = await response.json();
+            return data.responseData || [];
+        } catch (error) {
+            console.error('API Error fetching completed final calls:', error);
+            return [];
+        }
+    },
+
     getCallLetterDetails: async (requestId) => {
         try {
             const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
@@ -874,7 +902,7 @@ export const apiService = {
                 'Content-Type': 'application/json',
                 ...(token && { 'Authorization': `Bearer ${token}` }),
             };
-            const response = await fetch(`${BASE_URL}/call-letters/details?requestId=${encodeURIComponent(requestId)}`, { headers });
+            const response = await fetch(`${BASE_URL}/call-letter/details?requestId=${encodeURIComponent(requestId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch call letter details');
             const data = await response.json();
             return data.responseData || null;
