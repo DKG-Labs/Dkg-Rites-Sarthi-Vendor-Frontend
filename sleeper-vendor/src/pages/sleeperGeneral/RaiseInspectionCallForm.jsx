@@ -62,29 +62,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const callDate = isEdit && editCall?.callDate ? editCall.callDate : new Date().toLocaleDateString('en-IN');
     const editCallNo = isEdit ? (editCall?.callNo || editCall?.callNumber || editCall?.id) : null;
     const uom = srItem?.uom || srItem?.unit || srItem?.poUnit || srItem?.itemUom || 'Nos.';
-    const isSetTypeString = (str) => {
-        if (!str) return false;
-        const s = String(str).toUpperCase();
-        return s.includes('SET') || s.includes('PNC') || s.includes('TURNOUT') || 
-               s.includes('8746') || s.includes('4218') || s.includes('4865') || 
-               s.includes('9790') || s.includes('4732') || s.includes('DERAIL') ||
-               s.includes('1 IN 12') || s.includes('1 IN 8.5');
-    };
-
-    const isSetUom = Boolean(
-        (uom && isSetTypeString(uom)) ||
-        isSetTypeString(srItem?.uom) ||
-        isSetTypeString(srItem?.unit) ||
-        isSetTypeString(srItem?.itemDesc) ||
-        isSetTypeString(srItem?.description) ||
-        isSetTypeString(srItem?.poDes) ||
-        isSetTypeString(srItem?.sleeperType)
-    );
+    const isEffectiveSetUom = Boolean(uom && String(uom).toUpperCase().includes('SET'));
+    const displayUom = uom;
 
     // Section A & B state
     const [mainSleeperType, setMainSleeperType] = useState(isEdit && editCall?.sleeperType ? editCall.sleeperType : '');
-    const isEffectiveSetUom = isSetUom || isSetTypeString(mainSleeperType);
-    const displayUom = isEffectiveSetUom ? (uom && uom.toUpperCase().includes('SET') ? uom : 'Set') : uom;
 
     const [dateOfInspection, setDateOfInspection] = useState(() => {
         if (isEdit && (editCall?.desiredInspectionDate || editCall?.inspectionDate)) {
@@ -95,7 +77,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const [toBeOffered, setToBeOffered] = useState(() => {
         if (isEdit && editCall?.totalOffered) return editCall.totalOffered;
         if (isEdit && editCall?.qtyOffered) return editCall.qtyOffered;
-        if (isSetUom || isEffectiveSetUom) return Math.min(1, srItem?.due !== undefined && srItem?.due > 0 ? srItem.due : 1);
+        if (isEffectiveSetUom) return Math.min(1, srItem?.due !== undefined && srItem?.due > 0 ? srItem.due : 1);
         return '';
     });
     const [sleeperTypes, setSleeperTypes] = useState([]);
@@ -564,8 +546,8 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
             exceedsCap = (due !== null && due !== undefined && offeredQtyValue > 0) ? (offeredQtyValue > due) : false;
             afterOffering = (due !== null && due !== undefined && offeredQtyValue > 0) ? (due - offeredQtyValue) : null;
         } else {
-            // When UOM is Nos./standard, validate totalPassedCount / toBeOffered against due (Nos.)
-            offeredQtyValue = (toBeOffered !== '' && toBeOffered !== null && toBeOffered !== undefined) ? Number(toBeOffered) : totalPassedCount;
+            // When UOM is Nos./standard, validate totalPassedCount against due (Nos.)
+            offeredQtyValue = totalPassedCount;
             exceedsCap = (due !== null && due !== undefined) ? (offeredQtyValue > due) : false;
             afterOffering = (due !== null && due !== undefined) ? (due - offeredQtyValue) : null;
         }
@@ -582,7 +564,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         };
     }, [batchSelections, batches, srItem, isEffectiveSetUom, toBeOffered]);
 
-    // Keep toBeOffered in sync when batches are selected ONLY if UOM is NOT 'SET'
+    // Keep toBeOffered in sync when batches are selected ONLY if UOM is 'SET'
     useEffect(() => {
         if (isEffectiveSetUom) {
             setToBeOffered(prev => {
@@ -592,9 +574,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 return prev;
             });
         } else {
-            if (summary.totalPassedCount > 0) {
-                setToBeOffered(summary.totalPassedCount);
-            }
+            setToBeOffered(summary.totalPassedCount);
         }
     }, [summary.totalPassedCount, isEffectiveSetUom, srItem?.due]);
 
@@ -780,50 +760,52 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                             <StatBox label="Cumm. Qty Offered Previously" value={(srItem.offeredTillNow || 0).toLocaleString()} color="#7c3aed" />
                             <StatBox label="Qty. Passed Previously" value={(srItem.acceptedTillNow || 0).toLocaleString()} color="#16a34a" />
                             <StatBox label="Qty Pending for Verification" value={(srItem.due || 0).toLocaleString()} highlight={(srItem.due || 0) === 0} />
-                            <div style={{
-                                background: '#fff',
-                                border: '1.5px solid #21808d',
-                                borderRadius: 10, padding: '8px 12px', minWidth: 150, flex: '1 1 150px',
-                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                                boxShadow: '0 2px 6px rgba(33,128,141,0.08)'
-                            }}>
-                                <div style={{ fontSize: 11, color: '#21808d', fontWeight: 700, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>To Be Offered ({displayUom}) <span style={{ color: '#dc2626' }}>*</span></span>
-                                    {isEffectiveSetUom && srItem.due !== undefined && (
-                                        <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Max: {srItem.due}</span>
-                                    )}
-                                </div>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max={srItem.due !== undefined ? srItem.due : undefined}
-                                    step="1"
-                                    value={toBeOffered}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setToBeOffered(val === '' ? '' : parseInt(val, 10) || 0);
-                                    }}
-                                    placeholder={isEffectiveSetUom ? "1" : "0"}
-                                    style={{
-                                        width: '100%',
-                                        height: 28,
-                                        border: '1px solid #cbd5e1',
-                                        borderRadius: 6,
-                                        padding: '2px 8px',
-                                        fontSize: 17,
-                                        fontWeight: 800,
-                                        color: '#0d3b3f',
-                                        outline: 'none',
-                                        background: '#f8fafc',
-                                        boxSizing: 'border-box'
-                                    }}
-                                />
-                                {isEffectiveSetUom && (
+                            {isEffectiveSetUom ? (
+                                <div style={{
+                                    background: '#fff',
+                                    border: '1.5px solid #21808d',
+                                    borderRadius: 10, padding: '8px 12px', minWidth: 150, flex: '1 1 150px',
+                                    display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                                    boxShadow: '0 2px 6px rgba(33,128,141,0.08)'
+                                }}>
+                                    <div style={{ fontSize: 11, color: '#21808d', fontWeight: 700, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>To Be Offered ({displayUom}) <span style={{ color: '#dc2626' }}>*</span></span>
+                                        {srItem.due !== undefined && (
+                                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Max: {srItem.due}</span>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={srItem.due !== undefined ? srItem.due : undefined}
+                                        step="1"
+                                        value={toBeOffered}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setToBeOffered(val === '' ? '' : parseInt(val, 10) || 0);
+                                        }}
+                                        placeholder="1"
+                                        style={{
+                                            width: '100%',
+                                            height: 28,
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: 6,
+                                            padding: '2px 8px',
+                                            fontSize: 17,
+                                            fontWeight: 800,
+                                            color: '#0d3b3f',
+                                            outline: 'none',
+                                            background: '#f8fafc',
+                                            boxSizing: 'border-box'
+                                        }}
+                                    />
                                     <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 3 }}>
                                         Enter number of <strong>Sets</strong> (e.g. 1)
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <StatBox label={`To Be Offered (${displayUom})`} value={summary.totalPassedCount.toLocaleString()} color="#21808d" />
+                            )}
                         </div>
                     </div>
 
@@ -1524,7 +1506,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         disabled={
                             isEffectiveSetUom
                                 ? (!toBeOffered || Number(toBeOffered) <= 0 || (srItem.due !== undefined && srItem.due !== null && Number(toBeOffered) > srItem.due) || summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
-                                : ((toBeOffered !== '' ? Number(toBeOffered) <= 0 : summary.totalPassedCount === 0) || (srItem.due !== undefined && srItem.due !== null && (toBeOffered !== '' ? Number(toBeOffered) > srItem.due : summary.exceedsCap)) || !mainSleeperType || !dateOfInspection || isSubmitting)
+                                : (summary.totalPassedCount === 0 || summary.exceedsCap || !mainSleeperType || !dateOfInspection || isSubmitting)
                         }
                         onClick={async () => {
                             setIsSubmitting(true);
@@ -1539,7 +1521,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 
                                 const effectiveOffered = isEffectiveSetUom
                                     ? (toBeOffered !== '' ? Number(toBeOffered) : 1)
-                                    : (toBeOffered !== '' ? Number(toBeOffered) : (Number(summary.totalPassedCount) || 0));
+                                    : (Number(summary.totalPassedCount) || 0);
 
                                 // Call's sleeperType is ALWAYS the Main Sleeper Type selected in Section A
                                 const payload = {
