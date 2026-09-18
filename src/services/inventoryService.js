@@ -438,14 +438,26 @@ const inventoryService = {
     }
   },
   /**
-   * Check if a TC number already exists in inventory for a vendor
+   * Check if a TC number already exists in inventory for a supplier across all vendors
    * @param {String} tcNumber - TC number to check
-   * @param {String} vendorCode - Vendor code
+   * @param {String} supplierName - Supplier name
+   * @param {String} [vendorCode] - Optional Vendor code
+   * @param {Number|String} [excludeId] - Optional entry ID to exclude (for edit mode)
    * @returns {Promise<Object>} - API response with boolean (true if exists, false if unique)
    */
-  checkTcUniqueness: async (tcNumber, vendorCode) => {
+  checkTcUniqueness: async (tcNumber, supplierName, vendorCode, excludeId) => {
     try {
-      const response = await httpClient.get(`/vendor/inventory/check-tc-uniqueness?tcNumber=${encodeURIComponent(tcNumber)}&vendorCode=${encodeURIComponent(vendorCode)}`);
+      let url = `/vendor/inventory/check-tc-uniqueness?tcNumber=${encodeURIComponent(tcNumber)}`;
+      if (supplierName) {
+        url += `&supplierName=${encodeURIComponent(supplierName)}`;
+      }
+      if (vendorCode) {
+        url += `&vendorCode=${encodeURIComponent(vendorCode)}`;
+      }
+      if (excludeId) {
+        url += `&excludeId=${encodeURIComponent(excludeId)}`;
+      }
+      const response = await httpClient.get(url);
       if (response && response.success) {
         return {
           success: true,
