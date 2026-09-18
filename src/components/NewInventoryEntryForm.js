@@ -48,29 +48,45 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   const [tcFileBase64, setTcFileBase64] = useState('');
   const [tcFileName, setTcFileName] = useState('');
 
-  // Debounced TC Number uniqueness check
+  // Debounced TC Number & Supplier uniqueness check across all vendors
   useEffect(() => {
     const checkUniqueness = async () => {
-      // If we are editing and the TC number is same as original, it's not a duplicate
-      if (editData && formData.tcNumber === editData.tcNumber) {
+      // If we are editing and both TC number and Supplier are unchanged, it's not a duplicate of itself
+      if (editData && formData.tcNumber === editData.tcNumber && formData.supplierName === editData.supplierName) {
         return;
       }
 
-      // Only check if it's not empty and at least 3 chars to avoid too many calls
-      if (formData.tcNumber && formData.tcNumber.length >= 3) {
+      const trimmedTc = formData.tcNumber ? formData.tcNumber.trim() : '';
+      const trimmedSupplier = formData.supplierName ? formData.supplierName.trim() : '';
+
+      // Check when both TC Number and Supplier are provided
+      if (trimmedTc && trimmedSupplier) {
         setIsCheckingTC(true);
         try {
           const user = getStoredUser();
           const vendorCode = user?.userName;
+          const excludeId = editData?.id || null;
 
-          if (vendorCode) {
-            const response = await inventoryService.checkTcUniqueness(formData.tcNumber, vendorCode);
-            if (response.success && response.exists) {
-              setErrors(prev => ({
-                ...prev,
-                tcNumber: 'This TC Number already exists in your inventory.'
-              }));
-            }
+          const response = await inventoryService.checkTcUniqueness(trimmedTc, trimmedSupplier, vendorCode, excludeId);
+          if (response.success && response.exists) {
+            const errorMsg = `Combination of Supplier '${trimmedSupplier}' and TC Number '${trimmedTc}' already exists in the system.`;
+            setErrors(prev => ({
+              ...prev,
+              tcNumber: errorMsg
+            }));
+            setNotification({
+              message: `⚠️ ${errorMsg}`,
+              type: 'error'
+            });
+          } else {
+            // Clear previous uniqueness error if now valid
+            setErrors(prev => {
+              if (prev.tcNumber && prev.tcNumber.includes('already exists')) {
+                const { tcNumber, ...rest } = prev;
+                return rest;
+              }
+              return prev;
+            });
           }
         } catch (error) {
           console.error('Error checking TC uniqueness:', error);
@@ -82,10 +98,10 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
 
     const timer = setTimeout(() => {
       checkUniqueness();
-    }, 600);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [formData.tcNumber, editData]);
+  }, [formData.tcNumber, formData.supplierName, editData]);
 
   // Populating form data when editData changes
   useEffect(() => {
@@ -364,6 +380,20 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
         unitName: '',
         supplierAddress: ''
       }));
+    } else if (name === 'tcNumber') {
+      // Disallow any whitespace in TC Number
+      const sanitized = value.replace(/\s+/g, '');
+      if (value !== sanitized) {
+        setNotification({
+          message: 'Spaces are not allowed in TC Number.',
+          type: 'warning'
+        });
+      }
+      setFormData(prev => ({ ...prev, tcNumber: sanitized }));
+      if (errors.tcNumber && !errors.tcNumber.includes('already exists')) {
+        setErrors(prev => ({ ...prev, tcNumber: '' }));
+      }
+      return;
     } else if (name === 'supplierName') {
       setFormData(prev => ({
         ...prev,
@@ -488,6 +518,10 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
     /* TC Uniqueness Check */
     if (errors.tcNumber && errors.tcNumber.includes('already exists')) {
       newErrors.tcNumber = errors.tcNumber;
+      setNotification({
+        message: `⚠️ ${errors.tcNumber}`,
+        type: 'error'
+      });
     }
 
     /* TC File Upload Validation */
@@ -504,6 +538,11 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
 
     if (isCheckingTC) {
       setNotification({ message: 'Please wait while we verify the TC Number uniqueness...', type: 'warning' });
+      return;
+    }
+
+    if (errors.tcNumber && errors.tcNumber.includes('already exists')) {
+      setNotification({ message: `⚠️ ${errors.tcNumber}`, type: 'error' });
       return;
     }
 
@@ -710,7 +749,33 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
                   name="tcNumber"
                   value={formData.tcNumber}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                      setNotification({
+                        message: 'Spaces are not allowed in TC Number.',
+                        type: 'warning'
+                      });
+                    }
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text');
+                    const sanitized = text.replace(/\s+/g, '');
+                    if (text !== sanitized) {
+                      setNotification({
+                        message: 'Spaces were automatically removed from pasted TC Number.',
+                        type: 'info'
+                      });
+                    }
+                    setFormData(prev => ({ ...prev, tcNumber: (prev.tcNumber || '') + sanitized }));
+                    if (errors.tcNumber && !errors.tcNumber.includes('already exists')) {
+                      setErrors(prev => ({ ...prev, tcNumber: '' }));
+                    }
+                  }}
                   className={errors.tcNumber ? 'error' : ''}
+                  placeholder="Enter TC Number (no spaces)"
+                  autoComplete="off"
                 />
                 {isCheckingTC && <div className="loader-mini"></div>}
               </div>
