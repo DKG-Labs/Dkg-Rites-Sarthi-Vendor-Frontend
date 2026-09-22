@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import inspectionCallService from '../../../services/inspectionCallService';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
 import NCRGRSPFinalInspectionCall from '../POAssigned/NCRGRSPFinalInspectionCall';
+import RaiseRailPadInspectionCallForm from '../POAssigned/RaiseRailPadInspectionCallForm';
 import { 
     Search, FileText, Calendar, Package, Eye, 
     ChevronRight, Loader2, AlertCircle, CheckCircle2,
@@ -1058,7 +1059,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <div style={{
                         background: '#ffffff',
                         borderRadius: '20px',
-                        maxWidth: (selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? '1200px' : '960px',
+                        maxWidth: (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF') || selectedCall.callNo?.startsWith('RFF')) ? '1200px' : '960px',
                         width: '100%',
                         maxHeight: '94vh',
                         overflow: 'hidden',
@@ -1071,6 +1072,17 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                         {(selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? (
                             <NCRGRSPFinalInspectionCall
                                 isReadOnly={true}
+                                callData={selectedCall}
+                                poNo={selectedCall.poNo}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                plantId={selectedCall.plantId || plantId}
+                                vendorCode={selectedCall.vendorCode || vendorCode}
+                                onClose={() => setIsViewingFullDetails(false)}
+                            />
+                        ) : (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF') || selectedCall.callNo?.startsWith('RFF')) ? (
+                            <RaiseRailPadInspectionCallForm
+                                isReadOnly={true}
+                                isWrapped={true}
                                 callData={selectedCall}
                                 poNo={selectedCall.poNo}
                                 srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
@@ -1105,7 +1117,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <div style={{
                         background: '#ffffff',
                         borderRadius: '20px',
-                        maxWidth: (selectedCall.railPadType?.includes('NCRGRSP') || selectedCall.drawingNo?.includes('NRC') || selectedCall.drawingNo?.includes('NCR') || selectedCall.poDes?.includes('NCRGRSP') || selectedCall.itemDescription?.includes('NCRGRSP')) && (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF')) ? '1200px' : '900px',
+                        maxWidth: (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF') || selectedCall.callNo?.startsWith('RFF')) ? '1200px' : '900px',
                         width: '100%',
                         maxHeight: '94vh',
                         display: 'flex',
@@ -1134,6 +1146,33 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         return res;
                                     } catch (err) {
                                         console.error("Error saving NCRGRSP modification:", err);
+                                        const msg = err?.response?.data?.responseStatus?.message || err?.response?.data?.message || err?.message || 'Failed to modify inspection call.';
+                                        showToast('error', msg);
+                                        throw err;
+                                    }
+                                }}
+                                onClose={() => setIsModifyModalOpen(false)}
+                            />
+                        ) : (selectedCall.callType === 'FINAL' || selectedCall.callNo?.startsWith('RPF') || selectedCall.callNo?.startsWith('RFF')) ? (
+                            <RaiseRailPadInspectionCallForm
+                                isReadOnly={false}
+                                isModifyMode={true}
+                                isWrapped={true}
+                                callData={selectedCall}
+                                poNo={selectedCall.poNo}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                plantId={selectedCall.plantId || plantId}
+                                vendorCode={selectedCall.vendorCode || vendorCode}
+                                onSubmitInspectionCall={async (payload) => {
+                                    try {
+                                        showToast('info', `Saving modifications for Call No: ${payload.callNo}...`);
+                                        const res = await inspectionCallService.modifyCall(payload);
+                                        showToast('success', `Inspection Call ${payload.callNo} modified successfully!`);
+                                        setIsModifyModalOpen(false);
+                                        fetchCalls();
+                                        return res;
+                                    } catch (err) {
+                                        console.error("Error saving modification:", err);
                                         const msg = err?.response?.data?.responseStatus?.message || err?.response?.data?.message || err?.message || 'Failed to modify inspection call.';
                                         showToast('error', msg);
                                         throw err;

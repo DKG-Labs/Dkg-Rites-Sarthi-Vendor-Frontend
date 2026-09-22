@@ -3318,7 +3318,7 @@ const VendorDashboardPage = ({ onBack }) => {
       width: '210px',
       render: (_, row) => {
         let details = `${row.ercType || ''} (${row.stage})`;
-        if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
+        if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} ${row.noOfHeatsRM === 1 ? 'Heat' : 'Heats'}`;
         if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
         if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
         return details;
@@ -6275,7 +6275,7 @@ const VendorDashboardPage = ({ onBack }) => {
                           <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
                             {(() => {
                               let details = `${row.ercType || row.item_name || ''}`;
-                              if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
+                              if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} ${row.noOfHeatsRM === 1 ? 'Heat' : 'Heats'}`;
                               if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
                               if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
                               return details;
@@ -6292,7 +6292,7 @@ const VendorDashboardPage = ({ onBack }) => {
                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
                           {(() => {
                             let details = `${row.ercType || row.item_name || ''}`;
-                            if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} Heats`;
+                            if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} ${row.noOfHeatsRM === 1 ? 'Heat' : 'Heats'}`;
                             if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
                             if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
                             return details;
