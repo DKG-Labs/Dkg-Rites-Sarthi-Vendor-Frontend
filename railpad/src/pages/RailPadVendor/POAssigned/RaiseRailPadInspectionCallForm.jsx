@@ -6,7 +6,7 @@ import { formatDateDDMMYY } from '../../../utils/dateUtils';
 import {
     Calendar, Package, ClipboardList, CheckCircle2,
     AlertCircle, Trash2, ChevronDown, ChevronUp, Plus, Minus,
-    Info, Search
+    Info, Search, Edit
 } from 'lucide-react';
 import { API_CONFIG } from '../../../services/config';
 import NCRGRSPFinalInspectionCall from './NCRGRSPFinalInspectionCall';
@@ -74,9 +74,6 @@ const DRAWING_MAPPING = {
 
 const UOM_OPTIONS = ['Nos.', 'Set'];
 
-// ─── Mock Inventory Data ──────────────────────────────────────────────────────
-// (Mock data removed)
-
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 const SectionHeader = ({ label, step, color = '#21808d' }) => (
     <div style={{
@@ -120,45 +117,155 @@ const StatBox = ({ label, value, highlight, color, Icon, suffix }) => (
 );
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
-const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onClose, onSubmitInspectionCall, isWrapped }) => {
+const RaiseRailPadInspectionCallForm = ({
+    srItem,
+    poNo,
+    plantId,
+    vendorCode,
+    onClose,
+    onSubmitInspectionCall,
+    isWrapped,
+    isReadOnly = false,
+    isModifyMode = false,
+    callData = null
+}) => {
+    const effectivePoNo = poNo || callData?.poNo || callData?.po_no || '';
+    const effectiveSrItem = srItem || {
+        itemSrNo: callData?.poSr || callData?.poSerialNo || callData?.po_sr || '001',
+        orderedQty: callData?.orderedQty || callData?.totalQty || 0,
+        acceptedTillNow: callData?.qtyAcceptedTillNow || 0,
+        rejectedTillNow: callData?.qtyRejectedTillNow || 0,
+        offeredTillNow: callData?.qtyOfferedTillNow || 0,
+        due: callData?.dueQty || callData?.orderedQty || callData?.totalQty || 0,
+        ...callData
+    };
+    const effectiveCallNo = callData?.callNo || callData?.call_no || '';
+
     // ─── ALL STATE HOOKS (must all be declared before any conditional return) ─────
     const storageKey = useMemo(() => {
-        const po = poNo ? String(poNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
-        const sr = srItem?.itemSrNo || srItem?.srNo || '1';
+        const po = effectivePoNo ? String(effectivePoNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
+        const sr = effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1';
         return `railpad_draft_std_final_${po}_${sr}`;
-    }, [poNo, srItem?.itemSrNo, srItem?.srNo]);
+    }, [effectivePoNo, effectiveSrItem?.itemSrNo, effectiveSrItem?.srNo]);
 
     const savedDraft = useMemo(() => {
+        if (callData || isReadOnly || isModifyMode) return null;
         try {
             const item = localStorage.getItem(storageKey);
             return item ? JSON.parse(item) : null;
         } catch (e) {
             return null;
         }
-    }, [storageKey]);
+    }, [storageKey, callData, isReadOnly, isModifyMode]);
 
-    const defaultPadType = (srItem?.poDes?.includes('NCRGRSP') || srItem?.description?.includes('NCRGRSP')) ? '6.00mm NCRGRSP' : '';
-    const [railPadType, setRailPadType] = useState(savedDraft?.railPadType || defaultPadType);
-    const [drawingNo, setDrawingNo] = useState(savedDraft?.drawingNo || '');
-    const [selectedProcessIcs, setSelectedProcessIcs] = useState(savedDraft?.selectedProcessIcs || []);
+    const defaultPadType = (effectiveSrItem?.poDes?.includes('NCRGRSP') || effectiveSrItem?.description?.includes('NCRGRSP'))
+        ? '6.00mm NCRGRSP'
+        : (callData?.railPadType || '');
+    const extractProcessIcs = (data) => {
+        if (!data) return [];
+        const raw = data.processInspectionCertNo || data.processIcNo || data.process_ic_no || data.processIcNumbers || data.processIc || '';
+        if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
+        if (typeof raw === 'string' && raw.trim()) {
+            return raw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return [];
+    };
+
+    const initialProcessIcs = extractProcessIcs(callData);
+    const [railPadType, setRailPadType] = useState(callData?.railPadType || savedDraft?.railPadType || defaultPadType);
+    const [drawingNo, setDrawingNo] = useState(callData?.drawingNo || savedDraft?.drawingNo || '');
+    const [selectedProcessIcs, setSelectedProcessIcs] = useState(
+        initialProcessIcs.length > 0 ? initialProcessIcs : (savedDraft?.selectedProcessIcs || [])
+    );
     const [processCalls, setProcessCalls] = useState([]);
     const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
-    const uom = srItem?.unit || srItem?.uom || 'Nos.';
-    const [desiredDate, setDesiredDate] = useState(savedDraft?.desiredDate || new Date().toISOString().split('T')[0]);
-    const [totalQtyToOffer, setTotalQtyToOffer] = useState(savedDraft?.totalQtyToOffer || '');
-    const [noOfLots, setNoOfLots] = useState(savedDraft?.noOfLots !== undefined ? savedDraft.noOfLots : 1);
-    const [remarks, setRemarks] = useState(savedDraft?.remarks || '');
+    const uom = effectiveSrItem?.unit || effectiveSrItem?.uom || 'Nos.';
+    const [desiredDate, setDesiredDate] = useState(() => {
+        if (callData?.inspectionDate) {
+            try {
+                return new Date(callData.inspectionDate).toISOString().split('T')[0];
+            } catch (e) {
+                return callData.inspectionDate;
+            }
+        }
+        return savedDraft?.desiredDate || new Date().toISOString().split('T')[0];
+    });
+    const [totalQtyToOffer, setTotalQtyToOffer] = useState(
+        callData?.totalQty !== undefined ? String(callData.totalQty) : (savedDraft?.totalQtyToOffer || '')
+    );
+    const initialLotsCount = callData?.noOfLots || (callData?.lots && callData.lots.length > 0 ? callData.lots.length : (savedDraft?.noOfLots !== undefined ? savedDraft.noOfLots : 1));
+    const [noOfLots, setNoOfLots] = useState(initialLotsCount);
+    const [remarks, setRemarks] = useState(callData?.remarks || savedDraft?.remarks || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [loadingInventory, setLoadingInventory] = useState(false);
     const [notification, setNotification] = useState(null);
-    const [lots, setLots] = useState(savedDraft?.lots || [{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }]);
+
+    const initialLotsState = useMemo(() => {
+        if (callData?.lots && Array.isArray(callData.lots) && callData.lots.length > 0) {
+            return callData.lots.map((l, lIdx) => {
+                const sel = {};
+                (l.batches || []).forEach(b => {
+                    const bKey = b.declarationBatchId || b.infoId || b.id || b.batchNo;
+                    sel[bKey] = Number(b.quantity || b.qtyToUse || 0);
+                });
+                return {
+                    id: l.id || lIdx + 1,
+                    lotNo: l.lotNo || `LOT-${lIdx + 1}`,
+                    selectedBatches: sel
+                };
+            });
+        }
+        return savedDraft?.lots || [{ id: 1, lotNo: 'LOT-1', selectedBatches: {} }];
+    }, [callData, savedDraft]);
+
+    const [lots, setLots] = useState(initialLotsState);
     const [expandedLots, setExpandedLots] = useState({ 0: true });
     const [expandedDates, setExpandedDates] = useState({});
     const [activePartialLotIdx, setActivePartialLotIdx] = useState(null);
 
-    // Persist standard final call draft to localStorage
+    // Sync state if callData changes
     useEffect(() => {
+        if (callData) {
+            if (callData.railPadType) setRailPadType(callData.railPadType);
+            if (callData.drawingNo) setDrawingNo(callData.drawingNo);
+            const ics = extractProcessIcs(callData);
+            if (ics.length > 0) {
+                setSelectedProcessIcs(ics);
+            }
+            if (callData.inspectionDate) {
+                try {
+                    setDesiredDate(new Date(callData.inspectionDate).toISOString().split('T')[0]);
+                } catch (e) {
+                    setDesiredDate(callData.inspectionDate);
+                }
+            }
+            if (callData.totalQty !== undefined) setTotalQtyToOffer(String(callData.totalQty));
+            if (callData.remarks !== undefined) setRemarks(callData.remarks || '');
+            const lotsCount = callData.noOfLots || (callData.lots && callData.lots.length > 0 ? callData.lots.length : 1);
+            setNoOfLots(lotsCount);
+
+            if (Array.isArray(callData.lots) && callData.lots.length > 0) {
+                const mappedLots = callData.lots.map((l, lIdx) => {
+                    const sel = {};
+                    (l.batches || []).forEach(b => {
+                        const bKey = b.declarationBatchId || b.infoId || b.id || b.batchNo;
+                        sel[bKey] = Number(b.quantity || b.qtyToUse || 0);
+                    });
+                    return {
+                        id: l.id || lIdx + 1,
+                        lotNo: l.lotNo || `LOT-${lIdx + 1}`,
+                        selectedBatches: sel
+                    };
+                });
+                setLots(mappedLots);
+            }
+        }
+    }, [callData]);
+
+    // Persist standard final call draft to localStorage (only when raising new call)
+    useEffect(() => {
+        if (callData || isReadOnly || isModifyMode) return;
         if (railPadType && railPadType.includes('NCRGRSP')) return; // NCRGRSP manages its own draft
         try {
             const draftData = {
@@ -175,9 +282,8 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
         } catch (e) {
             console.warn('Error persisting standard final call draft:', e);
         }
-    }, [storageKey, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots, remarks]);
+    }, [storageKey, callData, isReadOnly, isModifyMode, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots, remarks]);
 
-    // ─── ALL EFFECTS (must all be declared before any conditional return) ─────
     // Fetch process calls matching railPadType and drawingNo
     useEffect(() => {
         const fetchProcessCalls = async () => {
@@ -187,7 +293,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
             try {
                 setLoadingProcessCalls(true);
-                const cleanPo = poNo ? String(poNo).split('/')[0].trim() : '';
+                const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
                 const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, '');
                 const sortedData = Array.isArray(data) ? [...data].sort((a, b) => {
                     const dateA = new Date(a.createdAt || a.created_at || a.createdOn || 0);
@@ -200,6 +306,17 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     return callNoB.localeCompare(callNoA, undefined, { numeric: true, sensitivity: 'base' });
                 }) : [];
                 setProcessCalls(sortedData);
+
+                // Pre-select process ICs if not already selected
+                setSelectedProcessIcs(prev => {
+                    if (prev && prev.length > 0) return prev;
+                    const extracted = extractProcessIcs(callData);
+                    if (extracted.length > 0) return extracted;
+                    if (!callData && !isReadOnly && !isModifyMode && sortedData.length > 0) {
+                        return sortedData.map(c => c.callNo || c.inspectionCallNo || c.id).filter(Boolean);
+                    }
+                    return prev;
+                });
             } catch (error) {
                 console.error('Error fetching process calls:', error);
             } finally {
@@ -207,19 +324,19 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId, poNo]);
+    }, [railPadType, drawingNo, plantId, effectivePoNo, callData, isReadOnly, isModifyMode]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
         const fetchProcessBatches = async () => {
-            if (selectedProcessIcs.length === 0) {
+            if (selectedProcessIcs.length === 0 && (!callData?.lots || callData.lots.length === 0)) {
                 setInventory([]);
                 return;
             }
             try {
                 setLoadingInventory(true);
                 const results = await Promise.all(
-                    selectedProcessIcs.map(ic => inspectionCallService.getAvailableFinalBatches(ic))
+                    selectedProcessIcs.map(ic => inspectionCallService.getAvailableFinalBatches(ic, effectiveCallNo))
                 );
                 
                 const allBatches = [];
@@ -242,14 +359,15 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                         ? Math.max(0, Math.min(Number(b.qtyAccepted), netAccepted))
                         : netAccepted;
 
-                    const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo && eb.drawingNo === b.drawingNo);
+                    const bKey = b.declarationBatchId || b.id || b.batchNo;
+                    const existingBatch = grouped[dateStr].find(eb => eb.batchNo === b.batchNo && (eb.drawingNo === b.drawingNo || String(eb.id) === String(bKey)));
                     if (existingBatch) {
                         existingBatch.acceptedQty += finalAccepted;
                         existingBatch.quantity += finalAccepted;
                     } else {
                         grouped[dateStr].push({
-                            id: b.declarationBatchId || b.id,
-                            infoId: b.declarationBatchId || b.id,
+                            id: bKey,
+                            infoId: bKey,
                             batchNo: b.batchNo,
                             productType: railPadType,
                             drawingNo: b.drawingNo,
@@ -259,6 +377,35 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     }
                 });
 
+                // Ensure batches saved in callData.lots are also present in grouped inventory (for View and Modify modes)
+                if (callData?.lots && Array.isArray(callData.lots)) {
+                    callData.lots.forEach(lot => {
+                        (lot.batches || []).forEach(b => {
+                            const dateStr = b.productionDate || new Date().toISOString().split('T')[0];
+                            if (!grouped[dateStr]) {
+                                grouped[dateStr] = [];
+                            }
+                            const bKey = b.declarationBatchId || b.infoId || b.id || b.batchNo;
+                            const existing = grouped[dateStr].find(eb => eb.batchNo === b.batchNo && (String(eb.id) === String(bKey) || eb.drawingNo === b.drawingNo));
+                            const bQty = Number(b.quantity || b.qtyToUse || 0);
+                            if (!existing) {
+                                grouped[dateStr].push({
+                                    id: bKey,
+                                    infoId: bKey,
+                                    batchNo: b.batchNo,
+                                    productType: railPadType,
+                                    drawingNo: b.drawingNo || drawingNo,
+                                    acceptedQty: bQty,
+                                    quantity: bQty
+                                });
+                            } else if (existing.acceptedQty < bQty) {
+                                existing.acceptedQty = Math.max(existing.acceptedQty, bQty);
+                                existing.quantity = Math.max(existing.quantity, bQty);
+                            }
+                        });
+                    });
+                }
+
                 const mappedInventory = Object.entries(grouped).map(([date, batches]) => ({
                     castingDate: date,
                     batches: batches
@@ -266,15 +413,39 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 setInventory(mappedInventory);
             } catch (error) {
                 console.error('Error fetching process batches:', error);
-                setInventory([]);
+                if (callData?.lots && Array.isArray(callData.lots)) {
+                    const grouped = {};
+                    callData.lots.forEach(lot => {
+                        (lot.batches || []).forEach(b => {
+                            const dateStr = b.productionDate || new Date().toISOString().split('T')[0];
+                            if (!grouped[dateStr]) grouped[dateStr] = [];
+                            const bKey = b.declarationBatchId || b.infoId || b.id || b.batchNo;
+                            const bQty = Number(b.quantity || b.qtyToUse || 0);
+                            grouped[dateStr].push({
+                                id: bKey,
+                                infoId: bKey,
+                                batchNo: b.batchNo,
+                                productType: railPadType,
+                                drawingNo: b.drawingNo || drawingNo,
+                                acceptedQty: bQty,
+                                quantity: bQty
+                            });
+                        });
+                    });
+                    setInventory(Object.entries(grouped).map(([date, batches]) => ({ castingDate: date, batches })));
+                } else {
+                    setInventory([]);
+                }
             } finally {
                 setLoadingInventory(false);
             }
         };
         fetchProcessBatches();
-    }, [selectedProcessIcs, railPadType]);
+    }, [selectedProcessIcs, railPadType, effectiveCallNo, callData, drawingNo]);
 
+    // Handle lots count change when raising/modifying
     useEffect(() => {
+        if (isReadOnly) return; // In read-only mode, lots are populated directly from callData
         const count = parseInt(noOfLots) || 0;
         if (count > 0) {
             setLots(prev => {
@@ -289,7 +460,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 return newLots;
             });
         }
-    }, [noOfLots]);
+    }, [noOfLots, isReadOnly]);
 
     // ─── useMemo HOOKS (must also be declared before any conditional return) ───
     const getLotSum = (lot) => Object.values(lot?.selectedBatches || {}).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
@@ -322,14 +493,17 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     if (railPadType.includes('NCRGRSP')) {
         return (
             <NCRGRSPFinalInspectionCall
-                srItem={srItem}
-                poNo={poNo}
+                srItem={effectiveSrItem}
+                poNo={effectivePoNo}
                 plantId={plantId}
                 vendorCode={vendorCode}
                 onClose={onClose}
                 onSubmitInspectionCall={onSubmitInspectionCall}
                 initialRailPadType={railPadType || '6.00mm NCRGRSP'}
                 onRailPadTypeChange={handleRailPadTypeChange}
+                isReadOnly={isReadOnly}
+                isModifyMode={isModifyMode}
+                callData={callData}
             />
         );
     }
@@ -340,37 +514,38 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
         if (type === 'success') {
             setTimeout(() => {
                 setNotification(null);
-                onClose();
-            }, 3000);
+                if (onClose) onClose();
+            }, 2500);
         } else {
-            setTimeout(() => setNotification(null), 5000);
+            setTimeout(() => setNotification(null), 4000);
         }
     };
-
 
     // ─── Computed Values & Validations ────────────────────────────────────────
     const isNCRGRSP = railPadType.includes('NCRGRSP');
     const lotLimit = isNCRGRSP ? 5000 : 10000;
     const minLotsRequired = Math.ceil((parseInt(totalQtyToOffer) || 0) / lotLimit);
-    const lotCountError = noOfLots < minLotsRequired ? `Minimum ${minLotsRequired} lots required for this quantity (IRS T-55 Constraint).` : null;
+    const lotCountError = !isReadOnly && noOfLots < minLotsRequired ? `Minimum ${minLotsRequired} lots required for this quantity (IRS T-55 Constraint).` : null;
 
     const totalOfferedFromLots = lots.reduce((acc, lot) => acc + getLotSum(lot), 0);
-    const totalMatchesOffered = totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0);
-    const hasLotExceedingLimit = lots.some(lot => getLotSum(lot) > lotLimit);
-    const isValid = railPadType && drawingNo && selectedProcessIcs.length > 0 && totalMatchesOffered && totalOfferedFromLots > 0 && !lotCountError && !hasLotExceedingLimit;
+    const totalMatchesOffered = isReadOnly ? true : (totalOfferedFromLots === (parseInt(totalQtyToOffer) || 0));
+    const hasLotExceedingLimit = !isReadOnly && lots.some(lot => getLotSum(lot) > lotLimit);
+    const isValid = railPadType && drawingNo && (isReadOnly || selectedProcessIcs.length > 0) && totalMatchesOffered && totalOfferedFromLots > 0 && !lotCountError && !hasLotExceedingLimit;
 
     const handleSubmit = async () => {
+        if (isReadOnly) return;
         if (hasLotExceedingLimit) {
             alert(`Lot Limit Exceeded!\n\nOne or more lots exceed the maximum limit of ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nPlease reduce the quantity or allocate the excess to a second lot.`);
             return;
         }
         try {
             setIsSubmitting(true);
-            const userId = localStorage.getItem('railpad_userId');
+            const userId = localStorage.getItem('railpad_userId') || vendorCode || 'Vendor';
 
             const payload = {
-                poNo: `${poNo}/${srItem?.itemSrNo || srItem?.srNo || '01'}`,
-                vendorCode: vendorCode || srItem?.vendorCode || 'V001',
+                callNo: effectiveCallNo || undefined,
+                poNo: `${effectivePoNo}/${effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '01'}`,
+                vendorCode: vendorCode || effectiveSrItem?.vendorCode || 'V001',
                 plantId: plantId,
                 callType: 'FINAL',
                 railPadType: railPadType,
@@ -388,14 +563,15 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     batches: Object.entries(lot.selectedBatches).map(([batchId, qty]) => {
                         let batchInfo = null;
                         (inventory || []).forEach(group => {
-                            const found = (group.batches || []).find(b => String(b.infoId) === String(batchId));
+                            const found = (group.batches || []).find(b => String(b.infoId) === String(batchId) || String(b.id) === String(batchId) || b.batchNo === batchId);
                             if (found) batchInfo = { ...found, productionDate: group.castingDate };
                         });
 
                         return {
-                            batchNo: batchInfo?.batchNo,
+                            batchNo: batchInfo?.batchNo || batchId,
                             quantity: parseInt(qty),
-                            productionDate: batchInfo?.productionDate
+                            qtyToUse: parseInt(qty),
+                            productionDate: batchInfo?.productionDate || desiredDate
                         };
                     })
                 }))
@@ -404,17 +580,21 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
             let result;
             if (onSubmitInspectionCall) {
                 result = await onSubmitInspectionCall(payload);
+            } else if (isModifyMode) {
+                result = await inspectionCallService.modifyCall(payload);
             } else {
                 result = await inspectionCallService.create(payload);
             }
 
-            // Clear standard draft and wrapper draft on successful submission
-            try {
-                localStorage.removeItem(storageKey);
-                const wrapperKey = `railpad_draft_call_type_${String(poNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${srItem?.itemSrNo || srItem?.srNo || '1'}`;
-                localStorage.removeItem(wrapperKey);
-            } catch (e) {
-                console.warn('Error clearing standard draft:', e);
+            // Clear standard draft and wrapper draft on successful submission (if not modifying)
+            if (!isModifyMode) {
+                try {
+                    localStorage.removeItem(storageKey);
+                    const wrapperKey = `railpad_draft_call_type_${String(effectivePoNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1'}`;
+                    localStorage.removeItem(wrapperKey);
+                } catch (e) {
+                    console.warn('Error clearing standard draft:', e);
+                }
             }
 
             const callNo = (typeof result === 'string' && result)
@@ -422,17 +602,21 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 || result?.responseData?.callNo
                 || result?.data?.callNo
                 || result?.responseData
-                || result;
+                || result
+                || effectiveCallNo;
 
-            showNotification(`✅ Final Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
+            if (isModifyMode) {
+                showNotification(`✅ Final Inspection Call modified successfully!\nCall No: ${callNo}`, 'success');
+            } else {
+                showNotification(`✅ Final Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
+            }
         } catch (error) {
             console.error("[Submit Inspection Call] Error:", error);
-            showNotification("❌ Failed to raise inspection call.", 'error');
+            showNotification(isModifyMode ? "❌ Failed to modify inspection call." : "❌ Failed to raise inspection call.", 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
-
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
     const getQtyUsedInOtherLots = (currentLotIdx, batchId) => {
@@ -450,6 +634,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const handleBatchSelection = (lotIdx, batch, checked) => {
+        if (isReadOnly) return;
         const remainingForThisLot = getRemainingBatchQty(lotIdx, batch.id, batch.qty);
         setLots(prev => {
             const newLots = [...prev];
@@ -469,6 +654,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const handleBatchQtyChange = (lotIdx, batchId, qty, max) => {
+        if (isReadOnly) return;
         const value = Math.min(parseInt(qty) || 0, max);
         setLots(prev => {
             const newLots = [...prev];
@@ -480,6 +666,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const handleDateMasterToggle = (lotIdx, dateGroup, checked) => {
+        if (isReadOnly) return;
         setLots(prev => {
             const newLots = [...prev];
             const currentLot = { ...newLots[lotIdx] };
@@ -504,7 +691,6 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
 
     const isBatchSelected = (lotIdx, batchId) => lots[lotIdx]?.selectedBatches[batchId] !== undefined;
 
-
     // ─── Styles ───────────────────────────────────────────────────────────────
     const overlayStyle = {
         position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.8)',
@@ -513,7 +699,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     };
 
     const modalStyle = {
-        background: '#fff', width: '100%', maxWidth: '1100px', maxHeight: '98vh',
+        background: '#fff', width: '100%', maxWidth: '1150px', maxHeight: '98vh',
         borderRadius: '16px', display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.04)', overflow: 'hidden',
         border: '1px solid #e2e8f0'
@@ -522,38 +708,100 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
     const content = (
         <>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* ── Scrollable Body ── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+                {/* ── Top Banner for Wrapped View/Modify Mode ── */}
+                {(isWrapped && (isReadOnly || isModifyMode || (callData && effectiveCallNo))) && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
+                        padding: '16px 24px', color: '#fff',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        flexShrink: 0
+                    }}>
+                        <div>
+                            <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, marginBottom: '4px' }}>
+                                {isReadOnly ? 'VIEW FINAL INSPECTION CALL (READ-ONLY)' : isModifyMode ? 'MODIFY FINAL INSPECTION CALL' : 'RAISE FINAL INSPECTION CALL'}
+                            </div>
+                            <h2 style={{ fontSize: '20px', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+                                <Package size={22} />
+                                {effectiveCallNo ? (
+                                    <>
+                                        <span>CALL NO: <span style={{ color: '#fef08a' }}>{effectiveCallNo}</span></span>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, opacity: 0.9, marginLeft: '8px' }}>
+                                            — {effectivePoNo ? `${effectivePoNo}` : ''} {effectiveSrItem?.itemSrNo ? `(SR: ${effectiveSrItem.itemSrNo})` : ''}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span>{effectivePoNo || '06255012201348'} — SR. No. {effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '001'}</span>
+                                )}
+                            </h2>
+                        </div>
+                        {onClose && (
+                            <button onClick={onClose} style={{
+                                background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%',
+                                width: '36px', height: '36px', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', cursor: 'pointer', color: '#ffffff', transition: 'all 0.2s'
+                            }}>
+                                <Plus size={20} style={{ transform: 'rotate(45deg)' }} />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Scrollable Body ── */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                    {/* Top Field: Type of Call */}
+                    <div style={{
+                        background: '#fff', border: '1px solid #e2e8f0',
+                        borderRadius: '10px', padding: '10px 14px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.01)'
+                    }}>
+                        <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
+                            TYPE OF CALL <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <select
+                            value="Final"
+                            disabled={true}
+                            style={{
+                                width: '100%', maxWidth: '280px', height: '34px', padding: '0 10px',
+                                borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700,
+                                color: '#1e293b', background: '#f8fafc', fontSize: '12px', outline: 'none'
+                            }}
+                        >
+                            <option value="Final">Final</option>
+                        </select>
+                    </div>
 
                     {/* ════ SECTION A ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
-                        borderRadius: '10px', padding: '10px 14px', marginBottom: '10px',
+                        borderRadius: '10px', padding: '12px 16px',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.01)'
                     }}>
                         <SectionHeader step="A" label="Call Header & PO Statistics" color="#21808d" />
-                        <div style={{ display: 'flex', gap: '24px', marginBottom: '8px', paddingLeft: '8px' }}>
+                        <div style={{ display: 'flex', gap: '28px', marginBottom: '10px', paddingLeft: '8px' }}>
                             <div>
                                 <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO NO.</div>
-                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '12px' }}>{poNo || '06255012201348'}</div>
+                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '13px' }}>{effectivePoNo || '06255012201348'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SR. NO.</div>
-                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '12px' }}>{srItem?.itemSrNo || srItem?.srNo || '1'}</div>
+                                <div style={{ fontWeight: 900, color: '#1e293b', fontSize: '13px' }}>{effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '001'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL DATE</div>
-                                <div style={{ fontWeight: 900, color: '#0891b2', fontSize: '12px' }}>{new Date().toLocaleDateString('en-IN')}</div>
+                                <div style={{ fontWeight: 900, color: '#0891b2', fontSize: '13px' }}>
+                                    {callData?.callDate ? formatDateDDMMYY(callData.callDate) : new Date().toLocaleDateString('en-IN')}
+                                </div>
                             </div>
                         </div>
                         <div style={{ paddingLeft: '8px' }}>
                             <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PO STATUS TRACKER</div>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                <StatBox label="Total Quantity on Order" value={(srItem?.orderedQty || 59420).toLocaleString()} Icon={ClipboardList} />
-                                <StatBox label="Quantity Offered Till Now" value={(srItem?.offeredTillNow || 0).toLocaleString()} color="#7c3aed" Icon={Package} />
-                                <StatBox label="Quantity Accepted Till Now" value={(srItem?.acceptedTillNow || 0).toLocaleString()} color="#16a34a" Icon={CheckCircle2} />
-                                <StatBox label="Quantity Rejected Till Now" value="0" color="#ef4444" Icon={AlertCircle} />
-                                <StatBox label="Qty Due for Dispatch" value={(srItem?.due || 59420).toLocaleString()} highlight Icon={Calendar} />
+                                <StatBox label="Total Quantity on Order" value={(effectiveSrItem?.orderedQty || callData?.orderedQty || callData?.totalQty || 59420).toLocaleString()} Icon={ClipboardList} />
+                                <StatBox label="Quantity Offered Till Now" value={(effectiveSrItem?.offeredTillNow || callData?.qtyOfferedTillNow || 0).toLocaleString()} color="#7c3aed" Icon={Package} />
+                                <StatBox label="Quantity Accepted Till Now" value={(effectiveSrItem?.acceptedTillNow || callData?.qtyAcceptedTillNow || 0).toLocaleString()} color="#16a34a" Icon={CheckCircle2} />
+                                <StatBox label="Quantity Rejected Till Now" value={(effectiveSrItem?.rejectedTillNow || callData?.qtyRejectedTillNow || 0).toLocaleString()} color="#ef4444" Icon={AlertCircle} />
+                                <StatBox label="Qty Due for Dispatch" value={(effectiveSrItem?.due || callData?.dueQty || effectiveSrItem?.orderedQty || 59420).toLocaleString()} highlight Icon={Calendar} />
                             </div>
                         </div>
                     </div>
@@ -561,14 +809,24 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     {/* ════ SECTION B ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
-                        borderRadius: '10px', padding: '10px 14px', marginBottom: '10px'
+                        borderRadius: '10px', padding: '12px 16px'
                     }}>
                         <SectionHeader step="B" label="Rail Pad Type & Granular Batch Selection" color="#7c3aed" />
                         <div style={{ paddingLeft: '8px' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '10px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>RAIL PAD TYPE <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select value={railPadType} onChange={e => handleRailPadTypeChange(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', background: '#fff', fontSize: '12px', outline: 'none' }}>
+                                    <select
+                                        value={railPadType}
+                                        onChange={e => handleRailPadTypeChange(e.target.value)}
+                                        disabled={isReadOnly}
+                                        style={{
+                                            width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                            border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b',
+                                            background: isReadOnly ? '#f8fafc' : '#fff', fontSize: '12px', outline: 'none',
+                                            cursor: isReadOnly ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
                                         <option value="" disabled>Select Rail Pad Type</option>
                                         {RAIL_PAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
@@ -576,56 +834,99 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Drawing No. <span style={{ color: '#ef4444' }}>*</span></label>
                                     {DRAWING_MAPPING[railPadType] && DRAWING_MAPPING[railPadType].length > 0 ? (
-                                        <select value={drawingNo} onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', background: '#fff', fontSize: '12px', outline: 'none' }} disabled={!railPadType}>
+                                        <select
+                                            value={drawingNo}
+                                            onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }}
+                                            disabled={isReadOnly || !railPadType}
+                                            style={{
+                                                width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                                border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b',
+                                                background: isReadOnly ? '#f8fafc' : '#fff', fontSize: '12px', outline: 'none',
+                                                cursor: isReadOnly ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
                                             <option value="" disabled>Select Drawing</option>
                                             {DRAWING_MAPPING[railPadType].map(d => <option key={d} value={d}>{d}</option>)}
                                         </select>
                                     ) : (
-                                        <input type="text" value={drawingNo} onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }} placeholder="Enter drawing no." style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', fontSize: '12px', outline: 'none' }} disabled={!railPadType} />
+                                        <input
+                                            type="text"
+                                            value={drawingNo}
+                                            onChange={e => { setDrawingNo(e.target.value); setSelectedProcessIcs([]); setInventory([]); }}
+                                            placeholder="Enter drawing no."
+                                            disabled={isReadOnly || !railPadType}
+                                            style={{
+                                                width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                                border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b',
+                                                background: isReadOnly ? '#f8fafc' : '#fff', fontSize: '12px', outline: 'none'
+                                            }}
+                                        />
                                     )}
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Process ICs <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px', maxHeight: '58px', overflowY: 'auto', background: '#fff', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px', maxHeight: '58px', overflowY: 'auto', background: isReadOnly ? '#f8fafc' : '#fff', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                         {loadingProcessCalls ? (
                                             <span style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 4px' }}>Loading...</span>
-                                        ) : processCalls.length === 0 ? (
+                                        ) : (processCalls.length === 0 && selectedProcessIcs.length === 0) ? (
                                             <span style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 4px' }}>No Process ICs</span>
                                         ) : (
-                                            processCalls.map(c => {
-                                                const isChecked = selectedProcessIcs.includes(c.callNo);
-                                                return (
-                                                    <label key={c.callNo} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px', cursor: 'pointer', borderRadius: '4px', background: isChecked ? '#f1f5f9' : 'transparent', margin: 0 }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isChecked}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    setSelectedProcessIcs(prev => [...prev, c.callNo]);
-                                                                } else {
-                                                                    setSelectedProcessIcs(prev => prev.filter(id => id !== c.callNo));
-                                                                }
-                                                            }}
-                                                            style={{ cursor: 'pointer', margin: 0, width: '13px', height: '13px' }}
-                                                        />
-                                                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#1e293b' }}>
-                                                            {c.callNo} ({c.totalQty} Nos.)
-                                                        </span>
-                                                    </label>
-                                                );
-                                            })
+                                            (() => {
+                                                const items = [...processCalls];
+                                                selectedProcessIcs.forEach(ic => {
+                                                    const exists = items.some(c => (c.callNo || c.inspectionCallNo || c.id) === ic);
+                                                    if (!exists) {
+                                                        items.push({ callNo: ic, inspectionCallNo: ic, id: ic, totalQty: '' });
+                                                    }
+                                                });
+                                                return items.map(c => {
+                                                    const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+                                                    const isChecked = selectedProcessIcs.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+                                                    return (
+                                                        <label key={cCallNo} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px', cursor: isReadOnly ? 'default' : 'pointer', borderRadius: '4px', background: isChecked ? '#f1f5f9' : 'transparent', margin: 0 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                disabled={isReadOnly}
+                                                                onChange={(e) => {
+                                                                    if (isReadOnly) return;
+                                                                    if (e.target.checked) {
+                                                                        setSelectedProcessIcs(prev => [...prev, cCallNo]);
+                                                                    } else {
+                                                                        setSelectedProcessIcs(prev => prev.filter(id => String(id).trim().toUpperCase() !== String(cCallNo).trim().toUpperCase()));
+                                                                    }
+                                                                }}
+                                                                style={{ cursor: isReadOnly ? 'default' : 'pointer', margin: 0, width: '13px', height: '13px' }}
+                                                            />
+                                                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#1e293b' }}>
+                                                                {cCallNo} {c.totalQty ? `(${c.totalQty} Nos.)` : ''}
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                });
+                                            })()
                                         )}
                                     </div>
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Unit of Measurement</label>
-                                    <div style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#64748b', background: '#f8fafc', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+                                    <div style={{ width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#64748b', background: '#f8fafc', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
                                         {uom}
                                     </div>
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>Desired Inspection Date</label>
-                                    <input type="date" value={desiredDate} onChange={e => setDesiredDate(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', fontSize: '12px', outline: 'none' }} />
+                                    <input
+                                        type="date"
+                                        value={desiredDate}
+                                        disabled={isReadOnly}
+                                        onChange={e => setDesiredDate(e.target.value)}
+                                        style={{
+                                            width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                            border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b',
+                                            background: isReadOnly ? '#f8fafc' : '#fff', fontSize: '12px', outline: 'none'
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
@@ -634,19 +935,32 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                     <input
                                         type="text"
                                         value={totalQtyToOffer}
+                                        disabled={isReadOnly}
                                         onChange={e => setTotalQtyToOffer(e.target.value.replace(/[^0-9]/g, ''))}
                                         placeholder="Enter quantity"
-                                        style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '13px', color: '#0891b2', outline: 'none' }}
+                                        style={{
+                                            width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                            border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '13px',
+                                            color: '#0891b2', background: isReadOnly ? '#f8fafc' : '#fff', outline: 'none'
+                                        }}
                                     />
-                                    {totalQtyToOffer > (srItem?.due || 59420) && <p style={{ color: '#dc2626', fontSize: '9px', marginTop: '2px', fontWeight: 700 }}>⚠️ Cannot exceed Qty Due for Dispatch!</p>}
+                                    {!isReadOnly && totalQtyToOffer > (effectiveSrItem?.due || 59420) && (
+                                        <p style={{ color: '#dc2626', fontSize: '9px', marginTop: '2px', fontWeight: 700 }}>⚠️ Cannot exceed Qty Due for Dispatch!</p>
+                                    )}
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '3px', textTransform: 'uppercase' }}>No. of Lots to be Offered</label>
                                     <input
                                         type="text"
                                         value={noOfLots}
+                                        disabled={isReadOnly}
                                         onChange={e => setNoOfLots(e.target.value.replace(/[^0-9]/g, ''))}
-                                        style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: lotCountError ? '1px solid #ef4444' : '1px solid #cbd5e1', fontWeight: 800, fontSize: '13px', color: '#1e293b', outline: 'none' }}
+                                        style={{
+                                            width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                            border: lotCountError ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                                            fontWeight: 800, fontSize: '13px', color: '#1e293b',
+                                            background: isReadOnly ? '#f8fafc' : '#fff', outline: 'none'
+                                        }}
                                     />
                                     {lotCountError && <p style={{ color: '#dc2626', fontSize: '9px', marginTop: '2px', fontWeight: 700 }}>⚠️ {lotCountError}</p>}
                                 </div>
@@ -657,7 +971,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     {/* ════ SECTION C ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
-                        borderRadius: '10px', padding: '12px 14px', marginBottom: '10px'
+                        borderRadius: '10px', padding: '12px 16px'
                     }}>
                         <SectionHeader step="C" label="Dynamic Lot Formation (Collapsible Sections)" color="#0891b2" />
                         <div style={{ paddingLeft: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -682,50 +996,59 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                 }}>
                                                     {lotSum.toLocaleString()} / {lotLimit.toLocaleString()} (Max)
                                                 </span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setActivePartialLotIdx(lotIdx);
-                                                    }}
-                                                    style={{
-                                                        marginLeft: '8px', padding: '4px 8px', borderRadius: '4px',
-                                                        background: '#0891b2', color: '#fff', border: 'none',
-                                                        fontSize: '10px', fontWeight: 800, cursor: 'pointer',
-                                                        display: 'flex', alignItems: 'center', gap: '4px',
-                                                        height: '24px', boxShadow: '0 2px 4px -1px rgba(8,145,178,0.15)'
-                                                    }}
-                                                >
-                                                    <span>(+) Partial Declaration</span>
-                                                </button>
+                                                {!isReadOnly && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActivePartialLotIdx(lotIdx);
+                                                        }}
+                                                        style={{
+                                                            marginLeft: '8px', padding: '4px 8px', borderRadius: '4px',
+                                                            background: '#0891b2', color: '#fff', border: 'none',
+                                                            fontSize: '10px', fontWeight: 800, cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', gap: '4px',
+                                                            height: '24px', boxShadow: '0 2px 4px -1px rgba(8,145,178,0.15)'
+                                                        }}
+                                                    >
+                                                        <span>(+) Partial Declaration</span>
+                                                    </button>
+                                                )}
                                             </div>
                                             <span style={{ fontSize: '10px', color: '#64748b' }}>{expandedLots[lotIdx] ? '▲' : '▼'}</span>
                                         </div>
 
                                         {expandedLots[lotIdx] && (
-                                            <div style={{ padding: '10px' }}>
+                                            <div style={{ padding: '12px' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: 900, color: '#64748b', marginBottom: '3px', textTransform: 'uppercase' }}>Lot No.</label>
                                                         <input
-                                                            type="text" value={lot.lotNo}
+                                                            type="text"
+                                                            value={lot.lotNo}
+                                                            disabled={isReadOnly}
                                                             onChange={e => {
+                                                                if (isReadOnly) return;
                                                                 const newLots = [...lots];
                                                                 newLots[lotIdx].lotNo = e.target.value;
                                                                 setLots(newLots);
                                                             }}
-                                                            style={{ width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 700 }}
+                                                            style={{
+                                                                width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
+                                                                border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 700,
+                                                                background: isReadOnly ? '#f8fafc' : '#fff'
+                                                            }}
                                                         />
                                                     </div>
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: 900, color: '#64748b', marginBottom: '3px', textTransform: 'uppercase' }}>Lot Size (Auto-Calculated)</label>
                                                         <div style={{
-                                                            width: '100%', height: '32px', padding: '0 8px', borderRadius: '6px',
+                                                            width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
                                                             border: '1px solid #0891b2', background: '#ecfeff',
                                                             display: 'flex', alignItems: 'center', fontSize: '13px', fontWeight: 900, color: '#0891b2'
                                                         }}>
                                                             {lotSum.toLocaleString()}
                                                         </div>
-                                                        {lotSum > lotLimit && (
+                                                        {!isReadOnly && lotSum > lotLimit && (
                                                             <p style={{ color: '#ef4444', fontSize: '9px', marginTop: '3px', fontWeight: 800 }}>⚠️ Lot size exceeds limit of {lotLimit.toLocaleString()}!</p>
                                                         )}
                                                     </div>
@@ -763,7 +1086,8 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                                     <input
                                                                                         type="checkbox"
-                                                                                        style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                                                                                        disabled={isReadOnly}
+                                                                                        style={{ width: '14px', height: '14px', cursor: isReadOnly ? 'default' : 'pointer' }}
                                                                                         checked={availableBatches.length > 0 && availableBatches.every(b => isBatchSelected(lotIdx, b.id))}
                                                                                         onChange={e => handleDateMasterToggle(lotIdx, dateGroup, e.target.checked)}
                                                                                     />
@@ -781,12 +1105,13 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                                                                     return (
                                                                                         <div
                                                                                             key={batch.id}
-                                                                                            onClick={() => handleBatchSelection(lotIdx, batch, !isSelected)}
+                                                                                            onClick={() => !isReadOnly && handleBatchSelection(lotIdx, batch, !isSelected)}
                                                                                             style={{
-                                                                                                padding: '4px 8px', borderRadius: '6px', background: isSelected ? '#0f172a' : '#fff',
+                                                                                                padding: '6px 8px', borderRadius: '6px',
+                                                                                                background: isSelected ? '#0f172a' : '#fff',
                                                                                                 border: `1px solid ${isSelected ? '#0f172a' : '#e2e8f0'}`,
                                                                                                 display: 'flex', alignItems: 'center', gap: '6px',
-                                                                                                cursor: 'pointer', transition: 'all 0.1s',
+                                                                                                cursor: isReadOnly ? 'default' : 'pointer', transition: 'all 0.1s',
                                                                                                 boxShadow: isSelected ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
                                                                                             }}
                                                                                         >
@@ -830,7 +1155,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     {/* ════ SECTION D ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
-                        borderRadius: '10px', padding: '12px 14px', marginBottom: '10px'
+                        borderRadius: '10px', padding: '12px 16px'
                     }}>
                         <SectionHeader step="D" label="Final Call Summary" color="#1e293b" />
                         <div style={{ paddingLeft: '8px' }}>
@@ -849,12 +1174,14 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                     </div>
                                     <div style={{ background: '#fff', padding: '8px 12px', borderRadius: '8px' }}>
                                         <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800 }}>STATUS</div>
-                                        <div style={{ fontSize: '12px', fontWeight: 900, color: isValid ? '#16a34a' : '#ef4444' }}>{isValid ? 'READY TO SUBMIT' : 'VALIDATION PENDING'}</div>
+                                        <div style={{ fontSize: '12px', fontWeight: 900, color: (isReadOnly || isValid) ? '#16a34a' : '#ef4444' }}>
+                                            {isReadOnly ? (callData?.status || 'VALIDATION PASSED') : isValid ? 'READY TO SUBMIT' : 'VALIDATION PENDING'}
+                                        </div>
                                     </div>
                                 </div>
-                                {!totalMatchesOffered && totalQtyToOffer > 0 && (
+                                {!isReadOnly && !totalMatchesOffered && totalQtyToOffer > 0 && (
                                     <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#ef4444', fontWeight: 800, textAlign: 'center' }}>
-                                        ⚠️ Sum of all lots must exactly match the "Total Qty to be Offered" ({totalQtyToOffer.toLocaleString()})
+                                        ⚠️ Sum of all lots must exactly match the "Total Qty to be Offered" ({Number(totalQtyToOffer).toLocaleString()})
                                     </p>
                                 )}
                             </div>
@@ -864,13 +1191,14 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                     {/* ════ SECTION E ════ */}
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
-                        borderRadius: '10px', padding: '12px 14px', marginBottom: '10px'
+                        borderRadius: '10px', padding: '12px 16px'
                     }}>
                         <SectionHeader step="E" label="Remarks / Special Instructions" color="#059669" />
                         <div style={{ paddingLeft: '8px' }}>
                             <textarea
                                 rows={3}
                                 value={remarks}
+                                disabled={isReadOnly}
                                 onChange={e => setRemarks(e.target.value)}
                                 placeholder="Enter any specific remarks, vendor notes, or special instructions for final inspection (optional)..."
                                 style={{
@@ -881,6 +1209,7 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                                     fontSize: '13px',
                                     fontWeight: 500,
                                     color: '#1e293b',
+                                    background: isReadOnly ? '#f8fafc' : '#fff',
                                     fontFamily: 'inherit',
                                     outline: 'none',
                                     resize: 'vertical',
@@ -892,30 +1221,32 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 </div>
 
                 {/* ── Footer ── */}
-                <div style={{ padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700 }}>
                         {totalOfferedFromLots === 0 ? "No pads selected yet" : <span>Total Offered: <span style={{ color: totalMatchesOffered ? '#16a34a' : '#ef4444', fontWeight: 900, fontSize: '14px' }}>{totalOfferedFromLots.toLocaleString()}</span> / {(parseInt(totalQtyToOffer) || 0).toLocaleString()}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={onClose} style={{
-                            height: '34px', padding: '0 20px', borderRadius: '8px', border: '1px solid #cbd5e1',
+                            height: '36px', padding: '0 20px', borderRadius: '8px', border: '1px solid #cbd5e1',
                             background: '#fff', color: '#475569', fontWeight: 800, fontSize: '12px', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>Cancel</button>
-                        <button
-                            disabled={!isValid || isSubmitting}
-                            onClick={handleSubmit}
-                            style={{
-                                height: '34px', padding: '0 24px', borderRadius: '8px', border: 'none',
-                                background: isValid ? 'linear-gradient(135deg, #21808d, #0d3b3f)' : '#e2e8f0',
-                                color: isValid ? '#fff' : '#94a3b8', fontWeight: 900, fontSize: '12px',
-                                cursor: isValid ? 'pointer' : 'not-allowed',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: isValid ? '0 4px 6px -1px rgba(33,128,141,0.2)' : 'none'
-                            }}
-                        >
-                            {isSubmitting ? 'Submitting...' : 'Submit Inspection Call'}
-                        </button>
+                        }}>{isReadOnly ? 'Close' : 'Cancel'}</button>
+                        {!isReadOnly && (
+                            <button
+                                disabled={!isValid || isSubmitting}
+                                onClick={handleSubmit}
+                                style={{
+                                    height: '36px', padding: '0 24px', borderRadius: '8px', border: 'none',
+                                    background: isValid ? 'linear-gradient(135deg, #21808d, #0d3b3f)' : '#e2e8f0',
+                                    color: isValid ? '#fff' : '#94a3b8', fontWeight: 900, fontSize: '12px',
+                                    cursor: isValid ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: isValid ? '0 4px 6px -1px rgba(33,128,141,0.2)' : 'none'
+                                }}
+                            >
+                                {isSubmitting ? 'Submitting...' : isModifyMode ? 'Save Modifications' : 'Submit Inspection Call'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -986,16 +1317,23 @@ const RaiseRailPadInspectionCallForm = ({ srItem, poNo, plantId, vendorCode, onC
                 {/* ── Header ── */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                    padding: '10px 16px', flexShrink: 0,
+                    padding: '12px 20px', flexShrink: 0,
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}>
                     <div>
                         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '2px', textTransform: 'uppercase' }}>
-                            RAISE FINAL INSPECTION CALL
+                            {isReadOnly ? 'VIEW FINAL INSPECTION CALL (READ-ONLY)' : isModifyMode ? 'MODIFY FINAL INSPECTION CALL' : 'RAISE FINAL INSPECTION CALL'}
                         </div>
                         <div style={{ color: '#fff', fontSize: '16px', fontWeight: 900, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Package size={18} />
-                            {poNo || '06255012201348'} — SR. No. {srItem?.itemSrNo || srItem?.srNo || '1'}
+                            {effectiveCallNo ? (
+                                <>
+                                    <span>CALL NO: <span style={{ color: '#fef08a' }}>{effectiveCallNo}</span></span>
+                                    <span style={{ fontSize: '13px', opacity: 0.9, marginLeft: '6px' }}>— {effectivePoNo}</span>
+                                </>
+                            ) : (
+                                `${effectivePoNo || '06255012201348'} — SR. No. ${effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '1'}`
+                            )}
                         </div>
                     </div>
                     <button onClick={onClose} style={{
@@ -1051,7 +1389,6 @@ const PartialOfferingModal = ({ lot, activePartialLotIdx, allLots = [], lotLimit
 
     const handleAddBatch = (val) => {
         if (!val) return;
-        // Convert both to string to handle potential number/string mismatch
         const batch = allBatches.find(b => String(b.id) === String(val));
         if (batch && selectedBatches[batch.id] === undefined) {
             setSelectedBatches(prev => ({ ...prev, [batch.id]: batch.pending }));
