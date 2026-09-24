@@ -231,8 +231,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         const previouslyOfferedBad   = allBadDisplay.length - badDisplay.length;
         const previouslyOfferedCount = previouslyOfferedGood + previouslyOfferedBad;
 
-        const batchNum = b.batchNumber || b.batchId.toString();
-        const batchKey = `${sType}_${batchNum}`;
+        const batchNum = b.batchNumber || (b.batchId ? b.batchId.toString() : '');
+        const batchId = b.batchId ? String(b.batchId) : '';
+        const castDate = b.castDate || 'N/A';
+        const batchKey = `${sType}_${batchId}_${castDate}_${batchNum}`;
 
         return {
             batchKey,
@@ -280,7 +282,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     // Helper to convert an editCallDetails batch into a complete batch card format
     const convertCallBatchToBatchCard = (eb, sType) => {
         const batchNum = String(eb.batchNo || '');
-        const batchKey = `${sType}_${batchNum}`;
+        const batchId = eb.batchId ? String(eb.batchId) : '';
+        const castDate = eb.castDate || 'N/A';
+        const batchKey = `${sType}_${batchId}_${castDate}_${batchNum}`;
 
         const goodList = (eb.goodSleepers || []).map((sno, idx) => {
             const sid = (eb.goodSleeperIds && eb.goodSleeperIds[idx]) ? String(eb.goodSleeperIds[idx]) : `good-${idx}`;
@@ -390,9 +394,14 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 if (isEdit && currentDetails && currentDetails.batchesSelected) {
                     currentDetails.batchesSelected.forEach(eb => {
                         const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                        const ebDate = String(eb.castDate || '').trim();
                         const exists = allBatches.some(b => {
                             const bNo = String(b.batchNo || '').trim().toLowerCase();
-                            return bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                            const bDate = String(b.castDate || '').trim();
+                            const noMatches = bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                            if (!noMatches) return false;
+                            if (ebDate && bDate && ebDate !== 'N/A' && bDate !== 'N/A') return bDate === ebDate;
+                            return true;
                         });
                         if (!exists) {
                             const callType = currentDetails.sleeperType || mainSleeperType || selectedSleeperTypes[0] || 'Sleeper';
@@ -429,9 +438,14 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 let changed = false;
                 editCallDetails.batchesSelected.forEach(eb => {
                     const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                    const ebDate = String(eb.castDate || '').trim();
                     const exists = newBatches.some(b => {
                         const bNo = String(b.batchNo || '').trim().toLowerCase();
-                        return bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                        const bDate = String(b.castDate || '').trim();
+                        const noMatches = bNo === ebNo || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') || ebNo === bNo.replace(/^batch\s*[-_]?/i, '');
+                        if (!noMatches) return false;
+                        if (ebDate && bDate && ebDate !== 'N/A' && bDate !== 'N/A') return bDate === ebDate;
+                        return true;
                     });
                     if (!exists) {
                         const callType = editCallDetails.sleeperType || mainSleeperType || selectedSleeperTypes[0] || 'Sleeper';
@@ -452,17 +466,24 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
 
             editCallDetails.batchesSelected.forEach(eb => {
                 const ebNo = String(eb.batchNo || '').trim().toLowerCase();
+                const ebDate = String(eb.castDate || '').trim();
                 const matchingBatch = batches.find(b => {
                     const bNo = String(b.batchNo || '').trim().toLowerCase();
-                    return bNo === ebNo 
+                    const bDate = String(b.castDate || '').trim();
+                    const matchesNo = bNo === ebNo 
                         || bNo === ebNo.replace(/^batch\s*[-_]?/i, '') 
                         || ebNo === bNo.replace(/^batch\s*[-_]?/i, '')
                         || bNo.includes(ebNo)
                         || ebNo.includes(bNo);
+                    if (!matchesNo) return false;
+                    if (ebDate && bDate && ebDate !== 'N/A' && bDate !== 'N/A') {
+                        return bDate === ebDate;
+                    }
+                    return true;
                 });
 
                 if (matchingBatch) {
-                    const key = matchingBatch.batchKey || matchingBatch.batchNo;
+                    const key = matchingBatch.batchKey;
                     if (!firstExpandedKey) firstExpandedKey = key;
 
                     const selectedIds = new Set();
@@ -518,7 +539,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
         let totalRejectedCount = 0;
 
         batches.forEach(b => {
-            const key = b.batchKey || b.batchNo;
+            const key = b.batchKey;
             const sel = batchSelections[key];
             if (!sel) return;
             const goodCount = sel.goodSelected ? sel.goodSelected.size : 0;
@@ -596,7 +617,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     };
 
     const handleToggleGoodSleeper = (batchKey, sleeperId) => {
-        const batch = batches.find(b => (b.batchKey || b.batchNo) === batchKey);
+        const batch = batches.find(b => b.batchKey === batchKey);
         if (!batch || getEligible(batch) === 0) return;
         setBatchSelections(prev => {
             const cur = prev[batchKey] || { goodSelected: new Set(), batchTouched: false };
@@ -1085,7 +1106,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                         )}
 
                         {selectedSleeperTypes.length > 0 && !isLoadingBatches && batches.map(batch => {
-                            const batchKey = batch.batchKey || batch.batchNo;
+                            const batchKey = batch.batchKey;
                             const goodSelected = getGoodSelected(batchKey);
                             const isExpanded = expandedBatch === batchKey;
                             const isActive = isBatchTouched(batchKey);
@@ -1539,13 +1560,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 
                                 for (const [batchKey, selection] of Object.entries(batchSelections)) {
                                     if (selection && selection.goodSelected && selection.goodSelected.size > 0) {
-                                        const batch = batches.find(b => 
-                                             (b.batchKey || b.batchNo) === batchKey ||
-                                             b.batchKey === batchKey ||
-                                             b.batchNo === batchKey ||
-                                             (b.batchNo && (batchKey.endsWith('_' + b.batchNo) || batchKey === b.batchNo)) ||
-                                             (b.batchKey && (batchKey.endsWith(b.batchKey) || batchKey === b.batchKey))
-                                        );
+                                        const batch = batches.find(b => b.batchKey === batchKey);
                                         if (!batch) {
                                             console.warn("Could not match batch for key:", batchKey);
                                             continue;
