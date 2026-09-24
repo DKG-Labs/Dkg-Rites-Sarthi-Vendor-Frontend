@@ -420,7 +420,7 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10096', qtyPerSet: 30, description: 'NCR GRSP' },
     { drawingNo: 'RT-10093', qtyPerSet: 182, description: 'NCR GRSP' },
     { drawingNo: 'RT-10095', qtyPerSet: 16, description: 'NCR GRSP' },
-    { drawingNo: 'RT-10031', qtyPerSet: 1, description: 'NCR GRSP' },
+    { drawingNo: 'RT-10131', qtyPerSet: 1, description: 'NCR GRSP' },
     { drawingNo: 'RT-10130', qtyPerSet: 1, description: 'NCR GRSP' },
     { drawingNo: 'RT-10129', qtyPerSet: 1, description: 'NCR GRSP' },
     { drawingNo: 'RT-10128', qtyPerSet: 1, description: 'NCR GRSP' },
