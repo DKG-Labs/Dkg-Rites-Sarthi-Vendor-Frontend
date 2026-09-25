@@ -1,6 +1,13 @@
+<<<<<<< HEAD
 //export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
 //export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
 export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
+=======
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+export const BASE_URL = isLocal
+    ? "http://localhost:8080/sarthi-backend/api"
+    : "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
+>>>>>>> uat-sarthi
 export const API_BASE_URL = BASE_URL;
 export const apiService = {
     // HTS Wire APIs
@@ -843,7 +850,8 @@ export const apiService = {
 
     getVendorPlants: async (vendorCode) => {
         try {
-            const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(vendorCode)}/plants`;
+            const cleanCode = String(vendorCode || '').replace(/^:/, '').trim();
+            const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(cleanCode)}/plants`;
             const response = await fetch(url, {
                 headers: { 'accept': '*/*' }
             });
