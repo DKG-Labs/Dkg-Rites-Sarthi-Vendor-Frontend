@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Package, Calendar, ClipboardList, CheckCircle2, AlertCircle,
   Trash2, ChevronDown, ChevronUp, Plus, Info, Layers, FileText,
@@ -941,35 +941,154 @@ const NCRGRSPFinalInspectionCall = ({
     lots
   ]);
 
-  // Initialize or adjust lots structure when noOfLots changes
-  useEffect(() => {
-    if (isReadOnly) return; // In read-only mode, lots are populated directly from callData
-    const count = parseInt(noOfLots) || 0;
-    setLots(prevLots => {
-      const newLots = [...prevLots];
-      if (count === 0) return [];
-      if (count > newLots.length) {
-        for (let i = newLots.length; i < count; i++) {
-          newLots.push({
-            stableId: `lot_stable_${i + 1}`,
-            lotId: `Lot ${i + 1}`,
-            lotName: `Lot ${i + 1}`,
-            lotIndex: i,
-            rows: [
-              {
-                id: `row-${i + 1}-1`,
-                batchNo: '',
-                drawingNo: '',
-                qtyToUse: 0
-              }
-            ]
-          });
+  // Helper: get allocated quantity across all lots and rows for a specific batch and drawing, excluding a specific row
+  const getAllocatedQtyExceptRow = useCallback((batchNo, drawingNo, excludeLotIdx, excludeRowId) => {
+    if (!batchNo || !drawingNo) return 0;
+    const normTarget = normalizeDwg(drawingNo);
+    let totalAllocated = 0;
+    lots.forEach((lot, lIdx) => {
+      (lot.rows || []).forEach(r => {
+        if (lIdx === excludeLotIdx && r.id === excludeRowId) return;
+        if (String(r.batchNo) === String(batchNo) && normalizeDwg(r.drawingNo) === normTarget) {
+          totalAllocated += (parseInt(r.qtyToUse) || 0);
         }
-      } else if (newLots.length > count) {
-        return newLots.slice(0, count);
-      }
-      return newLots;
+      });
     });
+    return totalAllocated;
+  }, [lots]);
+
+  // Auto-allocate batches to lots based on required drawings and max 5000 capacity per lot
+  const performAutoAllocation = useCallback((targetLotsCount, targetDrawingsList, targetInventory) => {
+    const count = parseInt(targetLotsCount) || 0;
+    if (count <= 0) return [];
+    if (!targetDrawingsList || targetDrawingsList.length === 0) {
+      const emptyLots = [];
+      for (let i = 0; i < count; i++) {
+        emptyLots.push({
+          stableId: `lot_stable_${i + 1}`,
+          lotId: `Lot ${i + 1}`,
+          lotName: `Lot ${i + 1}`,
+          lotIndex: i,
+          rows: [{ id: `row-${i + 1}-1`, batchNo: '', drawingNo: '', qtyToUse: 0 }]
+        });
+      }
+      return emptyLots;
+    }
+
+    // Track remaining drawing requirements
+    const drawingRemaining = {};
+    targetDrawingsList.forEach(d => {
+      drawingRemaining[d.drawingNo] = d.requiredQty || 0;
+    });
+
+    // Track remaining batch capacity for each batch and drawing
+    const batchAvail = {};
+    (targetInventory || []).forEach(b => {
+      const bNo = String(b.batchNo);
+      batchAvail[bNo] = {};
+      if (b.drawings) {
+        Object.entries(b.drawings).forEach(([dNo, val]) => {
+          let avail = 0;
+          let prev = 0;
+          if (typeof val === 'object' && val !== null) {
+            avail = val.availableQty || 0;
+            prev = val.previouslyOfferedQty || 0;
+          } else {
+            avail = Number(val) || 0;
+          }
+          batchAvail[bNo][dNo] = Math.max(0, avail - prev);
+        });
+      }
+    });
+
+    const newLots = [];
+    for (let i = 0; i < count; i++) {
+      newLots.push({
+        stableId: `lot_stable_${i + 1}`,
+        lotId: `Lot ${i + 1}`,
+        lotName: `Lot ${i + 1}`,
+        lotIndex: i,
+        rows: []
+      });
+    }
+
+    targetDrawingsList.forEach(reqItem => {
+      const dNo = reqItem.drawingNo;
+      const normReq = normalizeDwg(dNo);
+      let currentLotIdx = 0;
+
+      for (const b of (targetInventory || [])) {
+        const bNo = String(b.batchNo);
+        const matchKey = Object.keys(batchAvail[bNo] || {}).find(k => normalizeDwg(k) === normReq);
+        if (!matchKey) continue;
+
+        let availInBatch = batchAvail[bNo][matchKey] || 0;
+        if (availInBatch <= 0) continue;
+
+        while (availInBatch > 0 && drawingRemaining[dNo] > 0 && currentLotIdx < count) {
+          const currentLotDrawingQty = (newLots[currentLotIdx].rows || [])
+            .filter(r => normalizeDwg(r.drawingNo) === normReq)
+            .reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+          const spaceInCurrentLot = Math.max(0, 5000 - currentLotDrawingQty);
+
+          if (spaceInCurrentLot === 0) {
+            currentLotIdx++;
+            if (currentLotIdx >= count) break;
+            continue;
+          }
+
+          const takeQty = Math.min(availInBatch, drawingRemaining[dNo], spaceInCurrentLot);
+          if (takeQty <= 0) break;
+
+          availInBatch -= takeQty;
+          batchAvail[bNo][matchKey] = availInBatch;
+          drawingRemaining[dNo] -= takeQty;
+
+          const existingRow = newLots[currentLotIdx].rows.find(
+            r => String(r.batchNo) === bNo && normalizeDwg(r.drawingNo) === normReq
+          );
+          if (existingRow) {
+            existingRow.qtyToUse += takeQty;
+          } else {
+            newLots[currentLotIdx].rows.push({
+              id: `row-${currentLotIdx + 1}-${newLots[currentLotIdx].rows.length + 1}`,
+              batchNo: bNo,
+              drawingNo: dNo,
+              qtyToUse: takeQty
+            });
+          }
+        }
+      }
+    });
+
+    // Ensure every lot has at least 1 row
+    newLots.forEach((lot, idx) => {
+      if (!lot.rows || lot.rows.length === 0) {
+        lot.rows = [
+          {
+            id: `row-${idx + 1}-1`,
+            batchNo: '',
+            drawingNo: '',
+            qtyToUse: 0
+          }
+        ];
+      }
+    });
+
+    return newLots;
+  }, []);
+
+  // Initialize or auto-fill lots structure when noOfLots, noOfSets, or batchInventory changes
+  useEffect(() => {
+    if (isReadOnly || callData) return; // In read-only or viewing mode, lots are populated from callData
+    const count = parseInt(noOfLots) || 0;
+    if (count === 0) {
+      setLots([]);
+      return;
+    }
+
+    const autoLots = performAutoAllocation(count, requiredDrawingsList, batchInventory);
+    setLots(autoLots);
 
     setExpandedLots(prev => {
       const exp = { ...prev };
@@ -978,7 +1097,7 @@ const NCRGRSPFinalInspectionCall = ({
       }
       return exp;
     });
-  }, [noOfLots, isReadOnly]);
+  }, [noOfLots, requiredDrawingsList, batchInventory, performAutoAllocation, isReadOnly, callData]);
 
   // Populate from existing callData (for Read-Only or View mode)
   useEffect(() => {
@@ -1068,6 +1187,14 @@ const NCRGRSPFinalInspectionCall = ({
     }));
   };
 
+  // Manual Trigger to Auto-Fill lots
+  const handleAutoFillLots = () => {
+    const count = parseInt(noOfLots) || 0;
+    if (count <= 0) return;
+    const autoLots = performAutoAllocation(count, requiredDrawingsList, batchInventory);
+    setLots(autoLots);
+  };
+
   // Add a new row to a specific lot
   const handleAddRow = (lotIdx) => {
     setLots(prev => {
@@ -1127,7 +1254,7 @@ const NCRGRSPFinalInspectionCall = ({
       const targetRow = targetLot.rows.find(r => r.id === rowId);
       if (targetRow) {
         const isDuplicate = targetLot.rows.some(
-          r => r.id !== rowId && String(r.batchNo) === String(targetRow.batchNo) && r.drawingNo === newDrawingNo
+          r => r.id !== rowId && String(r.batchNo) === String(targetRow.batchNo) && normalizeDwg(r.drawingNo) === normalizeDwg(newDrawingNo)
         );
         if (isDuplicate) {
           return prev;
@@ -1145,7 +1272,7 @@ const NCRGRSPFinalInspectionCall = ({
     });
   };
 
-  // Handle Qty to Use change in a lot row (strictly capped to Available - Previously Offered)
+  // Handle Qty to Use change in a lot row (capped to Available - Previously Offered - Allocated In Other Lots, and Max 5,000 per Lot)
   const handleRowQtyChange = (lotIdx, rowId, value) => {
     setLots(prev => {
       const updated = [...prev];
@@ -1153,13 +1280,21 @@ const NCRGRSPFinalInspectionCall = ({
       targetLot.rows = targetLot.rows.map(r => {
         if (r.id === rowId) {
           const isDuplicate = targetLot.rows.some(
-            other => other.id !== r.id && String(other.batchNo) === String(r.batchNo) && other.drawingNo === r.drawingNo
+            other => other.id !== r.id && String(other.batchNo) === String(r.batchNo) && normalizeDwg(other.drawingNo) === normalizeDwg(r.drawingNo)
           );
           if (isDuplicate) {
             return { ...r, qtyToUse: 0 };
           }
           const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
-          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
+          const allocatedInOtherLots = getAllocatedQtyExceptRow(r.batchNo, r.drawingNo, lotIdx, rowId);
+          const maxBatchAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty - allocatedInOtherLots);
+
+          const otherRowsSameDrawingSum = targetLot.rows
+            .filter(other => other.id !== rowId && normalizeDwg(other.drawingNo) === normalizeDwg(r.drawingNo))
+            .reduce((sum, other) => sum + (parseInt(other.qtyToUse) || 0), 0);
+          const maxLotAllowed = Math.max(0, 5000 - otherRowsSameDrawingSum);
+
+          const maxAllowed = Math.min(maxBatchAllowed, maxLotAllowed);
           const parsed = value === '' ? 0 : Math.max(0, parseInt(value) || 0);
           const cappedVal = Math.min(maxAllowed, parsed);
           return { ...r, qtyToUse: cappedVal };
@@ -1188,8 +1323,16 @@ const NCRGRSPFinalInspectionCall = ({
     batchInventory.forEach(b => {
       if (b.drawings) {
         Object.entries(b.drawings).forEach(([dwg, val]) => {
-          const avail = typeof val === 'object' && val !== null ? val.availableQty : (Number(val) || 0);
-          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + avail;
+          let avail = 0;
+          let prev = 0;
+          if (typeof val === 'object' && val !== null) {
+            avail = val.availableQty || 0;
+            prev = val.previouslyOfferedQty || 0;
+          } else {
+            avail = Number(val) || 0;
+          }
+          const netRemaining = Math.max(0, avail - prev);
+          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + netRemaining;
         });
       }
     });
@@ -1283,16 +1426,16 @@ const NCRGRSPFinalInspectionCall = ({
     return getBatchDrawingInfo(batchNo, drawingNo).remainingQty;
   };
 
-  // Auto-calculate required lots whenever totalRequiredQty or totalOfferedQty changes based on 5000 max capacity per lot
+  // Auto-calculate required lots whenever noOfSets changes based on 5000 sets max capacity per lot
   useEffect(() => {
-    const qtyToCount = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
-    if (qtyToCount > 0) {
-      const minLots = Math.max(1, Math.ceil(qtyToCount / 5000));
+    const setsCount = parseInt(noOfSets) || 0;
+    if (setsCount > 0) {
+      const minLots = Math.max(1, Math.ceil(setsCount / 5000));
       setNoOfLots(prev => Math.max(prev || 0, minLots));
     } else {
       setNoOfLots(0);
     }
-  }, [totalRequiredQty, totalOfferedQty]);
+  }, [noOfSets]);
 
   // ── Validation Rules ──
   const validationResult = useMemo(() => {
@@ -1302,25 +1445,33 @@ const NCRGRSPFinalInspectionCall = ({
     if (!noOfSets || noOfSets <= 0) errors.push('Number of sets must be greater than 0.');
     if (!noOfLots || noOfLots <= 0) errors.push('Number of lots must be greater than 0.');
 
-    // Check minimum lots required for total quantity (Max 5,000 Nos. per Lot)
-    const effectiveTotalQty = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
-    const minLotsRequired = Math.max(1, Math.ceil(effectiveTotalQty / 5000));
+    // Check minimum lots required for total quantity (Max 5,000 Sets per Lot)
+    const setsCount = parseInt(noOfSets) || 0;
+    const minLotsRequired = Math.max(1, Math.ceil(setsCount / 5000));
     if (noOfLots < minLotsRequired) {
-      errors.push(`For total quantity of ${effectiveTotalQty.toLocaleString()} Nos., minimum ${minLotsRequired} lot(s) are required (max 5,000 Nos. per lot).`);
+      errors.push(`For ${setsCount.toLocaleString()} Sets, minimum ${minLotsRequired} lot(s) are required (max 5,000 Sets per lot).`);
     }
 
-    // Check if any single lot exceeds 5,000 Nos.
+    // Check if any single drawing in a lot exceeds 5,000 Nos.
     lots.forEach((lot, lIdx) => {
-      const lotTotal = (lot.rows || []).reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
-      if (lotTotal > 5000) {
-        errors.push(`Lot ${lIdx + 1}: Total lot quantity (${lotTotal.toLocaleString()} Nos.) exceeds maximum limit of 5,000 Nos. per lot.`);
-      }
+      const drawingTotals = {};
+      (lot.rows || []).forEach(r => {
+        if (r.drawingNo) {
+          const norm = normalizeDwg(r.drawingNo);
+          drawingTotals[norm] = (drawingTotals[norm] || 0) + (parseInt(r.qtyToUse) || 0);
+        }
+      });
+      Object.entries(drawingTotals).forEach(([dwg, qty]) => {
+        if (qty > 5000) {
+          errors.push(`Lot ${lIdx + 1}: Quantity for Drawing ${dwg} (${qty.toLocaleString()} Nos.) exceeds maximum limit of 5,000 Nos. per lot.`);
+        }
+      });
 
       // Prevent duplicate (batchNo + drawingNo) combinations in the same lot
       const seenCombos = new Set();
       (lot.rows || []).forEach(r => {
         if (r.batchNo && r.drawingNo) {
-          const comboKey = `${r.batchNo}___${r.drawingNo}`;
+          const comboKey = `${r.batchNo}___${normalizeDwg(r.drawingNo)}`;
           if (seenCombos.has(comboKey)) {
             errors.push(`${lot.lotName || lot.lotId}: Duplicate entry for Batch ${r.batchNo} and Drawing ${r.drawingNo} is not allowed.`);
           }
@@ -1329,25 +1480,31 @@ const NCRGRSPFinalInspectionCall = ({
       });
     });
 
+    // Check if total allocated per (batchNo + drawingNo) across ALL lots exceeds available inventory
+    const totalAllocatedPerBatchDwg = {};
+    lots.forEach(lot => {
+      (lot.rows || []).forEach(r => {
+        if (r.batchNo && r.drawingNo) {
+          const comboKey = `${r.batchNo}___${normalizeDwg(r.drawingNo)}`;
+          totalAllocatedPerBatchDwg[comboKey] = (totalAllocatedPerBatchDwg[comboKey] || 0) + (parseInt(r.qtyToUse) || 0);
+        }
+      });
+    });
+
+    Object.entries(totalAllocatedPerBatchDwg).forEach(([comboKey, totalAllocated]) => {
+      const [batchNo, normDwg] = comboKey.split('___');
+      const info = getBatchDrawingInfo(batchNo, normDwg);
+      const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
+      if (totalAllocated > maxAllowed) {
+        errors.push(`Batch ${batchNo} (Drawing ${normDwg}): Total allocated quantity across all lots (${totalAllocated.toLocaleString()} Nos.) exceeds available quantity (${maxAllowed.toLocaleString()} Nos.).`);
+      }
+    });
+
     // Check if any drawing is under-allocated (less than required quantity)
-    // Vendor can submit when offered qty is equal to or exceeds required qty
     drawingSummaryData.forEach(dwg => {
       if (dwg.offeredQty < dwg.requiredQty) {
         errors.push(`Drawing ${dwg.drawingNo}: Allocated ${dwg.offeredQty} of ${dwg.requiredQty} required.`);
       }
-    });
-
-    // Check if any row qtyToUse exceeds allowable balance qty for that batch & drawing
-    lots.forEach(lot => {
-      (lot.rows || []).forEach((r, rIdx) => {
-        if (r.batchNo && r.drawingNo) {
-          const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
-          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
-          if (r.qtyToUse > maxAllowed) {
-            errors.push(`${lot.lotName || lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds allowable balance quantity (${maxAllowed}).`);
-          }
-        }
-      });
     });
 
     return {
@@ -1382,9 +1539,9 @@ const NCRGRSPFinalInspectionCall = ({
         updatedBy: userId,
         processInspectionCertNo: selectedProcessCertNos.join(','),
         processIcNo: selectedProcessCertNos.join(','),
-        poNo: poNo || '60250003104659',
-        poSrNo: srItem?.itemSrNo || srItem?.srNo || '1',
-        poSr: srItem?.itemSrNo || srItem?.srNo || '1',
+        poNo: String(poNo || effectivePoNo || '60250003104659').split('/')[0].trim(),
+        poSrNo: srItem?.itemSrNo || srItem?.srNo || (String(poNo || effectivePoNo || '').includes('/') ? String(poNo || effectivePoNo).split('/')[1].trim() : '1'),
+        poSr: srItem?.itemSrNo || srItem?.srNo || (String(poNo || effectivePoNo || '').includes('/') ? String(poNo || effectivePoNo).split('/')[1].trim() : '1'),
         plantId: (plantId || '').replace(/^:/, ''),
         vendorCode: (vendorCode || '').replace(/^:/, ''),
         noOfSets,
@@ -2030,34 +2187,61 @@ const NCRGRSPFinalInspectionCall = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Layers size={18} style={{ color: '#1677ff' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Section D – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'})
+                  Section D – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'}, Max 5,000 Nos./Lot)
                 </span>
               </div>
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                {isReadOnly ? 'Formed Lots & Batches Breakdown' : 'Select Batch → Choose Drawing → Enter Qty to Use'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={handleAutoFillLots}
+                    style={{
+                      background: '#e6f4ff', color: '#0958d9', border: '1px solid #91caff',
+                      borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 800,
+                      display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+                    }}
+                    title="Automatically allocate batches across lots up to 5,000 Nos. per lot"
+                  >
+                    ⚡ Auto-Fill Lots
+                  </button>
+                )}
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                  {isReadOnly ? 'Formed Lots & Batches Breakdown' : 'Select Batch → Choose Drawing → Enter Qty to Use'}
+                </span>
+              </div>
             </div>
 
             {/* Expandable Lot Panels */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {lots.map((lot, lotIdx) => {
                 const isExpanded = expandedLots[lotIdx] !== false;
+                const drawingTotals = {};
+                (lot.rows || []).forEach(r => {
+                  if (r.drawingNo) {
+                    const norm = normalizeDwg(r.drawingNo);
+                    drawingTotals[norm] = (drawingTotals[norm] || 0) + (parseInt(r.qtyToUse) || 0);
+                  }
+                });
+                const isLotExceeded = Object.values(drawingTotals).some(qty => qty > 5000);
+                const lotTotalQty = (lot.rows || []).reduce((acc, r) => acc + (parseInt(r.qtyToUse) || 0), 0);
                 return (
                   <div key={lot.stableId || `lot_panel_${lotIdx}`} style={{
-                    borderRadius: 10, border: '1px solid #cbd5e1', overflow: 'hidden',
+                    borderRadius: 10, border: isLotExceeded ? '1px solid #ff4d4f' : '1px solid #cbd5e1', overflow: 'hidden',
                     background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
                   }}>
                     {/* Lot Header Bar */}
                     <div
                       onClick={() => handleToggleExpand(lotIdx)}
                       style={{
-                        background: 'linear-gradient(135deg, #e6f4ff 0%, #bae0ff 100%)',
+                        background: isLotExceeded
+                          ? 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)'
+                          : 'linear-gradient(135deg, #e6f4ff 0%, #bae0ff 100%)',
                         padding: '12px 16px', display: 'flex', justifyContent: 'space-between',
                         alignItems: 'center', cursor: 'pointer', userSelect: 'none'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={e => e.stopPropagation()}>
-                        <label style={{ fontSize: 11, fontWeight: 800, color: '#002c8c', textTransform: 'uppercase' }}>Lot Name:</label>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: isLotExceeded ? '#cf1322' : '#002c8c', textTransform: 'uppercase' }}>Lot Name:</label>
                         <input
                           type="text"
                           readOnly={isReadOnly}
@@ -2078,11 +2262,19 @@ const NCRGRSPFinalInspectionCall = ({
                             boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                           }}
                         />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#002c8c', marginLeft: 8 }}>
-                          Total Lot Quantity: {(lot.rows || []).reduce((acc, r) => acc + (parseInt(r.qtyToUse) || 0), 0).toLocaleString()} Nos.
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isLotExceeded ? '#cf1322' : '#002c8c', marginLeft: 8 }}>
+                          Total Lot Quantity: {lotTotalQty.toLocaleString()} Nos. (Max 5,000 Nos. per drawing)
                         </span>
+                        {isLotExceeded && (
+                          <span style={{
+                            background: '#ff4d4f', color: '#fff', fontSize: 11,
+                            padding: '2px 8px', borderRadius: 12, fontWeight: 800
+                          }}>
+                            Exceeds 5,000 Limit
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0958d9' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: isLotExceeded ? '#cf1322' : '#0958d9' }}>
                         {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                       </div>
                     </div>
@@ -2111,8 +2303,15 @@ const NCRGRSPFinalInspectionCall = ({
                                 const rowQtyToUse = parseInt(row.qtyToUse) || 0;
                                 const previouslyOfferedQty = info.previouslyOfferedQty || 0;
                                 const availableQty = info.availableQty || row.availableQty || (previouslyOfferedQty + rowQtyToUse);
-                                const maxAllowedToUse = Math.max(0, availableQty - previouslyOfferedQty);
-                                const balanceQty = Math.max(0, availableQty - previouslyOfferedQty - rowQtyToUse);
+                                const allocatedInOtherLots = getAllocatedQtyExceptRow(row.batchNo, row.drawingNo, lotIdx, row.id);
+
+                                const otherRowsSameDrawingSum = (lot.rows || [])
+                                  .filter(r => r.id !== row.id && normalizeDwg(r.drawingNo) === normalizeDwg(row.drawingNo))
+                                  .reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+                                const maxLotAllowed = Math.max(0, 5000 - otherRowsSameDrawingSum);
+                                const maxBatchAllowed = Math.max(0, availableQty - previouslyOfferedQty - allocatedInOtherLots);
+                                const maxAllowedToUse = Math.min(maxBatchAllowed, maxLotAllowed);
+                                const balanceQty = Math.max(0, availableQty - previouslyOfferedQty - allocatedInOtherLots - rowQtyToUse);
 
                                 return (
                                   <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
