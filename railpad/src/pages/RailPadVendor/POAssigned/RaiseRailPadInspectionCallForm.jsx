@@ -541,12 +541,16 @@ const RaiseRailPadInspectionCallForm = ({
         try {
             setIsSubmitting(true);
             const userId = localStorage.getItem('railpad_userId') || vendorCode || 'Vendor';
+            const cleanPo = String(effectivePoNo || '').split('/')[0].trim();
+            const effectiveSr = effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || (String(effectivePoNo || '').includes('/') ? String(effectivePoNo).split('/')[1].trim() : '01');
 
             const payload = {
                 callNo: effectiveCallNo || undefined,
-                poNo: `${effectivePoNo}/${effectiveSrItem?.itemSrNo || effectiveSrItem?.srNo || '01'}`,
-                vendorCode: vendorCode || effectiveSrItem?.vendorCode || 'V001',
-                plantId: plantId,
+                poNo: cleanPo,
+                poSr: effectiveSr,
+                poSrNo: effectiveSr,
+                vendorCode: (vendorCode || effectiveSrItem?.vendorCode || 'V001').replace(/^:/, ''),
+                plantId: (plantId || '').replace(/^:/, ''),
                 callType: 'FINAL',
                 railPadType: railPadType,
                 drawingNo: drawingNo,
@@ -569,6 +573,7 @@ const RaiseRailPadInspectionCallForm = ({
 
                         return {
                             batchNo: batchInfo?.batchNo || batchId,
+                            drawingNo: batchInfo?.drawingNo || drawingNo,
                             quantity: parseInt(qty),
                             qtyToUse: parseInt(qty),
                             productionDate: batchInfo?.productionDate || desiredDate
