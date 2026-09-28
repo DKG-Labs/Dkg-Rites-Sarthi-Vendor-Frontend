@@ -56,6 +56,7 @@ const DRAWING_MAPPING = {
         "RT-9774",
         "RT-4218",
         "RT-4218_1",
+        "RT-4865 (52 KG)",
         "RT-4865 Alt-8",
         "RT-4865 Alt-9",
         "RT-4220",
@@ -78,6 +79,7 @@ const DRAWING_MAPPING = {
     "10.00mm NCRGRSP": [
         "RT-4218",
         "RT-4218_1",
+        "RT-4865 (52 KG)",
         "RT-9790",
         "RT-10070",
         "RT-4734",
@@ -657,7 +659,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                                     </div>
                                                 );
                                             }
-                                            if (rawStatus.includes('APPROVED') || rawStatus.includes('COMPLETE') || rawStatus.includes('IC_ISSUE')) {
+                                            if (rawStatus.includes('APPROVED') || rawStatus.includes('COMPLETE') || rawStatus.includes('IC_ISSUE') || rawStatus.includes('SEND_CALL_TO_IBS') || rawStatus.includes('SEND TO IBS')) {
                                                 return (
                                                     <div style={{ 
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
