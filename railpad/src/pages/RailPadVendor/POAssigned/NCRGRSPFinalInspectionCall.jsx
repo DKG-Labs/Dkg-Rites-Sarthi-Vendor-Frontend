@@ -524,6 +524,11 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10178', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10161', qtyPerSet: 16, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
   ],
+  // RT-4865 (52 KG) – 1 in 8.5 / 52 KG Turnout (RDSO Drg. No. 4865) (Total 98 Pads / 2 Items)
+  'RT-4865 (52 KG)': [
+    { drawingNo: 'RT-8889', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' },
+    { drawingNo: 'RT-8887', qtyPerSet: 72, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' }
+  ],
   // RT-9842 to RT-9843 – 10 mm NCR GRSP – NFR RDSO/RT-9842+9843 1 in 8.5 (Total 132 Pads / 22 Items)
   'RT-9842 to RT-9843': [
     { drawingNo: 'RT-9837', qtyPerSet: 4, description: '10 mm NCR GRSP' },
@@ -580,12 +585,16 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
     return 'RT-4218';
   }
   if (str.includes('4865')) {
+    if (str.includes('52 kg') || str.includes('52kg') || str.includes('52')) {
+      return 'RT-4865 (52 KG)';
+    }
     if (str.includes('alt-8') || str.includes('alt 8') || str.includes('alt.8') || str.includes('alt08') || str.includes('alt-08')) {
       return 'RT-4865 Alt-8';
     }
     if (str.includes('alt-9') || str.includes('alt 9') || str.includes('alt.9') || str.includes('alt09') || str.includes('alt-09')) {
       return 'RT-4865 Alt-9';
     }
+    return 'RT-4865 (52 KG)';
   }
   
   // 1. Direct key match
@@ -716,6 +725,8 @@ const NCRGRSPFinalInspectionCall = ({
 
   // ── Certificates list state ──
   const [processCertOptions, setProcessCertOptions] = useState([]);
+  const [processCalls, setProcessCalls] = useState([]);
+  const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
   const [batchInventory, setBatchInventory] = useState([]);
 
   // Close dropdown on outside click
@@ -735,7 +746,6 @@ const NCRGRSPFinalInspectionCall = ({
   const toggleProcessCert = (cert) => {
     setSelectedProcessCertNos(prev => {
       if (prev.includes(cert)) {
-        if (prev.length === 1) return prev; // Keep at least one selected
         return prev.filter(c => c !== cert);
       } else {
         return [...prev, cert];
@@ -745,17 +755,18 @@ const NCRGRSPFinalInspectionCall = ({
 
   const toggleSelectAllCerts = () => {
     if (selectedProcessCertNos.length === processCertOptions.length) {
-      setSelectedProcessCertNos(processCertOptions[0] ? [processCertOptions[0]] : []);
+      setSelectedProcessCertNos([]);
     } else {
       setSelectedProcessCertNos([...processCertOptions]);
     }
   };
 
-  // Fetch process inspection certificates from API
+  // Fetch process inspection certificates from API with full batch-level balance metrics
   useEffect(() => {
     const fetchCerts = async () => {
       if (!plantId) return;
       try {
+        setLoadingProcessCalls(true);
         const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
         // For NCRGRSP, process calls can be selected across any PO serial number under the same PO
         const calls = await inspectionCallService.getProcessCalls(
@@ -776,29 +787,91 @@ const NCRGRSPFinalInspectionCall = ({
             const callNoB = String(b.inspectionCallNo || b.callNo || b.id || '');
             return callNoB.localeCompare(callNoA, undefined, { numeric: true, sensitivity: 'base' });
           });
-          const fetchedCertNos = sortedCalls.map(c => c.inspectionCallNo || c.callNo || c.id).filter(Boolean);
-          if (fetchedCertNos.length > 0) {
-            setProcessCertOptions(fetchedCertNos);
-            setSelectedProcessCertNos(prev => {
-              const validSelected = prev.filter(c => fetchedCertNos.includes(c));
-              return validSelected.length > 0 ? validSelected : [fetchedCertNos[0]];
-            });
-          } else {
-            setProcessCertOptions([]);
-            setSelectedProcessCertNos([]);
-          }
+
+          // Fetch batch balances for each process call in parallel
+          const callsWithBatches = await Promise.all(
+            sortedCalls.map(async (c) => {
+              const cNo = c.inspectionCallNo || c.callNo || c.id;
+              try {
+                const bRes = await inspectionCallService.getAvailableFinalBatches(cNo, effectiveCallNo);
+                const bList = (bRes && Array.isArray(bRes.batches)) ? bRes.batches : [];
+                let acc = 0, used = 0, rem = 0;
+                bList.forEach(b => {
+                  const netAccepted = (b.qtyAccepted !== undefined && b.qtyAccepted !== null)
+                    ? Number(b.qtyAccepted)
+                    : Math.max(0, Number(b.qtyManufactured || b.quantity || 0) - Number(b.verificationRejectedQty || b.rejectedQty || 0));
+                  const prevUsed = Number(b.previouslyOfferedQty || b.alreadyOfferedQty || 0);
+                  const remaining = (b.qtyRemaining !== undefined && b.qtyRemaining !== null)
+                    ? Number(b.qtyRemaining)
+                    : Math.max(0, netAccepted - prevUsed);
+                  acc += netAccepted;
+                  used += prevUsed;
+                  rem += remaining;
+                });
+                return {
+                  ...c,
+                  callNo: cNo,
+                  totalAccepted: acc,
+                  totalPreviouslyUsed: used,
+                  totalAvailableBalance: rem,
+                  inspectionDate: c.createdAt || c.callDate || c.inspectionDate
+                };
+              } catch (e) {
+                return {
+                  ...c,
+                  callNo: cNo,
+                  totalAccepted: Number(c.totalQty || 0),
+                  totalPreviouslyUsed: 0,
+                  totalAvailableBalance: Number(c.totalQty || 0),
+                  inspectionDate: c.createdAt || c.callDate || c.inspectionDate
+                };
+              }
+            })
+          );
+
+          setProcessCalls(callsWithBatches);
+          const fetchedCertNos = callsWithBatches.map(c => c.callNo).filter(Boolean);
+          setProcessCertOptions(fetchedCertNos);
+          setSelectedProcessCertNos(prev => {
+            const validSelected = prev.filter(c => fetchedCertNos.includes(c));
+            return validSelected;
+          });
         } else {
+          setProcessCalls([]);
           setProcessCertOptions([]);
           setSelectedProcessCertNos([]);
         }
       } catch (err) {
         console.warn('Error fetching process certs:', err);
+        setProcessCalls([]);
         setProcessCertOptions([]);
         setSelectedProcessCertNos([]);
+      } finally {
+        setLoadingProcessCalls(false);
       }
     };
     fetchCerts();
-  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo]);
+  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo, effectiveCallNo]);
+
+  // Aggregate balance summary across vendor-selected Process ICs
+  const selectedProcessSummary = useMemo(() => {
+    let totalAccepted = 0;
+    let totalUsed = 0;
+    let totalBalance = 0;
+    (processCalls || []).forEach(c => {
+      const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+      const isSelected = selectedProcessCertNos.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+      if (isSelected) {
+        const accepted = Number(c.totalAccepted || c.totalQty || 0);
+        const used = Number(c.totalPreviouslyUsed || 0);
+        const bal = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : Math.max(0, accepted - used));
+        totalAccepted += accepted;
+        totalUsed += used;
+        totalBalance += bal;
+      }
+    });
+    return { totalAccepted, totalUsed, totalBalance };
+  }, [processCalls, selectedProcessCertNos]);
 
   // Fetch batches for all selected Process Certificates in PARALLEL
   useEffect(() => {
@@ -2071,7 +2144,7 @@ const NCRGRSPFinalInspectionCall = ({
             </div>
 
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16
             }}>
               {/* Rail Pad Type Dropdown */}
               <div>
@@ -2229,96 +2302,6 @@ const NCRGRSPFinalInspectionCall = ({
                 )}
               </div>
 
-              {/* Process Inspection Certificate Multi-Select Dropdown */}
-              <div style={{ position: 'relative' }} ref={certDropdownRef}>
-                <label style={labelStyle}>
-                  Process Inspection Certificate <span style={{ color: '#ff4d4f' }}>*</span>
-                </label>
-                {isReadOnly ? (
-                  <input
-                    type="text"
-                    readOnly
-                    disabled
-                    value={selectedProcessCertNos.join(', ') || 'N/A'}
-                    style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#0958d9' }}
-                  />
-                ) : (
-                  <>
-                    <div
-                      onClick={() => setIsCertDropdownOpen(!isCertDropdownOpen)}
-                      style={{
-                        ...selectStyle,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        background: '#fff',
-                        minHeight: 38
-                      }}
-                    >
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                        {selectedProcessCertNos.length === 0
-                          ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>Select Process Certificate(s)</span>
-                          : selectedProcessCertNos.join(', ')}
-                      </div>
-                      <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0 }} />
-                    </div>
-
-                    {isCertDropdownOpen && (
-                      <div style={{
-                        position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                        background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                        zIndex: 1000, padding: 8, maxHeight: 220, overflowY: 'auto'
-                      }}>
-                        <div
-                          onClick={toggleSelectAllCerts}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                            borderRadius: 6, cursor: 'pointer', background: '#f8fafc', marginBottom: 4,
-                            fontWeight: 700, fontSize: 12, color: '#0f172a'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedProcessCertNos.length === processCertOptions.length}
-                            onChange={() => { }}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <span>Select All ({processCertOptions.length})</span>
-                        </div>
-
-                        {processCertOptions.map(cert => {
-                          const isSelected = selectedProcessCertNos.includes(cert);
-                          return (
-                            <div
-                              key={cert}
-                              onClick={() => toggleProcessCert(cert)}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                                borderRadius: 6, cursor: 'pointer',
-                                background: isSelected ? '#eff6ff' : 'transparent',
-                                color: isSelected ? '#1d4ed8' : '#334155',
-                                fontWeight: isSelected ? 700 : 500,
-                                fontSize: 12, marginBottom: 2
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => { }}
-                                style={{ cursor: 'pointer' }}
-                              />
-                              <span>{cert}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
               {/* No of Sets to be Offered */}
               <div>
                 <label style={labelStyle}>No. of Sets to be Offered <span style={{ color: '#ff4d4f' }}>*</span></label>
@@ -2384,7 +2367,198 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION C – DRAWING REQUIREMENT SUMMARY */}
+          {/* SECTION C – PROCESS INSPECTION CERTIFICATES ALLOCATION & BALANCE TRACKER */}
+          {/* ========================================================================= */}
+          <div style={{
+            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)', padding: 20
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Section C – Process Inspection Certificates (Process ICs) Allocation
+                </span>
+              </div>
+              {selectedProcessCertNos.length > 0 && (
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', background: '#e0f2fe', padding: '3px 10px', borderRadius: '12px' }}>
+                  {selectedProcessCertNos.length} {selectedProcessCertNos.length === 1 ? 'IC Selected' : 'ICs Selected'}
+                </span>
+              )}
+            </div>
+
+            {/* Balance Summary Header Bar */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+              marginBottom: 14,
+              background: '#f8fafc',
+              padding: '12px 16px',
+              borderRadius: 8,
+              border: '1px solid #e2e8f0'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Selected ICs Accepted Qty</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#16a34a' }}>
+                  {selectedProcessSummary.totalAccepted.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Qty Previously Used</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#d97706' }}>
+                  {selectedProcessSummary.totalUsed.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Available Balance to Use</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0284c7' }}>
+                  {selectedProcessSummary.totalBalance.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Table of Available Process ICs */}
+            {loadingProcessCalls ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: 700 }}>
+                ⏳ Loading Process ICs and calculating available balances...
+              </div>
+            ) : (processCalls.length === 0 && selectedProcessCertNos.length === 0) ? (
+              <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 700, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+                {!ncrgrspType ? 'Please select an NCRGRSP Type above to view eligible Process ICs.' : 'No Process ICs found for this NCRGRSP specification.'}
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569', fontWeight: 800, textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
+                      <th style={{ padding: '10px 12px', width: '45px', textAlign: 'center' }}>Select</th>
+                      <th style={{ padding: '10px 12px' }}>Process IC No.</th>
+                      <th style={{ padding: '10px 12px' }}>Call Date</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Accepted Qty</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Previously Used</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Available Balance</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const items = [...processCalls];
+                      selectedProcessCertNos.forEach(ic => {
+                        const exists = items.some(c => (c.callNo || c.inspectionCallNo || c.id) === ic);
+                        if (!exists) {
+                          items.push({ callNo: ic, inspectionCallNo: ic, id: ic, totalAccepted: 0, totalPreviouslyUsed: 0, totalAvailableBalance: 0 });
+                        }
+                      });
+
+                      return items.map((c, idx) => {
+                        const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+                        const isChecked = selectedProcessCertNos.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+                        const accepted = Number(c.totalAccepted || c.totalQty || 0);
+                        const used = Number(c.totalPreviouslyUsed || 0);
+                        const balance = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : (accepted - used));
+                        const isFullyConsumed = balance <= 0 && !isChecked;
+
+                        return (
+                          <tr
+                            key={cCallNo || idx}
+                            onClick={() => {
+                              if (isReadOnly) return;
+                              if (isFullyConsumed && !isChecked) {
+                                setNotification({
+                                  type: 'warning',
+                                  message: `⚠️ Process IC ${cCallNo} is fully consumed (0 Available Balance) and cannot be selected.`
+                                });
+                                return;
+                              }
+                              if (isChecked) {
+                                setSelectedProcessCertNos(prev => prev.filter(id => String(id).trim().toUpperCase() !== String(cCallNo).trim().toUpperCase()));
+                              } else {
+                                setSelectedProcessCertNos(prev => [...prev, cCallNo]);
+                              }
+                            }}
+                            title={isFullyConsumed && !isChecked ? `Process IC ${cCallNo} is fully consumed and cannot be selected.` : ''}
+                            style={{
+                              borderBottom: idx < items.length - 1 ? '1px solid #f1f5f9' : 'none',
+                              background: isChecked ? '#f0f9ff' : (isFullyConsumed && !isChecked ? '#f8fafc' : (idx % 2 === 0 ? '#fff' : '#fafafa')),
+                              cursor: isReadOnly ? 'default' : (isFullyConsumed && !isChecked ? 'not-allowed' : 'pointer'),
+                              opacity: isFullyConsumed && !isChecked ? 0.75 : 1,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <td 
+                              style={{ padding: '10px 12px', textAlign: 'center', cursor: isFullyConsumed && !isChecked ? 'not-allowed' : 'default' }} 
+                              onClick={e => {
+                                if (isFullyConsumed && !isChecked) {
+                                  e.stopPropagation();
+                                  setNotification({
+                                    type: 'warning',
+                                    message: `⚠️ Process IC ${cCallNo} is fully consumed (0 Available Balance) and cannot be selected.`
+                                  });
+                                } else {
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isReadOnly || (isFullyConsumed && !isChecked)}
+                                onChange={(e) => {
+                                  if (isReadOnly) return;
+                                  if (e.target.checked) {
+                                    setSelectedProcessCertNos(prev => [...prev, cCallNo]);
+                                  } else {
+                                    setSelectedProcessCertNos(prev => prev.filter(id => String(id).trim().toUpperCase() !== String(cCallNo).trim().toUpperCase()));
+                                  }
+                                }}
+                                style={{ cursor: isReadOnly || (isFullyConsumed && !isChecked) ? 'not-allowed' : 'pointer', width: '14px', height: '14px' }}
+                              />
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 800, color: '#1e293b' }}>
+                              {cCallNo}
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                              {c.inspectionDate ? new Date(c.inspectionDate).toLocaleDateString('en-GB') : (c.callDate ? new Date(c.callDate).toLocaleDateString('en-GB') : '-')}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                              {accepted.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#d97706' }}>
+                              {used.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 800, color: balance > 0 ? '#0284c7' : '#94a3b8' }}>
+                              {balance.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              {balance > 0 ? (
+                                <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: '#dcfce7', color: '#166534' }}>
+                                  Available
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: '#fee2e2', color: '#991b1b' }}>
+                                  Consumed
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!isReadOnly && selectedProcessCertNos.length === 0 && processCalls.length > 0 && (
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#d97706', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>⚠️</span> Please select at least one Process IC to allocate batch inventory for drawing requirements and lot formation below.
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SECTION D – DRAWING REQUIREMENT SUMMARY */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -2394,7 +2568,7 @@ const NCRGRSPFinalInspectionCall = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ClipboardList size={18} style={{ color: '#1677ff' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Section C – Drawing Requirement Summary
+                  Section D – Drawing Requirement Summary
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
@@ -2481,7 +2655,7 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION D – DYNAMIC LOT FORMATION */}
+          {/* SECTION E – DYNAMIC LOT FORMATION */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -2491,7 +2665,7 @@ const NCRGRSPFinalInspectionCall = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Layers size={18} style={{ color: '#1677ff' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Section D – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'}, Max 5,000 Nos./Lot)
+                  Section E – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'}, Max 5,000 Nos./Lot)
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2824,7 +2998,7 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION E – REMARKS */}
+          {/* SECTION F – REMARKS */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -2833,7 +3007,7 @@ const NCRGRSPFinalInspectionCall = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <FileText size={18} style={{ color: '#1677ff' }} />
               <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                Section E – Remarks
+                Section F – Remarks
               </span>
             </div>
             <textarea
