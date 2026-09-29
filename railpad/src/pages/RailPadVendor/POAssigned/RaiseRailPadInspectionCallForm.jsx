@@ -1262,7 +1262,27 @@ const RaiseRailPadInspectionCallForm = ({
                                                     }
                                                 });
 
-                                                return items.map((c, idx) => {
+                                                // HIDE CONSUMED PROCESS ICS: Only show items that have balance > 0 OR are currently selected
+                                                const visibleItems = items.filter(c => {
+                                                    const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+                                                    const isChecked = selectedProcessIcs.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+                                                    const accepted = Number(c.totalAccepted || c.totalQty || 0);
+                                                    const used = Number(c.totalPreviouslyUsed || 0);
+                                                    const balance = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : (accepted - used));
+                                                    return balance > 0 || isChecked;
+                                                });
+
+                                                if (visibleItems.length === 0) {
+                                                    return (
+                                                        <tr>
+                                                            <td colSpan="7" style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '11px', background: '#f8fafc' }}>
+                                                                All Process ICs for this specification have been fully consumed (0 Available Balance).
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                return visibleItems.map((c, idx) => {
                                                     const cCallNo = c.callNo || c.inspectionCallNo || c.id;
                                                     const isChecked = selectedProcessIcs.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
                                                     const accepted = Number(c.totalAccepted || c.totalQty || 0);
@@ -1290,7 +1310,7 @@ const RaiseRailPadInspectionCallForm = ({
                                                             }}
                                                             title={isFullyConsumed && !isChecked ? `Process IC ${cCallNo} is fully consumed and cannot be selected.` : ''}
                                                             style={{
-                                                                borderBottom: idx < items.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                                                borderBottom: idx < visibleItems.length - 1 ? '1px solid #f1f5f9' : 'none',
                                                                 background: isChecked ? '#f0f9ff' : (isFullyConsumed && !isChecked ? '#f8fafc' : (idx % 2 === 0 ? '#fff' : '#fafafa')),
                                                                 cursor: isReadOnly ? 'default' : (isFullyConsumed && !isChecked ? 'not-allowed' : 'pointer'),
                                                                 opacity: isFullyConsumed && !isChecked ? 0.75 : 1,
