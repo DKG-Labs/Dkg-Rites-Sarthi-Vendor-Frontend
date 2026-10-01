@@ -844,8 +844,12 @@ export const apiService = {
     getVendorPlants: async (vendorCode) => {
         try {
             const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(vendorCode)}/plants`;
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
             const response = await fetch(url, {
-                headers: { 'accept': '*/*' }
+                headers: {
+                    'accept': '*/*',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
             });
             if (!response.ok) throw new Error('Failed to fetch plants');
             return await response.json();
@@ -960,8 +964,12 @@ export const apiService = {
                     console.error('Error reading plantId from localStorage', e);
                 }
             }
-            const plantParam = activePlantId ? `&plantId=${encodeURIComponent(activePlantId)}` : '';
-            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`);
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            const headers = {
+                'Accept': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();
             return data.responseData || [];
