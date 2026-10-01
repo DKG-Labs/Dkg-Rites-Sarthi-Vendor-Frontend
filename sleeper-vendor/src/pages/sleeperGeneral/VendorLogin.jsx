@@ -36,9 +36,11 @@ const VendorLogin = ({ onLogin }) => {
                 sessionStorage.setItem('vendorCode', formData.username || data.responseData.userName);
                 sessionStorage.setItem('userId', data.responseData.userId);
                 
-                // Store token if needed
+                // Store token
                 if (data.responseData.token) {
                     sessionStorage.setItem('token', data.responseData.token);
+                    localStorage.setItem('token', data.responseData.token);
+                    localStorage.setItem('authToken', data.responseData.token);
                 }
                 
                 onLogin();

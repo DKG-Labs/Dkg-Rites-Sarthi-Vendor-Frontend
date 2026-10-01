@@ -7,7 +7,13 @@ const poAssignedService = {
       
       const endpoint = `${API_CONFIG.PO_DATA}?vendorCode=${encodeURIComponent(vendorCode)}&vendorType=${encodeURIComponent(vendorType)}`;
 
-      const response = await fetch(endpoint);
+      const token = localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+
+      const response = await fetch(endpoint, { headers });
       if (!response.ok) throw new Error('Failed to fetch PO data');
       const data = await response.json();
       return data.responseData || data;
