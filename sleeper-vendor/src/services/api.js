@@ -2,6 +2,31 @@
 //export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
 export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const API_BASE_URL = BASE_URL;
+
+export const getAuthToken = () => {
+    return (
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        localStorage.getItem('sleeper_token') ||
+        ''
+    );
+};
+
+export const getAuthHeaders = (contentType = 'application/json') => {
+    const token = getAuthToken();
+    const headers = {};
+    if (contentType) {
+        headers['Content-Type'] = contentType;
+    }
+    headers['Accept'] = 'application/json';
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+};
+
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -859,9 +884,11 @@ export const apiService = {
         }
     },
 
-    getVendorInspectionCalls: async (userId = 118) => {
+    getVendorInspectionCalls: async (userId) => {
         try {
-            const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${userId}`);
+            const finalUserId = userId || sessionStorage.getItem('userId') || localStorage.getItem('userId') || 118;
+            const headers = getAuthHeaders(null);
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${encodeURIComponent(finalUserId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch inspection calls');
             const data = await response.json();
             return data.responseData || [];
@@ -873,11 +900,7 @@ export const apiService = {
 
     getCompletedFinalCalls: async (plantId) => {
         try {
-            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            };
+            const headers = getAuthHeaders('application/json');
             let activePlantId = plantId || sessionStorage.getItem('plantId') || localStorage.getItem('plantId');
             if (!activePlantId) {
                 try {
@@ -901,11 +924,7 @@ export const apiService = {
 
     getCallLetterDetails: async (requestId) => {
         try {
-            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            };
+            const headers = getAuthHeaders('application/json');
             const response = await fetch(`${BASE_URL}/call-letter/details?requestId=${encodeURIComponent(requestId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch call letter details');
             const data = await response.json();
@@ -951,12 +970,18 @@ export const apiService = {
 
     getVendorPOs: async (vendorCode, plantId) => {
         try {
-            const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
+            let finalCode = vendorCode || sessionStorage.getItem('vendorCode');
             let activePlantId = plantId;
             if (!activePlantId) {
                 try {
+                    const sessionPlant = sessionStorage.getItem('plantId');
+                    const localPlant = localStorage.getItem('plantId');
                     const savedPlant = localStorage.getItem('selectedPlant');
-                    if (savedPlant) {
+                    if (sessionPlant) {
+                        activePlantId = sessionPlant;
+                    } else if (localPlant) {
+                        activePlantId = localPlant;
+                    } else if (savedPlant) {
                         const parsed = JSON.parse(savedPlant);
                         activePlantId = parsed?.plantId;
                     }
@@ -964,11 +989,24 @@ export const apiService = {
                     console.error('Error reading plantId from localStorage', e);
                 }
             }
-            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            if (!finalCode) {
+                try {
+                    const savedPlant = localStorage.getItem('selectedPlant');
+                    if (savedPlant) {
+                        const parsed = JSON.parse(savedPlant);
+                        finalCode = parsed?.vendorCode;
+                    }
+                } catch (e) {}
+            }
+            if (!finalCode) {
+                finalCode = ':41647';
+            }
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token');
             const headers = {
                 'Accept': 'application/json',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             };
+            const plantParam = activePlantId ? `&plantId=${encodeURIComponent(activePlantId)}` : '';
             const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();

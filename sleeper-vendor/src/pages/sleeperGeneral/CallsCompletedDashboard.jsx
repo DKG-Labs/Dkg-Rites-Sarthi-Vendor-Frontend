@@ -85,6 +85,16 @@ const InfoIcon = ({ size = 18, color = '#fff' }) => (
 
 const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
     const raw = String(actionStr || jobStatusStr || statusStr || 'COMPLETED').toUpperCase().trim();
+    if (raw.includes('SEND_CALL_TO_IBS') || raw.includes('IBS')) {
+        return {
+            label: 'SEND_CALL_TO_IBS',
+            bg: '#eff6ff',
+            color: '#1d4ed8',
+            border: '#bfdbfe',
+            dot: '#3b82f6',
+            type: 'ibs'
+        };
+    }
     if (raw.includes('CANCEL')) {
         return {
             label: 'Cancelled',
@@ -258,11 +268,30 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
         try {
             setLoading(true);
             setError(null);
-            const data = await apiService.getCompletedFinalCalls(plantId);
-            const list = Array.isArray(data) ? data : [];
-            const plantFiltered = plantId ? list.filter(item => isPlantMatching(item.plantId, [plantId])) : list;
+            const userId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || 118;
+            const [completedRes, vendorCallsRes] = await Promise.allSettled([
+                apiService.getCompletedFinalCalls(plantId),
+                apiService.getVendorInspectionCalls(userId)
+            ]);
+
+            const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value)) ? completedRes.value : [];
+            const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value)) 
+                ? vendorCallsRes.value.filter(c => {
+                    const norm = String(c?.status || c?.action || c?.jobStatus || '').trim().toUpperCase();
+                    return norm === 'SEND_CALL_TO_IBS' || norm.includes('SEND_CALL_TO_IBS') || norm.includes('IBS') || norm === 'LOCKED' || norm === 'COMPLETED';
+                }) 
+                : [];
+
+            const combined = [...list1];
+            list2.forEach(c => {
+                const callKey = (c.callNo || c.requestId || c.id || '').toString();
+                if (!combined.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {
+                    combined.push(c);
+                }
+            });
+
+            const plantFiltered = plantId ? combined.filter(item => isPlantMatching(item.plantId, [plantId])) : combined;
             setCalls(plantFiltered);
-            if (onRefresh) onRefresh();
         } catch (err) {
             console.error('Error fetching completed calls:', err);
             setError('Failed to load completed inspection calls.');
