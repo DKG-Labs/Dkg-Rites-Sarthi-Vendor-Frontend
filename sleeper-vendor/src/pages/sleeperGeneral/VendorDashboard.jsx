@@ -87,12 +87,39 @@ const VendorDashboard = () => {
             const posData = pos.status === 'fulfilled' ? pos.value : [];
             const completedData = completed.status === 'fulfilled' ? completed.value : [];
 
-            setInspectionCalls(callsData || []);
+            const isCompletedOrIbs = (c) => {
+                const raw = String(c?.status || c?.action || c?.jobStatus || '').trim().toUpperCase();
+                return (
+                    raw === 'SEND_CALL_TO_IBS' ||
+                    raw.includes('SEND_CALL_TO_IBS') ||
+                    raw.includes('IBS') ||
+                    raw === 'LOCKED' ||
+                    raw === 'COMPLETED' ||
+                    raw === 'IC ISSUED' ||
+                    raw === 'IC_ISSUED' ||
+                    raw.includes('COMPLETE') ||
+                    raw.includes('FINISH') ||
+                    raw.includes('IC_GENERATION')
+                );
+            };
+
+            const activeRequestedCalls = (callsData || []).filter(c => !isCompletedOrIbs(c));
+            const completedFromInspectionCalls = (callsData || []).filter(c => isCompletedOrIbs(c));
+
+            const combinedCompleted = [...(Array.isArray(completedData) ? completedData : [])];
+            completedFromInspectionCalls.forEach(c => {
+                const callKey = (c.callNo || c.requestId || c.id || '').toString();
+                if (!combinedCompleted.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {
+                    combinedCompleted.push(c);
+                }
+            });
+
+            const filteredCompleted = plantId && Array.isArray(combinedCompleted)
+                ? combinedCompleted.filter(item => isPlantMatching(item.plantId, [plantId]))
+                : combinedCompleted;
+
+            setInspectionCalls(activeRequestedCalls);
             setPoCount(posData?.length || 0);
-            
-            const filteredCompleted = plantId && Array.isArray(completedData)
-                ? completedData.filter(item => isPlantMatching(item.plantId, [plantId]))
-                : (Array.isArray(completedData) ? completedData : []);
             setCompletedCalls(filteredCompleted);
             setCompletedCallsCount(filteredCompleted.length);
         } catch (err) {

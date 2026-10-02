@@ -49,17 +49,79 @@ const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check for bypass flag
+    // Check for bypass flag and URL parameters
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('bypassAuth') === 'true') {
       setIsAuthenticated(true);
-      if (searchParams.get('vendorCode')) {
-        sessionStorage.setItem('vendorCode', searchParams.get('vendorCode'));
+      const vendorCode = searchParams.get('vendorCode');
+      const userId = searchParams.get('userId');
+      const token = searchParams.get('token');
+      const selectedPlant = searchParams.get('selectedPlant');
+      const plantId = searchParams.get('plantId');
+      const vendorName = searchParams.get('vendorName');
+
+      if (vendorCode) {
+        sessionStorage.setItem('vendorCode', vendorCode);
+        localStorage.setItem('vendorCode', vendorCode);
       }
-      if (searchParams.get('userId')) {
-        sessionStorage.setItem('userId', searchParams.get('userId'));
+      if (userId) {
+        sessionStorage.setItem('userId', userId);
+        localStorage.setItem('userId', userId);
+      }
+      if (token) {
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('authToken', token);
+        localStorage.setItem('token', token);
+        localStorage.setItem('authToken', token);
+      }
+      if (selectedPlant) {
+        localStorage.setItem('selectedPlant', selectedPlant);
+      }
+      if (plantId) {
+        sessionStorage.setItem('plantId', plantId);
+        localStorage.setItem('plantId', plantId);
+      }
+      if (vendorName) {
+        sessionStorage.setItem('vendorName', vendorName);
+        localStorage.setItem('vendorName', vendorName);
       }
     }
+  }, []);
+
+  // Sync auth credentials via postMessage from host application
+  useEffect(() => {
+    const handleAuthMessage = (event) => {
+      if (event.data && event.data.type === 'SARTHI_AUTH_SYNC') {
+        const { token, userId, vendorCode, selectedPlant, plantId, vendorName } = event.data.payload || {};
+        if (token) {
+          sessionStorage.setItem('token', token);
+          sessionStorage.setItem('authToken', token);
+          localStorage.setItem('token', token);
+          localStorage.setItem('authToken', token);
+        }
+        if (userId) {
+          sessionStorage.setItem('userId', userId);
+          localStorage.setItem('userId', userId);
+        }
+        if (vendorCode) {
+          sessionStorage.setItem('vendorCode', vendorCode);
+          localStorage.setItem('vendorCode', vendorCode);
+        }
+        if (selectedPlant) {
+          localStorage.setItem('selectedPlant', selectedPlant);
+        }
+        if (plantId) {
+          sessionStorage.setItem('plantId', plantId);
+          localStorage.setItem('plantId', plantId);
+        }
+        if (vendorName) {
+          sessionStorage.setItem('vendorName', vendorName);
+          localStorage.setItem('vendorName', vendorName);
+        }
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
   }, []);
 
   const handleLogout = () => {
