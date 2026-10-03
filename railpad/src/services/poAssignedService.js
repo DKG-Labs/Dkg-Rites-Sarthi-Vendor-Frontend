@@ -49,13 +49,14 @@ const poAssignedService = {
 
   authenticateIMMS: async () => {
     try {
-      const sarthiToken = sessionStorage.getItem('token');
+      const sarthiToken = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(sarthiToken ? { 'Authorization': `Bearer ${sarthiToken}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/authenticate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sarthiToken}`
-        }
+        headers
       });
 
       const data = await response.json();
@@ -98,12 +99,13 @@ const poAssignedService = {
         }
       }
 
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(finalPayload)
       });
       if (!response.ok) {
@@ -120,12 +122,13 @@ const poAssignedService = {
   savePOData: async (payload) => {
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/save`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(payload)
       });
       return await response.json();
@@ -161,12 +164,13 @@ const poAssignedService = {
         }
       }
 
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/fetch-po`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(finalPayload)
       });
       if (!response.ok) {
@@ -199,13 +203,14 @@ const poAssignedService = {
 
   savePoMaData: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/savePoMa`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(payload)
       });
       return await response.json();
@@ -217,13 +222,14 @@ const poAssignedService = {
 
   savePoCaData: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/Vendorsync/savePoCa`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(payload)
       });
       return await response.json();
@@ -235,12 +241,13 @@ const poAssignedService = {
 
   getRlyList: async () => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/vendor-plant/Rlylist`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       });
       if (!response.ok) throw new Error('Failed to fetch Railway list');
       const data = await response.json();
@@ -253,13 +260,14 @@ const poAssignedService = {
 
   getIbsCaseNo: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/ibs/get-case-no`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(payload)
       });
       const data = await response.json();
@@ -272,13 +280,14 @@ const poAssignedService = {
 
   saveIbsCaseNo: async (payload) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const response = await fetch(`${API_BASE_URL}/ibs/save-case-no`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(payload)
       });
       const data = await response.json();
