@@ -118,6 +118,26 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
   ],
+  // RDSO/T-10242 – 11200 mm Curved Switch with 60E1A1 Thick-Web Tongue Rails (Total 114 Pads / 17 Items)
+  'RT-10242': [
+    { drawingNo: 'RT-10260', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10259', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10258', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10257', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10256', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10255', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10254', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10253', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10252', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10200', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10202', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10251', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10163', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10164', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 5 – Source: Northern Railway – Annexure-A | Date: 2026
   'RT-5691': [
     { drawingNo: 'RT-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
@@ -152,6 +172,14 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
     { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP / Pocket Type' }
   ],
+  // RDSO/T-5691-1 – 1 in 16 Turnout with 11200 mm O.R. Switch & C.M.S. X-ing (Official Drawing - Total 203 Pads / 5 Items)
+  'RT-5691-1': [
+    { drawingNo: 'RT-10263', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10262', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10261', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10250', qtyPerSet: 174, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 6 – Source: Northern Railway – Annexure-B | Date: 2026
   'RT-5693': [
     { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -169,6 +197,24 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10274', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
+  ],
+  // RDSO/T-5693-1 – 1 in 16 C.M.S. Crossing (Official Drawing - Total 85 Pads / 15 Items)
+  'RT-5693-1': [
+    { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10274', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10273', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10272', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10271', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10270', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10269', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10268', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10267', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10266', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10265', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10264', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10250', qtyPerSet: 58, description: 'Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 7 – Source: Northern Railway – Annexure-C | Date: 2026
   'RT-6068': [
@@ -595,6 +641,12 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
       return 'RT-4865 Alt-9';
     }
     return 'RT-4865 (52 KG)';
+  }
+  if (str.includes('5691-1') || str.includes('5691_1') || str.includes('5691 (1)') || str.includes('5691-01')) {
+    return 'RT-5691-1';
+  }
+  if (str.includes('5693-1') || str.includes('5693_1') || str.includes('5693 (1)') || str.includes('5693-01')) {
+    return 'RT-5693-1';
   }
   
   // 1. Direct key match
