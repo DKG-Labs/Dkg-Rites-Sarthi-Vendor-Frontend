@@ -869,13 +869,9 @@ export const apiService = {
 
     getVendorPlants: async (vendorCode) => {
         try {
-<<<<<<< HEAD
             const cleanCode = String(vendorCode || '').replace(/^:/, '').trim();
             const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(cleanCode)}/plants`;
-=======
-            const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(vendorCode)}/plants`;
             const token = localStorage.getItem('authToken') || localStorage.getItem('token');
->>>>>>> 353c1210bebec225ae65b75e3b9215d64375aaa3
             const response = await fetch(url, {
                 headers: {
                     'accept': '*/*',

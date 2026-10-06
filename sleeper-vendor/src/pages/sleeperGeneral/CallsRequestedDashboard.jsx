@@ -12,6 +12,11 @@ const STATUS_CONFIG = {
         dot: '#3b82f6', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '📋', description: 'Awaiting Call Desk review'
     },
+    'Pending for verification': {
+        bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
+        dot: '#3b82f6', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '📋', description: 'Awaiting verification'
+    },
     'Returned by Call Desk': {
         bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
         dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
@@ -39,7 +44,7 @@ const STATUS_CONFIG = {
     },
     'Under Inspection': {
         bg: '#ecfdf5', color: '#047857', border: '#a7f3d0',
-        dot: '#10b981', canModify: false, canWithdraw: false, needsWorkflow: false,
+        dot: '#10b981', canModify: true, canWithdraw: true, needsWorkflow: true,
         icon: '🔍', description: 'Inspection in progress'
     },
     'Withheld': {
@@ -51,6 +56,11 @@ const STATUS_CONFIG = {
         bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5',
         dot: '#ef4444', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '❌', description: 'Call cancelled'
+    },
+    'Completed': {
+        bg: '#f0fdf4', color: '#166534', border: '#86efac',
+        dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '✅', description: 'Moved to Completed Calls'
     },
     'Locked': {
         bg: '#f0fdf4', color: '#166534', border: '#86efac',
@@ -115,11 +125,11 @@ const WorkflowTag = () => (
 const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDownload, onDownloadOfferList }) => {
     const [activeTab, setActiveTab] = useState('details');
     if (!call) return null;
-    const cfg = STATUS_CONFIG[call.status] || {};
-    const isReturned = call.status === 'Returned by Call Desk';
-    const locked = call.status === 'Under Inspection' || call.status === 'Cancelled' || call.status === 'Locked';
+    const cfg = STATUS_CONFIG[call.status] || STATUS_CONFIG['Pending for verification'] || {};
+    const isReturned = call.status === 'Returned by Call Desk' || call.status === 'RETURNED';
+    const locked = String(call.status || call.rawStatus || '').toUpperCase().trim() === 'COMPLETED' || String(call.status || '').toUpperCase().trim() === 'LOCKED';
     const statusLabel = (call.status === 'Scheduled by IE' && call.scheduledDate)
-        ? `Scheduled (${call.scheduledDate})` : (call.status === 'Locked' ? 'Completed Calls' : call.status);
+        ? `Scheduled (${call.scheduledDate})` : ((call.status === 'Completed' || call.status === 'Locked') ? 'Completed Calls' : call.status);
 
     return createPortal(
         <div
@@ -624,7 +634,9 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         const rawStatus = (c.status || '').trim();
         const norm = rawStatus.toUpperCase();
         let status = 'Call Raised';
-        if (norm === 'RETURNED BY CALL DESK' || norm === 'RETURNED') {
+        if (norm === 'COMPLETED') {
+            status = 'Completed';
+        } else if (norm === 'RETURNED BY CALL DESK' || norm === 'RETURNED') {
             status = 'Returned by Call Desk';
         } else if (norm === 'RESUBMITTED') {
             status = 'Resubmitted';
@@ -638,7 +650,9 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
             status = 'Withheld';
         } else if (norm === 'CANCELLED') {
             status = 'Cancelled';
-        } else if (norm === 'LOCKED' || norm === 'COMPLETED' || norm === 'SEND_CALL_TO_IBS' || norm.includes('SEND_CALL_TO_IBS') || norm.includes('IBS')) {
+        } else if (norm === 'PENDING FOR VERIFICATION' || norm === 'PENDING' || norm === 'CALL RAISED' || norm === 'CREATED') {
+            status = 'Pending for verification';
+        } else if (norm === 'LOCKED') {
             status = 'Locked';
         } else if (rawStatus) {
             status = rawStatus;
@@ -664,12 +678,8 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     const isCompletedOrIbs = (call) => {
         const raw = String(call.rawStatus || call.status || call.action || '').toUpperCase().trim();
         return (
-            raw === 'SEND_CALL_TO_IBS' ||
-            raw.includes('SEND_CALL_TO_IBS') ||
-            raw.includes('IBS') ||
-            raw === 'LOCKED' ||
             raw === 'COMPLETED' ||
-            raw === 'CANCELLED'
+            raw === 'LOCKED'
         );
     };
 
