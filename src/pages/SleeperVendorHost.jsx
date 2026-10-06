@@ -16,14 +16,51 @@ const SleeperVendorHost = () => {
     }, []);
 
     // Determine the URL based on the environment
-    // In development, it's likely localhost:5173
-    // In production, it should be in a subfolder /sleeper-vendor/
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const vendorCode = localStorage.getItem('vendorCode') || '';
+    const vendorCode = localStorage.getItem('vendorCode') || sessionStorage.getItem('vendorCode') || '';
     const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '';
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('authToken') || sessionStorage.getItem('token') || '';
+    const vendorName = localStorage.getItem('vendorName') || sessionStorage.getItem('vendorName') || '';
+    const plantId = localStorage.getItem('plantId') || sessionStorage.getItem('plantId') || '';
+    const selectedPlant = localStorage.getItem('selectedPlant') || '';
+
+    const buildParams = () => {
+        const p = new URLSearchParams();
+        p.set('bypassAuth', 'true');
+        if (vendorCode) p.set('vendorCode', vendorCode);
+        if (userId) p.set('userId', userId);
+        if (token) p.set('token', token);
+        if (vendorName) p.set('vendorName', vendorName);
+        if (plantId) p.set('plantId', plantId);
+        if (selectedPlant) p.set('selectedPlant', selectedPlant);
+        return p.toString();
+    };
+
+    const host = window.location.hostname || 'localhost';
     const sleeperVendorUrl = isDevelopment
-        ? `http://localhost:5173/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}&userId=${encodeURIComponent(userId)}`
-        : `/sleeper-vendor/?bypassAuth=true&vendorCode=${encodeURIComponent(vendorCode)}&userId=${encodeURIComponent(userId)}`;
+        ? `http://${host}:5173/sleeper-vendor/?${buildParams()}`
+        : `/sleeper-vendor/?${buildParams()}`;
+
+    const handleIframeLoad = (e) => {
+        try {
+            const iframe = e.target;
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'SARTHI_AUTH_SYNC',
+                    payload: {
+                        vendorCode,
+                        userId,
+                        token,
+                        vendorName,
+                        plantId,
+                        selectedPlant
+                    }
+                }, '*');
+            }
+        } catch (err) {
+            console.error('Failed to sync auth with sleeper-vendor iframe:', err);
+        }
+    };
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden', border: 'none' }}>
@@ -32,6 +69,7 @@ const SleeperVendorHost = () => {
                 title="Sleeper Vendor Dashboard"
                 style={{ width: '100%', height: '100%', border: 'none' }}
                 allow="fullscreen"
+                onLoad={handleIframeLoad}
             />
         </div>
     );

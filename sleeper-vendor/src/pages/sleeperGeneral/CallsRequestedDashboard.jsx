@@ -587,18 +587,62 @@ const FilterTab = ({ label, count, active, color, onClick }) => (
 );
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
+const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     const [filterStatus, setFilterStatus] = useState('All');
     const [selectedCall, setSelectedCall] = useState(null);
     const [editCall, setEditCall] = useState(null);
     const [workflowModal, setWorkflowModal] = useState(null);
     const [withdrawSimpleModal, setWithdrawSimpleModal] = useState(null);
     const [toast, setToast] = useState(null);
+    const [fetchedCalls, setFetchedCalls] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    // Single source of truth from parent
-    const allCalls = (inspectionCalls || []).map(c => {
-        // Map backend status to frontend display status
-        const status = (c.status === "Pending for verification" || !c.status) ? "Call Raised" : c.status;
+    useEffect(() => {
+        if (!propCalls || propCalls.length === 0) {
+            const loadCalls = async () => {
+                setLoading(true);
+                try {
+                    const userId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || 118;
+                    const res = await apiService.getVendorInspectionCalls(userId);
+                    if (res && res.length > 0) {
+                        setFetchedCalls(res);
+                    }
+                } catch (e) {
+                    console.error('Error fetching requested calls:', e);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadCalls();
+        }
+    }, [propCalls]);
+
+    const rawCallsList = (propCalls && propCalls.length > 0) ? propCalls : fetchedCalls;
+
+    // Single source of truth
+    const allCalls = (rawCallsList || []).map(c => {
+        const rawStatus = (c.status || '').trim();
+        const norm = rawStatus.toUpperCase();
+        let status = 'Call Raised';
+        if (norm === 'RETURNED BY CALL DESK' || norm === 'RETURNED') {
+            status = 'Returned by Call Desk';
+        } else if (norm === 'RESUBMITTED') {
+            status = 'Resubmitted';
+        } else if (norm === 'CALL ASSIGNED TO IE' || norm === 'ASSIGNED' || norm === 'ASSIGNED TO IE') {
+            status = 'Call Assigned to IE';
+        } else if (norm === 'SCHEDULED BY IE' || norm === 'SCHEDULED') {
+            status = 'Scheduled by IE';
+        } else if (norm === 'UNDER INSPECTION' || norm === 'UNDER_INSPECTION') {
+            status = 'Under Inspection';
+        } else if (norm === 'WITHHELD') {
+            status = 'Withheld';
+        } else if (norm === 'CANCELLED') {
+            status = 'Cancelled';
+        } else if (norm === 'LOCKED' || norm === 'COMPLETED' || norm === 'SEND_CALL_TO_IBS' || norm.includes('SEND_CALL_TO_IBS') || norm.includes('IBS')) {
+            status = 'Locked';
+        } else if (rawStatus) {
+            status = rawStatus;
+        }
         
         return {
             ...c,
@@ -612,16 +656,36 @@ const CallsRequestedDashboard = ({ inspectionCalls, onRefresh }) => {
             qtyOffered: Number(c.qtyOffered) || 0,
             batches: Number(c.batches) || 0,
             status: status,
+            rawStatus: rawStatus,
             history: c.history || [{ action: status, date: c.callDate || new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Initial submission' }]
         };
     });
 
-    const ACTIVE_STATUSES = ['Call Raised', 'Returned by Call Desk', 'Resubmitted', 'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection', 'Withheld'];
-    const displayCalls = allCalls.filter(c => ACTIVE_STATUSES.includes(c.status));
+    const isCompletedOrIbs = (call) => {
+        const raw = String(call.rawStatus || call.status || call.action || '').toUpperCase().trim();
+        return (
+            raw === 'SEND_CALL_TO_IBS' ||
+            raw.includes('SEND_CALL_TO_IBS') ||
+            raw.includes('IBS') ||
+            raw === 'LOCKED' ||
+            raw === 'COMPLETED' ||
+            raw === 'CANCELLED'
+        );
+    };
+
+    const ACTIVE_STATUSES = [
+        'Call Raised', 'Returned by Call Desk', 'Resubmitted', 
+        'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection', 
+        'Withheld', 'Pending for verification', 'Created', 'PENDING'
+    ];
+    const displayCalls = allCalls.filter(c => {
+        if (isCompletedOrIbs(c)) return false;
+        return ACTIVE_STATUSES.includes(c.status) || (!['Cancelled', 'Locked', 'COMPLETED'].includes(c.status));
+    });
 
     const statusCounts = {};
     Object.keys(STATUS_CONFIG).forEach(s => {
-        statusCounts[s] = allCalls.filter(c => c.status === s).length;
+        statusCounts[s] = displayCalls.filter(c => c.status === s).length;
     });
 
     const filtered = filterStatus === 'All'

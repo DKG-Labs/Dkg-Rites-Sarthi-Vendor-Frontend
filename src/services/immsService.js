@@ -187,13 +187,13 @@ export const immsService = {
         try {
             const baseUrl = getBaseUrl();
             const token = getAuthToken();
-            
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${baseUrl}/Vendorsync/save`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
 
@@ -204,20 +204,17 @@ export const immsService = {
         }
     },
 
-    /**
-     * Save fetched PO MA data to the local Sarthi backend
-     */
     savePoMaToSarthi: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
             const token = getAuthToken();
-            
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${baseUrl}/Vendorsync/savePoMa`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
 
@@ -228,20 +225,17 @@ export const immsService = {
         }
     },
 
-    /**
-     * Save fetched PO CA data to the local Sarthi backend
-     */
     savePoCaToSarthi: async (payload) => {
         try {
             const baseUrl = getBaseUrl();
             const token = getAuthToken();
-            
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${baseUrl}/Vendorsync/savePoCa`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
 
@@ -258,9 +252,9 @@ export const immsService = {
             const token = getAuthToken();
             const response = await fetch(`${baseUrl}/vendor-plant/Rlylist`, {
                 method: 'GET',
-                headers: { 
+                headers: {
                     'accept': '*/*',
-                    'Authorization': `Bearer ${token}`
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 }
             });
             if (!response.ok) throw new Error('Failed to fetch Railway list');
@@ -295,12 +289,13 @@ export const immsService = {
         try {
             const baseUrl = getBaseUrl();
             const token = getAuthToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${baseUrl}/ibs/get-case-no`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
@@ -315,12 +310,13 @@ export const immsService = {
         try {
             const baseUrl = getBaseUrl();
             const token = getAuthToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${baseUrl}/ibs/save-case-no`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();

@@ -91,8 +91,9 @@ export const getDefaultHeaders = (token = null) => {
     'Accept': 'application/json'
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  const effectiveToken = token || localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('railpad_token');
+  if (effectiveToken) {
+    headers['Authorization'] = `Bearer ${effectiveToken}`;
   }
 
   return headers;
