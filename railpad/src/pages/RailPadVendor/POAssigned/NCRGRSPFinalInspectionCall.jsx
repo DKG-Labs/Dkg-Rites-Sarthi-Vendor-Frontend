@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Package, Calendar, ClipboardList, CheckCircle2, AlertCircle,
   Trash2, ChevronDown, ChevronUp, Plus, Info, Layers, FileText,
-  ShieldCheck, AlertTriangle, ArrowRight, Check, Search, X
+  ShieldCheck, AlertTriangle, ArrowRight, Check, Search, X, Sparkles
 } from 'lucide-react';
 import inspectionCallService from '../../../services/inspectionCallService';
 
@@ -118,6 +118,26 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
   ],
+  // RDSO/T-10242 – 11200 mm Curved Switch with 60E1A1 Thick-Web Tongue Rails (Total 114 Pads / 17 Items)
+  'RT-10242': [
+    { drawingNo: 'RT-10260', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10259', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10258', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10257', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10256', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10255', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10254', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10253', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10252', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10200', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10202', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10251', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10163', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10164', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 5 – Source: Northern Railway – Annexure-A | Date: 2026
   'RT-5691': [
     { drawingNo: 'RT-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
@@ -152,6 +172,14 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP / Pocket Type' },
     { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP / Pocket Type' }
   ],
+  // RDSO/T-5691-1 – 1 in 16 Turnout with 11200 mm O.R. Switch & C.M.S. X-ing (Official Drawing - Total 203 Pads / 5 Items)
+  'RT-5691-1': [
+    { drawingNo: 'RT-10263', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10262', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10261', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10250', qtyPerSet: 174, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 6 – Source: Northern Railway – Annexure-B | Date: 2026
   'RT-5693': [
     { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -169,6 +197,24 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10274', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
+  ],
+  // RDSO/T-5693-1 – 1 in 16 C.M.S. Crossing (Official Drawing - Total 85 Pads / 15 Items)
+  'RT-5693-1': [
+    { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10274', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10273', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10272', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10271', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10270', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10269', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10268', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10267', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10266', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10265', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10264', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10250', qtyPerSet: 58, description: 'Nylon Cord Reinforced GRSP' }
   ],
   // TYPE 7 – Source: Northern Railway – Annexure-C | Date: 2026
   'RT-6068': [
@@ -524,6 +570,11 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10178', qtyPerSet: 1, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10161', qtyPerSet: 16, description: 'Pocket Type Nylon Cord Reinforced GRSP' }
   ],
+  // RT-4865 (52 KG) – 1 in 8.5 / 52 KG Turnout (RDSO Drg. No. 4865) (Total 98 Pads / 2 Items)
+  'RT-4865 (52 KG)': [
+    { drawingNo: 'RT-8889', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' },
+    { drawingNo: 'RT-8887', qtyPerSet: 72, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' }
+  ],
   // RT-9842 to RT-9843 – 10 mm NCR GRSP – NFR RDSO/RT-9842+9843 1 in 8.5 (Total 132 Pads / 22 Items)
   'RT-9842 to RT-9843': [
     { drawingNo: 'RT-9837', qtyPerSet: 4, description: '10 mm NCR GRSP' },
@@ -580,12 +631,22 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
     return 'RT-4218';
   }
   if (str.includes('4865')) {
+    if (str.includes('52 kg') || str.includes('52kg') || str.includes('52')) {
+      return 'RT-4865 (52 KG)';
+    }
     if (str.includes('alt-8') || str.includes('alt 8') || str.includes('alt.8') || str.includes('alt08') || str.includes('alt-08')) {
       return 'RT-4865 Alt-8';
     }
     if (str.includes('alt-9') || str.includes('alt 9') || str.includes('alt.9') || str.includes('alt09') || str.includes('alt-09')) {
       return 'RT-4865 Alt-9';
     }
+    return 'RT-4865 (52 KG)';
+  }
+  if (str.includes('5691-1') || str.includes('5691_1') || str.includes('5691 (1)') || str.includes('5691-01')) {
+    return 'RT-5691-1';
+  }
+  if (str.includes('5693-1') || str.includes('5693_1') || str.includes('5693 (1)') || str.includes('5693-01')) {
+    return 'RT-5693-1';
   }
   
   // 1. Direct key match
@@ -704,8 +765,20 @@ const NCRGRSPFinalInspectionCall = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  // Auto-dismiss toast notification after 4 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   // ── Certificates list state ──
   const [processCertOptions, setProcessCertOptions] = useState([]);
+  const [processCalls, setProcessCalls] = useState([]);
+  const [loadingProcessCalls, setLoadingProcessCalls] = useState(false);
   const [batchInventory, setBatchInventory] = useState([]);
 
   // Close dropdown on outside click
@@ -725,7 +798,6 @@ const NCRGRSPFinalInspectionCall = ({
   const toggleProcessCert = (cert) => {
     setSelectedProcessCertNos(prev => {
       if (prev.includes(cert)) {
-        if (prev.length === 1) return prev; // Keep at least one selected
         return prev.filter(c => c !== cert);
       } else {
         return [...prev, cert];
@@ -735,17 +807,18 @@ const NCRGRSPFinalInspectionCall = ({
 
   const toggleSelectAllCerts = () => {
     if (selectedProcessCertNos.length === processCertOptions.length) {
-      setSelectedProcessCertNos(processCertOptions[0] ? [processCertOptions[0]] : []);
+      setSelectedProcessCertNos([]);
     } else {
       setSelectedProcessCertNos([...processCertOptions]);
     }
   };
 
-  // Fetch process inspection certificates from API
+  // Fetch process inspection certificates from API with full batch-level balance metrics
   useEffect(() => {
     const fetchCerts = async () => {
       if (!plantId) return;
       try {
+        setLoadingProcessCalls(true);
         const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
         // For NCRGRSP, process calls can be selected across any PO serial number under the same PO
         const calls = await inspectionCallService.getProcessCalls(
@@ -766,29 +839,91 @@ const NCRGRSPFinalInspectionCall = ({
             const callNoB = String(b.inspectionCallNo || b.callNo || b.id || '');
             return callNoB.localeCompare(callNoA, undefined, { numeric: true, sensitivity: 'base' });
           });
-          const fetchedCertNos = sortedCalls.map(c => c.inspectionCallNo || c.callNo || c.id).filter(Boolean);
-          if (fetchedCertNos.length > 0) {
-            setProcessCertOptions(fetchedCertNos);
-            setSelectedProcessCertNos(prev => {
-              const validSelected = prev.filter(c => fetchedCertNos.includes(c));
-              return validSelected.length > 0 ? validSelected : [fetchedCertNos[0]];
-            });
-          } else {
-            setProcessCertOptions([]);
-            setSelectedProcessCertNos([]);
-          }
+
+          // Fetch batch balances for each process call in parallel
+          const callsWithBatches = await Promise.all(
+            sortedCalls.map(async (c) => {
+              const cNo = c.inspectionCallNo || c.callNo || c.id;
+              try {
+                const bRes = await inspectionCallService.getAvailableFinalBatches(cNo, effectiveCallNo);
+                const bList = (bRes && Array.isArray(bRes.batches)) ? bRes.batches : [];
+                let acc = 0, used = 0, rem = 0;
+                bList.forEach(b => {
+                  const netAccepted = (b.qtyAccepted !== undefined && b.qtyAccepted !== null)
+                    ? Number(b.qtyAccepted)
+                    : Math.max(0, Number(b.qtyManufactured || b.quantity || 0) - Number(b.verificationRejectedQty || b.rejectedQty || 0));
+                  const prevUsed = Number(b.previouslyOfferedQty || b.alreadyOfferedQty || 0);
+                  const remaining = (b.qtyRemaining !== undefined && b.qtyRemaining !== null)
+                    ? Number(b.qtyRemaining)
+                    : Math.max(0, netAccepted - prevUsed);
+                  acc += netAccepted;
+                  used += prevUsed;
+                  rem += remaining;
+                });
+                return {
+                  ...c,
+                  callNo: cNo,
+                  totalAccepted: acc,
+                  totalPreviouslyUsed: used,
+                  totalAvailableBalance: rem,
+                  inspectionDate: c.createdAt || c.callDate || c.inspectionDate
+                };
+              } catch (e) {
+                return {
+                  ...c,
+                  callNo: cNo,
+                  totalAccepted: Number(c.totalQty || 0),
+                  totalPreviouslyUsed: 0,
+                  totalAvailableBalance: Number(c.totalQty || 0),
+                  inspectionDate: c.createdAt || c.callDate || c.inspectionDate
+                };
+              }
+            })
+          );
+
+          setProcessCalls(callsWithBatches);
+          const fetchedCertNos = callsWithBatches.map(c => c.callNo).filter(Boolean);
+          setProcessCertOptions(fetchedCertNos);
+          setSelectedProcessCertNos(prev => {
+            const validSelected = prev.filter(c => fetchedCertNos.includes(c));
+            return validSelected;
+          });
         } else {
+          setProcessCalls([]);
           setProcessCertOptions([]);
           setSelectedProcessCertNos([]);
         }
       } catch (err) {
         console.warn('Error fetching process certs:', err);
+        setProcessCalls([]);
         setProcessCertOptions([]);
         setSelectedProcessCertNos([]);
+      } finally {
+        setLoadingProcessCalls(false);
       }
     };
     fetchCerts();
-  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo]);
+  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo, effectiveCallNo]);
+
+  // Aggregate balance summary across vendor-selected Process ICs
+  const selectedProcessSummary = useMemo(() => {
+    let totalAccepted = 0;
+    let totalUsed = 0;
+    let totalBalance = 0;
+    (processCalls || []).forEach(c => {
+      const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+      const isSelected = selectedProcessCertNos.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+      if (isSelected) {
+        const accepted = Number(c.totalAccepted || c.totalQty || 0);
+        const used = Number(c.totalPreviouslyUsed || 0);
+        const bal = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : Math.max(0, accepted - used));
+        totalAccepted += accepted;
+        totalUsed += used;
+        totalBalance += bal;
+      }
+    });
+    return { totalAccepted, totalUsed, totalBalance };
+  }, [processCalls, selectedProcessCertNos]);
 
   // Fetch batches for all selected Process Certificates in PARALLEL
   useEffect(() => {
@@ -907,6 +1042,28 @@ const NCRGRSPFinalInspectionCall = ({
     return [];
   });
   const [expandedLots, setExpandedLots] = useState({ 0: true, 1: true, 2: true });
+  const [autoFillModalConfig, setAutoFillModalConfig] = useState(null); // { targetLotIdx: null | number }
+
+  // Total available quantity in the selected Process Inspection Certificate batches
+  const totalAvailableInventory = useMemo(() => {
+    let sum = 0;
+    (batchInventory || []).forEach(b => {
+      if (b.drawings) {
+        Object.values(b.drawings).forEach(val => {
+          let avail = 0;
+          let prev = 0;
+          if (typeof val === 'object' && val !== null) {
+            avail = val.availableQty || 0;
+            prev = val.previouslyOfferedQty || 0;
+          } else {
+            avail = Number(val) || 0;
+          }
+          sum += Math.max(0, avail - prev);
+        });
+      }
+    });
+    return sum;
+  }, [batchInventory]);
 
   // Persist form draft to localStorage whenever form state changes (only for new calls)
   useEffect(() => {
@@ -941,17 +1098,374 @@ const NCRGRSPFinalInspectionCall = ({
     lots
   ]);
 
-  // Initialize or adjust lots structure when noOfLots changes
-  useEffect(() => {
-    if (isReadOnly) return; // In read-only mode, lots are populated directly from callData
-    const count = parseInt(noOfLots) || 0;
+  // Helper: get allocated quantity across all lots and rows for a specific batch and drawing, excluding a specific row
+  const getAllocatedQtyExceptRow = useCallback((batchNo, drawingNo, excludeLotIdx, excludeRowId) => {
+    if (!batchNo || !drawingNo) return 0;
+    const normTarget = normalizeDwg(drawingNo);
+    let totalAllocated = 0;
+    lots.forEach((lot, lIdx) => {
+      (lot.rows || []).forEach(r => {
+        if (lIdx === excludeLotIdx && r.id === excludeRowId) return;
+        if (String(r.batchNo) === String(batchNo) && normalizeDwg(r.drawingNo) === normTarget) {
+          totalAllocated += (parseInt(r.qtyToUse) || 0);
+        }
+      });
+    });
+    return totalAllocated;
+  }, [lots]);
+
+  // Auto-allocate batches to lots based on required drawings and fixed max 5,000 Nos. capacity per lot
+  const performAutoAllocation = useCallback((targetLotsCount, targetDrawingsList, targetInventory, mode = 'exact') => {
+    const count = parseInt(targetLotsCount) || 0;
+    if (count <= 0) return [];
+
+    const isExactMode = mode === 'exact';
+    const hasSpecificRequirements = isExactMode && targetDrawingsList && targetDrawingsList.length > 0 && targetDrawingsList.some(d => (d.requiredQty || 0) > 0);
+
+    // Track remaining drawing requirements
+    const drawingRemaining = {};
+    if (hasSpecificRequirements) {
+      targetDrawingsList.forEach(d => {
+        drawingRemaining[d.drawingNo] = d.requiredQty || 0;
+      });
+    }
+
+    // Track remaining batch capacity for each batch and drawing
+    const batchAvail = {};
+    (targetInventory || []).forEach(b => {
+      const bNo = String(b.batchNo);
+      batchAvail[bNo] = {};
+      if (b.drawings) {
+        Object.entries(b.drawings).forEach(([dNo, val]) => {
+          let avail = 0;
+          let prev = 0;
+          if (typeof val === 'object' && val !== null) {
+            avail = val.availableQty || 0;
+            prev = val.previouslyOfferedQty || 0;
+          } else {
+            avail = Number(val) || 0;
+          }
+          batchAvail[bNo][dNo] = Math.max(0, avail - prev);
+        });
+      }
+    });
+
+    const newLots = [];
+    for (let i = 0; i < count; i++) {
+      newLots.push({
+        stableId: `lot_stable_${i + 1}`,
+        lotId: `Lot ${i + 1}`,
+        lotName: `Lot ${i + 1}`,
+        lotIndex: i,
+        rows: []
+      });
+    }
+
+    // Collect drawings to allocate: priority to targetDrawingsList, then all from batch inventory
+    const drawingsToProcess = [];
+    if (targetDrawingsList && targetDrawingsList.length > 0) {
+      targetDrawingsList.forEach(d => {
+        if (!drawingsToProcess.includes(d.drawingNo)) {
+          drawingsToProcess.push(d.drawingNo);
+        }
+      });
+    }
+    (targetInventory || []).forEach(b => {
+      if (b.drawings) {
+        Object.keys(b.drawings).forEach(dNo => {
+          const normD = normalizeDwg(dNo);
+          if (!drawingsToProcess.some(existing => normalizeDwg(existing) === normD)) {
+            drawingsToProcess.push(dNo);
+          }
+        });
+      }
+    });
+
+    let currentLotIdx = 0;
+
+    drawingsToProcess.forEach(dNo => {
+      const normReq = normalizeDwg(dNo);
+
+      for (const b of (targetInventory || [])) {
+        if (currentLotIdx >= count) break;
+        if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined && drawingRemaining[dNo] <= 0) break;
+
+        const bNo = String(b.batchNo);
+        const matchKey = Object.keys(batchAvail[bNo] || {}).find(k => normalizeDwg(k) === normReq);
+        if (!matchKey) continue;
+
+        let availInBatch = batchAvail[bNo][matchKey] || 0;
+        if (availInBatch <= 0) continue;
+
+        while (availInBatch > 0 && currentLotIdx < count) {
+          if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined && drawingRemaining[dNo] <= 0) break;
+
+          const currentLotTotalQty = (newLots[currentLotIdx].rows || [])
+            .reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+          const spaceInCurrentLot = Math.max(0, 5000 - currentLotTotalQty);
+
+          if (spaceInCurrentLot === 0) {
+            currentLotIdx++;
+            if (currentLotIdx >= count) break;
+            continue;
+          }
+
+          let maxAllowedForDrawing = spaceInCurrentLot;
+          if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined) {
+            maxAllowedForDrawing = Math.min(spaceInCurrentLot, drawingRemaining[dNo]);
+          }
+
+          const takeQty = Math.min(availInBatch, maxAllowedForDrawing);
+          if (takeQty <= 0) break;
+
+          availInBatch -= takeQty;
+          batchAvail[bNo][matchKey] = availInBatch;
+          if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined) {
+            drawingRemaining[dNo] -= takeQty;
+          }
+
+          const existingRow = newLots[currentLotIdx].rows.find(
+            r => String(r.batchNo) === bNo && normalizeDwg(r.drawingNo) === normReq
+          );
+          if (existingRow) {
+            existingRow.qtyToUse = (parseInt(existingRow.qtyToUse) || 0) + takeQty;
+          } else {
+            newLots[currentLotIdx].rows.push({
+              id: `row-${currentLotIdx + 1}-${newLots[currentLotIdx].rows.length + 1}`,
+              batchNo: bNo,
+              drawingNo: dNo,
+              qtyToUse: takeQty
+            });
+          }
+        }
+      }
+    });
+
+    // Ensure every lot has at least 1 row
+    newLots.forEach((lot, idx) => {
+      if (!lot.rows || lot.rows.length === 0) {
+        lot.rows = [
+          {
+            id: `row-${idx + 1}-1`,
+            batchNo: '',
+            drawingNo: '',
+            qtyToUse: 0
+          }
+        ];
+      }
+    });
+
+    return newLots;
+  }, []);
+
+  // Auto-allocate into a specific lot up to 5,000 capacity
+  const handleAutoFillSingleLot = (targetLotIdx, mode = 'exact') => {
+    // 1. Ensure this lot is expanded so user immediately sees the result
+    setExpandedLots(prev => ({ ...prev, [targetLotIdx]: true }));
+
+    const isExactMode = mode === 'exact';
+    let allocatedTotal = 0;
+    let wasAlreadyFull = false;
+    let hasAvailableInventory = false;
+
     setLots(prevLots => {
+      if (!prevLots[targetLotIdx]) return prevLots;
+
+      const targetLot = prevLots[targetLotIdx];
+      const currentRows = (targetLot.rows || []).filter(r => r.batchNo && r.drawingNo && (parseInt(r.qtyToUse) || 0) > 0);
+      let currentLotTotal = currentRows.reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+
+      if (currentLotTotal >= 5000) {
+        wasAlreadyFull = true;
+        return prevLots;
+      }
+
+      // Calculate what is already allocated across ALL OTHER lots
+      const otherLotsAllocatedByBatchDwg = {};
+      const otherLotsAllocatedByDwg = {};
+
+      prevLots.forEach((lot, lIdx) => {
+        if (lIdx === targetLotIdx) return;
+        (lot.rows || []).forEach(r => {
+          if (r.batchNo && r.drawingNo && (parseInt(r.qtyToUse) || 0) > 0) {
+            const normD = normalizeDwg(r.drawingNo);
+            const combo = `${r.batchNo}___${normD}`;
+            const qty = parseInt(r.qtyToUse) || 0;
+            otherLotsAllocatedByBatchDwg[combo] = (otherLotsAllocatedByBatchDwg[combo] || 0) + qty;
+            otherLotsAllocatedByDwg[normD] = (otherLotsAllocatedByDwg[normD] || 0) + qty;
+          }
+        });
+      });
+
+      // Track remaining requirement for each drawing from requiredDrawingsList
+      const hasSpecificRequirements = isExactMode && requiredDrawingsList && requiredDrawingsList.length > 0 && requiredDrawingsList.some(d => (d.requiredQty || 0) > 0);
+      const drawingRemaining = {};
+      if (hasSpecificRequirements) {
+        requiredDrawingsList.forEach(d => {
+          const normD = normalizeDwg(d.drawingNo);
+          const alreadyOfferedOther = otherLotsAllocatedByDwg[normD] || 0;
+          const alreadyInTarget = currentRows.filter(r => normalizeDwg(r.drawingNo) === normD).reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+          drawingRemaining[d.drawingNo] = Math.max(0, (d.requiredQty || 0) - alreadyOfferedOther - alreadyInTarget);
+        });
+      }
+
+      // Track available batch inventory
+      const batchAvail = {};
+      (batchInventory || []).forEach(b => {
+        const bNo = String(b.batchNo);
+        batchAvail[bNo] = {};
+        if (b.drawings) {
+          Object.entries(b.drawings).forEach(([dNo, val]) => {
+            let avail = 0;
+            let prev = 0;
+            if (typeof val === 'object' && val !== null) {
+              avail = val.availableQty || 0;
+              prev = val.previouslyOfferedQty || 0;
+            } else {
+              avail = Number(val) || 0;
+            }
+            const normD = normalizeDwg(dNo);
+            const combo = `${bNo}___${normD}`;
+            const otherAlloc = otherLotsAllocatedByBatchDwg[combo] || 0;
+            const targetAlloc = currentRows.filter(r => String(r.batchNo) === bNo && normalizeDwg(r.drawingNo) === normD).reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+            const netAvail = Math.max(0, avail - prev - otherAlloc - targetAlloc);
+            batchAvail[bNo][dNo] = netAvail;
+            if (netAvail > 0) hasAvailableInventory = true;
+          });
+        }
+      });
+
+      const updatedRows = currentRows.map(r => ({ ...r }));
+
+      // Collect drawings to allocate
+      const drawingsToProcess = [];
+      if (requiredDrawingsList && requiredDrawingsList.length > 0) {
+        requiredDrawingsList.forEach(d => {
+          if (!drawingsToProcess.includes(d.drawingNo)) {
+            drawingsToProcess.push(d.drawingNo);
+          }
+        });
+      }
+      (batchInventory || []).forEach(b => {
+        if (b.drawings) {
+          Object.keys(b.drawings).forEach(dNo => {
+            const normD = normalizeDwg(dNo);
+            if (!drawingsToProcess.some(existing => normalizeDwg(existing) === normD)) {
+              drawingsToProcess.push(dNo);
+            }
+          });
+        }
+      });
+
+      drawingsToProcess.forEach(dNo => {
+        const normReq = normalizeDwg(dNo);
+
+        for (const b of (batchInventory || [])) {
+          if (currentLotTotal >= 5000) break;
+
+          const bNo = String(b.batchNo);
+          const matchKey = Object.keys(batchAvail[bNo] || {}).find(k => normalizeDwg(k) === normReq);
+          if (!matchKey) continue;
+
+          let availInBatch = batchAvail[bNo][matchKey] || 0;
+          if (availInBatch <= 0) continue;
+
+          const spaceInLot = Math.max(0, 5000 - currentLotTotal);
+          if (spaceInLot <= 0) break;
+
+          let maxAllowedForDrawing = spaceInLot;
+          if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined) {
+            if (drawingRemaining[dNo] <= 0) continue;
+            maxAllowedForDrawing = Math.min(spaceInLot, drawingRemaining[dNo]);
+          }
+
+          const takeQty = Math.min(availInBatch, maxAllowedForDrawing);
+          if (takeQty <= 0) continue;
+
+          availInBatch -= takeQty;
+          batchAvail[bNo][matchKey] = availInBatch;
+          if (hasSpecificRequirements && drawingRemaining[dNo] !== undefined) {
+            drawingRemaining[dNo] -= takeQty;
+          }
+          currentLotTotal += takeQty;
+          allocatedTotal += takeQty;
+
+          const existingRow = updatedRows.find(
+            r => String(r.batchNo) === bNo && normalizeDwg(r.drawingNo) === normReq
+          );
+          if (existingRow) {
+            existingRow.qtyToUse = (parseInt(existingRow.qtyToUse) || 0) + takeQty;
+          } else {
+            updatedRows.push({
+              id: `row-${targetLotIdx + 1}-${updatedRows.length + 1}-${Date.now()}`,
+              batchNo: bNo,
+              drawingNo: dNo,
+              qtyToUse: takeQty
+            });
+          }
+        }
+      });
+
+      if (updatedRows.length === 0) {
+        updatedRows.push({
+          id: `row-${targetLotIdx + 1}-1`,
+          batchNo: '',
+          drawingNo: '',
+          qtyToUse: 0
+        });
+      }
+
       const newLots = [...prevLots];
-      if (count === 0) return [];
-      if (count > newLots.length) {
-        for (let i = newLots.length; i < count; i++) {
-          newLots.push({
-            stableId: `lot_stable_${i + 1}`,
+      newLots[targetLotIdx] = {
+        ...targetLot,
+        rows: updatedRows
+      };
+      return newLots;
+    });
+
+    if (wasAlreadyFull) {
+      setNotification({
+        type: 'info',
+        message: `Lot ${targetLotIdx + 1} is already full at 5,000 Nos.`
+      });
+    } else if (allocatedTotal > 0) {
+      setNotification({
+        type: 'success',
+        message: `Successfully auto-filled ${allocatedTotal.toLocaleString()} Nos. (${isExactMode ? 'Exact Requirement' : 'Full IC Inventory'}) into Lot ${targetLotIdx + 1}.`
+      });
+    } else if (!hasAvailableInventory) {
+      setNotification({
+        type: 'warning',
+        message: `No unallocated batch inventory available to auto-fill Lot ${targetLotIdx + 1}.`
+      });
+    } else {
+      setNotification({
+        type: 'info',
+        message: `No additional quantity needed for Lot ${targetLotIdx + 1}.`
+      });
+    }
+  };
+
+  // Synchronize lots structure when noOfLots changes (without auto-allocating batches/quantities)
+  useEffect(() => {
+    if (isReadOnly || callData) return; // In read-only or viewing mode, lots are populated from callData
+    const count = parseInt(noOfLots) || 0;
+    if (count <= 0) {
+      setLots([]);
+      return;
+    }
+
+    setLots(prevLots => {
+      // If we already have the exact same number of lots, preserve them as is
+      if (prevLots.length === count) return prevLots;
+
+      const updated = [];
+      for (let i = 0; i < count; i++) {
+        if (prevLots[i]) {
+          updated.push(prevLots[i]);
+        } else {
+          updated.push({
+            stableId: `lot_stable_${i + 1}_${Date.now()}`,
             lotId: `Lot ${i + 1}`,
             lotName: `Lot ${i + 1}`,
             lotIndex: i,
@@ -965,10 +1479,8 @@ const NCRGRSPFinalInspectionCall = ({
             ]
           });
         }
-      } else if (newLots.length > count) {
-        return newLots.slice(0, count);
       }
-      return newLots;
+      return updated;
     });
 
     setExpandedLots(prev => {
@@ -978,7 +1490,7 @@ const NCRGRSPFinalInspectionCall = ({
       }
       return exp;
     });
-  }, [noOfLots, isReadOnly]);
+  }, [noOfLots, isReadOnly, callData]);
 
   // Populate from existing callData (for Read-Only or View mode)
   useEffect(() => {
@@ -1068,6 +1580,43 @@ const NCRGRSPFinalInspectionCall = ({
     }));
   };
 
+  // Manual Trigger to Auto-Fill all lots
+  const handleAutoFillLots = (mode = 'exact') => {
+    const count = parseInt(noOfLots) || 0;
+    if (count <= 0) {
+      setNotification({
+        type: 'warning',
+        message: 'Please enter the Number of Lots first.'
+      });
+      return;
+    }
+    const autoLots = performAutoAllocation(count, requiredDrawingsList, batchInventory, mode);
+    setLots(autoLots);
+
+    // Expand all lots
+    setExpandedLots(prev => {
+      const exp = { ...prev };
+      for (let i = 0; i < count; i++) {
+        exp[i] = true;
+      }
+      return exp;
+    });
+
+    const isExactMode = mode === 'exact';
+    const totalAlloc = autoLots.reduce((sum, l) => sum + (l.rows || []).reduce((rSum, r) => rSum + (parseInt(r.qtyToUse) || 0), 0), 0);
+    if (totalAlloc > 0) {
+      setNotification({
+        type: 'success',
+        message: `Successfully auto-filled ${totalAlloc.toLocaleString()} Nos. (${isExactMode ? 'Exact Requirement' : 'Full IC Inventory'}) across ${count} lot(s).`
+      });
+    } else {
+      setNotification({
+        type: 'warning',
+        message: 'No available batch inventory found to auto-fill.'
+      });
+    }
+  };
+
   // Add a new row to a specific lot
   const handleAddRow = (lotIdx) => {
     setLots(prev => {
@@ -1127,7 +1676,7 @@ const NCRGRSPFinalInspectionCall = ({
       const targetRow = targetLot.rows.find(r => r.id === rowId);
       if (targetRow) {
         const isDuplicate = targetLot.rows.some(
-          r => r.id !== rowId && String(r.batchNo) === String(targetRow.batchNo) && r.drawingNo === newDrawingNo
+          r => r.id !== rowId && String(r.batchNo) === String(targetRow.batchNo) && normalizeDwg(r.drawingNo) === normalizeDwg(newDrawingNo)
         );
         if (isDuplicate) {
           return prev;
@@ -1145,7 +1694,7 @@ const NCRGRSPFinalInspectionCall = ({
     });
   };
 
-  // Handle Qty to Use change in a lot row (strictly capped to Available - Previously Offered)
+  // Handle Qty to Use change in a lot row (capped to Available - Previously Offered - Allocated In Other Lots, and strictly Max 5,000 Total Nos. per Lot)
   const handleRowQtyChange = (lotIdx, rowId, value) => {
     setLots(prev => {
       const updated = [...prev];
@@ -1153,13 +1702,21 @@ const NCRGRSPFinalInspectionCall = ({
       targetLot.rows = targetLot.rows.map(r => {
         if (r.id === rowId) {
           const isDuplicate = targetLot.rows.some(
-            other => other.id !== r.id && String(other.batchNo) === String(r.batchNo) && other.drawingNo === r.drawingNo
+            other => other.id !== r.id && String(other.batchNo) === String(r.batchNo) && normalizeDwg(other.drawingNo) === normalizeDwg(r.drawingNo)
           );
           if (isDuplicate) {
             return { ...r, qtyToUse: 0 };
           }
           const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
-          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
+          const allocatedInOtherLots = getAllocatedQtyExceptRow(r.batchNo, r.drawingNo, lotIdx, rowId);
+          const maxBatchAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty - allocatedInOtherLots);
+
+          const otherRowsInLotTotal = (targetLot.rows || [])
+            .filter(other => other.id !== rowId)
+            .reduce((sum, other) => sum + (parseInt(other.qtyToUse) || 0), 0);
+          const maxLotAllowed = Math.max(0, 5000 - otherRowsInLotTotal);
+
+          const maxAllowed = Math.min(maxBatchAllowed, maxLotAllowed);
           const parsed = value === '' ? 0 : Math.max(0, parseInt(value) || 0);
           const cappedVal = Math.min(maxAllowed, parsed);
           return { ...r, qtyToUse: cappedVal };
@@ -1188,8 +1745,16 @@ const NCRGRSPFinalInspectionCall = ({
     batchInventory.forEach(b => {
       if (b.drawings) {
         Object.entries(b.drawings).forEach(([dwg, val]) => {
-          const avail = typeof val === 'object' && val !== null ? val.availableQty : (Number(val) || 0);
-          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + avail;
+          let avail = 0;
+          let prev = 0;
+          if (typeof val === 'object' && val !== null) {
+            avail = val.availableQty || 0;
+            prev = val.previouslyOfferedQty || 0;
+          } else {
+            avail = Number(val) || 0;
+          }
+          const netRemaining = Math.max(0, avail - prev);
+          inventoryMap[dwg] = (inventoryMap[dwg] || 0) + netRemaining;
         });
       }
     });
@@ -1283,16 +1848,18 @@ const NCRGRSPFinalInspectionCall = ({
     return getBatchDrawingInfo(batchNo, drawingNo).remainingQty;
   };
 
-  // Auto-calculate required lots whenever totalRequiredQty or totalOfferedQty changes based on 5000 max capacity per lot
+  // Auto-calculate required lots whenever noOfSets or requiredDrawingsList changes based on fixed 5,000 Nos. capacity per lot
   useEffect(() => {
-    const qtyToCount = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
-    if (qtyToCount > 0) {
-      const minLots = Math.max(1, Math.ceil(qtyToCount / 5000));
-      setNoOfLots(prev => Math.max(prev || 0, minLots));
-    } else {
+    if (isReadOnly || callData) return;
+    const setsCount = parseInt(noOfSets) || 0;
+    if (setsCount > 0 && requiredDrawingsList.length > 0) {
+      const totalReq = requiredDrawingsList.reduce((acc, d) => acc + (d.requiredQty || 0), 0);
+      const calculatedLots = Math.max(1, Math.ceil(totalReq / 5000));
+      setNoOfLots(calculatedLots);
+    } else if (setsCount === 0) {
       setNoOfLots(0);
     }
-  }, [totalRequiredQty, totalOfferedQty]);
+  }, [noOfSets, requiredDrawingsList, isReadOnly, callData]);
 
   // ── Validation Rules ──
   const validationResult = useMemo(() => {
@@ -1302,25 +1869,24 @@ const NCRGRSPFinalInspectionCall = ({
     if (!noOfSets || noOfSets <= 0) errors.push('Number of sets must be greater than 0.');
     if (!noOfLots || noOfLots <= 0) errors.push('Number of lots must be greater than 0.');
 
-    // Check minimum lots required for total quantity (Max 5,000 Nos. per Lot)
-    const effectiveTotalQty = Math.max(totalRequiredQty || 0, totalOfferedQty || 0);
-    const minLotsRequired = Math.max(1, Math.ceil(effectiveTotalQty / 5000));
+    // Check minimum lots required for total quantity (Fixed Max 5,000 Nos. per Lot)
+    const minLotsRequired = Math.max(1, Math.ceil(totalRequiredQty / 5000));
     if (noOfLots < minLotsRequired) {
-      errors.push(`For total quantity of ${effectiveTotalQty.toLocaleString()} Nos., minimum ${minLotsRequired} lot(s) are required (max 5,000 Nos. per lot).`);
+      errors.push(`For ${totalRequiredQty.toLocaleString()} total pieces, minimum ${minLotsRequired} lot(s) are required (fixed max 5,000 Nos. per lot).`);
     }
 
-    // Check if any single lot exceeds 5,000 Nos.
+    // Check if any lot exceeds 5,000 Nos. total quantity
     lots.forEach((lot, lIdx) => {
-      const lotTotal = (lot.rows || []).reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
-      if (lotTotal > 5000) {
-        errors.push(`Lot ${lIdx + 1}: Total lot quantity (${lotTotal.toLocaleString()} Nos.) exceeds maximum limit of 5,000 Nos. per lot.`);
+      const lotTotalQty = (lot.rows || []).reduce((acc, r) => acc + (parseInt(r.qtyToUse) || 0), 0);
+      if (lotTotalQty > 5000) {
+        errors.push(`${lot.lotName || lot.lotId || `Lot ${lIdx + 1}`}: Total lot quantity (${lotTotalQty.toLocaleString()} Nos.) exceeds maximum limit of 5,000 Nos. per lot.`);
       }
 
       // Prevent duplicate (batchNo + drawingNo) combinations in the same lot
       const seenCombos = new Set();
       (lot.rows || []).forEach(r => {
         if (r.batchNo && r.drawingNo) {
-          const comboKey = `${r.batchNo}___${r.drawingNo}`;
+          const comboKey = `${r.batchNo}___${normalizeDwg(r.drawingNo)}`;
           if (seenCombos.has(comboKey)) {
             errors.push(`${lot.lotName || lot.lotId}: Duplicate entry for Batch ${r.batchNo} and Drawing ${r.drawingNo} is not allowed.`);
           }
@@ -1329,25 +1895,31 @@ const NCRGRSPFinalInspectionCall = ({
       });
     });
 
-    // Check if any drawing is under-allocated (less than required quantity)
-    // Vendor can submit when offered qty is equal to or exceeds required qty
-    drawingSummaryData.forEach(dwg => {
-      if (dwg.offeredQty < dwg.requiredQty) {
-        errors.push(`Drawing ${dwg.drawingNo}: Allocated ${dwg.offeredQty} of ${dwg.requiredQty} required.`);
+    // Check if total allocated per (batchNo + drawingNo) across ALL lots exceeds available inventory
+    const totalAllocatedPerBatchDwg = {};
+    lots.forEach(lot => {
+      (lot.rows || []).forEach(r => {
+        if (r.batchNo && r.drawingNo) {
+          const comboKey = `${r.batchNo}___${normalizeDwg(r.drawingNo)}`;
+          totalAllocatedPerBatchDwg[comboKey] = (totalAllocatedPerBatchDwg[comboKey] || 0) + (parseInt(r.qtyToUse) || 0);
+        }
+      });
+    });
+
+    Object.entries(totalAllocatedPerBatchDwg).forEach(([comboKey, totalAllocated]) => {
+      const [batchNo, normDwg] = comboKey.split('___');
+      const info = getBatchDrawingInfo(batchNo, normDwg);
+      const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
+      if (totalAllocated > maxAllowed) {
+        errors.push(`Batch ${batchNo} (Drawing ${normDwg}): Total allocated quantity across all lots (${totalAllocated.toLocaleString()} Nos.) exceeds available quantity (${maxAllowed.toLocaleString()} Nos.).`);
       }
     });
 
-    // Check if any row qtyToUse exceeds allowable balance qty for that batch & drawing
-    lots.forEach(lot => {
-      (lot.rows || []).forEach((r, rIdx) => {
-        if (r.batchNo && r.drawingNo) {
-          const info = getBatchDrawingInfo(r.batchNo, r.drawingNo);
-          const maxAllowed = Math.max(0, info.availableQty - info.previouslyOfferedQty);
-          if (r.qtyToUse > maxAllowed) {
-            errors.push(`${lot.lotName || lot.lotId} Row ${rIdx + 1}: Qty to Use (${r.qtyToUse}) exceeds allowable balance quantity (${maxAllowed}).`);
-          }
-        }
-      });
+    // Check if any drawing is under-allocated (less than required quantity)
+    drawingSummaryData.forEach(dwg => {
+      if (dwg.offeredQty < dwg.requiredQty) {
+        errors.push(`Drawing ${dwg.drawingNo}: Allocated ${dwg.offeredQty.toLocaleString()} of ${dwg.requiredQty.toLocaleString()} required.`);
+      }
     });
 
     return {
@@ -1382,9 +1954,9 @@ const NCRGRSPFinalInspectionCall = ({
         updatedBy: userId,
         processInspectionCertNo: selectedProcessCertNos.join(','),
         processIcNo: selectedProcessCertNos.join(','),
-        poNo: poNo || '60250003104659',
-        poSrNo: srItem?.itemSrNo || srItem?.srNo || '1',
-        poSr: srItem?.itemSrNo || srItem?.srNo || '1',
+        poNo: String(poNo || effectivePoNo || '60250003104659').split('/')[0].trim(),
+        poSrNo: srItem?.itemSrNo || srItem?.srNo || (String(poNo || effectivePoNo || '').includes('/') ? String(poNo || effectivePoNo).split('/')[1].trim() : '1'),
+        poSr: srItem?.itemSrNo || srItem?.srNo || (String(poNo || effectivePoNo || '').includes('/') ? String(poNo || effectivePoNo).split('/')[1].trim() : '1'),
         plantId: (plantId || '').replace(/^:/, ''),
         vendorCode: (vendorCode || '').replace(/^:/, ''),
         noOfSets,
@@ -1481,14 +2053,28 @@ const NCRGRSPFinalInspectionCall = ({
       {notification && (
         <div style={{
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: notification.type === 'success' ? '#065f46' : '#991b1b',
-          color: '#fff', padding: '14px 24px', borderRadius: 10,
+          background: notification.type === 'success'
+            ? '#065f46'
+            : (notification.type === 'info'
+              ? '#1e40af'
+              : (notification.type === 'warning' ? '#b45309' : '#991b1b')),
+          color: '#fff', padding: '12px 20px', borderRadius: 10,
           boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
           display: 'flex', alignItems: 'center', gap: 12,
-          zIndex: 10000, minWidth: 340, fontWeight: 600, fontSize: 14
+          zIndex: 10000, minWidth: 320, maxWidth: 500, fontWeight: 600, fontSize: 13
         }}>
-          {notification.type === 'success' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
-          <div style={{ whiteSpace: 'pre-line' }}>{notification.message}</div>
+          {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <div style={{ whiteSpace: 'pre-line', flex: 1 }}>{notification.message}</div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            style={{
+              background: 'transparent', border: 'none', color: '#fff',
+              cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0, opacity: 0.8
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -1610,7 +2196,7 @@ const NCRGRSPFinalInspectionCall = ({
             </div>
 
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16
             }}>
               {/* Rail Pad Type Dropdown */}
               <div>
@@ -1768,96 +2354,6 @@ const NCRGRSPFinalInspectionCall = ({
                 )}
               </div>
 
-              {/* Process Inspection Certificate Multi-Select Dropdown */}
-              <div style={{ position: 'relative' }} ref={certDropdownRef}>
-                <label style={labelStyle}>
-                  Process Inspection Certificate <span style={{ color: '#ff4d4f' }}>*</span>
-                </label>
-                {isReadOnly ? (
-                  <input
-                    type="text"
-                    readOnly
-                    disabled
-                    value={selectedProcessCertNos.join(', ') || 'N/A'}
-                    style={{ ...inputStyle, background: '#f8fafc', fontWeight: 700, color: '#0958d9' }}
-                  />
-                ) : (
-                  <>
-                    <div
-                      onClick={() => setIsCertDropdownOpen(!isCertDropdownOpen)}
-                      style={{
-                        ...selectStyle,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        background: '#fff',
-                        minHeight: 38
-                      }}
-                    >
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                        {selectedProcessCertNos.length === 0
-                          ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>Select Process Certificate(s)</span>
-                          : selectedProcessCertNos.join(', ')}
-                      </div>
-                      <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0 }} />
-                    </div>
-
-                    {isCertDropdownOpen && (
-                      <div style={{
-                        position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                        background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                        zIndex: 1000, padding: 8, maxHeight: 220, overflowY: 'auto'
-                      }}>
-                        <div
-                          onClick={toggleSelectAllCerts}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                            borderRadius: 6, cursor: 'pointer', background: '#f8fafc', marginBottom: 4,
-                            fontWeight: 700, fontSize: 12, color: '#0f172a'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedProcessCertNos.length === processCertOptions.length}
-                            onChange={() => { }}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <span>Select All ({processCertOptions.length})</span>
-                        </div>
-
-                        {processCertOptions.map(cert => {
-                          const isSelected = selectedProcessCertNos.includes(cert);
-                          return (
-                            <div
-                              key={cert}
-                              onClick={() => toggleProcessCert(cert)}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                                borderRadius: 6, cursor: 'pointer',
-                                background: isSelected ? '#eff6ff' : 'transparent',
-                                color: isSelected ? '#1d4ed8' : '#334155',
-                                fontWeight: isSelected ? 700 : 500,
-                                fontSize: 12, marginBottom: 2
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => { }}
-                                style={{ cursor: 'pointer' }}
-                              />
-                              <span>{cert}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
               {/* No of Sets to be Offered */}
               <div>
                 <label style={labelStyle}>No. of Sets to be Offered <span style={{ color: '#ff4d4f' }}>*</span></label>
@@ -1886,7 +2382,7 @@ const NCRGRSPFinalInspectionCall = ({
                 <input
                   type="number"
                   min="0"
-                  max="10"
+                  max="50"
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   placeholder="Enter No. of Lots"
@@ -1923,7 +2419,218 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION C – DRAWING REQUIREMENT SUMMARY */}
+          {/* SECTION C – PROCESS INSPECTION CERTIFICATES ALLOCATION & BALANCE TRACKER */}
+          {/* ========================================================================= */}
+          <div style={{
+            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)', padding: 20
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Section C – Process Inspection Certificates (Process ICs) Allocation
+                </span>
+              </div>
+              {selectedProcessCertNos.length > 0 && (
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', background: '#e0f2fe', padding: '3px 10px', borderRadius: '12px' }}>
+                  {selectedProcessCertNos.length} {selectedProcessCertNos.length === 1 ? 'IC Selected' : 'ICs Selected'}
+                </span>
+              )}
+            </div>
+
+            {/* Balance Summary Header Bar */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+              marginBottom: 14,
+              background: '#f8fafc',
+              padding: '12px 16px',
+              borderRadius: 8,
+              border: '1px solid #e2e8f0'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Selected ICs Accepted Qty</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#16a34a' }}>
+                  {selectedProcessSummary.totalAccepted.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Qty Previously Used</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#d97706' }}>
+                  {selectedProcessSummary.totalUsed.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>Available Balance to Use</div>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0284c7' }}>
+                  {selectedProcessSummary.totalBalance.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Table of Available Process ICs */}
+            {loadingProcessCalls ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: 700 }}>
+                ⏳ Loading Process ICs and calculating available balances...
+              </div>
+            ) : (processCalls.length === 0 && selectedProcessCertNos.length === 0) ? (
+              <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 700, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+                {!ncrgrspType ? 'Please select an NCRGRSP Type above to view eligible Process ICs.' : 'No Process ICs found for this NCRGRSP specification.'}
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569', fontWeight: 800, textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
+                      <th style={{ padding: '10px 12px', width: '45px', textAlign: 'center' }}>Select</th>
+                      <th style={{ padding: '10px 12px' }}>Process IC No.</th>
+                      <th style={{ padding: '10px 12px' }}>Call Date</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Accepted Qty</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Previously Used</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Available Balance</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const items = [...processCalls];
+                      selectedProcessCertNos.forEach(ic => {
+                        const exists = items.some(c => (c.callNo || c.inspectionCallNo || c.id) === ic);
+                        if (!exists) {
+                          items.push({ callNo: ic, inspectionCallNo: ic, id: ic, totalAccepted: 0, totalPreviouslyUsed: 0, totalAvailableBalance: 0 });
+                        }
+                      });
+
+                      // HIDE CONSUMED PROCESS ICS: Only show items that have balance > 0 OR are currently selected
+                      const visibleItems = items.filter(c => {
+                        const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+                        const isChecked = selectedProcessCertNos.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+                        const accepted = Number(c.totalAccepted || c.totalQty || 0);
+                        const used = Number(c.totalPreviouslyUsed || 0);
+                        const balance = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : (accepted - used));
+                        return balance > 0 || isChecked;
+                      });
+
+                      if (visibleItems.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="7" style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '11px', background: '#f8fafc' }}>
+                              All Process ICs for this specification have been fully consumed (0 Available Balance).
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return visibleItems.map((c, idx) => {
+                        const cCallNo = c.callNo || c.inspectionCallNo || c.id;
+                        const isChecked = selectedProcessCertNos.some(ic => String(ic).trim().toUpperCase() === String(cCallNo).trim().toUpperCase());
+                        const accepted = Number(c.totalAccepted || c.totalQty || 0);
+                        const used = Number(c.totalPreviouslyUsed || 0);
+                        const balance = Number(c.totalAvailableBalance !== undefined ? c.totalAvailableBalance : (accepted - used));
+                        const isFullyConsumed = balance <= 0 && !isChecked;
+
+                        return (
+                          <tr
+                            key={cCallNo || idx}
+                            onClick={() => {
+                              if (isReadOnly) return;
+                              if (isFullyConsumed && !isChecked) {
+                                setNotification({
+                                  type: 'warning',
+                                  message: `⚠️ Process IC ${cCallNo} is fully consumed (0 Available Balance) and cannot be selected.`
+                                });
+                                return;
+                              }
+                              if (isChecked) {
+                                setSelectedProcessCertNos(prev => prev.filter(id => String(id).trim().toUpperCase() !== String(cCallNo).trim().toUpperCase()));
+                              } else {
+                                setSelectedProcessCertNos(prev => [...prev, cCallNo]);
+                              }
+                            }}
+                            title={isFullyConsumed && !isChecked ? `Process IC ${cCallNo} is fully consumed and cannot be selected.` : ''}
+                            style={{
+                              borderBottom: idx < visibleItems.length - 1 ? '1px solid #f1f5f9' : 'none',
+                              background: isChecked ? '#f0f9ff' : (isFullyConsumed && !isChecked ? '#f8fafc' : (idx % 2 === 0 ? '#fff' : '#fafafa')),
+                              cursor: isReadOnly ? 'default' : (isFullyConsumed && !isChecked ? 'not-allowed' : 'pointer'),
+                              opacity: isFullyConsumed && !isChecked ? 0.75 : 1,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <td 
+                              style={{ padding: '10px 12px', textAlign: 'center', cursor: isFullyConsumed && !isChecked ? 'not-allowed' : 'default' }} 
+                              onClick={e => {
+                                if (isFullyConsumed && !isChecked) {
+                                  e.stopPropagation();
+                                  setNotification({
+                                    type: 'warning',
+                                    message: `⚠️ Process IC ${cCallNo} is fully consumed (0 Available Balance) and cannot be selected.`
+                                  });
+                                } else {
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isReadOnly || (isFullyConsumed && !isChecked)}
+                                onChange={(e) => {
+                                  if (isReadOnly) return;
+                                  if (e.target.checked) {
+                                    setSelectedProcessCertNos(prev => [...prev, cCallNo]);
+                                  } else {
+                                    setSelectedProcessCertNos(prev => prev.filter(id => String(id).trim().toUpperCase() !== String(cCallNo).trim().toUpperCase()));
+                                  }
+                                }}
+                                style={{ cursor: isReadOnly || (isFullyConsumed && !isChecked) ? 'not-allowed' : 'pointer', width: '14px', height: '14px' }}
+                              />
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 800, color: '#1e293b' }}>
+                              {cCallNo}
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                              {c.inspectionDate ? new Date(c.inspectionDate).toLocaleDateString('en-GB') : (c.callDate ? new Date(c.callDate).toLocaleDateString('en-GB') : '-')}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                              {accepted.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#d97706' }}>
+                              {used.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 800, color: balance > 0 ? '#0284c7' : '#94a3b8' }}>
+                              {balance.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              {balance > 0 ? (
+                                <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: '#dcfce7', color: '#166534' }}>
+                                  Available
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: '#fee2e2', color: '#991b1b' }}>
+                                  Consumed
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!isReadOnly && selectedProcessCertNos.length === 0 && processCalls.length > 0 && (
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#d97706', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>⚠️</span> Please select at least one Process IC to allocate batch inventory for drawing requirements and lot formation below.
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SECTION D – DRAWING REQUIREMENT SUMMARY */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -1933,7 +2640,7 @@ const NCRGRSPFinalInspectionCall = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ClipboardList size={18} style={{ color: '#1677ff' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Section C – Drawing Requirement Summary
+                  Section D – Drawing Requirement Summary
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
@@ -2020,7 +2727,7 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION D – DYNAMIC LOT FORMATION */}
+          {/* SECTION E – DYNAMIC LOT FORMATION */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -2030,34 +2737,67 @@ const NCRGRSPFinalInspectionCall = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Layers size={18} style={{ color: '#1677ff' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Section D – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'})
+                  Section E – Dynamic Lot Formation ({noOfLots} {noOfLots === 1 ? 'Lot' : 'Lots'}, Max 5,000 Nos./Lot)
                 </span>
               </div>
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                {isReadOnly ? 'Formed Lots & Batches Breakdown' : 'Select Batch → Choose Drawing → Enter Qty to Use'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const count = parseInt(noOfLots) || 0;
+                      if (count <= 0) {
+                        setNotification({
+                          type: 'warning',
+                          message: 'Please enter the Number of Lots first.'
+                        });
+                        return;
+                      }
+                      setAutoFillModalConfig({ targetLotIdx: null });
+                    }}
+                    style={{
+                      background: '#e6f4ff', color: '#0958d9', border: '1px solid #91caff',
+                      borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 800,
+                      display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+                    }}
+                    title="Choose auto-allocation mode (Exact Requirement or Full Process IC)"
+                  >
+                    ⚡ Auto-Fill Lots
+                  </button>
+                )}
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                  {isReadOnly ? 'Formed Lots & Batches Breakdown' : 'Select Batch → Choose Drawing → Enter Qty to Use'}
+                </span>
+              </div>
             </div>
 
             {/* Expandable Lot Panels */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {lots.map((lot, lotIdx) => {
                 const isExpanded = expandedLots[lotIdx] !== false;
+                const lotTotalQty = (lot.rows || []).reduce((acc, r) => acc + (parseInt(r.qtyToUse) || 0), 0);
+                const isLotExceeded = lotTotalQty > 5000;
+                const isLotFull = lotTotalQty === 5000;
                 return (
                   <div key={lot.stableId || `lot_panel_${lotIdx}`} style={{
-                    borderRadius: 10, border: '1px solid #cbd5e1', overflow: 'hidden',
+                    borderRadius: 10, border: isLotExceeded ? '1px solid #ff4d4f' : '1px solid #cbd5e1', overflow: 'hidden',
                     background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
                   }}>
                     {/* Lot Header Bar */}
                     <div
-                      onClick={() => handleToggleExpand(lotIdx)}
+                      onClick={() => toggleLotExpansion(lotIdx)}
                       style={{
-                        background: 'linear-gradient(135deg, #e6f4ff 0%, #bae0ff 100%)',
+                        background: isLotExceeded
+                          ? 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)'
+                          : (isLotFull
+                            ? 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)'
+                            : 'linear-gradient(135deg, #e6f4ff 0%, #bae0ff 100%)'),
                         padding: '12px 16px', display: 'flex', justifyContent: 'space-between',
                         alignItems: 'center', cursor: 'pointer', userSelect: 'none'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={e => e.stopPropagation()}>
-                        <label style={{ fontSize: 11, fontWeight: 800, color: '#002c8c', textTransform: 'uppercase' }}>Lot Name:</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: isLotExceeded ? '#cf1322' : (isLotFull ? '#237804' : '#002c8c'), textTransform: 'uppercase' }}>Lot Name:</label>
                         <input
                           type="text"
                           readOnly={isReadOnly}
@@ -2073,16 +2813,78 @@ const NCRGRSPFinalInspectionCall = ({
                             padding: '4px 10px',
                             borderRadius: 6,
                             border: '1px solid #91caff',
-                            width: 140,
+                            width: 130,
                             outline: 'none',
                             boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                           }}
                         />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#002c8c', marginLeft: 8 }}>
-                          Total Lot Quantity: {(lot.rows || []).reduce((acc, r) => acc + (parseInt(r.qtyToUse) || 0), 0).toLocaleString()} Nos.
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isLotExceeded ? '#cf1322' : (isLotFull ? '#237804' : '#002c8c'), marginLeft: 4 }}>
+                          Total Lot Quantity: <strong style={{ fontSize: 14 }}>{lotTotalQty.toLocaleString()}</strong> / 5,000 Nos.
                         </span>
+
+                        {/* Status Badge */}
+                        {isLotExceeded ? (
+                          <span style={{
+                            background: '#ff4d4f', color: '#fff', fontSize: 11,
+                            padding: '2px 8px', borderRadius: 12, fontWeight: 800,
+                            display: 'inline-flex', alignItems: 'center', gap: 3
+                          }}>
+                            <AlertCircle size={12} /> Exceeds 5,000 (+{(lotTotalQty - 5000).toLocaleString()})
+                          </span>
+                        ) : isLotFull ? (
+                          <span style={{
+                            background: '#52c41a', color: '#fff', fontSize: 11,
+                            padding: '2px 8px', borderRadius: 12, fontWeight: 800,
+                            display: 'inline-flex', alignItems: 'center', gap: 3
+                          }}>
+                            <CheckCircle2 size={12} /> Full (5,000 Nos.)
+                          </span>
+                        ) : lotTotalQty > 0 ? (
+                          <span style={{
+                            background: '#e6f4ff', color: '#0958d9', fontSize: 11,
+                            padding: '2px 8px', borderRadius: 12, fontWeight: 800, border: '1px solid #91caff'
+                          }}>
+                            {(5000 - lotTotalQty).toLocaleString()} Nos. Available
+                          </span>
+                        ) : (
+                          <span style={{
+                            background: '#f1f5f9', color: '#64748b', fontSize: 11,
+                            padding: '2px 8px', borderRadius: 12, fontWeight: 700
+                          }}>
+                            0 / 5,000 Nos.
+                          </span>
+                        )}
+
+                        {/* Per-Lot Auto-Fill Button */}
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAutoFillModalConfig({ targetLotIdx: lotIdx });
+                            }}
+                            style={{
+                              background: '#ffffff',
+                              color: '#0958d9',
+                              border: '1px solid #91caff',
+                              borderRadius: 6,
+                              padding: '3px 10px',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              marginLeft: 6
+                            }}
+                            title={`Auto-fill ${lot.lotName || lot.lotId || `Lot ${lotIdx + 1}`} (Exact Requirement or Full Process IC)`}
+                          >
+                            ⚡ Auto-Fill This Lot
+                          </button>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0958d9' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: isLotExceeded ? '#cf1322' : (isLotFull ? '#237804' : '#0958d9') }}>
                         {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                       </div>
                     </div>
@@ -2111,8 +2913,15 @@ const NCRGRSPFinalInspectionCall = ({
                                 const rowQtyToUse = parseInt(row.qtyToUse) || 0;
                                 const previouslyOfferedQty = info.previouslyOfferedQty || 0;
                                 const availableQty = info.availableQty || row.availableQty || (previouslyOfferedQty + rowQtyToUse);
-                                const maxAllowedToUse = Math.max(0, availableQty - previouslyOfferedQty);
-                                const balanceQty = Math.max(0, availableQty - previouslyOfferedQty - rowQtyToUse);
+                                const allocatedInOtherLots = getAllocatedQtyExceptRow(row.batchNo, row.drawingNo, lotIdx, row.id);
+
+                                const otherRowsInLotTotal = (lot.rows || [])
+                                  .filter(r => r.id !== row.id)
+                                  .reduce((sum, r) => sum + (parseInt(r.qtyToUse) || 0), 0);
+                                const maxLotAllowed = Math.max(0, 5000 - otherRowsInLotTotal);
+                                const maxBatchAllowed = Math.max(0, availableQty - previouslyOfferedQty - allocatedInOtherLots);
+                                const maxAllowedToUse = Math.min(maxBatchAllowed, maxLotAllowed);
+                                const balanceQty = Math.max(0, availableQty - previouslyOfferedQty - allocatedInOtherLots - rowQtyToUse);
 
                                 return (
                                   <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -2261,7 +3070,7 @@ const NCRGRSPFinalInspectionCall = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION E – REMARKS */}
+          {/* SECTION F – REMARKS */}
           {/* ========================================================================= */}
           <div style={{
             background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
@@ -2270,7 +3079,7 @@ const NCRGRSPFinalInspectionCall = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <FileText size={18} style={{ color: '#1677ff' }} />
               <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                Section E – Remarks
+                Section F – Remarks
               </span>
             </div>
             <textarea
@@ -2382,6 +3191,234 @@ const NCRGRSPFinalInspectionCall = ({
           </>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: CHOOSE AUTO-FILL MODE (EXACT REQUIREMENT vs FULL PROCESS IC)       */}
+      {/* ========================================================================= */}
+      {autoFillModalConfig && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: 20
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 16,
+            width: '100%',
+            maxWidth: 580,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            overflow: 'hidden'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+              padding: '18px 24px',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  borderRadius: 8, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Sparkles size={18} color="#ffffff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#ffffff' }}>
+                    Choose Auto-Fill Mode
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>
+                    {autoFillModalConfig.targetLotIdx !== null && autoFillModalConfig.targetLotIdx !== undefined
+                      ? `Allocate batches for Lot ${autoFillModalConfig.targetLotIdx + 1}`
+                      : `Allocate batches across all ${noOfLots} Lots`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAutoFillModalConfig(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32, height: 32,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', cursor: 'pointer', fontSize: 16
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body with 2 Action Cards */}
+            <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              
+              {/* Option 1: Exact Required Qty */}
+              <div
+                onClick={() => {
+                  const targetIdx = autoFillModalConfig.targetLotIdx;
+                  setAutoFillModalConfig(null);
+                  if (targetIdx !== null && targetIdx !== undefined) {
+                    handleAutoFillSingleLot(targetIdx, 'exact');
+                  } else {
+                    handleAutoFillLots('exact');
+                  }
+                }}
+                style={{
+                  border: '2px solid #91caff',
+                  borderRadius: 12,
+                  padding: 16,
+                  background: 'linear-gradient(135deg, #f0f7ff 0%, #e6f4ff 100%)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#1677ff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(22,119,255,0.15)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#91caff';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#0958d9', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🎯 Match Exact Required Qty
+                  </span>
+                  <span style={{
+                    background: '#0958d9', color: '#fff', fontSize: 12,
+                    fontWeight: 800, padding: '3px 10px', borderRadius: 12
+                  }}>
+                    {totalRequiredQty.toLocaleString()} Nos.
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
+                  Allocates batches strictly matching the <strong>Required Qty per Drawing</strong> calculated from the selected sets ({noOfSets} sets = {totalRequiredQty.toLocaleString()} Nos.). Capped strictly at required drawing limits.
+                </p>
+                <div style={{
+                  alignSelf: 'flex-start',
+                  marginTop: 4,
+                  background: '#1677ff',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}>
+                  ⚡ Fill Exact Requirement ({totalRequiredQty.toLocaleString()} Nos.)
+                </div>
+              </div>
+
+              {/* Option 2: Full Process IC Inventory / Excess Qty */}
+              <div
+                onClick={() => {
+                  const targetIdx = autoFillModalConfig.targetLotIdx;
+                  setAutoFillModalConfig(null);
+                  if (targetIdx !== null && targetIdx !== undefined) {
+                    handleAutoFillSingleLot(targetIdx, 'full_ic');
+                  } else {
+                    handleAutoFillLots('full_ic');
+                  }
+                }}
+                style={{
+                  border: '2px solid #86efac',
+                  borderRadius: 12,
+                  padding: 16,
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#22c55e';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(34,197,94,0.15)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#86efac';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📦 Full Process IC Inventory (Include Excess)
+                  </span>
+                  <span style={{
+                    background: '#166534', color: '#fff', fontSize: 12,
+                    fontWeight: 800, padding: '3px 10px', borderRadius: 12
+                  }}>
+                    {totalAvailableInventory.toLocaleString()} Nos. Available
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
+                  Allocates <strong>all available batches from the selected Process IC(s)</strong> (including excess manufactured pieces beyond required set counts), filling up to 5,000 Nos./lot.
+                </p>
+                <div style={{
+                  alignSelf: 'flex-start',
+                  marginTop: 4,
+                  background: '#15803d',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}>
+                  ⚡ Fill Entire Process IC Inventory ({totalAvailableInventory.toLocaleString()} Nos.)
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '12px 24px',
+              background: '#f8fafc',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                type="button"
+                onClick={() => setAutoFillModalConfig(null)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 6,
+                  padding: '6px 16px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

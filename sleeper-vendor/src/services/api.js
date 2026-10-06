@@ -1,14 +1,33 @@
-<<<<<<< HEAD
-//export const BASE_URL = 'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api';
-//export const BASE_URL = "http://localhost:8080/sarthi-backend/api";
-export const BASE_URL = "https://api.ritesqasarthi.com/sarthi-backend/api";
-=======
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 export const BASE_URL = isLocal
     ? "http://localhost:8080/sarthi-backend/api"
-    : "https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api";
->>>>>>> uat-sarthi
+    : "https://api.ritesqasarthi.com/sarthi-backend/api";
 export const API_BASE_URL = BASE_URL;
+
+export const getAuthToken = () => {
+    return (
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        localStorage.getItem('sleeper_token') ||
+        ''
+    );
+};
+
+export const getAuthHeaders = (contentType = 'application/json') => {
+    const token = getAuthToken();
+    const headers = {};
+    if (contentType) {
+        headers['Content-Type'] = contentType;
+    }
+    headers['Accept'] = 'application/json';
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+};
+
 export const apiService = {
     // HTS Wire APIs
     getHtsWires: async () => {
@@ -852,8 +871,12 @@ export const apiService = {
         try {
             const cleanCode = String(vendorCode || '').replace(/^:/, '').trim();
             const url = `${BASE_URL}/vendor-plant/vendor/${encodeURIComponent(cleanCode)}/plants`;
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
             const response = await fetch(url, {
-                headers: { 'accept': '*/*' }
+                headers: {
+                    'accept': '*/*',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
             });
             if (!response.ok) throw new Error('Failed to fetch plants');
             return await response.json();
@@ -863,9 +886,11 @@ export const apiService = {
         }
     },
 
-    getVendorInspectionCalls: async (userId = 118) => {
+    getVendorInspectionCalls: async (userId) => {
         try {
-            const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${userId}`);
+            const finalUserId = userId || sessionStorage.getItem('userId') || localStorage.getItem('userId') || 118;
+            const headers = getAuthHeaders(null);
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/inspection-calls?userId=${encodeURIComponent(finalUserId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch inspection calls');
             const data = await response.json();
             return data.responseData || [];
@@ -877,11 +902,7 @@ export const apiService = {
 
     getCompletedFinalCalls: async (plantId) => {
         try {
-            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            };
+            const headers = getAuthHeaders('application/json');
             let activePlantId = plantId || sessionStorage.getItem('plantId') || localStorage.getItem('plantId');
             if (!activePlantId) {
                 try {
@@ -905,11 +926,7 @@ export const apiService = {
 
     getCallLetterDetails: async (requestId) => {
         try {
-            const token = localStorage.getItem('authToken') || sessionStorage.getItem('token');
-            const headers = {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            };
+            const headers = getAuthHeaders('application/json');
             const response = await fetch(`${BASE_URL}/call-letter/details?requestId=${encodeURIComponent(requestId)}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch call letter details');
             const data = await response.json();
@@ -955,12 +972,18 @@ export const apiService = {
 
     getVendorPOs: async (vendorCode, plantId) => {
         try {
-            const finalCode = vendorCode || sessionStorage.getItem('vendorCode') || ':41647';
+            let finalCode = vendorCode || sessionStorage.getItem('vendorCode');
             let activePlantId = plantId;
             if (!activePlantId) {
                 try {
+                    const sessionPlant = sessionStorage.getItem('plantId');
+                    const localPlant = localStorage.getItem('plantId');
                     const savedPlant = localStorage.getItem('selectedPlant');
-                    if (savedPlant) {
+                    if (sessionPlant) {
+                        activePlantId = sessionPlant;
+                    } else if (localPlant) {
+                        activePlantId = localPlant;
+                    } else if (savedPlant) {
                         const parsed = JSON.parse(savedPlant);
                         activePlantId = parsed?.plantId;
                     }
@@ -968,8 +991,25 @@ export const apiService = {
                     console.error('Error reading plantId from localStorage', e);
                 }
             }
+            if (!finalCode) {
+                try {
+                    const savedPlant = localStorage.getItem('selectedPlant');
+                    if (savedPlant) {
+                        const parsed = JSON.parse(savedPlant);
+                        finalCode = parsed?.vendorCode;
+                    }
+                } catch (e) {}
+            }
+            if (!finalCode) {
+                finalCode = ':41647';
+            }
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token');
+            const headers = {
+                'Accept': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const plantParam = activePlantId ? `&plantId=${encodeURIComponent(activePlantId)}` : '';
-            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`);
+            const response = await fetch(`${BASE_URL}/vendor/poData?vendorCode=${encodeURIComponent(finalCode)}&vendorType=Sleeper${plantParam}`, { headers });
             if (!response.ok) throw new Error('Failed to fetch POs');
             const data = await response.json();
             return data.responseData || [];
@@ -1168,13 +1208,14 @@ export const apiService = {
     // IMMS Sync APIs
     authenticateIMMS: async () => {
         try {
-            const sarthiToken = sessionStorage.getItem('token');
+            const sarthiToken = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(sarthiToken ? { 'Authorization': `Bearer ${sarthiToken}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/Vendorsync/authenticate`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sarthiToken}`
-                }
+                headers
             });
 
             // Handle non-JSON responses (usually proxy errors)
@@ -1227,12 +1268,13 @@ export const apiService = {
                 }
             }
 
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(finalPayload)
             });
             if (!response.ok) {
@@ -1272,12 +1314,13 @@ export const apiService = {
                 }
             }
 
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/Vendorsync/fetch-po`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(finalPayload)
             });
             if (!response.ok) {
@@ -1312,12 +1355,14 @@ export const apiService = {
 
     savePOData: async (payload) => {
         try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/Vendorsync/save`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
@@ -1330,12 +1375,14 @@ export const apiService = {
 
     savePoMaData: async (payload) => {
         try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/Vendorsync/savePoMa`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
@@ -1348,9 +1395,13 @@ export const apiService = {
 
     getRlyList: async () => {
         try {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
             const response = await fetch(`${BASE_URL}/vendor-plant/Rlylist`, {
                 method: 'GET',
-                headers: { 'accept': '*/*' }
+                headers: {
+                    'accept': '*/*',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
             });
             if (!response.ok) throw new Error('Failed to fetch Railway list');
             const data = await response.json();
@@ -1456,13 +1507,14 @@ export const apiService = {
 
     getIbsCaseNo: async (payload) => {
         try {
-            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/ibs/get-case-no`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
@@ -1475,13 +1527,14 @@ export const apiService = {
 
     saveIbsCaseNo: async (payload) => {
         try {
-            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
             const response = await fetch(`${BASE_URL}/ibs/save-case-no`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await response.json();

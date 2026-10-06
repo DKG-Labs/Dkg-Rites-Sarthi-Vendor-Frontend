@@ -37,6 +37,24 @@ const getCallStatusInfo = (statusStr, actionStr) => {
         };
     }
 
+    // SEND CALL TO IBS
+    if (
+        act.includes('SEND_CALL_TO_IBS') ||
+        act.includes('SEND TO IBS') ||
+        act.includes('SEND_TO_IBS') ||
+        rawStatus.includes('SEND_CALL_TO_IBS') ||
+        rawStatus.includes('SEND TO IBS') ||
+        rawStatus.includes('SEND_TO_IBS')
+    ) {
+        return {
+            label: 'Send Call to IBS',
+            bg: '#ecfdf5',
+            color: '#047857',
+            border: '#a7f3d0',
+            icon: <CheckCircle2 size={12} />
+        };
+    }
+
     // 1. If action is GENERATE_IC / DSC_SIGN_IC / E-SIGN -> Completed - E-Signed
     if (
         act.includes('GENERATE_IC') || 
