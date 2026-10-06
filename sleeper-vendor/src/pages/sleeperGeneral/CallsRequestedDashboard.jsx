@@ -17,6 +17,11 @@ const STATUS_CONFIG = {
         dot: '#3b82f6', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '📋', description: 'Awaiting verification'
     },
+    'PO Verification': {
+        bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
+        dot: '#3b82f6', canModify: true, canWithdraw: false, needsWorkflow: false,
+        icon: '🔍', description: 'Under PO Verification'
+    },
     'Returned by Call Desk': {
         bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
         dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
@@ -34,22 +39,27 @@ const STATUS_CONFIG = {
     },
     'Call Assigned to IE': {
         bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0',
-        dot: '#22c55e', canModify: true, canWithdraw: true, needsWorkflow: true,
-        icon: '👷', description: 'Locked & assigned to IE'
+        dot: '#22c55e', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '👷', description: 'Assigned to IE'
     },
     'Scheduled by IE': {
         bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe',
-        dot: '#8b5cf6', canModify: true, canWithdraw: true, needsWorkflow: true,
+        dot: '#8b5cf6', canModify: true, canWithdraw: false, needsWorkflow: false,
         icon: '📅', description: 'Inspection date scheduled'
     },
     'Under Inspection': {
         bg: '#ecfdf5', color: '#047857', border: '#a7f3d0',
-        dot: '#10b981', canModify: true, canWithdraw: true, needsWorkflow: true,
+        dot: '#10b981', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '🔍', description: 'Inspection in progress'
+    },
+    'Paused': {
+        bg: '#ecfdf5', color: '#047857', border: '#a7f3d0',
+        dot: '#10b981', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '⏸️', description: 'Inspection paused'
     },
     'Withheld': {
         bg: '#fdf2f8', color: '#9d174d', border: '#f9a8d4',
-        dot: '#ec4899', canModify: true, canWithdraw: true, needsWorkflow: true,
+        dot: '#ec4899', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '⏸️', description: 'Withheld by IE'
     },
     'Cancelled': {
@@ -127,9 +137,30 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     if (!call) return null;
     const cfg = STATUS_CONFIG[call.status] || STATUS_CONFIG['Pending for verification'] || {};
     const isReturned = call.status === 'Returned by Call Desk' || call.status === 'RETURNED';
-    const locked = String(call.status || call.rawStatus || '').toUpperCase().trim() === 'COMPLETED' || String(call.status || '').toUpperCase().trim() === 'LOCKED';
-    const statusLabel = (call.status === 'Scheduled by IE' && call.scheduledDate)
-        ? `Scheduled (${call.scheduledDate})` : ((call.status === 'Completed' || call.status === 'Locked') ? 'Completed Calls' : call.status);
+
+    const rawJobStatus = String(call.jobStatus || call.job_status || '').toUpperCase().trim();
+    const rawStatus = String(call.status || call.rawStatus || '').toUpperCase().trim();
+
+    // Completion rule: Both blocked
+    const isCompleted = rawStatus === 'COMPLETED' || rawJobStatus === 'COMPLETED' || rawStatus === 'LOCKED';
+
+    // Active inspection / Paused rule: Both Modify and Withdraw are BLOCKED
+    const isUnderInspection = rawJobStatus === 'PAUSED' || rawJobStatus === 'INITIATED' || rawJobStatus.includes('INSPECT') || rawStatus === 'UNDER INSPECTION' || rawStatus === 'PAUSED';
+
+    // PO_VERIFICATION rule: Withdraw is BLOCKED, Modify is ALLOWED
+    const isPoVerification = rawJobStatus === 'PO_VERIFICATION' || rawJobStatus.includes('PO_VERIF') || rawStatus === 'PO_VERIFICATION' || rawStatus.includes('PO_VERIF');
+
+    // SCHEDULED rule: Withdraw is BLOCKED, Modify is ALLOWED
+    const isScheduled = rawJobStatus === 'SCHEDULED' || rawJobStatus === 'RESCHEDULE' || rawJobStatus.includes('SCHEDULE') || rawStatus === 'SCHEDULED BY IE' || rawStatus === 'SCHEDULED';
+
+    // Action permissions
+    const canModify = !isCompleted && !isUnderInspection && (cfg.canModify !== false);
+    const canWithdraw = !isCompleted && !isPoVerification && !isUnderInspection && !isScheduled && (cfg.canWithdraw !== false);
+    const locked = isCompleted || isUnderInspection || (!canModify && !canWithdraw && !isReturned);
+
+    const statusLabel = (rawJobStatus === 'SCHEDULED' || rawJobStatus === 'RESCHEDULE' || call.status === 'Scheduled by IE')
+        ? (call.scheduledDate ? `Scheduled (${call.scheduledDate})` : 'Scheduled by IE')
+        : (isUnderInspection ? (rawJobStatus === 'PAUSED' ? 'Paused' : 'Under Inspection') : ((call.status === 'Completed' || call.status === 'Locked') ? 'Completed Calls' : (isPoVerification ? 'PO Verification' : call.status)));
 
     return createPortal(
         <div
@@ -383,7 +414,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             )}
 
                             {/* Modify Call */}
-                            {cfg.canModify && !locked && (
+                            {canModify && (
                                 <div style={{
                                     border: `1.5px solid ${cfg.needsWorkflow ? '#fde68a' : '#bfdbfe'}`,
                                     borderRadius: 12, padding: '16px 18px',
@@ -413,7 +444,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             )}
 
                             {/* Withdraw Call */}
-                            {cfg.canWithdraw && !locked && (
+                            {canWithdraw && (
                                 <div style={{
                                     border: `1.5px solid ${cfg.needsWorkflow ? '#fde68a' : '#fca5a5'}`,
                                     borderRadius: 12, padding: '16px 18px',
@@ -441,8 +472,8 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                                 </div>
                             )}
 
-                            {/* Locked state */}
-                            {locked && (
+                            {/* Locked / Restricted state */}
+                            {(!canModify && !canWithdraw && !isReturned) && (
                                 <div style={{
                                     border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '24px 18px',
                                     background: '#f8fafc', textAlign: 'center'
@@ -450,7 +481,11 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                                     <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
                                     <div style={{ fontWeight: 700, fontSize: 13, color: '#475569', marginBottom: 4 }}>No Actions Available</div>
                                     <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                                        This call is <strong>{call.status}</strong>. Modifications and withdrawals are not permitted at this stage.
+                                        {isPoVerification ? (
+                                            <>This call is under <strong>PO Verification</strong>. Modifications and withdrawals are not permitted at this stage.</>
+                                        ) : (
+                                            <>This call is <strong>{call.status}</strong>. Modifications and withdrawals are not permitted at this stage.</>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -632,20 +667,27 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     // Single source of truth
     const allCalls = (rawCallsList || []).map(c => {
         const rawStatus = (c.status || '').trim();
+        const rawJobStatus = (c.jobStatus || c.job_status || '').trim();
         const norm = rawStatus.toUpperCase();
+        const normJob = rawJobStatus.toUpperCase();
+
         let status = 'Call Raised';
-        if (norm === 'COMPLETED') {
+        if (norm === 'COMPLETED' || normJob === 'COMPLETED') {
             status = 'Completed';
+        } else if (normJob === 'PO_VERIFICATION' || normJob.includes('PO_VERIF') || norm === 'PO_VERIFICATION' || norm.includes('PO_VERIF')) {
+            status = 'PO Verification';
+        } else if (normJob === 'PAUSED' || norm === 'PAUSED') {
+            status = 'Paused';
+        } else if (normJob === 'INITIATED' || normJob.includes('INSPECT') || norm === 'UNDER INSPECTION' || norm === 'UNDER_INSPECTION') {
+            status = 'Under Inspection';
+        } else if (normJob === 'SCHEDULED' || normJob === 'RESCHEDULE' || normJob.includes('SCHEDULE') || norm === 'SCHEDULED BY IE' || norm === 'SCHEDULED') {
+            status = 'Scheduled by IE';
         } else if (norm === 'RETURNED BY CALL DESK' || norm === 'RETURNED') {
             status = 'Returned by Call Desk';
         } else if (norm === 'RESUBMITTED') {
             status = 'Resubmitted';
-        } else if (norm === 'CALL ASSIGNED TO IE' || norm === 'ASSIGNED' || norm === 'ASSIGNED TO IE') {
+        } else if (norm === 'CALL ASSIGNED TO IE' || norm === 'ASSIGNED' || norm === 'ASSIGNED TO IE' || normJob === 'ASSIGNED') {
             status = 'Call Assigned to IE';
-        } else if (norm === 'SCHEDULED BY IE' || norm === 'SCHEDULED') {
-            status = 'Scheduled by IE';
-        } else if (norm === 'UNDER INSPECTION' || norm === 'UNDER_INSPECTION') {
-            status = 'Under Inspection';
         } else if (norm === 'WITHHELD') {
             status = 'Withheld';
         } else if (norm === 'CANCELLED') {
@@ -670,6 +712,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
             qtyOffered: Number(c.qtyOffered) || 0,
             batches: Number(c.batches) || 0,
             status: status,
+            jobStatus: c.jobStatus || c.job_status || '',
             rawStatus: rawStatus,
             history: c.history || [{ action: status, date: c.callDate || new Date().toLocaleDateString('en-IN'), by: 'Vendor', note: 'Initial submission' }]
         };
@@ -677,8 +720,10 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
 
     const isCompletedOrIbs = (call) => {
         const raw = String(call.rawStatus || call.status || call.action || '').toUpperCase().trim();
+        const rawJob = String(call.jobStatus || call.job_status || '').toUpperCase().trim();
         return (
             raw === 'COMPLETED' ||
+            rawJob === 'COMPLETED' ||
             raw === 'LOCKED'
         );
     };
@@ -686,7 +731,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     const ACTIVE_STATUSES = [
         'Call Raised', 'Returned by Call Desk', 'Resubmitted', 
         'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection', 
-        'Withheld', 'Pending for verification', 'Created', 'PENDING'
+        'Paused', 'PO Verification', 'Withheld', 'Pending for verification', 'Created', 'PENDING'
     ];
     const displayCalls = allCalls.filter(c => {
         if (isCompletedOrIbs(c)) return false;
@@ -708,12 +753,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     };
 
     const handleModify = (call) => {
-        const cfg = STATUS_CONFIG[call.status];
-        if (cfg?.needsWorkflow) {
-            setWorkflowModal({ call, actionType: 'modify' });
-        } else {
-            setEditCall(call);
-        }
+        setEditCall(call);
     };
 
     const handleWithdraw = (call) => {
@@ -825,11 +865,13 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     const FILTER_TABS = [
         { key: 'All', color: '#21808d' },
         { key: 'Call Raised', color: '#3b82f6' },
+        { key: 'PO Verification', color: '#3b82f6' },
         { key: 'Returned by Call Desk', color: '#f97316' },
         { key: 'Resubmitted', color: '#eab308' },
         { key: 'Call Assigned to IE', color: '#22c55e' },
         { key: 'Scheduled by IE', color: '#8b5cf6' },
         { key: 'Under Inspection', color: '#10b981' },
+        { key: 'Paused', color: '#047857' },
         { key: 'Withheld', color: '#ec4899' },
     ];
 
