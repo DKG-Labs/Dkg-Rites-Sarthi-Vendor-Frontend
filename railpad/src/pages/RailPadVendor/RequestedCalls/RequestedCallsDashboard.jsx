@@ -1082,7 +1082,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                 isReadOnly={true}
                                 callData={selectedCall}
                                 poNo={selectedCall.poNo}
-                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, uom: selectedCall.uom || selectedCall.unit || 'Nos.', unit: selectedCall.uom || selectedCall.unit || 'Nos.', ...selectedCall }}
                                 plantId={selectedCall.plantId || plantId}
                                 vendorCode={selectedCall.vendorCode || vendorCode}
                                 onClose={() => setIsViewingFullDetails(false)}
@@ -1093,7 +1093,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                 isWrapped={true}
                                 callData={selectedCall}
                                 poNo={selectedCall.poNo}
-                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, uom: selectedCall.uom || selectedCall.unit || 'Nos.', unit: selectedCall.uom || selectedCall.unit || 'Nos.', ...selectedCall }}
                                 plantId={selectedCall.plantId || plantId}
                                 vendorCode={selectedCall.vendorCode || vendorCode}
                                 onClose={() => setIsViewingFullDetails(false)}
@@ -1141,7 +1141,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                 isModifyMode={true}
                                 callData={selectedCall}
                                 poNo={selectedCall.poNo}
-                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, ...selectedCall }}
+                                srItem={{ itemSrNo: selectedCall.poSr || selectedCall.poSerialNo || '1', orderedQty: selectedCall.orderedQty || selectedCall.totalQty, uom: selectedCall.uom || selectedCall.unit || 'Nos.', unit: selectedCall.uom || selectedCall.unit || 'Nos.', ...selectedCall }}
                                 plantId={selectedCall.plantId || plantId}
                                 vendorCode={selectedCall.vendorCode || vendorCode}
                                 onSubmitInspectionCall={async (payload) => {
