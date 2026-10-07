@@ -277,8 +277,24 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value)) ? completedRes.value : [];
             const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value)) 
                 ? vendorCallsRes.value.filter(c => {
-                    const norm = String(c?.status || c?.action || c?.jobStatus || '').trim().toUpperCase();
-                    return norm === 'SEND_CALL_TO_IBS' || norm.includes('SEND_CALL_TO_IBS') || norm.includes('IBS') || norm === 'LOCKED' || norm === 'COMPLETED';
+                    const raw = String(c?.status || c?.action || '').trim().toUpperCase();
+                    const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
+                    return (
+                        raw === 'SEND_CALL_TO_IBS' ||
+                        rawJob === 'SEND_CALL_TO_IBS' ||
+                        raw.includes('SEND_CALL_TO_IBS') ||
+                        rawJob.includes('SEND_CALL_TO_IBS') ||
+                        raw.includes('IBS') ||
+                        rawJob.includes('IBS') ||
+                        raw === 'LOCKED' ||
+                        rawJob === 'LOCKED' ||
+                        raw === 'COMPLETED' ||
+                        rawJob === 'COMPLETED' ||
+                        raw.includes('IC_ISSUE') ||
+                        rawJob.includes('IC_ISSUE') ||
+                        raw.includes('IC_ISSUED') ||
+                        rawJob.includes('IC_ISSUED')
+                    );
                 }) 
                 : [];
 

@@ -88,18 +88,30 @@ const VendorDashboard = () => {
             const completedData = completed.status === 'fulfilled' ? completed.value : [];
 
             const isCompletedOrIbs = (c) => {
-                const raw = String(c?.status || c?.action || c?.jobStatus || '').trim().toUpperCase();
+                const raw = String(c?.status || c?.action || '').trim().toUpperCase();
+                const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
                 return (
                     raw === 'SEND_CALL_TO_IBS' ||
+                    rawJob === 'SEND_CALL_TO_IBS' ||
                     raw.includes('SEND_CALL_TO_IBS') ||
+                    rawJob.includes('SEND_CALL_TO_IBS') ||
                     raw.includes('IBS') ||
+                    rawJob.includes('IBS') ||
                     raw === 'LOCKED' ||
+                    rawJob === 'LOCKED' ||
                     raw === 'COMPLETED' ||
+                    rawJob === 'COMPLETED' ||
                     raw === 'IC ISSUED' ||
                     raw === 'IC_ISSUED' ||
+                    rawJob === 'IC_ISSUED' ||
+                    raw.includes('IC_ISSUE') ||
+                    rawJob.includes('IC_ISSUE') ||
                     raw.includes('COMPLETE') ||
+                    rawJob.includes('COMPLETE') ||
                     raw.includes('FINISH') ||
-                    raw.includes('IC_GENERATION')
+                    rawJob.includes('FINISH') ||
+                    raw.includes('IC_GENERATION') ||
+                    rawJob.includes('IC_GENERATION')
                 );
             };
 
