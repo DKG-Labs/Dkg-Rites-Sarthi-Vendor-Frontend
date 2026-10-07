@@ -708,6 +708,7 @@ const NCRGRSPFinalInspectionCall = ({
     ...callData
   };
   const effectiveCallNo = callData?.callNo || callData?.call_no || '';
+  const uom = effectiveSrItem?.unit || effectiveSrItem?.uom || effectiveSrItem?.poUom || callData?.uom || callData?.unit || (selectedRailPadType?.toUpperCase().includes('NCR') ? 'Set' : 'Nos.');
 
   const storageKey = useMemo(() => {
     const po = effectivePoNo ? String(effectivePoNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
@@ -1959,6 +1960,7 @@ const NCRGRSPFinalInspectionCall = ({
         poSr: srItem?.itemSrNo || srItem?.srNo || (String(poNo || effectivePoNo || '').includes('/') ? String(poNo || effectivePoNo).split('/')[1].trim() : '1'),
         plantId: (plantId || '').replace(/^:/, ''),
         vendorCode: (vendorCode || '').replace(/^:/, ''),
+        uom: uom || 'Nos.',
         noOfSets,
         noOfLots,
         desiredInspectionDate: desiredDate,
@@ -2352,6 +2354,24 @@ const NCRGRSPFinalInspectionCall = ({
                     )}
                   </>
                 )}
+              </div>
+
+              {/* Unit of Measurement (UOM) of that PO Sr No */}
+              <div>
+                <label style={labelStyle}>Unit of Measurement</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={uom}
+                  style={{
+                    ...inputStyle,
+                    background: '#f8fafc',
+                    fontWeight: 700,
+                    color: '#1e293b',
+                    cursor: 'not-allowed'
+                  }}
+                />
               </div>
 
               {/* No of Sets to be Offered */}
