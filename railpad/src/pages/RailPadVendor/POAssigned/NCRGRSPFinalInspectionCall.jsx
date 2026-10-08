@@ -599,6 +599,19 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10110', qtyPerSet: 1, description: '10 mm NCR GRSP' },
     { drawingNo: 'RT-10111', qtyPerSet: 1, description: '10 mm NCR GRSP' },
     { drawingNo: 'RT-10112', qtyPerSet: 1, description: '10 mm NCR GRSP' }
+  ],
+  // RT-7014 to RT-7021 – 6 mm NCR GRSP beneath crossing portion in 1 in 12 Turnout (Total 10 Pads / 10 Items)
+  'RT-7014 to RT-7021': [
+    { drawingNo: 'RT-7014', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7014/1', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7014/2', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7015', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7016', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7017', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7018', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7019', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7020', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' },
+    { drawingNo: 'RT-7021', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP (Beneath Crossing Portion 1 in 12 Turnout)' }
   ]
 };
 
@@ -624,6 +637,9 @@ const resolveNcrgrspCatalogKey = (dwgOrType, lotsData = []) => {
   }
 
   const str = String(dwgOrType || '').toLowerCase();
+  if (str.includes('7014 to 7021') || str.includes('7014-7021') || str.includes('7014 to t-7021') || str.includes('7014 to rt-7021')) {
+    return 'RT-7014 to RT-7021';
+  }
   if (str.includes('4218_1') || str.includes('4218-1') || str.includes('4218_01') || str.includes('4218 (1)') || str.includes('4218 annexure')) {
     return 'RT-4218_1';
   }

@@ -19,7 +19,7 @@ const STATUS_CONFIG = {
     },
     'PO Verification': {
         bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
-        dot: '#3b82f6', canModify: true, canWithdraw: false, needsWorkflow: false,
+        dot: '#3b82f6', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '🔍', description: 'Under PO Verification'
     },
     'Returned by Call Desk': {
@@ -142,19 +142,32 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     const rawStatus = String(call.status || call.rawStatus || '').toUpperCase().trim();
 
     // Completion rule: Both blocked
-    const isCompleted = rawStatus === 'COMPLETED' || rawJobStatus === 'COMPLETED' || rawStatus === 'LOCKED';
+    const isCompleted = 
+        rawStatus === 'COMPLETED' || 
+        rawJobStatus === 'COMPLETED' || 
+        rawStatus === 'LOCKED' ||
+        rawJobStatus === 'LOCKED' ||
+        rawStatus.includes('IC_ISSUE') ||
+        rawJobStatus.includes('IC_ISSUE') ||
+        rawStatus.includes('IC_ISSUED') ||
+        rawJobStatus.includes('IC_ISSUED') ||
+        rawStatus.includes('IBS') ||
+        rawJobStatus.includes('IBS') ||
+        rawStatus === 'FINISHED' ||
+        rawJobStatus === 'FINISH' ||
+        rawJobStatus === 'FINISHED';
 
     // Active inspection / Paused rule: Both Modify and Withdraw are BLOCKED
     const isUnderInspection = rawJobStatus === 'PAUSED' || rawJobStatus === 'INITIATED' || rawJobStatus.includes('INSPECT') || rawStatus === 'UNDER INSPECTION' || rawStatus === 'PAUSED';
 
-    // PO_VERIFICATION rule: Withdraw is BLOCKED, Modify is ALLOWED
+    // PO_VERIFICATION rule: Both Modify and Withdraw are BLOCKED
     const isPoVerification = rawJobStatus === 'PO_VERIFICATION' || rawJobStatus.includes('PO_VERIF') || rawStatus === 'PO_VERIFICATION' || rawStatus.includes('PO_VERIF');
 
     // SCHEDULED rule: Withdraw is BLOCKED, Modify is ALLOWED
     const isScheduled = rawJobStatus === 'SCHEDULED' || rawJobStatus === 'RESCHEDULE' || rawJobStatus.includes('SCHEDULE') || rawStatus === 'SCHEDULED BY IE' || rawStatus === 'SCHEDULED';
 
     // Action permissions
-    const canModify = !isCompleted && !isUnderInspection && (cfg.canModify !== false);
+    const canModify = !isCompleted && !isUnderInspection && !isPoVerification && (cfg.canModify !== false);
     const canWithdraw = !isCompleted && !isPoVerification && !isUnderInspection && !isScheduled && (cfg.canWithdraw !== false);
     const locked = isCompleted || isUnderInspection || (!canModify && !canWithdraw && !isReturned);
 
@@ -672,7 +685,13 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         const normJob = rawJobStatus.toUpperCase();
 
         let status = 'Call Raised';
-        if (norm === 'COMPLETED' || normJob === 'COMPLETED') {
+        if (
+            norm === 'COMPLETED' || normJob === 'COMPLETED' ||
+            norm === 'LOCKED' || normJob === 'LOCKED' ||
+            norm.includes('IC_ISSUE') || normJob.includes('IC_ISSUE') ||
+            norm.includes('IC_ISSUED') || normJob.includes('IC_ISSUED') ||
+            norm.includes('IBS') || normJob.includes('IBS')
+        ) {
             status = 'Completed';
         } else if (normJob === 'PO_VERIFICATION' || normJob.includes('PO_VERIF') || norm === 'PO_VERIFICATION' || norm.includes('PO_VERIF')) {
             status = 'PO Verification';
@@ -724,7 +743,14 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         return (
             raw === 'COMPLETED' ||
             rawJob === 'COMPLETED' ||
-            raw === 'LOCKED'
+            raw === 'LOCKED' ||
+            rawJob === 'LOCKED' ||
+            raw.includes('IC_ISSUE') ||
+            rawJob.includes('IC_ISSUE') ||
+            raw.includes('IC_ISSUED') ||
+            rawJob.includes('IC_ISSUED') ||
+            raw.includes('IBS') ||
+            rawJob.includes('IBS')
         );
     };
 
