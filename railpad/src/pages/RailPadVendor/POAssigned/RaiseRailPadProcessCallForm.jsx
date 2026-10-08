@@ -50,7 +50,8 @@ const UNIFIED_NCRGRSP_DRAWINGS = [
     { code: "RT-9841", label: "RT-9841 (10 mm 1 in 8.5 60E1 Turnout)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-5836", label: "RT-5836 (6 mm Thick NCR GRSP Turnout)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-10070", label: "RT-10070 (10 mm Thick 1 in 16 Turnout)", category: "10mm", is6mm: false, is10mm: true },
-    { code: "T-9842 to T-9843", label: "T-9842 to T-9843 (10 mm Turnout Series)", category: "10mm", is6mm: false, is10mm: true }
+    { code: "T-9842 to T-9843", label: "T-9842 to T-9843 (10 mm Turnout Series)", category: "10mm", is6mm: false, is10mm: true },
+    { code: "RT-7014 to RT-7021", label: "RT-7014 to RT-7021 (6 mm Crossing Portion 1 in 12 Turnout)", category: "6mm & 10mm", is6mm: true, is10mm: true }
 ];
 
 const DRAWING_MAPPING = {
