@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import inspectionCallService from '../../../services/inspectionCallService';
 import {
     Calendar, Package, ClipboardList, CheckCircle2,
-    AlertCircle, Plus, Search, ChevronDown, Check, X, Layers, Sparkles
+    AlertCircle, Plus, Search, ChevronDown, Check, X, Layers, Sparkles, Eye
 } from 'lucide-react';
+import NCRGRSPSubDrawingsModal from './NCRGRSPSubDrawingsModal';
+import { NCRGRSP_CATALOG, resolveNcrgrspCatalogKey } from './ncrgrspCatalog';
 
 // ─── Constants & Master Drawing Catalog ────────────────────────────────────────
 const RAIL_PAD_TYPES = [
@@ -476,6 +478,46 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
     const [remarks, setRemarks] = useState(savedDraft?.remarks || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [subDrawingSearch, setSubDrawingSearch] = useState('');
+    const [subDrawingPortionFilter, setSubDrawingPortionFilter] = useState('ALL');
+
+    // NCRGRSP Catalog resolution & sub drawings list
+    const isNcrgrsp = Boolean(railPadType && /NCR\s*GRSP/i.test(railPadType));
+
+    const resolvedCatalogKey = useMemo(() => {
+        if (!isNcrgrsp || !drawingNo) return '';
+        return resolveNcrgrspCatalogKey(drawingNo);
+    }, [isNcrgrsp, drawingNo]);
+
+    const subDrawingsList = useMemo(() => {
+        if (!isNcrgrsp || !drawingNo) return [];
+        return NCRGRSP_CATALOG[drawingNo] || (resolvedCatalogKey && NCRGRSP_CATALOG[resolvedCatalogKey]) || [];
+    }, [isNcrgrsp, drawingNo, resolvedCatalogKey]);
+
+    const totalPadsPerSet = useMemo(() => {
+        return subDrawingsList.reduce((acc, item) => acc + (item.qtyPerSet || 0), 0);
+    }, [subDrawingsList]);
+
+    const subDrawingPortions = useMemo(() => {
+        const set = new Set();
+        subDrawingsList.forEach(item => {
+            if (item.description) set.add(item.description.trim());
+        });
+        return Array.from(set);
+    }, [subDrawingsList]);
+
+    const filteredSubDrawings = useMemo(() => {
+        return subDrawingsList.filter(item => {
+            if (subDrawingPortionFilter !== 'ALL' && item.description !== subDrawingPortionFilter) {
+                return false;
+            }
+            if (!subDrawingSearch) return true;
+            const term = subDrawingSearch.toLowerCase().trim();
+            const code = (item.drawingNo || '').toLowerCase();
+            const desc = (item.description || '').toLowerCase();
+            return code.includes(term) || desc.includes(term);
+        });
+    }, [subDrawingsList, subDrawingSearch, subDrawingPortionFilter]);
 
     // Persist draft to localStorage
     useEffect(() => {
@@ -668,15 +710,17 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                                 </div>
                             </div>
                             <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                         Drawing No. <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
-                                    {railPadType && railPadType.includes('NCRGRSP') && (
-                                        <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                            <Sparkles size={11} /> Merged 6mm & 10mm Catalog ({UNIFIED_NCRGRSP_DRAWINGS.length})
-                                        </span>
-                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {railPadType && railPadType.includes('NCRGRSP') && (
+                                            <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Sparkles size={11} /> Merged 6mm & 10mm Catalog ({UNIFIED_NCRGRSP_DRAWINGS.length})
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <ModernSearchableDrawingSelect
@@ -690,6 +734,293 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                         </div>
 
                     </div>
+
+                    {/* ════ NCRGRSP SUB-DRAWINGS BREAKDOWN (Directly below Section A) ════ */}
+                    {isNcrgrsp && (
+                        <div style={{
+                            background: '#fff',
+                            border: '1px solid #bae6fd',
+                            borderRadius: '10px',
+                            padding: '12px 16px',
+                            marginBottom: '16px',
+                            boxShadow: '0 2px 8px rgba(14, 165, 233, 0.06)'
+                        }}>
+                            {/* Section Header */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '10px',
+                                paddingBottom: '8px',
+                                borderBottom: '1px solid #f1f5f9',
+                                flexWrap: 'wrap',
+                                gap: '8px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{
+                                        width: 22, height: 22, borderRadius: '6px',
+                                        background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                                        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontWeight: 800, fontSize: 11, flexShrink: 0,
+                                        boxShadow: '0 2px 6px rgba(14, 165, 233, 0.25)'
+                                    }}>
+                                        <Layers size={13} />
+                                    </div>
+                                    <span style={{ fontWeight: 800, fontSize: 13, color: '#0369a1', letterSpacing: '0.01em' }}>
+                                        Sub Drawings Configuration {drawingNo ? `for ${drawingNo}` : ''}
+                                    </span>
+                                    {resolvedCatalogKey && resolvedCatalogKey !== drawingNo && (
+                                        <span style={{
+                                            fontSize: '10px',
+                                            fontWeight: 700,
+                                            background: '#e0f2fe',
+                                            color: '#0369a1',
+                                            padding: '2px 8px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #bae6fd'
+                                        }}>
+                                            Mapped to {resolvedCatalogKey}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {drawingNo && subDrawingsList.length > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{
+                                            background: '#eff6ff',
+                                            color: '#1d4ed8',
+                                            border: '1px solid #bfdbfe',
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontWeight: 800,
+                                            fontSize: '11px'
+                                        }}>
+                                            {subDrawingsList.length} Items
+                                        </span>
+                                        <span style={{
+                                            background: '#f0fdf4',
+                                            color: '#15803d',
+                                            border: '1px solid #bbf7d0',
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontWeight: 800,
+                                            fontSize: '11px'
+                                        }}>
+                                            Total: {totalPadsPerSet} Nos./Set
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sub Drawings Content */}
+                            {!drawingNo ? (
+                                <div style={{
+                                    padding: '14px',
+                                    textAlign: 'center',
+                                    color: '#64748b',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    background: '#f8fafc',
+                                    borderRadius: '8px',
+                                    border: '1px dashed #cbd5e1'
+                                }}>
+                                    Please select a <strong>Drawing No.</strong> above to view its official sub-drawings breakdown.
+                                </div>
+                            ) : subDrawingsList.length === 0 ? (
+                                <div style={{
+                                    padding: '14px',
+                                    textAlign: 'center',
+                                    color: '#64748b',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    background: '#f8fafc',
+                                    borderRadius: '8px'
+                                }}>
+                                    No official sub-drawings configured for "{drawingNo}".
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Search & Filter Bar */}
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '8px',
+                                        gap: '10px',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        <div style={{ position: 'relative', flex: 1, minWidth: '180px', maxWidth: '280px' }}>
+                                            <Search
+                                                size={13}
+                                                style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                                            />
+                                            <input
+                                                type="text"
+                                                value={subDrawingSearch}
+                                                onChange={e => setSubDrawingSearch(e.target.value)}
+                                                placeholder="Filter sub-drawings..."
+                                                style={{
+                                                    width: '100%',
+                                                    height: '28px',
+                                                    padding: '0 8px 0 26px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #cbd5e1',
+                                                    fontSize: '11px',
+                                                    color: '#1e293b',
+                                                    outline: 'none',
+                                                    background: '#ffffff'
+                                                }}
+                                            />
+                                            {subDrawingSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSubDrawingSearch('')}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '6px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        border: 'none',
+                                                        background: 'none',
+                                                        color: '#94a3b8',
+                                                        cursor: 'pointer',
+                                                        padding: 0
+                                                    }}
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {subDrawingPortions.length > 1 && (
+                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSubDrawingPortionFilter('ALL')}
+                                                    style={{
+                                                        padding: '3px 8px',
+                                                        borderRadius: '4px',
+                                                        border: subDrawingPortionFilter === 'ALL' ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                                                        background: subDrawingPortionFilter === 'ALL' ? '#0284c7' : '#ffffff',
+                                                        color: subDrawingPortionFilter === 'ALL' ? '#ffffff' : '#64748b',
+                                                        fontSize: '10.5px',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    All ({subDrawingsList.length})
+                                                </button>
+                                                {subDrawingPortions.map(p => {
+                                                    const count = subDrawingsList.filter(item => item.description === p).length;
+                                                    const isSelected = subDrawingPortionFilter === p;
+                                                    return (
+                                                        <button
+                                                            key={p}
+                                                            type="button"
+                                                            onClick={() => setSubDrawingPortionFilter(p)}
+                                                            style={{
+                                                                padding: '3px 8px',
+                                                                borderRadius: '4px',
+                                                                border: isSelected ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                                                                background: isSelected ? '#0284c7' : '#ffffff',
+                                                                color: isSelected ? '#ffffff' : '#64748b',
+                                                                fontSize: '10.5px',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            {p} ({count})
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Sub Drawings Table */}
+                                    <div style={{
+                                        maxHeight: '260px',
+                                        overflowY: 'auto',
+                                        borderRadius: '6px',
+                                        border: '1px solid #e2e8f0',
+                                        background: '#fff'
+                                    }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                                                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                                                    <th style={{ padding: '7px 10px', width: '60px', textAlign: 'center', fontWeight: 800, color: '#475569', fontSize: '10.5px', textTransform: 'uppercase' }}>Sr. No.</th>
+                                                    <th style={{ padding: '7px 10px', width: '160px', fontWeight: 800, color: '#475569', fontSize: '10.5px', textTransform: 'uppercase' }}>Sub Drawing No.</th>
+                                                    <th style={{ padding: '7px 10px', fontWeight: 800, color: '#475569', fontSize: '10.5px', textTransform: 'uppercase' }}>Description / Portion</th>
+                                                    <th style={{ padding: '7px 10px', width: '130px', textAlign: 'center', fontWeight: 800, color: '#475569', fontSize: '10.5px', textTransform: 'uppercase' }}>Quantity / Set</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredSubDrawings.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '12px' }}>
+                                                            No sub-drawings matched "{subDrawingSearch}".
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    filteredSubDrawings.map((row, idx) => (
+                                                        <tr
+                                                            key={`${row.drawingNo}-${idx}`}
+                                                            style={{
+                                                                borderBottom: '1px solid #f1f5f9',
+                                                                background: idx % 2 === 0 ? '#ffffff' : '#fafafa'
+                                                            }}
+                                                        >
+                                                            <td style={{ padding: '6px 10px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: '11px' }}>
+                                                                {idx + 1}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px', fontWeight: 800, color: '#0284c7' }}>
+                                                                {row.drawingNo}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px', color: '#334155', fontWeight: 500 }}>
+                                                                {row.description ? (
+                                                                    <span style={{
+                                                                        display: 'inline-block',
+                                                                        padding: '1px 6px',
+                                                                        borderRadius: '4px',
+                                                                        background: '#f1f5f9',
+                                                                        color: '#334155',
+                                                                        border: '1px solid #e2e8f0',
+                                                                        fontSize: '10.5px',
+                                                                        fontWeight: 600
+                                                                    }}>
+                                                                        {row.description}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ color: '#64748b' }}>Nylon Cord Reinforced GRSP</span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12.5px' }}>
+                                                                {row.qtyPerSet}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                            {filteredSubDrawings.length > 0 && (
+                                                <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 1 }}>
+                                                    <tr style={{ background: '#f0f9ff', borderTop: '2px solid #bae6fd', fontWeight: 800 }}>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'center', color: '#64748b' }}>Σ</td>
+                                                        <td style={{ padding: '6px 10px', color: '#0369a1' }}>
+                                                            Total ({filteredSubDrawings.length} Sub-Drawings)
+                                                        </td>
+                                                        <td style={{ padding: '6px 10px' }} />
+                                                        <td style={{ padding: '6px 10px', textAlign: 'center', color: '#0284c7', fontSize: '13px', fontWeight: 900 }}>
+                                                            {totalPadsPerSet.toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            )}
+                                        </table>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* ════ SECTION B ════ */}
                     <div style={{

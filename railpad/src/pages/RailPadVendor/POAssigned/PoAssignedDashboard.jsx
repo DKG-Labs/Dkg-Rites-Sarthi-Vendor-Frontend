@@ -188,6 +188,24 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
 
+    const isAllDispatched = item.due === 0;
+    const itemCaseNo = item.caseNo || item.case_no || '';
+    const itemCaseNoMissing = itemCaseNo
+        ? (!itemCaseNo || String(itemCaseNo).trim() === '' || String(itemCaseNo).trim().toUpperCase() === 'N/A' || String(itemCaseNo).trim().toUpperCase() === 'NA' || String(itemCaseNo).trim() === '-' || String(itemCaseNo).trim().toUpperCase() === 'NULL')
+        : false;
+    const effectiveCaseNoMissing = isCaseNoMissing || itemCaseNoMissing;
+
+    const isDisabled = isPlantBlocked || effectiveCaseNoMissing || isAllDispatched;
+
+    let hoverMessage = '';
+    if (isPlantBlocked) {
+        hoverMessage = '⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.';
+    } else if (effectiveCaseNoMissing) {
+        hoverMessage = '⚠️ Case Number is not present or N/A for this Purchase Order. Inspection call cannot be raised without a valid Case Number. Please contact RITES Administrator to update the Case No.';
+    } else if (isAllDispatched) {
+        hoverMessage = 'All ordered items under this PO Serial Number have already been dispatched / accepted.';
+    }
+
     return (
         <>
             <tr style={{
@@ -250,32 +268,55 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                 </td>
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <button
-                        onClick={() => {
-                            if (isPlantBlocked) {
-                                alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
-                                return;
-                            }
-                            setShowForm(true);
-                        }}
-                        disabled={isPlantBlocked}
-                        title={isPlantBlocked ? 'Call raising is blocked due to pending cancellation charges' : ''}
+                    <div
+                        title={hoverMessage}
                         style={{
-                            padding: '6px 13px', borderRadius: 20, fontSize: 11,
-                            fontWeight: 700, border: 'none',
-                            cursor: isPlantBlocked ? 'not-allowed' : 'pointer',
-                            background: isPlantBlocked ? '#94a3b8' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
-                            color: '#fff',
-                            opacity: isPlantBlocked ? 0.6 : 1,
-                            transition: 'all 0.2s', whiteSpace: 'nowrap',
-                            boxShadow: isPlantBlocked ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
+                            display: 'inline-block',
+                            position: 'relative',
+                            cursor: isDisabled ? 'not-allowed' : 'default'
+                        }}
+                        onClick={() => {
+                            if (effectiveCaseNoMissing && !isPlantBlocked) {
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
+                            } else if (isPlantBlocked) {
+                                alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
+                            }
                         }}
                     >
-                        Raise Inspection Call
-                    </button>
+                        <button
+                            onClick={(e) => {
+                                if (isDisabled) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    return;
+                                }
+                                setShowForm(true);
+                            }}
+                            disabled={isDisabled}
+                            title={hoverMessage}
+                            style={{
+                                padding: '6px 13px', borderRadius: 20, fontSize: 11,
+                                fontWeight: 700, border: 'none',
+                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                background: isDisabled ? '#94a3b8' : 'linear-gradient(135deg, #21808d, #0d3b3f)',
+                                color: '#fff',
+                                opacity: isDisabled ? 0.6 : 1,
+                                pointerEvents: isDisabled ? 'none' : 'auto',
+                                transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                boxShadow: isDisabled ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
+                            }}
+                        >
+                            {isAllDispatched ? 'All Dispatched' : (effectiveCaseNoMissing ? 'Raise Call (Disabled)' : 'Raise Inspection Call')}
+                        </button>
+                    </div>
+                    {effectiveCaseNoMissing && !isAllDispatched && (
+                        <div style={{ fontSize: 9.5, color: '#dc2626', marginTop: 3, fontWeight: 700 }}>
+                            ⚠️ Case No. Missing
+                        </div>
+                    )}
                 </td>
             </tr>
-            {showForm && !isPlantBlocked && (
+            {showForm && !isDisabled && (
                 <RaiseRailPadCallWrapper
                     srItem={item}
                     poNo={poNo}
@@ -311,7 +352,13 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
     const activeSrCount = items.filter(s => s.due > 0).length;
     const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
     const caseNoValue = po.caseNo || po.case_no || '';
-    const isCaseNoMissing = !caseNoValue || caseNoValue === 'N/A' || caseNoValue.trim() === '' || caseNoValue === '-';
+    const isCaseNoMissing = !caseNoValue || 
+        String(caseNoValue).trim() === '' || 
+        String(caseNoValue).trim().toUpperCase() === 'N/A' || 
+        String(caseNoValue).trim().toUpperCase() === 'NA' || 
+        String(caseNoValue).trim() === '-' || 
+        String(caseNoValue).trim().toUpperCase() === 'NULL' || 
+        String(caseNoValue).trim().toUpperCase() === 'UNDEFINED';
 
     return (
         <>

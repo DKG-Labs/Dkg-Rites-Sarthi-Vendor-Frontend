@@ -447,7 +447,9 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </td>
                                         <td style={{ padding: '20px 24px' }}>
                                             <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
-                                            <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>Qty: {call.totalQty?.toLocaleString()} (Nos.)</div>
+                                            <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>
+                                                Qty: {(call.offeredQty ?? call.totalQty)?.toLocaleString()} ({call.uom || (call.railPadType?.toUpperCase()?.includes('NCR') ? 'Set' : 'Nos.')})
+                                            </div>
                                         </td>
                                         <td style={{ padding: '20px 24px' }}>
                                             <div style={{ 
@@ -647,7 +649,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         QTY OFFERED / ACCEPTED
                                     </div>
                                     <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-                                        {Number(selectedCall.totalQty || selectedCall.orderedQty || 0).toLocaleString()} / {Number(selectedCall.qtyAcceptedTillNow || selectedCall.totalQty || 0).toLocaleString()}
+                                        {Number(selectedCall.offeredQty ?? selectedCall.totalQty ?? selectedCall.orderedQty ?? 0).toLocaleString()} / {Number(selectedCall.acceptedQty ?? selectedCall.qtyAcceptedTillNow ?? selectedCall.totalQty ?? 0).toLocaleString()}
                                     </div>
                                 </div>
                             </div>
