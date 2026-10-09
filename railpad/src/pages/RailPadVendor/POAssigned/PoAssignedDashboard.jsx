@@ -138,14 +138,17 @@ const checkDpDateStatus = (item) => {
             today.setHours(0, 0, 0, 0);
             targetDay.setHours(0, 0, 0, 0);
 
-            // Rule:
-            // If DP Date >= Current Date (today) -> Vendor CAN raise call (isDisabled = false)
-            // If DP Date < Current Date (today)  -> Vendor CANNOT raise call (isDisabled = true)
-            if (targetDay < today) {
+            // Rule: Vendors can only raise calls up to DP Date - 7 days
+            const cutoffDate = new Date(targetDay);
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            cutoffDate.setHours(0, 0, 0, 0);
+
+            if (today > cutoffDate) {
                 isDisabled = true;
-                reason = hasExtDp 
-                    ? `Ext. DP Date Expired (${formatDateDDMMYYYY(extDpStr)})` 
-                    : `DP Date Expired (${formatDateDDMMYYYY(dpStr)})`;
+                const dpLabel = hasExtDp ? 'Ext. DP' : 'DP';
+                const formattedTarget = formatDateDDMMYYYY(targetStr);
+                const formattedCutoff = formatDateDDMMYYYY(cutoffDate);
+                reason = `Call raising cutoff expired (Must be raised at least 7 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
     } catch (e) {}
@@ -195,7 +198,8 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
         : false;
     const effectiveCaseNoMissing = isCaseNoMissing || itemCaseNoMissing;
 
-    const isDisabled = isPlantBlocked || effectiveCaseNoMissing || isAllDispatched;
+    const isDpDisabled = dpInfo.isDisabled;
+    const isDisabled = isPlantBlocked || effectiveCaseNoMissing || isAllDispatched || isDpDisabled;
 
     let hoverMessage = '';
     if (isPlantBlocked) {
@@ -204,6 +208,8 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
         hoverMessage = '⚠️ Case Number is not present or N/A for this Purchase Order. Inspection call cannot be raised without a valid Case Number. Please contact RITES Administrator to update the Case No.';
     } else if (isAllDispatched) {
         hoverMessage = 'All ordered items under this PO Serial Number have already been dispatched / accepted.';
+    } else if (isDpDisabled) {
+        hoverMessage = `⚠️ ${dpInfo.reason || 'DP Date Cutoff Expired. Inspection calls can only be raised up to 7 days before DP Date.'}`;
     }
 
     return (
@@ -276,10 +282,12 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                             cursor: isDisabled ? 'not-allowed' : 'default'
                         }}
                         onClick={() => {
-                            if (effectiveCaseNoMissing && !isPlantBlocked) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
-                            } else if (isPlantBlocked) {
+                            if (isPlantBlocked) {
                                 alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
+                            } else if (effectiveCaseNoMissing) {
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
+                            } else if (isDpDisabled) {
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
                             }
                         }}
                     >
@@ -306,12 +314,17 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                                 boxShadow: isDisabled ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                             }}
                         >
-                            {isAllDispatched ? 'All Dispatched' : (effectiveCaseNoMissing ? 'Raise Call (Disabled)' : 'Raise Inspection Call')}
+                            {isAllDispatched ? 'All Dispatched' : (effectiveCaseNoMissing ? 'Raise Call (Disabled)' : (isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'))}
                         </button>
                     </div>
                     {effectiveCaseNoMissing && !isAllDispatched && (
                         <div style={{ fontSize: 9.5, color: '#dc2626', marginTop: 3, fontWeight: 700 }}>
                             ⚠️ Case No. Missing
+                        </div>
+                    )}
+                    {isDpDisabled && !isAllDispatched && !effectiveCaseNoMissing && (
+                        <div style={{ fontSize: 9.5, color: '#dc2626', marginTop: 3, fontWeight: 700 }}>
+                            ⚠️ DP Cutoff Expired
                         </div>
                     )}
                 </td>
