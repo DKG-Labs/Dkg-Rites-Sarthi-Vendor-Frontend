@@ -4,6 +4,7 @@ import RailPadVendorDashboard from './pages/RailPadVendor/RailPadVendorDashboard
 import PlantDeclarationDashboard from './pages/RailPadVendor/PlantDeclaration/PlantDeclarationDashboard';
 import { logoutUser } from './services/authService.js';
 import VersionUpdateBanner from './components/common/VersionUpdateBanner';
+import SessionExpiryModal from './components/common/SessionExpiryModal';
 
 /**
  * App Component - Standalone Vendor Application
@@ -99,6 +100,7 @@ const App = () => {
   return (
     <>
       <VersionUpdateBanner />
+      <SessionExpiryModal />
       <MainLayout 
           activeItem={activeItem} 
           onItemClick={setActiveItem} 

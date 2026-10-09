@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage';
 import SleeperVendorHost from './pages/SleeperVendorHost';
 import RailpadHost from './pages/RailpadHost';
 import VersionUpdateBanner from './components/common/VersionUpdateBanner';
+import SessionExpiryModal from './components/common/SessionExpiryModal';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('vendor-dashboard');
@@ -94,6 +95,7 @@ const App = () => {
   return (
     <>
       <VersionUpdateBanner />
+      <SessionExpiryModal />
       {!isAuthenticated() || (user?.roleName?.length > 1 && !activeRole) ? (
         <LoginPage />
       ) : isSleeperRole ? (

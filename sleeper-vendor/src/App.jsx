@@ -6,6 +6,7 @@ import VendorLogin from './pages/sleeperGeneral/VendorLogin.jsx';
 import VendorIncomingRequests from './pages/vendor/VendorIncomingRequests.jsx';
 import VendorEditRequest from './pages/vendor/VendorEditRequest.jsx';
 import VersionUpdateBanner from './components/common/VersionUpdateBanner';
+import SessionExpiryModal from './components/common/SessionExpiryModal';
 
 /**
  * App Inner - Core application component within Router
@@ -15,7 +16,12 @@ const AppInner = ({ onLogout, onLogin, isAuthenticated }) => {
   const location = useLocation();
 
   if (!isAuthenticated) {
-    return <VendorLogin onLogin={onLogin} />;
+    return (
+      <>
+        <SessionExpiryModal />
+        <VendorLogin onLogin={onLogin} />
+      </>
+    );
   }
 
   const getActiveItem = () => {
@@ -36,6 +42,7 @@ const AppInner = ({ onLogout, onLogin, isAuthenticated }) => {
       onLogout={onLogout}
     >
       <VersionUpdateBanner />
+      <SessionExpiryModal />
       <Routes>
         <Route path="/" element={<VendorDashboard />} />
         <Route path="/vendor/edit/:moduleId/:requestId/:workflowTransitionId" element={<VendorEditRequest />} />
