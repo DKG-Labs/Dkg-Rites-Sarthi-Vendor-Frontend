@@ -4350,14 +4350,53 @@ const VendorDashboardPage = ({ onBack }) => {
                                                     const isErcVendor = !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' || (po?.item_category && (po.item_category.toLowerCase().includes('elastic rail') || po.item_category.toUpperCase().includes('ERC')));
                                                     const isCaseNoMissing = !po.case_no || po.case_no === 'N/A' || po.case_no.trim() === '' || po.case_no === '-';
 
-                                                    const effectiveDpPeriod = item.extended_delivery_period || item.delivery_period;
-                                                    const isEdpUsed = !!item.extended_delivery_period;
+                                                    const effectiveDpPeriod = item.extended_delivery_period || item.delivery_period || item.extendedDeliveryDate || item.deliveryDate;
+                                                    const isEdpUsed = !!(item.extended_delivery_period || item.extendedDeliveryDate);
 
                                                     let isOdpExpired = false;
+                                                    let formattedCutoffDate = '';
+                                                    let formattedTargetDp = '';
+
                                                     if (effectiveDpPeriod) {
-                                                      const dpDate = new Date(effectiveDpPeriod);
-                                                      dpDate.setHours(23, 59, 59, 999);
-                                                      isOdpExpired = new Date() > dpDate;
+                                                      try {
+                                                        const str = String(effectiveDpPeriod).trim();
+                                                        let dpDate = null;
+                                                        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+                                                          const [y, m, d] = str.split('T')[0].split(' ')[0].split('-');
+                                                          dpDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+                                                        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+                                                          const [d, m, y] = str.split(' ')[0].split('/');
+                                                          dpDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+                                                        } else if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+                                                          const [d, m, y] = str.split(' ')[0].split('-');
+                                                          dpDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+                                                        } else {
+                                                          const parsed = new Date(str);
+                                                          if (!isNaN(parsed.getTime())) {
+                                                            dpDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+                                                          }
+                                                        }
+
+                                                        if (dpDate) {
+                                                          const today = new Date();
+                                                          today.setHours(0, 0, 0, 0);
+                                                          const targetDay = new Date(dpDate);
+                                                          targetDay.setHours(0, 0, 0, 0);
+
+                                                          // Cutoff Rule: Vendors can only raise calls up to DP Date - 7 days
+                                                          const cutoffDate = new Date(targetDay);
+                                                          cutoffDate.setDate(cutoffDate.getDate() - 7);
+                                                          cutoffDate.setHours(0, 0, 0, 0);
+
+                                                          const pad = (n) => String(n).padStart(2, '0');
+                                                          formattedCutoffDate = `${pad(cutoffDate.getDate())}.${pad(cutoffDate.getMonth() + 1)}.${cutoffDate.getFullYear()}`;
+                                                          formattedTargetDp = `${pad(targetDay.getDate())}.${pad(targetDay.getMonth() + 1)}.${targetDay.getFullYear()}`;
+
+                                                          if (today > cutoffDate) {
+                                                            isOdpExpired = true;
+                                                          }
+                                                        }
+                                                      } catch (e) {}
                                                     }
 
                                                     const shouldDisableRaiseCall = (isErcVendor && isCaseNoMissing) || isOdpExpired;
@@ -4367,15 +4406,15 @@ const VendorDashboardPage = ({ onBack }) => {
 
                                                     const disableReason = (isErcVendor && isCaseNoMissing)
                                                       ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
-                                                      : (isOdpExpired ? `${dpTypeLabel} date (${formatDate(effectiveDpPeriod).replace(/-/g, '.')}) has expired for this item.` : '');
+                                                      : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 7 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
 
                                                     const disableTitle = (isErcVendor && isCaseNoMissing)
                                                       ? "Case No. not found for this PO. Please contact RITES Admin."
-                                                      : (isOdpExpired ? `${dpTypeLabel} has expired.` : "");
+                                                      : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 7 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
 
                                                     const disableTooltipText = (isErcVendor && isCaseNoMissing)
                                                       ? "⚠️ Case No. not available for this PO. Inspection call disabled."
-                                                      : (isOdpExpired ? `⚠️ ${dpTypeLabel} (${dpShortLabel}) has expired. Inspection call disabled.` : "");
+                                                      : (isOdpExpired ? `⚠️ ${dpShortLabel} Cutoff Expired (DP: ${formattedTargetDp}, Cutoff: ${formattedCutoffDate}). Inspection call disabled.` : "");
 
                                                     return (
                                                       <tr key={item.id}>
@@ -4423,7 +4462,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                                   pointerEvents: 'auto'
                                                                 }}
                                                               >
-                                                                Raise Inspection Request
+                                                                {isOdpExpired ? 'Cutoff Expired' : 'Raise Inspection Request'}
                                                               </button>
 
                                                               {shouldDisableRaiseCall && hoveredDisabledPoItemId === item.id && (

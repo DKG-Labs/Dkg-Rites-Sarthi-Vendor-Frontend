@@ -6,12 +6,55 @@ import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
 
 
 // ─── Date & SR Formatter Helpers ─────────────────────────────────────────────
+const parseDateToDateObject = (dateStr) => {
+    if (!dateStr) return null;
+    const str = String(dateStr).trim();
+    if (!str || str.toLowerCase() === 'null' || str.toUpperCase() === 'N/A') return null;
+
+    // Format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD HH:mm:ss
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const [year, month, day] = str.split('T')[0].split(' ')[0].split('-');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    // Format: DD/MM/YYYY or DD/MM/YYYY HH:mm
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('/');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    // Format: DD-MM-YYYY
+    if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('-');
+        return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    }
+
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    return null;
+};
+
 const formatDateDDMMYYYY = (dateStr) => {
     if (!dateStr) return 'N/A';
     const str = String(dateStr).trim();
+    if (!str || str.toLowerCase() === 'null' || str.toUpperCase() === 'N/A') return 'N/A';
     if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-        const [year, month, day] = str.split('T')[0].split('-');
+        const [year, month, day] = str.split('T')[0].split(' ')[0].split('-');
         return `${day}-${month}-${year}`;
+    }
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('/');
+        return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
+    }
+    if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+        const [datePart] = str.split(' ');
+        const [day, month, year] = datePart.split('-');
+        return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
     }
     try {
         const d = new Date(str);
@@ -23,6 +66,94 @@ const formatDateDDMMYYYY = (dateStr) => {
         }
     } catch (e) {}
     return str;
+};
+
+// ─── DP Date Status Helper ───────────────────────────────────────────────────
+const checkDpDateStatus = (item) => {
+    const dpStr = item.deliveryDate || item.delivery_date || item.deliveryPeriod || item.delivery_period;
+    const extDpStr = item.extendedDeliveryDate || item.extended_delivery_date || item.extendedDeliveryPeriod || item.extended_delivery_period;
+
+    const hasExtDp = Boolean(
+        extDpStr && 
+        String(extDpStr).trim() !== '' && 
+        String(extDpStr).trim().toUpperCase() !== 'N/A' && 
+        String(extDpStr).trim().toLowerCase() !== 'null'
+    );
+    const hasDp = Boolean(
+        dpStr && 
+        String(dpStr).trim() !== '' && 
+        String(dpStr).trim().toUpperCase() !== 'N/A' && 
+        String(dpStr).trim().toLowerCase() !== 'null'
+    );
+
+    const targetStr = hasExtDp ? extDpStr : (hasDp ? dpStr : null);
+    
+    if (!targetStr) {
+        return {
+            isDisabled: false,
+            dpDisplay: '—',
+            reason: '',
+            targetStr: null,
+            hasExtDp: false,
+            hasDp: false
+        };
+    }
+
+    let isDisabled = false;
+    let reason = '';
+
+    try {
+        const targetDay = parseDateToDateObject(targetStr);
+        if (targetDay) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            targetDay.setHours(0, 0, 0, 0);
+
+            // Cutoff Rule: Vendors can only raise calls up to DP Date - 7 days
+            const cutoffDate = new Date(targetDay);
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            cutoffDate.setHours(0, 0, 0, 0);
+
+            if (today > cutoffDate) {
+                isDisabled = true;
+                const dpLabel = hasExtDp ? 'Ext. DP' : 'DP';
+                const formattedTarget = formatDateDDMMYYYY(targetStr);
+                const formattedCutoff = formatDateDDMMYYYY(cutoffDate);
+                reason = `Call raising cutoff expired (Must be raised at least 7 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
+            }
+        }
+    } catch (e) {}
+
+    const formattedDp = formatDateDDMMYYYY(dpStr);
+    const formattedExtDp = hasExtDp ? formatDateDDMMYYYY(extDpStr) : null;
+
+    let dpDisplay = '—';
+    if (hasDp && hasExtDp) {
+        dpDisplay = (
+            <div style={{ fontSize: 11, lineHeight: 1.3 }}>
+                <span style={{ color: '#475569', display: 'block' }}>DP: {formattedDp}</span>
+                <span style={{ color: '#0284c7', fontWeight: 700, display: 'block' }}>Ext: {formattedExtDp}</span>
+            </div>
+        );
+    } else if (hasExtDp) {
+        dpDisplay = (
+            <span style={{ color: '#0284c7', fontWeight: 700, fontSize: 11 }}>Ext: {formattedExtDp}</span>
+        );
+    } else if (hasDp) {
+        dpDisplay = (
+            <span style={{ color: '#334155', fontWeight: 600, fontSize: 11 }}>{formattedDp}</span>
+        );
+    }
+
+    return {
+        isDisabled,
+        reason,
+        dpDisplay,
+        hasExtDp,
+        hasDp,
+        formattedDp,
+        formattedExtDp
+    };
 };
 
 const getSrDisplay = (item, idx) => {
@@ -60,7 +191,9 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
     const [showForm, setShowForm] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
-    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing;
+    const dpInfo = checkDpDateStatus(item);
+    const isDpDisabled = dpInfo.isDisabled;
+    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing || isDpDisabled;
 
     const handleDownloadCallLetter = async (e) => {
         e.stopPropagation();
@@ -179,13 +312,19 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                         {(item.due || 0).toLocaleString()}
                     </span>
                 </td>
+                {/* DP Date / Ext DP Date */}
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    {dpInfo.dpDisplay}
+                </td>
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <div
-                        title={isCaseNoMissing && item.due > 0 ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." : ""}
+                        title={isCaseNoMissing && item.due > 0 ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." : (isDpDisabled ? dpInfo.reason : "")}
                         onClick={() => {
                             if (isCaseNoMissing && item.due > 0) {
                                 alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                            } else if (isDpDisabled && item.due > 0) {
+                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
                             }
                         }}
                         style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
@@ -196,6 +335,12 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                                 if (isCaseNoMissing) {
                                     e.preventDefault();
                                     e.stopPropagation();
+                                    return;
+                                }
+                                if (isDpDisabled) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
                                     return;
                                 }
                                 try {
@@ -222,11 +367,16 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                                 boxShadow: shouldDisableRaiseCall ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                             }}
                         >
-                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : 'Raise Inspection Call')}
+                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : (isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'))}
                         </button>
                         {isCaseNoMissing && item.due > 0 && (
                             <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
                                 ⚠️ Case No. Missing
+                            </div>
+                        )}
+                        {isDpDisabled && !isCaseNoMissing && item.due > 0 && (
+                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
+                                ⚠️ DP Cutoff Expired
                             </div>
                         )}
                     </div>
@@ -427,6 +577,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#7c3aed' }}>Offered Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center', color: '#16a34a' }}>Accepted Till Now</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Qty Due</th>
+                                            <th style={{ ...thStyle, textAlign: 'center', color: '#0369a1' }}>DP Date / Ext DP Date</th>
                                             <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
                                         </tr>
                                     </thead>

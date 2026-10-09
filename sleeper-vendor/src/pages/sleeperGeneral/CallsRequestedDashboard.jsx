@@ -143,19 +143,12 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
 
     // Completion rule: Both blocked
     const isCompleted = 
-        rawStatus === 'COMPLETED' || 
-        rawJobStatus === 'COMPLETED' || 
-        rawStatus === 'LOCKED' ||
-        rawJobStatus === 'LOCKED' ||
-        rawStatus.includes('IC_ISSUE') ||
-        rawJobStatus.includes('IC_ISSUE') ||
-        rawStatus.includes('IC_ISSUED') ||
-        rawJobStatus.includes('IC_ISSUED') ||
+        rawStatus === 'SEND_CALL_TO_IBS' ||
+        rawJobStatus === 'SEND_CALL_TO_IBS' ||
+        rawStatus.includes('SEND_CALL_TO_IBS') ||
+        rawJobStatus.includes('SEND_CALL_TO_IBS') ||
         rawStatus.includes('IBS') ||
-        rawJobStatus.includes('IBS') ||
-        rawStatus === 'FINISHED' ||
-        rawJobStatus === 'FINISH' ||
-        rawJobStatus === 'FINISHED';
+        rawJobStatus.includes('IBS');
 
     // Active inspection / Paused rule: Both Modify and Withdraw are BLOCKED
     const isUnderInspection = rawJobStatus === 'PAUSED' || rawJobStatus === 'INITIATED' || rawJobStatus.includes('INSPECT') || rawStatus === 'UNDER INSPECTION' || rawStatus === 'PAUSED';
