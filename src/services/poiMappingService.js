@@ -58,6 +58,21 @@ const poiMappingService = {
       console.error(`Error fetching unit details for ${companyName} - ${unitName}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Get all units with address and POI code for a vendor in one call
+   * @param {string} vendorCode - Vendor code
+   * @returns {Promise} API response with list of PincodePoIMapping objects
+   */
+  getVendorUnits: async (vendorCode) => {
+    try {
+      const response = await httpClient.get(`/poiMapping/vendor/units?vendorCode=${vendorCode}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching vendor units:', error);
+      throw error;
+    }
   }
 };
 

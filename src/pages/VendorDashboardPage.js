@@ -50,6 +50,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
 import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
+import MaterialDiversionPage from './MaterialDiversionPage';
 
 // Set worker source for pdfjs-dist locally
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -2497,6 +2498,11 @@ const VendorDashboardPage = ({ onBack }) => {
       id: 'master-updating',
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
+    },
+    {
+      id: 'material-diversion',
+      label: 'Material Diversion',
+      description: 'ERC Material Diversion & Basket Management'
     },
     {
       id: 'feedback-system',
@@ -5171,7 +5177,14 @@ const VendorDashboardPage = ({ onBack }) => {
             </>
           )}
 
-          {/* 11. Feedback System */}
+          {/* 11. Material Diversion */}
+          {activeTab === 'material-diversion' && (
+            <div className="material-diversion-tab-wrapper">
+              <MaterialDiversionPage />
+            </div>
+          )}
+
+          {/* 12. Feedback System */}
           {activeTab === 'feedback-system' && (
             <div className="feedback-module-wrapper">
               <div className="vendor-section-header">
