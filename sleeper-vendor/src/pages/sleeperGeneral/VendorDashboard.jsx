@@ -88,7 +88,7 @@ const VendorDashboard = () => {
             const completedData = completed.status === 'fulfilled' ? completed.value : [];
 
             const isCompletedOrIbs = (c) => {
-                const raw = String(c?.status || c?.action || '').trim().toUpperCase();
+                const raw = String(c?.status || c?.action || c?.rawStatus || '').trim().toUpperCase();
                 const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
                 return (
                     raw === 'SEND_CALL_TO_IBS' ||
@@ -96,29 +96,14 @@ const VendorDashboard = () => {
                     raw.includes('SEND_CALL_TO_IBS') ||
                     rawJob.includes('SEND_CALL_TO_IBS') ||
                     raw.includes('IBS') ||
-                    rawJob.includes('IBS') ||
-                    raw === 'LOCKED' ||
-                    rawJob === 'LOCKED' ||
-                    raw === 'COMPLETED' ||
-                    rawJob === 'COMPLETED' ||
-                    raw === 'IC ISSUED' ||
-                    raw === 'IC_ISSUED' ||
-                    rawJob === 'IC_ISSUED' ||
-                    raw.includes('IC_ISSUE') ||
-                    rawJob.includes('IC_ISSUE') ||
-                    raw.includes('COMPLETE') ||
-                    rawJob.includes('COMPLETE') ||
-                    raw.includes('FINISH') ||
-                    rawJob.includes('FINISH') ||
-                    raw.includes('IC_GENERATION') ||
-                    rawJob.includes('IC_GENERATION')
+                    rawJob.includes('IBS')
                 );
             };
 
             const activeRequestedCalls = (callsData || []).filter(c => !isCompletedOrIbs(c));
             const completedFromInspectionCalls = (callsData || []).filter(c => isCompletedOrIbs(c));
 
-            const combinedCompleted = [...(Array.isArray(completedData) ? completedData : [])];
+            const combinedCompleted = (Array.isArray(completedData) ? completedData.filter(isCompletedOrIbs) : []);
             completedFromInspectionCalls.forEach(c => {
                 const callKey = (c.callNo || c.requestId || c.id || '').toString();
                 if (!combinedCompleted.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {

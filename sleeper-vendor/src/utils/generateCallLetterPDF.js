@@ -414,13 +414,27 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     checkPageBreak(30);
     let batchDisplay = '-';
     if (call.heatDetails && call.heatDetails.length > 0) {
-        batchDisplay = call.heatDetails.map(h =>
-            `${h.heatNo || 'Batch'}: ${val(h.tcNo)}, Qty: ${val(h.qtyOffered)} Nos.`
-        ).join('\n');
+        batchDisplay = call.heatDetails.map(h => {
+            const good = h.goodCount != null ? Number(h.goodCount) : (h.goodSleepers ? (Array.isArray(h.goodSleepers) ? h.goodSleepers.length : Number(h.goodSleepers)) : null);
+            const rej = h.badCount != null ? Number(h.badCount) : (h.badSleepers ? (Array.isArray(h.badSleepers) ? h.badSleepers.length : Number(h.badSleepers)) : 0);
+            const total = (good != null) ? (good + (rej || 0)) : (h.qtyOffered || '-');
+            
+            let tc = val(h.tcNo);
+            if (tc && tc.includes('Good:')) {
+                tc = tc.replace(/Good:/g, 'Accepted:');
+            }
+            if (tc && (tc.includes('Accepted:') || tc.includes('Good:'))) {
+                return `${h.heatNo || 'Batch'}: ${tc}, Total Offered: ${val(total)} Nos.`;
+            }
+            return `${h.heatNo || 'Batch'}: Accepted: ${good != null ? good : '-'}${rej > 0 ? ' | Rejected: ' + rej : ''}, Total Offered: ${val(total)} Nos.`;
+        }).join('\n');
     } else if (call.batchesSelected && call.batchesSelected.length > 0) {
-        batchDisplay = call.batchesSelected.map(b =>
-            `Batch ${b.batchNo}: Good: ${b.goodSleepers ? b.goodSleepers.length : 0}${b.badSleepers && b.badSleepers.length > 0 ? ' | Rejected: ' + b.badSleepers.length : ''}`
-        ).join('\n');
+        batchDisplay = call.batchesSelected.map(b => {
+            const good = b.goodSleepers ? (Array.isArray(b.goodSleepers) ? b.goodSleepers.length : Number(b.goodSleepers)) : 0;
+            const rej = b.badSleepers ? (Array.isArray(b.badSleepers) ? b.badSleepers.length : Number(b.badSleepers)) : 0;
+            const total = good + rej;
+            return `Batch ${b.batchNo}: Accepted: ${good}${rej > 0 ? ' | Rejected: ' + rej : ''}, Total Offered: ${total} Nos.`;
+        }).join('\n');
     } else if (call.batches) {
         batchDisplay = `Total Batches Offered: ${call.batches} | Total Sleepers: ${call.qtyOffered || call.totalOffered || '-'}`;
     }

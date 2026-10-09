@@ -84,23 +84,13 @@ const InfoIcon = ({ size = 18, color = '#fff' }) => (
 );
 
 const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
-    const raw = String(actionStr || jobStatusStr || statusStr || 'COMPLETED').toUpperCase().trim();
-    if (raw.includes('SEND_CALL_TO_IBS') || raw.includes('IBS')) {
-        return {
-            label: 'SEND_CALL_TO_IBS',
-            bg: '#eff6ff',
-            color: '#1d4ed8',
-            border: '#bfdbfe',
-            dot: '#3b82f6',
-            type: 'ibs'
-        };
-    }
+    const raw = String(actionStr || jobStatusStr || statusStr || '').toUpperCase().trim();
     if (raw.includes('CANCEL')) {
         return {
             label: 'Cancelled',
             bg: '#fef2f2',
             color: '#b91c1c',
-            border: '#fecaca',
+            border: '#fca5a5',
             dot: '#ef4444',
             type: 'cancel'
         };
@@ -115,43 +105,13 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
             type: 'withdraw'
         };
     }
-    if (raw.includes('IC_ISSUE') || raw.includes('IC_GENERATION') || raw.includes('GENERATE_IC') || raw.includes('DSC_SIGN_IC') || raw.includes('IC_SIGNED') || raw === 'IC ISSUED') {
-        return {
-            label: 'IC Issued',
-            bg: '#ecfdf5',
-            color: '#047857',
-            border: '#a7f3d0',
-            dot: '#10b981',
-            type: 'complete'
-        };
-    }
-    if (raw.includes('FINISH') || raw.includes('COMPLETE') || raw.includes('CONFIRM') || raw.includes('APPROVED') || raw.includes('ACCEPTED')) {
-        return {
-            label: 'Inspection Confirmed',
-            bg: '#ecfdf5',
-            color: '#047857',
-            border: '#a7f3d0',
-            dot: '#10b981',
-            type: 'complete'
-        };
-    }
-    if (raw.includes('PENDING') || raw.includes('PROGRESS') || raw.includes('VERIFY')) {
-        return {
-            label: 'In Progress',
-            bg: '#fefce8',
-            color: '#a16207',
-            border: '#fef08a',
-            dot: '#eab308',
-            type: 'pending'
-        };
-    }
     return {
-        label: 'Completed',
+        label: 'SEND_CALL_TO_IBS',
         bg: '#eff6ff',
         color: '#1d4ed8',
         border: '#bfdbfe',
         dot: '#3b82f6',
-        type: 'default'
+        type: 'ibs'
     };
 };
 
@@ -274,28 +234,24 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                 apiService.getVendorInspectionCalls(userId)
             ]);
 
-            const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value)) ? completedRes.value : [];
+            const isSendCallToIbs = (c) => {
+                const raw = String(c?.status || c?.action || c?.rawStatus || '').trim().toUpperCase();
+                const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
+                return (
+                    raw === 'SEND_CALL_TO_IBS' ||
+                    rawJob === 'SEND_CALL_TO_IBS' ||
+                    raw.includes('SEND_CALL_TO_IBS') ||
+                    rawJob.includes('SEND_CALL_TO_IBS') ||
+                    raw.includes('IBS') ||
+                    rawJob.includes('IBS')
+                );
+            };
+
+            const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value)) 
+                ? completedRes.value.filter(isSendCallToIbs) 
+                : [];
             const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value)) 
-                ? vendorCallsRes.value.filter(c => {
-                    const raw = String(c?.status || c?.action || '').trim().toUpperCase();
-                    const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
-                    return (
-                        raw === 'SEND_CALL_TO_IBS' ||
-                        rawJob === 'SEND_CALL_TO_IBS' ||
-                        raw.includes('SEND_CALL_TO_IBS') ||
-                        rawJob.includes('SEND_CALL_TO_IBS') ||
-                        raw.includes('IBS') ||
-                        rawJob.includes('IBS') ||
-                        raw === 'LOCKED' ||
-                        rawJob === 'LOCKED' ||
-                        raw === 'COMPLETED' ||
-                        rawJob === 'COMPLETED' ||
-                        raw.includes('IC_ISSUE') ||
-                        rawJob.includes('IC_ISSUE') ||
-                        raw.includes('IC_ISSUED') ||
-                        rawJob.includes('IC_ISSUED')
-                    );
-                }) 
+                ? vendorCallsRes.value.filter(isSendCallToIbs) 
                 : [];
 
             const combined = [...list1];
@@ -488,8 +444,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                 const offeredQuantity = Number(call.offeredQty || call.qtyOffered || call.totalCastedSleepers || 0);
                                 const acceptedQuantity = Number(call.acceptedQty != null ? call.acceptedQty : (call.totalOffered != null ? call.totalOffered : (call.qtyAccepted != null ? call.qtyAccepted : offeredQuantity)));
                                 const statusInfo = getCallStatusInfo(call.status, call.action, call.jobStatus);
-                                const icNumber = call.icNo || call.icNumber || call.certificateNo || (call.status === 'IC ISSUED' || call.status === 'INSPECTION COMPLETE CONFIRM' ? (`IC-${call.requestId || call.callNo || ''}`) : null);
-                                const icDate = call.icDate || call.updatedDate || call.callDate;
+                                const icNumber = call.icNo || call.icNumber || call.certificateNo || call.certificate_no || (callNo && callNo !== 'N/A' ? `N/${callNo}/OPS1` : null);
+                                const icDate = call.icDate || call.certificateDate || call.updatedDate || call.createdDate || call.callDate;
 
                                 return (
                                     <tr 
