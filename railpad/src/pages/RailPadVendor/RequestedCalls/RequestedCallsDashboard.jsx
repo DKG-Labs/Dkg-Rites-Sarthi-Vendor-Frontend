@@ -409,6 +409,11 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const handleSaveModification = async (e) => {
         e.preventDefault();
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (modifyForm.inspectionDate && modifyForm.inspectionDate < todayStr) {
+            showToast('error', 'Desired Inspection Date cannot be in the past.');
+            return;
+        }
         try {
             setSavingModification(true);
             const payload = {
@@ -1343,6 +1348,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                             <input
                                                 type="date"
                                                 value={modifyForm.inspectionDate}
+                                                min={new Date().toISOString().split('T')[0]}
                                                 onChange={(e) => setModifyForm(prev => ({ ...prev, inspectionDate: e.target.value }))}
                                                 required
                                                 style={{

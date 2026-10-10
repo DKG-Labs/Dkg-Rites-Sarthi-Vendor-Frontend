@@ -583,6 +583,11 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
             alert('Quantity desired cannot exceed the pending quantity on order.');
             return;
         }
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (productionDate && productionDate < todayStr) {
+            alert('Date of Production Initiation cannot be in the past.');
+            return;
+        }
 
         try {
             setIsSubmitting(true);
@@ -1071,6 +1076,7 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
                                 <input
                                     type="date"
                                     value={productionDate}
+                                    min={new Date().toISOString().split('T')[0]}
                                     onChange={e => setProductionDate(e.target.value)}
                                     style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b', fontSize: '13px', outline: 'none' }}
                                 />

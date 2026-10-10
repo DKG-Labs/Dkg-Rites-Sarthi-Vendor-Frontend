@@ -191,7 +191,7 @@ const MultiSelectDropdown = ({ options = [], selectedValues = [], onChange, plac
 
 
 // Helper functions
-// const getTodayDate = () => new Date().toISOString().split('T')[0];
+const getTodayDate = () => new Date().toISOString().split('T')[0];
 const getMaxDate = () => {
   const date = new Date();
   date.setDate(date.getDate() + 6);
@@ -2600,6 +2600,8 @@ export const RaiseInspectionCallForm = ({
 
     if (!formData.desired_inspection_date) {
       newErrors.desired_inspection_date = 'Desired Inspection Date is required';
+    } else if (formData.desired_inspection_date < getTodayDate()) {
+      newErrors.desired_inspection_date = 'Desired Date of Inspection cannot be in the past';
     } else if (!isModifyMode && formData.desired_inspection_date > getMaxDate()) {
       newErrors.desired_inspection_date = 'Desired Date of Inspection should not be more than 6 days from today';
     }
@@ -3082,7 +3084,7 @@ export const RaiseInspectionCallForm = ({
               className="ric-form-input"
               value={formData.desired_inspection_date}
               onChange={handleChange}
-              // min={getTodayDate()}
+              min={getTodayDate()}
               max={isModifyMode ? undefined : getMaxDate()}
             />
           </FormField>

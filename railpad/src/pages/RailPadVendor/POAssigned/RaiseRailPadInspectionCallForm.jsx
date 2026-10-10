@@ -641,6 +641,15 @@ const RaiseRailPadInspectionCallForm = ({
 
     const handleSubmit = async () => {
         if (isReadOnly) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (!desiredDate) {
+            alert('Please select a Desired Inspection Date.');
+            return;
+        }
+        if (!isModifyMode && desiredDate < todayStr) {
+            alert('Desired Inspection Date cannot be in the past.');
+            return;
+        }
         if (hasLotExceedingLimit) {
             alert(`Lot Limit Exceeded!\n\nOne or more lots exceed the maximum limit of ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nPlease reduce the quantity or allocate the excess to a second lot.`);
             return;
@@ -1142,6 +1151,7 @@ const RaiseRailPadInspectionCallForm = ({
                                         type="date"
                                         value={desiredDate}
                                         disabled={isReadOnly}
+                                        min={isModifyMode ? undefined : new Date().toISOString().split('T')[0]}
                                         onChange={e => setDesiredDate(e.target.value)}
                                         style={{
                                             width: '100%', height: '34px', padding: '0 8px', borderRadius: '6px',
