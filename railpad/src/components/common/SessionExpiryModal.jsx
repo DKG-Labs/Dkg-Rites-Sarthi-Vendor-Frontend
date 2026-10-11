@@ -12,22 +12,23 @@ const SessionExpiryModal = () => {
 
   useEffect(() => {
     const handleSessionExpired = () => {
-      const hasToken =
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('railpad_token') ||
-        localStorage.getItem('sleeper_token') ||
-        sessionStorage.getItem('token') ||
-        sessionStorage.getItem('authToken');
-
-      if (hasToken && !isOpen) {
+      if (!isOpen) {
         setIsOpen(true);
       }
     };
 
     window.addEventListener('sarthi:session_expired', handleSessionExpired);
+
+    const handleMessage = (e) => {
+      if (e.data === 'sarthi:session_expired' || e.data?.type === 'sarthi:session_expired') {
+        handleSessionExpired();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
     return () => {
       window.removeEventListener('sarthi:session_expired', handleSessionExpired);
+      window.removeEventListener('message', handleMessage);
     };
   }, [isOpen]);
 
