@@ -1939,11 +1939,19 @@ const NCRGRSPFinalInspectionCall = ({
       }
     });
 
+    // Check Desired Inspection Date
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (!desiredDate) {
+      errors.push('Desired Inspection Date is required.');
+    } else if (!isReadOnly && desiredDate < todayStr) {
+      errors.push('Desired Inspection Date cannot be in the past.');
+    }
+
     return {
       isValid: errors.length === 0,
       errors
     };
-  }, [selectedProcessCertNos, noOfSets, noOfLots, totalRequiredQty, totalOfferedQty, drawingSummaryData, lots]);
+  }, [selectedProcessCertNos, noOfSets, noOfLots, totalRequiredQty, totalOfferedQty, drawingSummaryData, lots, desiredDate, isReadOnly]);
 
   // ── Submit Handler ──
   const handleSubmitCall = async () => {
@@ -2442,6 +2450,7 @@ const NCRGRSPFinalInspectionCall = ({
                   type={isReadOnly ? "text" : "date"}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
+                  min={isReadOnly ? undefined : new Date().toISOString().split('T')[0]}
                   value={desiredDate}
                   onChange={e => setDesiredDate(e.target.value)}
                   style={{

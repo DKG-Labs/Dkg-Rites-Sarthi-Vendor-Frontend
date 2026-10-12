@@ -89,7 +89,7 @@ export const getCallUom = (call) => {
         return u.toUpperCase().includes('SET') ? 'Set' : u;
     }
     const st = (call?.sleeperType || '').toUpperCase();
-    if (st.includes('SET') || st.includes('PNC') || st.includes('TURNOUT') || st.includes('8746') || st.includes('4218') || st.includes('4865') || st.includes('9790') || st.includes('4732') || st.includes('DERAIL')) {
+    if (st.includes('SET') || st.includes('PNC') || st.includes('TURNOUT') || st.includes('4218') || st.includes('4865') || st.includes('9790') || st.includes('4732') || st.includes('DERAIL')) {
         return 'Set';
     }
     return 'Nos.';
@@ -817,11 +817,28 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         showToast(`Generating Call Letter for ${callId}...`, 'info');
         try {
             const details = await apiService.getCallLetterDetails(callId);
+            let activePlant = null;
+            try {
+                const sp = localStorage.getItem('selectedPlant');
+                if (sp) activePlant = JSON.parse(sp);
+            } catch (e) {}
+
             const enrichedCall = {
                 ...call,
                 ...(details || {}),
                 callNumber: call.callNo || call.callNumber || callId,
-                poNumber: call.poNo || call.poNumber || details?.poNo
+                poNumber: call.poNo || call.poNumber || details?.poNo,
+                totalOffered: call.totalOffered || details?.totalOffered || 0,
+                totalRejected: call.totalRejected || details?.totalRejected || 0,
+                vendorName: (activePlant?.plantName && (!details?.vendorName || details?.vendorName === '-' || call.plantId === activePlant.plantId))
+                    ? activePlant.plantName
+                    : (details?.vendorName || call.vendorName || activePlant?.plantName),
+                manufacturerName: (activePlant?.plantName && (!details?.manufacturerName || details?.manufacturerName === '-' || call.plantId === activePlant.plantId))
+                    ? activePlant.plantName
+                    : (details?.manufacturerName || call.manufacturerName || activePlant?.plantName),
+                placeOfInspection: (activePlant?.plantName && (!details?.placeOfInspection || details?.placeOfInspection === '-' || call.plantId === activePlant.plantId))
+                    ? activePlant.plantName
+                    : (details?.placeOfInspection || call.placeOfInspection || activePlant?.plantName)
             };
             generateCallLetterPDF(enrichedCall, true);
             showToast(`Call letter for ${callId} downloaded successfully!`);
@@ -840,13 +857,25 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         const callId = call?.callNo || call?.callNumber || call?.requestId || call?.id;
         try {
             const details = callId ? await apiService.getCallLetterDetails(callId) : null;
+            let activePlant = null;
+            try {
+                const sp = localStorage.getItem('selectedPlant');
+                if (sp) activePlant = JSON.parse(sp);
+            } catch (e) {}
+
             const enrichedCall = {
                 ...call,
                 ...(details || {}),
+                manufacturerName: (activePlant?.plantName && (!details?.manufacturerName || details?.manufacturerName === '-' || call.plantId === activePlant.plantId))
+                    ? activePlant.plantName
+                    : (details?.manufacturerName || details?.vendorName || details?.placeOfInspection || call.manufacturerName || call.vendorName || call.companyName || call.plantName || activePlant?.plantName),
                 callNo: call.callNo || call.callNumber || callId,
                 poNo: call.poNo || details?.poNo,
                 consignee: details?.consigneeDetail || call.consignee || call.consigneeDetail,
                 poDate: details?.poDate || call.poDate,
+                bookNo: details?.bookNo || call.bookNo || '-',
+                setNo: details?.setNo || call.setNo || '-',
+                drawingNo: details?.drawingNo || call.drawingNo || call.sleeperType || '-',
                 batchesSelected: (details?.batchesSelected && details.batchesSelected.length > 0)
                     ? details.batchesSelected
                     : ((details?.heatDetails && details.heatDetails.length > 0)

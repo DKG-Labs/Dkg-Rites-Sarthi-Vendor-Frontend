@@ -159,7 +159,16 @@ export const resetPassword = async (identifier, newPassword) => {
  * @param {string} manualLoginId - Optional manually entered login ID (like :41647)
  */
 export const storeAuthData = (authData, manualLoginId = null) => {
-  localStorage.setItem('authToken', authData.token);
+  const token = authData.token || '';
+  localStorage.setItem('authToken', token);
+  localStorage.setItem('token', token);
+  localStorage.setItem('railpad_token', token);
+  localStorage.setItem('sleeper_token', token);
+  try {
+    sessionStorage.setItem('authToken', token);
+    sessionStorage.setItem('token', token);
+  } catch (e) {}
+
   localStorage.setItem('userId', authData.userId);
   
   // Prioritize the manual ID because it might be the alphanumeric vendor code (:41647)
@@ -245,6 +254,13 @@ export const isAuthenticated = () => {
  */
 export const logoutUser = () => {
   localStorage.removeItem('authToken');
+  localStorage.removeItem('token');
+  localStorage.removeItem('railpad_token');
+  localStorage.removeItem('sleeper_token');
+  try {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('token');
+  } catch (e) {}
   localStorage.removeItem('userId');
   localStorage.removeItem('vendorCode');
   localStorage.removeItem('userName');
@@ -252,6 +268,7 @@ export const logoutUser = () => {
   localStorage.removeItem('roleName');
   localStorage.removeItem('rio');
   localStorage.removeItem('activeRole');
+  localStorage.removeItem('selectedRailPlant');
 };
 
 /**
