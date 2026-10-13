@@ -1,6 +1,26 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Format cast date — converts ISO "yyyy-MM-dd" or "yyyy/MM/dd" to "dd/MM/yyyy"
+// Passes through already-formatted "dd/MM/yyyy" values unchanged.
+const formatCastDate = (dateStr) => {
+    if (!dateStr || dateStr === '-' || dateStr === 'N/A') return '-';
+    const s = String(dateStr).trim();
+    // Already in dd/MM/yyyy format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    // ISO format yyyy-MM-dd
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const parts = s.substring(0, 10).split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    // yyyy/MM/dd format
+    if (/^\d{4}\/\d{2}\/\d{2}/.test(s)) {
+        const parts = s.split('/');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return s;
+};
+
 // Helper for mapping defect/rejection reason to standard abbreviation
 const mapDefectToAbbr = (defectStr, defaultAbbr = 'SD') => {
     if (!defectStr) return defaultAbbr;
@@ -212,8 +232,39 @@ export const generateOfferListPDF = (call) => {
         batchRange = first === last ? `${first}` : `${first} To ${last}`;
     }
 
-    drawRow('Shed-1 Batch No.', `: ${call.shed1BatchNo || batchRange}`, 4);
-    drawRow('Shed-2 Batch No.', `: ${call.shed2BatchNo || '-'}`, 5);
+    // Determine Shed 1 and Shed 2 batch ranges from individual batch shed fields
+    let s1Batches = [];
+    let s2Batches = [];
+    rawBatches.forEach(b => {
+        const shedVal = String(b.shed || b.productionUnit || '').trim().toUpperCase();
+        const bNo = b.batchNo ? (String(b.batchNo).startsWith('Batch ') ? b.batchNo : `Batch ${b.batchNo}`) : '';
+        if (bNo) {
+            if (shedVal.includes('2')) {
+                s2Batches.push(bNo);
+            } else if (shedVal.includes('1')) {
+                s1Batches.push(bNo);
+            }
+        }
+    });
+
+    const formatBatchRange = (arr) => {
+        if (!arr || arr.length === 0) return '-';
+        if (arr.length === 1) return arr[0];
+        return `${arr[0]} To ${arr[arr.length - 1]}`;
+    };
+
+    let displayShed1 = call.shed1BatchNo;
+    let displayShed2 = call.shed2BatchNo;
+
+    if (displayShed1 === undefined || displayShed1 === null || displayShed1 === '') {
+        displayShed1 = s1Batches.length > 0 ? formatBatchRange(s1Batches) : (s2Batches.length > 0 ? '-' : batchRange);
+    }
+    if (displayShed2 === undefined || displayShed2 === null || displayShed2 === '') {
+        displayShed2 = s2Batches.length > 0 ? formatBatchRange(s2Batches) : '-';
+    }
+
+    drawRow('Shed-1 Batch No.', `: ${displayShed1}`, 4);
+    drawRow('Shed-2 Batch No.', `: ${displayShed2}`, 5);
 
     // Draw border around header section
     doc.setDrawColor(0, 0, 0);
@@ -323,9 +374,7 @@ export const generateOfferListPDF = (call) => {
                 othRej += (badCount - totalClassified);
             }
 
-            const notOffrd = batch.notOffered !== undefined 
-                ? Number(batch.notOffered) 
-                : Math.max(0, totalCast - nowOffrd - prevOffrd);
+            const notOffrd = Math.max(0, totalCast - nowOffrd - prevOffrd);
 
             let mfList = [];
             if (batch.mfNo && typeof batch.mfNo === 'string') {
@@ -353,7 +402,7 @@ export const generateOfferListPDF = (call) => {
             return [
                 (index + 1).toString().padStart(2, '0'),
                 batchNo,
-                castDate,
+                formatCastDate(castDate),
                 totalCast.toString(),
                 prevOffrd.toString(),
                 nowOffrd.toString(),

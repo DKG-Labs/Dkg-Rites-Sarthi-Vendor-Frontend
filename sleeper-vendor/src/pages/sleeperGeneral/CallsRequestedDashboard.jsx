@@ -900,7 +900,10 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                         }))
                         : ((call.batchesSelected && call.batchesSelected.length > 0)
                             ? call.batchesSelected
-                            : []))
+                            : [])),
+                // Shed batch ranges from backend (computed from productionUnit)
+                shed1BatchNo: details?.shed1BatchNo || call.shed1BatchNo || undefined,
+                shed2BatchNo: details?.shed2BatchNo !== undefined ? details.shed2BatchNo : (call.shed2BatchNo || undefined),
             };
             generateOfferListPDF(enrichedCall);
             showToast(`Offer list downloaded successfully!`);
