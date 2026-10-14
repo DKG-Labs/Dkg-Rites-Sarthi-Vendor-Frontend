@@ -1639,7 +1639,9 @@ select.form-control {
 
 .status-badge[class*="assigned"],
 .status-badge[class*="scheduled"],
-.status-badge[class*="completed"] {
+.status-badge[class*="completed"],
+.status-badge[class*="closed"],
+.status-badge.closed {
   background: rgba(var(--color-success-rgb), 0.15);
   color: var(--color-success);
   border: 1px solid rgba(var(--color-success-rgb), 0.25);

@@ -609,22 +609,55 @@ const VendorDashboardPage = ({ onBack }) => {
           documents: []
         }));
 
-        // workflowStatus === 'WITHDRAW', 'INSPECTION_COMPLETE_CONFIRM', 'DSC_SIGN_IC', or 'GENERATE_IC' -> Completed
-        const active = transformedCalls.filter(call =>
-          call.workflowStatus !== 'WITHDRAW' &&
-          call.workflowStatus !== 'CANCELLED' &&
-          call.workflowStatus !== 'INSPECTION_COMPLETE_CONFIRM' &&
-          call.workflowStatus !== 'DSC_SIGN_IC' &&
-          call.workflowStatus !== 'GENERATE_IC'
-        );
+        const activeRole = localStorage.getItem('activeRole') || '';
+        const isErcVendor = !activeRole || 
+          activeRole === 'Vendor' || 
+          activeRole === 'ERC Vendor' || 
+          activeRole === 'ERC_VENDOR' || 
+          activeRole.toLowerCase().includes('erc') ||
+          (user?.roleName && (
+            Array.isArray(user.roleName)
+              ? user.roleName.some(r => r === 'Vendor' || r === 'ERC Vendor' || String(r).toLowerCase().includes('erc'))
+              : (user.roleName === 'Vendor' || user.roleName === 'ERC Vendor' || String(user.roleName).toLowerCase().includes('erc'))
+          ));
 
-        const completed = transformedCalls.filter(call =>
-          call.workflowStatus === 'WITHDRAW' ||
-          call.workflowStatus === 'CANCELLED' ||
-          call.workflowStatus === 'INSPECTION_COMPLETE_CONFIRM' ||
-          call.workflowStatus === 'DSC_SIGN_IC' ||
-          call.workflowStatus === 'GENERATE_IC'
-        );
+        const isSendCallToIbsStatus = (status) => {
+          if (!status) return false;
+          const s = String(status).trim().toUpperCase();
+          return (
+            s === 'SEND_CALL_TO_IBS' ||
+            s === 'SENT_TO_IBS' ||
+            s === 'SEND_TO_IBS' ||
+            s === 'SEND CALL TO IBS' ||
+            s === 'SENT CALL TO IBS' ||
+            s.replace(/_/g, ' ') === 'SEND CALL TO IBS'
+          );
+        };
+
+        const isCallCompleted = (call) => {
+          const wf = String(call.workflowStatus || '').trim().toUpperCase();
+          if (
+            wf === 'WITHDRAW' ||
+            wf === 'CANCELLED' ||
+            wf === 'INSPECTION_COMPLETE_CONFIRM' ||
+            wf === 'DSC_SIGN_IC' ||
+            wf === 'GENERATE_IC'
+          ) {
+            return true;
+          }
+          // Only in ERC vendor, if workflow status is SEND_CALL_TO_IBS then display in completed calls
+          const isCallSendToIbs = isSendCallToIbsStatus(call.workflowStatus) || isSendCallToIbsStatus(call.status);
+          if (isCallSendToIbs) {
+            const isErcCall = isErcVendor || (call.ercType && call.ercType !== 'N/A') || /^(ER|EP|EF)-/i.test(call.call_no || '');
+            if (isErcCall) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        const active = transformedCalls.filter(call => !isCallCompleted(call));
+        const completed = transformedCalls.filter(call => isCallCompleted(call));
 
         setRequestedCalls(active);
         setCompletedCalls(completed);
@@ -651,7 +684,7 @@ const VendorDashboardPage = ({ onBack }) => {
       setLoadingCompletedCalls(false);
       isFetchingRef.current = false;
     }
-  }, [user.userName]);
+  }, [user.userName, user.roleName]);
 
   useEffect(() => {
     fetchRequestedCalls();
@@ -1015,26 +1048,32 @@ const VendorDashboardPage = ({ onBack }) => {
     const poSerialNo = item.po_serial_no || item.poSerialNo;
 
     // Filter for completed calls matching the PO serial
-    const completedCalls = requestedCalls.filter(call => {
+    const poCompletedCalls = [...requestedCalls, ...completedCalls].filter(call => {
       const matchPo = call.poSerialNo === poSerialNo || call.po_serial_no === poSerialNo;
       // Consider calls that have completed their workflow successfully
       const isCompleted = [call.status, call.workflowStatus, call.jobStatus].some(s =>
-        s && (s.toUpperCase().includes('APPROVE') || s.toUpperCase().includes('COMPLET') || s.toUpperCase().includes('CERTIFICATE'))
+        s && (
+          s.toUpperCase().includes('APPROVE') ||
+          s.toUpperCase().includes('COMPLET') ||
+          s.toUpperCase().includes('CERTIFICATE') ||
+          s.toUpperCase().includes('IBS') ||
+          s.toUpperCase() === 'CLOSED'
+        )
       );
       return matchPo && isCompleted;
     });
 
-    const qty_rm = completedCalls
+    const qty_rm = poCompletedCalls
       .filter(c => c.stage === 'Raw Material')
-      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_accepted ?? c.quantity_offered) || 0), 0);
 
-    const qty_process = completedCalls
+    const qty_process = poCompletedCalls
       .filter(c => c.stage === 'Process')
-      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_accepted ?? c.quantity_offered) || 0), 0);
 
-    const qty_final = completedCalls
+    const qty_final = poCompletedCalls
       .filter(c => c.stage === 'Final')
-      .reduce((sum, c) => sum + (parseFloat(c.quantity_offered) || 0), 0);
+      .reduce((sum, c) => sum + (parseFloat(c.quantity_accepted ?? c.quantity_offered) || 0), 0);
 
     const enhancedItem = {
       ...item,
@@ -2164,7 +2203,7 @@ const VendorDashboardPage = ({ onBack }) => {
       })();
 
       const fetchCallLetter = (async () => {
-        if (!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC'].includes(call.workflowStatus)) {
+        if (!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC', 'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus)) {
           return null;
         }
         try {
@@ -3535,6 +3574,7 @@ const VendorDashboardPage = ({ onBack }) => {
           (call.ercType && call.ercType.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
           (call.quantity_offered && String(call.quantity_offered).toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
           (call.status && call.status.toLowerCase().replace(/_/g, ' ').replace(/[\s-]/g, '').includes(searchLower)) ||
+          (call.workflowStatus && call.workflowStatus.toLowerCase().replace(/_/g, ' ').replace(/[\s-]/g, '').includes(searchLower)) ||
           (call.ic_number && call.ic_number.toLowerCase().replace(/[\s-]/g, '').includes(searchLower)) ||
           (call.completion_date && call.completion_date.toLowerCase().replace(/[\s-]/g, '').includes(searchLower))
         );
@@ -6748,6 +6788,26 @@ const VendorDashboardPage = ({ onBack }) => {
                       colors={{ bg1: '#fffbeb', bg2: '#fef3c7', border: '#fde68a', iconColor: '#f59e0b', textColor: '#d97706', shadow1: 'rgba(245, 158, 11, 0.2)', shadow2: 'rgba(245, 158, 11, 0.1)' }}
                       onClick={() => handleOpenHeatDetails(call)}
                     />
+                  )}
+                  {['SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus) && (
+                    <>
+                      <ActionCard 
+                        title="Call Details"
+                        icon={<VisibilityIcon style={{ fontSize: '24px' }} />}
+                        colors={{ bg1: '#eff6ff', bg2: '#dbeafe', border: '#bfdbfe', iconColor: '#3b82f6', textColor: '#1d4ed8', shadow1: 'rgba(59, 130, 246, 0.2)', shadow2: 'rgba(59, 130, 246, 0.1)' }}
+                        onClick={() => {
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
+                          handleViewCallDetails(call);
+                        }}
+                      />
+                      <ActionCard 
+                        title="Call Letter"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                        colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
+                        onClick={() => handleDownloadCallLetter(call)}
+                      />
+                    </>
                   )}
                   {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
                     <>
