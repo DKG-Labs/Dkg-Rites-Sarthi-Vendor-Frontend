@@ -32,7 +32,17 @@ export const loginUser = async (loginId, password, loginType = 'VENDOR') => {
 };
 
 export const storeAuthData = (authData, manualLoginId = null) => {
-  localStorage.setItem('railpad_token', authData.token);
+  const token = authData.token || '';
+  if (token) {
+    localStorage.setItem('railpad_token', token);
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('token', token);
+    try {
+      sessionStorage.setItem('railpad_token', token);
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('token', token);
+    } catch (e) {}
+  }
   localStorage.setItem('railpad_userId', authData.userId);
   
   const canonVendorCode = manualLoginId || authData.userName || authData.userId;

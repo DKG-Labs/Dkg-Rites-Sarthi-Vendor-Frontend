@@ -5,9 +5,11 @@ const RailpadHost = () => {
     // Listen for logout messages from the iframe
     useEffect(() => {
         const handleMessage = (event) => {
-            if (event.data === 'logout') {
+            if (event.data === 'logout' || event.data?.type === 'LOGOUT' || event.data?.type === 'sarthi:logout') {
                 logoutUser();
-                window.location.reload();
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/';
             }
         };
 

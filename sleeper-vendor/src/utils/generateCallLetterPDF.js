@@ -11,10 +11,11 @@ const val = (v, fallback = '-') => (v !== null && v !== undefined && v !== '' ? 
 const resolveSleeperCaseNo = (rawCaseNo, rio) => {
     if (!rawCaseNo || !String(rawCaseNo).trim()) return null;
     const parts = String(rawCaseNo).split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length === 0) return null;
     if (rio && String(rio).trim()) {
         const firstLetter = String(rio).trim().charAt(0).toUpperCase();
         const matched = parts.find(p => p.toUpperCase().startsWith(firstLetter));
-        return matched || null;
+        if (matched) return matched;
     }
     return parts[0] || null;
 };
@@ -199,7 +200,16 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     y += 2;
 
     // FROM row
-    const vendorNameStr = call.vendorName || call.vendor?.name || '-';
+    let activePlantName = null;
+    try {
+        const sp = typeof localStorage !== 'undefined' && localStorage.getItem('selectedPlant');
+        if (sp) {
+            const parsed = JSON.parse(sp);
+            if (parsed?.plantName) activePlantName = parsed.plantName;
+        }
+    } catch (e) {}
+
+    const vendorNameStr = call.vendorName || call.vendor?.name || call.plantName || activePlantName || '-';
     const fromValue = [
         vendorNameStr !== '-' ? vendorNameStr : null,
         call.vendor?.location ? ` + ${call.vendor.location}` : null,
@@ -364,11 +374,70 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('PO Sr. No. Qty', poSrNoQty, { rowH: 9 });
 
     // Call Qty
-    const effectiveUom = call.uom || call.callUnit || ((call.sleeperType && (call.sleeperType.includes('8746') || call.sleeperType.includes('4218') || call.sleeperType.includes('4865') || call.sleeperType.includes('9790') || call.sleeperType.includes('4732') || call.sleeperType.includes('PNC') || call.sleeperType.includes('TURNOUT') || call.sleeperType.includes('SET'))) ? 'Set' : 'Nos.');
-    const callQtyStr = call.callQty
-        ? `${call.callQty} ${effectiveUom}`
-        : (call.totalOffered || call.qtyOffered ? `${call.totalOffered || call.qtyOffered} ${effectiveUom}` : '-');
-    drawRow('Call Qty', callQtyStr, { rowH: 9 });
+    const isSetType = (str) => {
+        const s = String(str || '').toUpperCase();
+        return s.includes('SET') || s.includes('PNC') || s.includes('TURNOUT') || s.includes('4218') || s.includes('4865') || s.includes('9790') || s.includes('4732') || s.includes('DERAIL');
+    };
+    const rawUom = call.uom || call.callUnit || call.unit;
+    const isSetUom = Boolean(
+        (rawUom && String(rawUom).toUpperCase().includes('SET')) ||
+        isSetType(call.sleeperType) ||
+        isSetType(call.itemDesc) ||
+        isSetType(prodName)
+    );
+    const effectiveUom = isSetUom ? 'Set' : (rawUom || 'Nos.');
+
+    let callQtyDisplay;
+    if (isSetUom) {
+        // If UOM = Set: show offered quantity (in sets)
+        let setQty = 1;
+        if (call.offeredSetsQuantity != null && Number(call.offeredSetsQuantity) > 0) {
+            setQty = Number(call.offeredSetsQuantity);
+        } else if (call.toBeOffered != null && Number(call.toBeOffered) > 0) {
+            setQty = Number(call.toBeOffered);
+        } else if (call.totalOffered != null && Number(call.totalOffered) > 0 && Number(call.totalOffered) <= 50) {
+            setQty = Number(call.totalOffered);
+        } else if (call.callQty != null && Number(String(call.callQty).replace(/\D/g, '')) > 0 && Number(String(call.callQty).replace(/\D/g, '')) <= 50) {
+            setQty = Number(String(call.callQty).replace(/\D/g, ''));
+        }
+        callQtyDisplay = `${setQty} Set`;
+    } else {
+        // If UOM = Nos: show total offered quantity = accepted + rejected
+        let acceptedCount = Number(call.acceptedQty || call.acceptedCount || call.goodSleepersCount || 0);
+        let rejectedCount = Number(call.rejectedQty || call.rejectedCount || call.badSleepersCount || call.totalRejected || 0);
+
+        if (acceptedCount === 0 && rejectedCount === 0) {
+            if (call.heatDetails && Array.isArray(call.heatDetails) && call.heatDetails.length > 0) {
+                call.heatDetails.forEach(h => {
+                    const g = h.goodCount != null ? Number(h.goodCount) : (h.goodSleepers ? (Array.isArray(h.goodSleepers) ? h.goodSleepers.length : Number(h.goodSleepers)) : 0);
+                    const r = h.badCount != null ? Number(h.badCount) : (h.badSleepers ? (Array.isArray(h.badSleepers) ? h.badSleepers.length : Number(h.badSleepers)) : 0);
+                    acceptedCount += (g || 0);
+                    rejectedCount += (r || 0);
+                });
+            } else if (call.batchesSelected && Array.isArray(call.batchesSelected) && call.batchesSelected.length > 0) {
+                call.batchesSelected.forEach(b => {
+                    const g = b.goodSleepers ? (Array.isArray(b.goodSleepers) ? b.goodSleepers.length : Number(b.goodSleepers)) : (Number(b.goodSleepersCount || 0));
+                    const r = b.badSleepers ? (Array.isArray(b.badSleepers) ? b.badSleepers.length : Number(b.badSleepers)) : (Number(b.badSleepersCount || 0));
+                    acceptedCount += (g || 0);
+                    rejectedCount += (r || 0);
+                });
+            }
+        }
+
+        let totalNos;
+        if (acceptedCount + rejectedCount > 0) {
+            totalNos = acceptedCount + rejectedCount;
+        } else if (call.callQty && !isNaN(Number(String(call.callQty).replace(/\D/g, '')))) {
+            totalNos = Number(String(call.callQty).replace(/\D/g, ''));
+        } else if (call.totalOffered && !isNaN(Number(call.totalOffered))) {
+            totalNos = Number(call.totalOffered);
+        } else {
+            totalNos = call.qtyOffered || '-';
+        }
+        callQtyDisplay = totalNos !== '-' ? `${totalNos} ${effectiveUom}` : '-';
+    }
+
+    drawRow('Call Qty', callQtyDisplay, { rowH: 9 });
 
     // DP Dates
     drawRow('Orignal DP Date', val(call.deliveryDate || call.originalDeliveryDate || call.dpDate), { rowH: 9 });
@@ -387,7 +456,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     drawRow('Bill Paying Authority', formatTildeStr(call.billPayOffDesc || call.billPayingOfficer), { rowH: 9 });
 
     // Manufacturer
-    drawRow("Manufacturer's Name", val(call.manufacturerName || call.vendor?.name || call.vendorName || call.manufacturerOfMaterial), { rowH: 9 });
+    drawRow("Manufacturer's Name", val(call.manufacturerName || call.vendor?.name || call.vendorName || call.plantName || activePlantName || call.manufacturerOfMaterial), { rowH: 9 });
 
     const formatPoi = (str) => {
         if (!str) return '-';
@@ -400,7 +469,7 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
         });
         return uniqueParts.join(', ');
     };
-    drawRow('Place of Inspection', formatPoi(call.placeOfInspection || call.plantId), { rowH: 9 });
+    drawRow('Place of Inspection', formatPoi(call.placeOfInspection || call.plantId || activePlantName), { rowH: 9 });
     drawRow('Offered Installment Number', val(call.submissionCount || call.offeredInstallmentNo || '1'), { rowH: 9 });
 
     checkPageBreak(50);
