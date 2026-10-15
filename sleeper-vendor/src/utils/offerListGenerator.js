@@ -63,18 +63,18 @@ const mapDefectToAbbr = (defectStr, defaultAbbr = 'SD') => {
     if (s.includes('SURFACE') && s.includes('HONEY')) return 'SHC';
     if (s.includes('HONEY')) return 'SHC';
 
+    // General Surface (Visual Checking / Surface Defect / Surface Damage)
+    if (s.includes('SURFACE') || s.includes('VISUAL') || s.includes('SD')) return 'SD';
+
     // Cracks & Demoulding
     if (s.includes('CRACK') || s.includes('RC')) return 'RC';
-    if (s.includes('DAMAGE') || s.includes('DEMOULD') || s.includes('RD')) return 'RD';
+    if (s.includes('DEMOULD') || s.includes('RD') || s.includes('DAMAGE')) return 'RD';
 
     // MOR / Static Bending Test / Moment of Failure
     if (s.includes('FAILURE') || s.includes('MF') || s.includes('MOR') || s.includes('STATIC BEND') || s.includes('SBT') || s.includes('MOMENT OF')) return 'MF';
 
     // General Dimension
     if (s.includes('GAUGE') || s.includes('DIMENSION') || s.includes('DIM') || s.includes('CRITICAL') || s.includes('NON-CRITICAL')) return 'RSD';
-
-    // General Surface
-    if (s.includes('SURFACE') || s.includes('VISUAL') || s.includes('SD')) return 'SD';
 
     // Epoxy
     if (s.includes('EPOXY') || s.includes('ET')) return 'ET';
