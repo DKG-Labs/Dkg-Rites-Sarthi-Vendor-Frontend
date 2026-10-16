@@ -75,6 +75,42 @@ const ClipboardListIcon = ({ size = 64, color = '#94a3b8' }) => (
     </svg>
 );
 
+const DownloadIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+);
+
+const ExternalLinkIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+);
+
+const XCloseIcon = ({ size = 18, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+);
+
+const LoaderIcon = ({ size = 18, color = 'currentColor', className = '' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ animation: 'spin 1s linear infinite' }}>
+        <line x1="12" y1="2" x2="12" y2="6" />
+        <line x1="12" y1="18" x2="12" y2="22" />
+        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+        <line x1="2" y1="12" x2="6" y2="12" />
+        <line x1="18" y1="12" x2="22" y2="12" />
+        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+    </svg>
+);
+
 const InfoIcon = ({ size = 18, color = '#fff' }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -302,8 +338,161 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
     const totalPages = Math.ceil(filteredCalls.length / size) || 1;
 
+    const [actionCall, setActionCall] = useState(null);
+    const [icLoading, setIcLoading] = useState(false);
+    const [icDownloading, setIcDownloading] = useState(false);
+    const [icError, setIcError] = useState(null);
+    const [icData, setIcData] = useState(null);
+    const [showIcPreview, setShowIcPreview] = useState(false);
+
+    const handleCloseActionsModal = () => {
+        if (icData?.blobUrl && icData.isLocalBlob) {
+            try {
+                window.URL.revokeObjectURL(icData.blobUrl);
+            } catch (e) {}
+        }
+        setActionCall(null);
+        setIcData(null);
+        setIcError(null);
+        setIcLoading(false);
+        setIcDownloading(false);
+        setShowIcPreview(false);
+    };
+
     const handleViewActions = (call) => {
-        showToast('info', `Actions for Call: ${call.requestId || call.callNo || call.workflowTransitionId}`);
+        if (icData?.blobUrl && icData.isLocalBlob) {
+            try {
+                window.URL.revokeObjectURL(icData.blobUrl);
+            } catch (e) {}
+        }
+        setActionCall(call);
+        setIcData(null);
+        setIcError(null);
+        setIcLoading(false);
+        setIcDownloading(false);
+        setShowIcPreview(false);
+    };
+
+    const fetchCertificateData = async (call) => {
+        if (icData && icData.blobUrl) {
+            return icData;
+        }
+
+        const callNo = (call.requestId || call.callNo || '').trim();
+        const rawIc = (call.icNo || call.icNumber || call.certificateNo || call.certificate_no || '').trim();
+        const searchTarget = rawIc || callNo;
+
+        if (!searchTarget) {
+            throw new Error("No IC Number or Call Number found for this call.");
+        }
+
+        let response = null;
+        let lastError = null;
+
+        // 1. Try with IC Number
+        if (rawIc) {
+            try {
+                response = await apiService.getSignedCertificate(rawIc);
+            } catch (e) {
+                lastError = e;
+            }
+        }
+
+        // 2. Try with Call Number
+        if (!response && callNo) {
+            try {
+                response = await apiService.getSignedCertificate(callNo);
+            } catch (e) {
+                lastError = e;
+            }
+        }
+
+        // 3. Try parts / tokens if slash exists
+        if (!response && rawIc.includes('/')) {
+            const parts = rawIc.split('/').filter(p => p.length >= 6 && /\d/.test(p));
+            for (const part of parts) {
+                try {
+                    response = await apiService.getSignedCertificate(part);
+                    if (response) break;
+                } catch (e) {
+                    lastError = e;
+                }
+            }
+        }
+
+        if (!response) {
+            throw new Error(lastError?.message || "No signed Inspection Certificate (IC) found in storage for this call.");
+        }
+
+        let blobUrl = null;
+        let isLocalBlob = false;
+        let fileName = response.fileName || `Inspection_Certificate_${(rawIc || callNo).replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+
+        if (response.signedData) {
+            const byteCharacters = atob(response.signedData);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            blobUrl = window.URL.createObjectURL(blob);
+            isLocalBlob = true;
+        } else if (response.url) {
+            blobUrl = response.url;
+            isLocalBlob = false;
+        } else {
+            throw new Error("Signed certificate data is empty.");
+        }
+
+        const result = {
+            blobUrl,
+            isLocalBlob,
+            fileName,
+            icNumber: response.icNumber || rawIc || callNo,
+            url: response.url
+        };
+        setIcData(result);
+        return result;
+    };
+
+    const handlePreviewIC = async (call) => {
+        setIcLoading(true);
+        setIcError(null);
+        try {
+            await fetchCertificateData(call);
+            setShowIcPreview(true);
+        } catch (err) {
+            console.error("Preview IC error:", err);
+            const msg = err.message || "Failed to load Inspection Certificate.";
+            setIcError(msg);
+            showToast('error', msg);
+        } finally {
+            setIcLoading(false);
+        }
+    };
+
+    const handleDownloadIC = async (call) => {
+        setIcDownloading(true);
+        setIcError(null);
+        try {
+            showToast('info', 'Fetching Inspection Certificate for download...');
+            const cert = await fetchCertificateData(call);
+            const a = document.createElement('a');
+            a.href = cert.blobUrl;
+            a.download = cert.fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('success', `Inspection Certificate (${cert.icNumber}) downloaded successfully!`);
+        } catch (err) {
+            console.error("Download IC error:", err);
+            const msg = err.message || "Failed to download Inspection Certificate.";
+            setIcError(msg);
+            showToast('error', msg);
+        } finally {
+            setIcDownloading(false);
+        }
     };
 
     const SkeletonRow = () => (
@@ -609,6 +798,393 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Actions Modal & IC Viewer */}
+            {actionCall && (
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 99999, padding: '20px'
+                    }}
+                    onClick={handleCloseActionsModal}
+                >
+                    <div 
+                        style={{
+                            background: '#fff', 
+                            borderRadius: '24px', 
+                            width: showIcPreview ? '96vw' : '640px',
+                            maxWidth: showIcPreview ? '1280px' : '640px',
+                            height: showIcPreview ? '92vh' : 'auto',
+                            maxHeight: '92vh', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            overflow: 'hidden', 
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                            border: '1px solid #e2e8f0', 
+                            animation: 'slideUp 0.25s ease-out'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {showIcPreview ? (
+                            /* Mode A: In-App Interactive IC PDF Viewer */
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+                                {/* Viewer Toolbar */}
+                                <div style={{
+                                    padding: '14px 20px', background: '#0f172a', color: '#fff',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    borderBottom: '1px solid #334155', flexShrink: 0, flexWrap: 'wrap', gap: '10px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <button 
+                                            onClick={() => setShowIcPreview(false)}
+                                            style={{
+                                                padding: '6px 12px', borderRadius: '8px', border: '1px solid #475569',
+                                                background: '#1e293b', color: '#f1f5f9', fontSize: '12.5px', fontWeight: 700,
+                                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                                        >
+                                            ← Back to Options
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <AwardIcon size={18} color="#10b981" />
+                                            <span style={{ fontWeight: 800, fontSize: '14px', color: '#f8fafc', letterSpacing: '-0.01em' }}>
+                                                {icData?.icNumber || 'Inspection Certificate'}
+                                            </span>
+                                            {icData?.fileName && (
+                                                <span style={{ fontSize: '11.5px', color: '#94a3b8', background: '#1e293b', padding: '2px 8px', borderRadius: '6px' }}>
+                                                    {icData.fileName}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <button
+                                            onClick={() => handleDownloadIC(actionCall)}
+                                            disabled={icDownloading}
+                                            style={{
+                                                padding: '7px 16px', borderRadius: '8px', border: 'none',
+                                                background: '#059669', color: '#fff', fontSize: '12.5px', fontWeight: 800,
+                                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.4)'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+                                        >
+                                            {icDownloading ? <LoaderIcon size={15} color="#fff" /> : <DownloadIcon size={15} color="#fff" />}
+                                            Download PDF
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (icData?.blobUrl) {
+                                                    window.open(icData.blobUrl, '_blank');
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '7px 14px', borderRadius: '8px', border: '1px solid #475569',
+                                                background: '#1e293b', color: '#f1f5f9', fontSize: '12.5px', fontWeight: 700,
+                                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                                        >
+                                            <ExternalLinkIcon size={14} color="#94a3b8" /> Open in New Tab
+                                        </button>
+                                        <button
+                                            onClick={handleCloseActionsModal}
+                                            style={{
+                                                padding: '7px', borderRadius: '8px', border: 'none',
+                                                background: 'transparent', color: '#94a3b8', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#334155'; e.currentTarget.style.color = '#fff'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
+                                        >
+                                            <XCloseIcon size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                                {/* Iframe container */}
+                                <div style={{ flex: 1, position: 'relative', background: '#525659', overflow: 'hidden' }}>
+                                    <iframe 
+                                        src={icData?.blobUrl} 
+                                        title={icData?.fileName || "Inspection Certificate"} 
+                                        style={{ width: '100%', height: '100%', border: 'none' }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            /* Mode B: Actions Selection Card (See IC & Download IC) */
+                            <div>
+                                {/* Modal Header */}
+                                <div style={{
+                                    padding: '20px 24px', borderBottom: '1px solid #f1f5f9',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    background: '#f8fafc'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                            width: '42px', height: '42px', borderRadius: '12px',
+                                            background: '#eff6ff', color: '#2563eb', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center', border: '1px solid #dbeafe'
+                                        }}>
+                                            <AwardIcon size={22} color="#2563eb" />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                                                Inspection Call Actions
+                                            </div>
+                                            <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '2px' }}>
+                                                Call: <strong>{actionCall.requestId || actionCall.callNo || 'N/A'}</strong> • PO: {formatPoSrNo(actionCall)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={handleCloseActionsModal}
+                                        style={{
+                                            padding: '8px', borderRadius: '8px', border: 'none',
+                                            background: 'transparent', color: '#64748b', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
+                                    >
+                                        <XCloseIcon size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Call Details Summary Box */}
+                                <div style={{ padding: '20px 24px' }}>
+                                    <div style={{
+                                        background: '#fcf8ee', border: '1px solid #fef3c7', borderRadius: '16px',
+                                        padding: '16px', marginBottom: '20px'
+                                    }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Item Type</div>
+                                                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1c1917', marginTop: '3px' }}>
+                                                    {actionCall.sleeperType || actionCall.productType || 'Sleeper'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Quantities</div>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#15803d', marginTop: '3px' }}>
+                                                    Off: {Number(actionCall.offeredQty || actionCall.qtyOffered || 0).toLocaleString()} • Acc: {Number(actionCall.acceptedQty != null ? actionCall.acceptedQty : (actionCall.offeredQty || 0)).toLocaleString()} (Nos.)
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>IC Number</div>
+                                                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <AwardIcon size={14} color="#059669" />
+                                                    {actionCall.icNo || actionCall.icNumber || actionCall.certificateNo || 'Available in System'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>IC Date</div>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginTop: '3px' }}>
+                                                    {actionCall.icDate ? formatDateDDMMYY(actionCall.icDate) : '-'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Error Banner */}
+                                    {icError && (
+                                        <div style={{
+                                            padding: '12px 16px', background: '#fef2f2', border: '1px solid #fee2e2',
+                                            borderRadius: '12px', color: '#991b1b', fontSize: '13px', display: 'flex',
+                                            alignItems: 'center', gap: '10px', marginBottom: '20px'
+                                        }}>
+                                            <AlertCircleIcon size={18} color="#dc2626" />
+                                            <span>{icError}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Action Cards Grid */}
+                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
+                                        Inspection Certificate (IC) Actions
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                                        {/* Card 1: See / Preview IC */}
+                                        <div
+                                            onClick={() => !icLoading && handlePreviewIC(actionCall)}
+                                            style={{
+                                                background: '#f8fafc',
+                                                border: '1.5px solid #e2e8f0',
+                                                borderRadius: '18px',
+                                                padding: '20px',
+                                                cursor: icLoading ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!icLoading) {
+                                                    e.currentTarget.style.borderColor = '#3b82f6';
+                                                    e.currentTarget.style.background = '#eff6ff';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(59, 130, 246, 0.15)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!icLoading) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.background = '#f8fafc';
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                                <div style={{
+                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    background: '#dbeafe', color: '#1d4ed8',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {icLoading ? <LoaderIcon size={22} color="#1d4ed8" /> : <EyeIcon size={22} color="#1d4ed8" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                        See Your IC
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        Interactive PDF preview
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                                Open and review the official e-signed Inspection Certificate directly inside the browser.
+                                            </p>
+                                            <button
+                                                disabled={icLoading}
+                                                style={{
+                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                    border: 'none', background: '#2563eb', color: '#fff',
+                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                                }}
+                                            >
+                                                {icLoading ? (
+                                                    <>
+                                                        <LoaderIcon size={16} color="#fff" /> Loading IC...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <EyeIcon size={16} color="#fff" /> View IC Certificate
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Card 2: Download IC */}
+                                        <div
+                                            onClick={() => !icDownloading && handleDownloadIC(actionCall)}
+                                            style={{
+                                                background: '#f8fafc',
+                                                border: '1.5px solid #e2e8f0',
+                                                borderRadius: '18px',
+                                                padding: '20px',
+                                                cursor: icDownloading ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!icDownloading) {
+                                                    e.currentTarget.style.borderColor = '#10b981';
+                                                    e.currentTarget.style.background = '#ecfdf5';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.15)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!icDownloading) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.background = '#f8fafc';
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                                <div style={{
+                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    background: '#d1fae5', color: '#047857',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {icDownloading ? <LoaderIcon size={22} color="#047857" /> : <DownloadIcon size={22} color="#047857" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                        Download IC
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        Save official PDF copy
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                                Download the verified e-signed Inspection Certificate PDF file directly to your computer.
+                                            </p>
+                                            <button
+                                                disabled={icDownloading}
+                                                style={{
+                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                    border: 'none', background: '#059669', color: '#fff',
+                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+                                                }}
+                                            >
+                                                {icDownloading ? (
+                                                    <>
+                                                        <LoaderIcon size={16} color="#fff" /> Downloading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <DownloadIcon size={16} color="#fff" /> Download IC PDF
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Modal Footer */}
+                                <div style={{
+                                    padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9',
+                                    display: 'flex', justifyContent: 'flex-end', gap: '10px'
+                                }}>
+                                    <button
+                                        onClick={handleCloseActionsModal}
+                                        style={{
+                                            padding: '8px 20px', borderRadius: '8px', border: '1px solid #cbd5e1',
+                                            background: '#fff', color: '#334155', fontSize: '13px', fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
