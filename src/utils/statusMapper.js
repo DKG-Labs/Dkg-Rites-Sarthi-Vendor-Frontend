@@ -17,6 +17,9 @@ export const API_STATUS = {
   ENTER_SHIFT_DETAILS_AND_START_INSPECTION: 'ENTER_SHIFT_DETAILS_AND_START_INSPECTION',
   PAUSE_INSPECTION_RESUME_NEXT_DAY: 'PAUSE_INSPECTION_RESUME_NEXT_DAY',
   INSPECTION_PAUSED: 'INSPECTION_PAUSED',
+  SEND_CALL_TO_IBS: 'SEND_CALL_TO_IBS',
+  SENT_TO_IBS: 'SENT_TO_IBS',
+  SEND_TO_IBS: 'SEND_TO_IBS',
   // Add more statuses as needed
 };
 
@@ -45,6 +48,9 @@ export const getDisplayStatus = (apiStatus) => {
     [API_STATUS.ENTER_SHIFT_DETAILS_AND_START_INSPECTION]: DISPLAY_STATUS.UNDER_INSPECTION,
     [API_STATUS.PAUSE_INSPECTION_RESUME_NEXT_DAY]: DISPLAY_STATUS.INSPECTION_PAUSED,
     [API_STATUS.INSPECTION_PAUSED]: DISPLAY_STATUS.INSPECTION_PAUSED,
+    [API_STATUS.SEND_CALL_TO_IBS]: 'Completed',
+    [API_STATUS.SENT_TO_IBS]: 'Completed',
+    [API_STATUS.SEND_TO_IBS]: 'Completed',
   };
 
   const displayStatus = statusMap[apiStatus] || apiStatus;
@@ -101,6 +107,9 @@ export const getStatusVariant = (apiStatus) => {
     [API_STATUS.ENTER_SHIFT_DETAILS_AND_START_INSPECTION]: 'success', // Green for under inspection
     [API_STATUS.PAUSE_INSPECTION_RESUME_NEXT_DAY]: 'warning', // Orange for paused
     [API_STATUS.INSPECTION_PAUSED]: 'warning', // Orange for paused
+    [API_STATUS.SEND_CALL_TO_IBS]: 'success', // Green for completed
+    [API_STATUS.SENT_TO_IBS]: 'success',
+    [API_STATUS.SEND_TO_IBS]: 'success',
   };
 
   return variantMap[apiStatus] || 'default';
@@ -131,7 +140,11 @@ export const getDetailedStatus = (systemStatus) => {
     'DSC_SIGN_IC': { mainStatus: 'Completed', subStatus: 'E-Signed' },
     'CANCELLED': { mainStatus: 'Completed', subStatus: 'cancelled' },
     'WITHHELD': { mainStatus: 'Under Inspection', subStatus: 'withheld' },
-    'IC_PENDING': { mainStatus: 'Completed', subStatus: 'IC Pending' }
+    'IC_PENDING': { mainStatus: 'Completed', subStatus: 'IC Pending' },
+    'SEND_CALL_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
+    'SENT_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
+    'SEND_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
+    'CLOSED': { mainStatus: 'Completed', subStatus: 'Sent to IBS' }
   };
 
   const result = mapping[statusLower] || { mainStatus: statusLower || '-', subStatus: '-' };

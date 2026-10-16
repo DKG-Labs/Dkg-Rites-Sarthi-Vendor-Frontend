@@ -3,8 +3,8 @@ import inspectionCallService from '../../../services/inspectionCallService';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
 import NCRGRSPFinalInspectionCall from '../POAssigned/NCRGRSPFinalInspectionCall';
 import RaiseRailPadInspectionCallForm from '../POAssigned/RaiseRailPadInspectionCallForm';
-import { 
-    Search, FileText, Calendar, Package, Eye, 
+import {
+    Search, FileText, Calendar, Package, Eye,
     ChevronRight, Loader2, AlertCircle, CheckCircle2,
     Clock, ArrowLeft, ClipboardList, Info, Plus,
     User, Activity, LayoutGrid, Download, Edit, XCircle, X
@@ -19,7 +19,7 @@ const formatPoSrNo = (call) => {
     if (sr && sr.includes('/')) {
         sr = sr.split('/').pop().trim();
     }
-    
+
     let fullPoSr = po;
     if (sr && sr !== 'null' && sr !== 'undefined' && sr !== '') {
         if (!po.includes('/')) {
@@ -31,7 +31,7 @@ const formatPoSrNo = (call) => {
             }
         }
     }
-    
+
     return rly ? `${rly} / ${fullPoSr}` : fullPoSr;
 };
 
@@ -46,7 +46,7 @@ const RAIL_PAD_TYPES = [
 
 const DRAWING_MAPPING = {
     "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
-    "10.00mm GRSP": [], 
+    "10.00mm GRSP": [],
     "6.20mm CGRSP": ["RT-6618", "RT-8327"],
     "10.00mm CGRSP": ["RT-8528", "RT-8694", "RT-8747", "RT-8998"],
     "6.00mm NCRGRSP": [
@@ -105,6 +105,31 @@ const DRAWING_MAPPING = {
     ]
 };
 
+const getCallUom = (call) => {
+    if (!call) return 'Nos.';
+    const railPadType = (
+        call.railPadType ||
+        call.itemDescription ||
+        call.poDes ||
+        call.itemName ||
+        call.item_name ||
+        call.drawingNo ||
+        call.ncrgrspType ||
+        ''
+    ).toUpperCase();
+    const callNo = (call.callNo || call.call_no || '').toUpperCase();
+    const callType = (call.callType || call.inspectionCallType || '').toUpperCase();
+
+    const isNcrgrsp = railPadType.includes('NCRGRSP') || railPadType.includes('NCR');
+    const isRppOrRpf = callNo.startsWith('RPP') || callNo.startsWith('RPF') || callType === 'PROCESS' || callType === 'FINAL';
+
+    if (isNcrgrsp && isRppOrRpf) {
+        return 'Set';
+    }
+
+    return call.uom || 'Nos.';
+};
+
 const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     const [calls, setCalls] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -126,7 +151,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     const [size, setSize] = useState(5);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    
+
     useEffect(() => {
         if (plantId) fetchCalls();
     }, [plantId, page, size]);
@@ -159,7 +184,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                 return false;
             }
             const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
-                                  call.poNo?.toLowerCase().includes(search.toLowerCase());
+                call.poNo?.toLowerCase().includes(search.toLowerCase());
             return matchesSearch;
         });
     }, [calls, search]);
@@ -183,7 +208,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             setSelectedCall(targetCall);
             setControlPanelCall(targetCall);
             setIsControlPanelOpen(true);
-            
+
             if (targetCall && targetCall.callType === 'PROCESS' && targetCall.callNo) {
                 try {
                     const pDetails = await inspectionCallService.getProcessCallDetails(targetCall.callNo);
@@ -195,7 +220,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             } else {
                 setProcessCallDetails(null);
             }
-            
+
             if (targetCall && targetCall.callNo) {
                 try {
                     const historyRes = await inspectionCallService.getWorkflowHistory(targetCall.callNo);
@@ -251,13 +276,13 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
         // 1. Check direct status on the call object
         const status = String(target.status || target.workflowStatus || target.latestAction || '').toUpperCase();
         if (
-            status.includes('SCHEDULE') || 
-            status.includes('INITIATE') || 
-            status.includes('IN_PROGRESS') || 
-            status.includes('PAUSE') || 
-            status.includes('RESUME') || 
-            status.includes('COMPLET') || 
-            status.includes('APPROVED') || 
+            status.includes('SCHEDULE') ||
+            status.includes('INITIATE') ||
+            status.includes('IN_PROGRESS') ||
+            status.includes('PAUSE') ||
+            status.includes('RESUME') ||
+            status.includes('COMPLET') ||
+            status.includes('APPROVED') ||
             status.includes('REJECT')
         ) {
             return true;
@@ -308,7 +333,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
         try {
             showToast('info', `Fetching call details & generating PDF for Call No: ${callNo}...`);
-            
+
             // 1. Fetch enriched details from backend API (same as ERC / Sleeper)
             let details = null;
             try {
@@ -527,8 +552,8 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
     );
 
     const SkeletonRow = () => (
-        <div style={{ 
-            display: 'flex', gap: '16px', padding: '16px', background: '#fff', 
+        <div style={{
+            display: 'flex', gap: '16px', padding: '16px', background: '#fff',
             borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px',
             animation: 'pulse 1.5s infinite ease-in-out'
         }}>
@@ -583,10 +608,10 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0 }}>Requested Calls</h2>
                     <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Track and manage your submitted inspection requests</p>
                 </div>
-                
+
                 <div style={{ position: 'relative' }}>
                     <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
-                    <input 
+                    <input
                         type="text"
                         placeholder="Search Call No / PO No..."
                         value={search}
@@ -655,7 +680,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
                                         <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
-                                        <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>Qty: {call.totalQty?.toLocaleString()} (Nos.)</div>
+                                        <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>Qty: {call.totalQty?.toLocaleString()} ({getCallUom(call)})</div>
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
                                         {(() => {
@@ -663,7 +688,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                             if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW')) {
                                                 const isCancel = rawStatus.includes('CANCEL');
                                                 return (
-                                                    <div style={{ 
+                                                    <div style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                         padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                         background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5'
@@ -674,7 +699,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                             }
                                             if (rawStatus.includes('APPROVED') || rawStatus.includes('COMPLETE') || rawStatus.includes('IC_ISSUE') || rawStatus.includes('SEND_CALL_TO_IBS') || rawStatus.includes('SEND TO IBS')) {
                                                 return (
-                                                    <div style={{ 
+                                                    <div style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                         padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                         background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
@@ -684,7 +709,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                                 );
                                             }
                                             return (
-                                                <div style={{ 
+                                                <div style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                     padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                     background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a'
@@ -695,9 +720,9 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         })()}
                                     </td>
                                     <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                                        <button 
+                                        <button
                                             onClick={() => handleViewDetails(call.id)}
-                                            style={{ 
+                                            style={{
                                                 padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0',
                                                 background: '#fff', color: '#1e293b', fontSize: '13px', fontWeight: 700,
                                                 cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -713,7 +738,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                             ))}
                         </tbody>
                     </table>
-                    
+
                     {/* Pagination Controls */}
                     {totalElements > 0 && (
                         <div style={{
@@ -724,7 +749,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                                 <div>
-                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages || 1}</strong> 
+                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages || 1}</strong>
                                     <span style={{ marginLeft: 8 }}>({totalElements} total calls)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -739,7 +764,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         style={{
                                             padding: '6px 10px', borderRadius: '8px',
                                             border: '1px solid #cbd5e1', background: '#fff',
-                                            color: '#0f172a', fontSize: '13px', fontWeight: 600, 
+                                            color: '#0f172a', fontSize: '13px', fontWeight: 600,
                                             outline: 'none', cursor: 'pointer', minWidth: '60px'
                                         }}
                                     >
@@ -791,7 +816,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                         maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                         position: 'relative', border: '1px solid #e2e8f0'
                     }} onClick={(e) => e.stopPropagation()}>
-                        
+
                         {/* Header */}
                         <div style={{ padding: '24px 32px 16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
@@ -849,7 +874,7 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                                     <Package size={12} /> QTY OFFERED
                                                 </div>
                                                 <div style={{ fontWeight: 800, fontSize: '15px', color: '#0f172a' }}>
-                                                    {controlPanelCall.totalQty?.toLocaleString() || controlPanelCall.qtyDesiredForFinal || '0'} Nos.
+                                                    {controlPanelCall.totalQty?.toLocaleString() || controlPanelCall.qtyDesiredForFinal || '0'} {getCallUom(controlPanelCall)}
                                                 </div>
                                             </div>
 
@@ -963,38 +988,38 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </button>
 
                                         {/* Operation 3: Modify Call */}
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 if (isCallScheduled) {
                                                     showToast('error', 'Modify Call is disabled because this call is already scheduled.');
                                                     return;
                                                 }
                                                 handleModifyCall(controlPanelCall);
-                                            }} 
+                                            }}
                                             disabled={isCallScheduled}
                                             title={isCallScheduled ? 'Cannot modify call: Inspection has already been scheduled' : 'Update inspection call parameters'}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
-                                                background: isCallScheduled ? '#f8fafc' : '#ffffff', 
-                                                border: '1.5px solid #e2e8f0', 
+                                                background: isCallScheduled ? '#f8fafc' : '#ffffff',
+                                                border: '1.5px solid #e2e8f0',
                                                 borderLeft: `4px solid ${isCallScheduled ? '#94a3b8' : '#f59e0b'}`,
-                                                borderRadius: '16px', 
-                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer', 
-                                                textAlign: 'left', 
+                                                borderRadius: '16px',
+                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer',
+                                                textAlign: 'left',
                                                 transition: 'all 0.2s',
                                                 boxShadow: isCallScheduled ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
                                                 opacity: isCallScheduled ? 0.6 : 1
-                                            }} 
-                                            onMouseEnter={(e) => { 
+                                            }}
+                                            onMouseEnter={(e) => {
                                                 if (!isCallScheduled) {
-                                                    e.currentTarget.style.borderColor = '#f59e0b'; 
-                                                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                                                    e.currentTarget.style.borderColor = '#f59e0b';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
                                                 }
-                                            }} 
-                                            onMouseLeave={(e) => { 
+                                            }}
+                                            onMouseLeave={(e) => {
                                                 if (!isCallScheduled) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0'; 
-                                                    e.currentTarget.style.transform = 'translateY(0)'; 
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
                                                 }
                                             }}
                                         >
@@ -1010,38 +1035,38 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                         </button>
 
                                         {/* Operation 4: Withdraw Call */}
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 if (isCallScheduled) {
                                                     showToast('error', 'Withdraw Call is disabled because this call is already scheduled.');
                                                     return;
                                                 }
                                                 setIsWithdrawModalOpen(true);
-                                            }} 
+                                            }}
                                             disabled={isCallScheduled}
                                             title={isCallScheduled ? 'Cannot withdraw call: Inspection has already been scheduled' : 'Cancel inspection request'}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
-                                                background: isCallScheduled ? '#f8fafc' : '#ffffff', 
-                                                border: '1.5px solid #e2e8f0', 
+                                                background: isCallScheduled ? '#f8fafc' : '#ffffff',
+                                                border: '1.5px solid #e2e8f0',
                                                 borderLeft: `4px solid ${isCallScheduled ? '#94a3b8' : '#ef4444'}`,
-                                                borderRadius: '16px', 
-                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer', 
-                                                textAlign: 'left', 
+                                                borderRadius: '16px',
+                                                cursor: isCallScheduled ? 'not-allowed' : 'pointer',
+                                                textAlign: 'left',
                                                 transition: 'all 0.2s',
                                                 boxShadow: isCallScheduled ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
                                                 opacity: isCallScheduled ? 0.6 : 1
-                                            }} 
-                                            onMouseEnter={(e) => { 
+                                            }}
+                                            onMouseEnter={(e) => {
                                                 if (!isCallScheduled) {
-                                                    e.currentTarget.style.borderColor = '#ef4444'; 
-                                                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                                                    e.currentTarget.style.borderColor = '#ef4444';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
                                                 }
-                                            }} 
-                                            onMouseLeave={(e) => { 
+                                            }}
+                                            onMouseLeave={(e) => {
                                                 if (!isCallScheduled) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0'; 
-                                                    e.currentTarget.style.transform = 'translateY(0)'; 
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
                                                 }
                                             }}
                                         >
@@ -1107,13 +1132,13 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                             />
                         ) : (
                             <div style={{ maxHeight: '92vh', overflowY: 'auto' }}>
-                                <CallDetailsView 
-                                    call={selectedCall} 
+                                <CallDetailsView
+                                    call={selectedCall}
                                     transitionHistory={transitionHistory}
                                     loadingHistory={loadingHistory}
                                     processCallDetails={processCallDetails}
                                     loadingDetails={loadingDetails}
-                                    onBack={() => setIsViewingFullDetails(false)} 
+                                    onBack={() => setIsViewingFullDetails(false)}
                                 />
                             </div>
                         )}
@@ -1221,291 +1246,292 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                     </button>
                                 </div>
 
-                        <form onSubmit={handleSaveModification} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
-                            {/* Scrollable Form Content */}
-                            <div style={{ padding: '28px 32px 16px', overflowY: 'auto', flex: 1 }}>
-                                {/* Top Field: Type of Call */}
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                                        TYPE OF CALL <span style={{ color: '#ef4444' }}>*</span>
-                                    </label>
+                                <form onSubmit={handleSaveModification} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+                                    {/* Scrollable Form Content */}
+                                    <div style={{ padding: '28px 32px 16px', overflowY: 'auto', flex: 1 }}>
+                                        {/* Top Field: Type of Call */}
+                                        <div style={{ marginBottom: '24px' }}>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                TYPE OF CALL <span style={{ color: '#ef4444' }}>*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                disabled
+                                                value={modifyForm.callType === 'FINAL' ? 'Final' : 'Process'}
+                                                style={{
+                                                    width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                    border: '1px solid #cbd5e1', background: '#f8fafc',
+                                                    color: '#64748b', fontWeight: 700, fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Section A: Call Header & Basic Information */}
+                                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+                                            <SectionHeader label="Call Header & Basic Information" step="A" color="#3b82f6" />
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                        TYPE OF RAIL PAD <span style={{ color: '#ef4444' }}>*</span>
+                                                    </label>
+                                                    <select
+                                                        value={modifyForm.railPadType}
+                                                        onChange={(e) => {
+                                                            const newPad = e.target.value;
+                                                            const firstDraw = (DRAWING_MAPPING[newPad] || [])[0] || '';
+                                                            setModifyForm(prev => ({ ...prev, railPadType: newPad, drawingNo: firstDraw }));
+                                                        }}
+                                                        required
+                                                        style={{
+                                                            width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                            border: '1.5px solid #3b82f6', background: '#fff',
+                                                            color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
+                                                        }}
+                                                    >
+                                                        <option value="">Select Rail Pad Type</option>
+                                                        {RAIL_PAD_TYPES.map(type => (
+                                                            <option key={type} value={type}>{type}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                        DRAWING NO. <span style={{ color: '#ef4444' }}>*</span>
+                                                    </label>
+                                                    {(DRAWING_MAPPING[modifyForm.railPadType] || []).length > 0 ? (
+                                                        <select
+                                                            value={modifyForm.drawingNo}
+                                                            onChange={(e) => setModifyForm(prev => ({ ...prev, drawingNo: e.target.value }))}
+                                                            required
+                                                            style={{
+                                                                width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                                border: '1.5px solid #3b82f6', background: '#fff',
+                                                                color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
+                                                            }}
+                                                        >
+                                                            <option value="">Select Drawing No</option>
+                                                            {(DRAWING_MAPPING[modifyForm.railPadType] || []).map(drg => (
+                                                                <option key={drg} value={drg}>{drg}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            type="text"
+                                                            value={modifyForm.drawingNo}
+                                                            onChange={(e) => setModifyForm(prev => ({ ...prev, drawingNo: e.target.value }))}
+                                                            placeholder="Enter drawing no."
+                                                            required
+                                                            style={{
+                                                                width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                                border: '1.5px solid #3b82f6', background: '#fff',
+                                                                color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+        {/* Section B: Quantities & Schedules */}
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+            <SectionHeader label="Quantities & Schedules" step="B" color="#8b5cf6" />
+
+            {/* Stat Boxes */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <StatBox label="UNIT OF MEASUREMENT" value="Nos." />
+                <StatBox label="QUANTITY ON ORDER" value="50,000" />
+                <StatBox label="QTY ACCEPTED TILL NOW" value="0" color="#059669" />
+                <StatBox label="QUANTITY DUE" value="50,000" highlight={true} />
+            </div>
+
+            {/* Editable Fields */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        {modifyForm.callType === 'FINAL' ? 'TOTAL QUANTITY TO OFFER *' : 'QUANTITY DESIRED FOR FINAL INSPECTION *'}
+                    </label>
+                    <input
+                        type="number"
+                        value={modifyForm.totalQty}
+                        onChange={(e) => setModifyForm(prev => ({ ...prev, totalQty: e.target.value }))}
+                        placeholder="Enter quantity"
+                        required
+                        min="1"
+                        style={{
+                            width: '100%', padding: '12px 16px', borderRadius: '12px',
+                            border: '1.5px solid #8b5cf6', background: '#fff',
+                            color: '#0f172a', fontWeight: 800, fontSize: '14px', outline: 'none'
+                        }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        {modifyForm.callType === 'FINAL' ? 'DESIRED INSPECTION DATE *' : 'APPROX. DATE OF PRODUCTION INITIATION *'}
+                    </label>
+                    <input
+                        type="date"
+                        value={modifyForm.inspectionDate}
+                        onChange={(e) => setModifyForm(prev => ({ ...prev, inspectionDate: e.target.value }))}
+                        required
+                        style={{
+                            width: '100%', padding: '12px 16px', borderRadius: '12px',
+                            border: '1.5px solid #8b5cf6', background: '#fff',
+                            color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
+                        }}
+                    />
+                </div>
+            </div>
+        </div>
+
+        {/* Section C: Offered Lots & Batches (for Final Calls) */}
+        {modifyForm.callType === 'FINAL' && (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+                <SectionHeader label="Offered Lots & Batches" step="C" color="#10b981" />
+                {(modifyForm.lots || []).length > 0 ? (
+                    (modifyForm.lots || []).map((lot, lIdx) => (
+                        <div key={lot.id || lIdx} style={{ marginBottom: '16px', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '15px' }}>{lot.lotNo || `Lot ${lIdx + 1}`}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Lot Size:</span>
                                     <input
-                                        type="text"
-                                        readOnly
-                                        disabled
-                                        value={modifyForm.callType === 'FINAL' ? 'Final' : 'Process'}
+                                        type="number"
+                                        value={lot.lotSize || 0}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10) || 0;
+                                            setModifyForm(prev => {
+                                                const updatedLots = [...(prev.lots || [])];
+                                                updatedLots[lIdx] = { ...updatedLots[lIdx], lotSize: val };
+                                                return { ...prev, lots: updatedLots };
+                                            });
+                                        }}
                                         style={{
-                                            width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                            border: '1px solid #cbd5e1', background: '#f8fafc',
-                                            color: '#64748b', fontWeight: 700, fontSize: '14px'
+                                            width: '100px', padding: '6px 10px', borderRadius: '8px',
+                                            border: '1.5px solid #10b981', fontWeight: 800, fontSize: '13px',
+                                            color: '#059669', background: '#fff'
                                         }}
                                     />
-                                </div>
-
-                                {/* Section A: Call Header & Basic Information */}
-                                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-                                    <SectionHeader label="Call Header & Basic Information" step="A" color="#3b82f6" />
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                                                TYPE OF RAIL PAD <span style={{ color: '#ef4444' }}>*</span>
-                                            </label>
-                                            <select
-                                                value={modifyForm.railPadType}
-                                                onChange={(e) => {
-                                                    const newPad = e.target.value;
-                                                    const firstDraw = (DRAWING_MAPPING[newPad] || [])[0] || '';
-                                                    setModifyForm(prev => ({ ...prev, railPadType: newPad, drawingNo: firstDraw }));
-                                                }}
-                                                required
-                                                style={{
-                                                    width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                                    border: '1.5px solid #3b82f6', background: '#fff',
-                                                    color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
-                                                }}
-                                            >
-                                                <option value="">Select Rail Pad Type</option>
-                                                {RAIL_PAD_TYPES.map(type => (
-                                                    <option key={type} value={type}>{type}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                                                DRAWING NO. <span style={{ color: '#ef4444' }}>*</span>
-                                            </label>
-                                            {(DRAWING_MAPPING[modifyForm.railPadType] || []).length > 0 ? (
-                                                <select
-                                                    value={modifyForm.drawingNo}
-                                                    onChange={(e) => setModifyForm(prev => ({ ...prev, drawingNo: e.target.value }))}
-                                                    required
-                                                    style={{
-                                                        width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                                        border: '1.5px solid #3b82f6', background: '#fff',
-                                                        color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
-                                                    }}
-                                                >
-                                                    <option value="">Select Drawing No</option>
-                                                    {(DRAWING_MAPPING[modifyForm.railPadType] || []).map(drg => (
-                                                        <option key={drg} value={drg}>{drg}</option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <input
-                                                    type="text"
-                                                    value={modifyForm.drawingNo}
-                                                    onChange={(e) => setModifyForm(prev => ({ ...prev, drawingNo: e.target.value }))}
-                                                    placeholder="Enter drawing no."
-                                                    required
-                                                    style={{
-                                                        width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                                        border: '1.5px solid #3b82f6', background: '#fff',
-                                                        color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Section B: Quantities & Schedules */}
-                                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-                                    <SectionHeader label="Quantities & Schedules" step="B" color="#8b5cf6" />
-                                    
-                                    {/* Stat Boxes */}
-                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                                        <StatBox label="UNIT OF MEASUREMENT" value="Nos." />
-                                        <StatBox label="QUANTITY ON ORDER" value="50,000" />
-                                        <StatBox label="QTY ACCEPTED TILL NOW" value="0" color="#059669" />
-                                        <StatBox label="QUANTITY DUE" value="50,000" highlight={true} />
-                                    </div>
-
-                                    {/* Editable Fields */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                                                {modifyForm.callType === 'FINAL' ? 'TOTAL QUANTITY TO OFFER *' : 'QUANTITY DESIRED FOR FINAL INSPECTION *'}
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={modifyForm.totalQty}
-                                                onChange={(e) => setModifyForm(prev => ({ ...prev, totalQty: e.target.value }))}
-                                                placeholder="Enter quantity"
-                                                required
-                                                min="1"
-                                                style={{
-                                                    width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                                    border: '1.5px solid #8b5cf6', background: '#fff',
-                                                    color: '#0f172a', fontWeight: 800, fontSize: '14px', outline: 'none'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                                                {modifyForm.callType === 'FINAL' ? 'DESIRED INSPECTION DATE *' : 'APPROX. DATE OF PRODUCTION INITIATION *'}
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value={modifyForm.inspectionDate}
-                                                min={new Date().toISOString().split('T')[0]}
-                                                onChange={(e) => setModifyForm(prev => ({ ...prev, inspectionDate: e.target.value }))}
-                                                required
-                                                style={{
-                                                    width: '100%', padding: '12px 16px', borderRadius: '12px',
-                                                    border: '1.5px solid #8b5cf6', background: '#fff',
-                                                    color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Section C: Offered Lots & Batches (for Final Calls) */}
-                                {modifyForm.callType === 'FINAL' && (
-                                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-                                        <SectionHeader label="Offered Lots & Batches" step="C" color="#10b981" />
-                                        {(modifyForm.lots || []).length > 0 ? (
-                                            (modifyForm.lots || []).map((lot, lIdx) => (
-                                                <div key={lot.id || lIdx} style={{ marginBottom: '16px', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '15px' }}>{lot.lotNo || `Lot ${lIdx + 1}`}</div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Lot Size:</span>
-                                                            <input
-                                                                type="number"
-                                                                value={lot.lotSize || 0}
-                                                                onChange={(e) => {
-                                                                    const val = parseInt(e.target.value, 10) || 0;
-                                                                    setModifyForm(prev => {
-                                                                        const updatedLots = [...(prev.lots || [])];
-                                                                        updatedLots[lIdx] = { ...updatedLots[lIdx], lotSize: val };
-                                                                        return { ...prev, lots: updatedLots };
-                                                                    });
-                                                                }}
-                                                                style={{
-                                                                    width: '100px', padding: '6px 10px', borderRadius: '8px',
-                                                                    border: '1.5px solid #10b981', fontWeight: 800, fontSize: '13px',
-                                                                    color: '#059669', background: '#fff'
-                                                                }}
-                                                            />
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
-                                                        {(lot.batches || []).map((batch, bIdx) => (
-                                                            <div key={batch.id || bIdx} style={{ background: '#fff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Batch No</div>
-                                                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px' }}>{batch.batchNo}</div>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #f1f5f9', fontSize: '10px', color: '#64748b' }}>
-                                                                    <span>Qty: <strong>{batch.quantity || batch.qtyToUse || batch.availableQty || 0}</strong></span>
-                                                                    <span>Drawing: <strong>{batch.drawingNo || modifyForm.drawingNo || 'N/A'}</strong></span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div style={{ color: '#64748b', fontSize: '13px', fontStyle: 'italic', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
-                                                No offered lots assigned to this final call.
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Pinned Sticky Footer Row */}
-                            <div style={{
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                padding: '16px 32px', borderTop: '1px solid #e2e8f0', background: '#ffffff',
-                                flexShrink: 0
-                            }}>
-                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                                    All modifications are logged in audit trail (call_no, field_name, old_value, new_value).
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModifyModalOpen(false)}
-                                        style={{
-                                            padding: '10px 24px', borderRadius: '10px', border: '1px solid #cbd5e1',
-                                            background: '#fff', color: '#475569', fontSize: '14px', fontWeight: 700,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={savingModification}
-                                        style={{
-                                            padding: '10px 28px', borderRadius: '10px', border: 'none',
-                                            background: '#21808d', color: '#ffffff', fontSize: '14px', fontWeight: 800,
-                                            cursor: savingModification ? 'not-allowed' : 'pointer', opacity: savingModification ? 0.7 : 1,
-                                            boxShadow: '0 4px 12px rgba(33,128,141,0.25)'
-                                        }}
-                                    >
-                                        {savingModification ? 'Saving...' : 'Save Modifications'}
-                                    </button>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
                                 </div>
                             </div>
-                        </form>
-                    </>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+                                {(lot.batches || []).map((batch, bIdx) => (
+                                    <div key={batch.id || bIdx} style={{ background: '#fff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Batch No</div>
+                                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px' }}>{batch.batchNo}</div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #f1f5f9', fontSize: '10px', color: '#64748b' }}>
+                                            <span>Qty: <strong>{batch.quantity || batch.qtyToUse || batch.availableQty || 0}</strong></span>
+                                            <span>Drawing: <strong>{batch.drawingNo || modifyForm.drawingNo || 'N/A'}</strong></span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div style={{ color: '#64748b', fontSize: '13px', fontStyle: 'italic', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
+                        No offered lots assigned to this final call.
+                    </div>
                 )}
-                    </div>
-                </div>
+            </div>
+        )}
+    </div>
+
+    {/* Pinned Sticky Footer Row */ }
+    <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '16px 32px', borderTop: '1px solid #e2e8f0', background: '#ffffff',
+        flexShrink: 0
+    }}>
+        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+            All modifications are logged in audit trail (call_no, field_name, old_value, new_value).
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+                type="button"
+                onClick={() => setIsModifyModalOpen(false)}
+                style={{
+                    padding: '10px 24px', borderRadius: '10px', border: '1px solid #cbd5e1',
+                    background: '#fff', color: '#475569', fontSize: '14px', fontWeight: 700,
+                    cursor: 'pointer'
+                }}
+            >
+                Cancel
+            </button>
+            <button
+                type="submit"
+                disabled={savingModification}
+                style={{
+                    padding: '10px 28px', borderRadius: '10px', border: 'none',
+                    background: '#21808d', color: '#ffffff', fontSize: '14px', fontWeight: 800,
+                    cursor: savingModification ? 'not-allowed' : 'pointer', opacity: savingModification ? 0.7 : 1,
+                    boxShadow: '0 4px 12px rgba(33,128,141,0.25)'
+                }}
+            >
+                {savingModification ? 'Saving...' : 'Save Modifications'}
+            </button>
+        </div>
+    </div>
+                                </form >
+                            </>
+                        )}
+                    </div >
+                </div >
             )}
 
-            {/* ============ WITHDRAW CALL MODAL ============ */}
-            {isWithdrawModalOpen && controlPanelCall && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
-                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-                }} onClick={() => setIsWithdrawModalOpen(false)}>
-                    <div style={{
-                        background: '#fff', borderRadius: '20px', maxWidth: '540px', width: '100%',
-                        padding: '28px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)', border: '1px solid #e2e8f0'
-                    }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>Withdraw Inspection Call</h3>
-                            <button onClick={() => setIsWithdrawModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>×</button>
-                        </div>
-                        <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', padding: '16px', color: '#991b1b', fontSize: '13px', marginBottom: '20px' }}>
-                            <strong>Attention:</strong> Withdrawing this inspection call will cancel the request. This action cannot be undone.
-                        </div>
-                        <div style={{ marginBottom: '20px' }}>
-                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                                Withdrawal Remarks <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
-                            <textarea
-                                rows="3"
-                                value={withdrawRemarks}
-                                onChange={(e) => setWithdrawRemarks(e.target.value)}
-                                placeholder="Please provide a reason for withdrawing this inspection call..."
-                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            <button onClick={() => setIsWithdrawModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                            <button onClick={handleWithdrawSubmit} disabled={withdrawing || !withdrawRemarks.trim()} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: withdrawing || !withdrawRemarks.trim() ? 'not-allowed' : 'pointer', opacity: withdrawing || !withdrawRemarks.trim() ? 0.6 : 1 }}>
-                                {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
-                            </button>
-                        </div>
-                    </div>
+{/* ============ WITHDRAW CALL MODAL ============ */ }
+{
+    isWithdrawModalOpen && controlPanelCall && (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }} onClick={() => setIsWithdrawModalOpen(false)}>
+            <div style={{
+                background: '#fff', borderRadius: '20px', maxWidth: '540px', width: '100%',
+                padding: '28px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)', border: '1px solid #e2e8f0'
+            }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>Withdraw Inspection Call</h3>
+                    <button onClick={() => setIsWithdrawModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>×</button>
                 </div>
-            )}
+                <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', padding: '16px', color: '#991b1b', fontSize: '13px', marginBottom: '20px' }}>
+                    <strong>Attention:</strong> Withdrawing this inspection call will cancel the request. This action cannot be undone.
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                        Withdrawal Remarks <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <textarea
+                        rows="3"
+                        value={withdrawRemarks}
+                        onChange={(e) => setWithdrawRemarks(e.target.value)}
+                        placeholder="Please provide a reason for withdrawing this inspection call..."
+                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                    />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button onClick={() => setIsWithdrawModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}>
+                        Cancel
+                    </button>
+                    <button onClick={handleWithdrawSubmit} disabled={withdrawing || !withdrawRemarks.trim()} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: withdrawing || !withdrawRemarks.trim() ? 'not-allowed' : 'pointer', opacity: withdrawing || !withdrawRemarks.trim() ? 0.6 : 1 }}>
+                        {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
+                    </button>
+                </div>
+            </div>
         </div>
+    )
+}
+        </div >
     );
 };
 
 const getActionActivityDetails = (tx) => {
     const action = (tx.action || '').toUpperCase();
-    
+
     switch (action) {
         case 'CREATED':
             return {
@@ -1647,7 +1673,7 @@ const CallDetailsView = ({ call, transitionHistory, processCallDetails, loadingD
         return act.includes('VERIFY') || act.includes('SCHEDULE') || act.includes('INITIATE') || act.includes('ISSUE') || act.includes('COMPLET')
             || st.includes('VERIFY') || st.includes('REGISTERED') || st.includes('SCHEDULE') || st.includes('INITIATE') || st.includes('ISSUE') || st.includes('COMPLET');
     });
-    const assignedIeName = hasVerified 
+    const assignedIeName = hasVerified
         ? (call.ieAssignedName || (transitionHistory || []).slice().reverse().find(t => t.assignedToUserName)?.assignedToUserName || 'No ie assigned')
         : 'No ie assigned';
 
@@ -1757,7 +1783,7 @@ const CallDetailsView = ({ call, transitionHistory, processCallDetails, loadingD
                 {/* Section B: Quantities & Schedules */}
                 <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                     <SectionHeader label="Quantities & Schedules" step="B" color="#8b5cf6" />
-                    
+
                     {/* Stat Boxes */}
                     <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
                         <StatBox label="UNIT OF MEASUREMENT" value={processCallDetails?.uom || call.uom || 'Nos.'} />
@@ -1859,12 +1885,12 @@ const InfoRow = ({ label, value }) => (
 const ActivityItem = ({ icon, title, date, text, active, customColor }) => {
     const bgColor = active ? (customColor || '#2563eb') : '#f1f5f9';
     const textColor = active ? '#fff' : '#94a3b8';
-    
+
     return (
         <div style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1 }}>
-            <div style={{ 
-                width: '24px', height: '24px', borderRadius: '50%', 
-                background: bgColor, 
+            <div style={{
+                width: '24px', height: '24px', borderRadius: '50%',
+                background: bgColor,
                 color: textColor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: active ? `0 0 0 4px ${bgColor}1a` : 'none'

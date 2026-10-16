@@ -349,8 +349,8 @@ const SyncPOModal = ({ isOpen, onClose, onSuccess, vendorCode: propVendorCode, p
                     data: {
                         MMP_POMA_HDR: fetchedData?.data?.MMP_POMA_HDR || fetchedData?.MMP_POMA_HDR || h,
                         MMP_POMA_DTL: fetchedData?.data?.MMP_POMA_DTL || fetchedData?.MMP_POMA_DTL || d,
-                        PoHdr: fetchedData?.data?.PoHdr || fetchedData?.PoHdr || h,
-                        PoDtl: fetchedData?.data?.PoDtl || fetchedData?.PoDtl || d,
+                        PoHdr: fetchedData?.data?.PoHdr || fetchedData?.PoHdr || null,
+                        PoDtl: (fetchedData?.data?.PoDtl || fetchedData?.PoDtl) ? (fetchedData?.data?.PoDtl || fetchedData?.PoDtl) : null,
                         maNo: formData.maNo,
                         maDate: formData.maDate ? formatDate(formData.maDate) : '',
                         rly: formData.rly,

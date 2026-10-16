@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import inspectionCallService from '../../../services/inspectionCallService';
-import { 
-    Search, FileText, Calendar, Package, Eye, 
+import {
+    Search, FileText, Calendar, Package, Eye,
     ChevronRight, Loader2, AlertCircle, CheckCircle2,
     Clock, ArrowLeft, ClipboardList, Info, Plus, X,
     Download, FileCheck, ExternalLink, ShieldCheck, Lock
 } from 'lucide-react';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
-import { 
-    generateRailpadPoPDF, 
-    generateRailpadIcPdf, 
-    downloadAllCallDocuments 
+import {
+    generateRailpadPoPDF,
+    generateRailpadIcPdf,
+    downloadAllCallDocuments
 } from '../../../utils/generateDocumentPDFs';
 
 const getCallStatusInfo = (statusStr, actionStr) => {
@@ -57,10 +57,10 @@ const getCallStatusInfo = (statusStr, actionStr) => {
 
     // 1. If action is GENERATE_IC / DSC_SIGN_IC / E-SIGN -> Completed - E-Signed
     if (
-        act.includes('GENERATE_IC') || 
-        act.includes('IC_GENERATION') || 
-        act.includes('DSC_SIGN') || 
-        act.includes('E_SIGN') || 
+        act.includes('GENERATE_IC') ||
+        act.includes('IC_GENERATION') ||
+        act.includes('DSC_SIGN') ||
+        act.includes('E_SIGN') ||
         act.includes('ESIGN') ||
         rawStatus === 'GENERATE_IC' ||
         rawStatus === 'IC_GENERATION'
@@ -76,9 +76,9 @@ const getCallStatusInfo = (statusStr, actionStr) => {
 
     // 2. If action is IC_ISSUE / ISSUE_IC / IC_ISSUED -> Completed - IC Issued
     if (
-        act.includes('IC_ISSUE') || 
-        act.includes('ISSUE_IC') || 
-        act.includes('IC_ISSUED') || 
+        act.includes('IC_ISSUE') ||
+        act.includes('ISSUE_IC') ||
+        act.includes('IC_ISSUED') ||
         rawStatus === 'IC_ISSUE' ||
         rawStatus === 'IC_ISSUED'
     ) {
@@ -93,12 +93,12 @@ const getCallStatusInfo = (statusStr, actionStr) => {
 
     // 3. If action is FINISH / COMPLETE / CONFIRM -> Completed
     if (
-        act.includes('FINISH') || 
-        act.includes('COMPLETE') || 
+        act.includes('FINISH') ||
+        act.includes('COMPLETE') ||
         act.includes('CONFIRM') ||
-        rawStatus === 'COMPLETED' || 
-        rawStatus.includes('COMPLETE') || 
-        rawStatus.includes('CONFIRM') || 
+        rawStatus === 'COMPLETED' ||
+        rawStatus.includes('COMPLETE') ||
+        rawStatus.includes('CONFIRM') ||
         rawStatus.includes('APPROVED')
     ) {
         return {
@@ -129,7 +129,7 @@ const getCallStatusInfo = (statusStr, actionStr) => {
     };
 };
 
-export const formatPoSrNo = (call, includeRly = true) => {
+const formatPoSrNo = (call, includeRly = true) => {
     if (!call) return '-';
     const rly = call.scrCode || call.rlyCode || call.rlyShortName;
     let po = String(call.poNo || call.po_no || '').trim();
@@ -162,6 +162,31 @@ const checkIsIcAvailable = (call) => {
     return statusInfo?.label === 'Completed - E-Signed';
 };
 
+const getCallUom = (call) => {
+    if (!call) return 'Nos.';
+    const railPadType = (
+        call.railPadType || 
+        call.itemDescription || 
+        call.poDes || 
+        call.itemName || 
+        call.item_name || 
+        call.drawingNo || 
+        call.ncrgrspType || 
+        ''
+    ).toUpperCase();
+    const callNo = (call.callNo || call.call_no || '').toUpperCase();
+    const callType = (call.callType || call.inspectionCallType || '').toUpperCase();
+
+    const isNcrgrsp = railPadType.includes('NCRGRSP') || railPadType.includes('NCR');
+    const isRppOrRpf = callNo.startsWith('RPP') || callNo.startsWith('RPF') || callType === 'PROCESS' || callType === 'FINAL';
+
+    if (isNcrgrsp && isRppOrRpf) {
+        return 'Set';
+    }
+
+    return call.uom || 'Nos.';
+};
+
 const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const [calls, setCalls] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -177,7 +202,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const [size, setSize] = useState(5);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    
+
     useEffect(() => {
         if (plantId) fetchCalls();
     }, [plantId, page, size]);
@@ -211,8 +236,8 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const filteredCalls = useMemo(() => {
         return calls.filter(call => {
             const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
-                                  call.poNo?.toLowerCase().includes(search.toLowerCase()) ||
-                                  call.railPadType?.toLowerCase().includes(search.toLowerCase());
+                call.poNo?.toLowerCase().includes(search.toLowerCase()) ||
+                call.railPadType?.toLowerCase().includes(search.toLowerCase());
             return matchesSearch;
         });
     }, [calls, search]);
@@ -221,7 +246,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         setSelectedCall(call);
         setTransitionHistory([]);
         setIsActionsModalOpen(true);
-        
+
         try {
             if (call.id) {
                 const fullCall = await inspectionCallService.getById(call.id);
@@ -315,8 +340,8 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const isCurrentIcAvailable = checkIsIcAvailable(selectedCall);
 
     const SkeletonRow = () => (
-        <div style={{ 
-            display: 'flex', gap: '16px', padding: '16px', background: '#fff', 
+        <div style={{
+            display: 'flex', gap: '16px', padding: '16px', background: '#fff',
             borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px',
             animation: 'pulse 1.5s infinite ease-in-out'
         }}>
@@ -373,10 +398,10 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                     <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0 }}>Completed Calls</h2>
                     <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>View and manage your completed inspection requests and download certificates</p>
                 </div>
-                
+
                 <div style={{ position: 'relative' }}>
                     <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
-                    <input 
+                    <input
                         type="text"
                         placeholder="Search Call No / PO No..."
                         value={search}
@@ -448,11 +473,11 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         <td style={{ padding: '20px 24px' }}>
                                             <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
                                             <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>
-                                                Qty: {(call.offeredQty ?? call.totalQty)?.toLocaleString()} ({call.uom || (call.railPadType?.toUpperCase()?.includes('NCR') ? 'Set' : 'Nos.')})
+                                                Qty: {(call.offeredQty ?? call.totalQty)?.toLocaleString()} ({getCallUom(call)})
                                             </div>
                                         </td>
                                         <td style={{ padding: '20px 24px' }}>
-                                            <div style={{ 
+                                            <div style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                 background: statusInfo.bg, color: statusInfo.color, border: `1px solid ${statusInfo.border}`
@@ -461,9 +486,9 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                             </div>
                                         </td>
                                         <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                                            <button 
+                                            <button
                                                 onClick={() => handleOpenActions(call)}
-                                                style={{ 
+                                                style={{
                                                     padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0',
                                                     background: '#fff', color: '#1e293b', fontSize: '13px', fontWeight: 700,
                                                     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -480,7 +505,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             })}
                         </tbody>
                     </table>
-                    
+
                     {/* Pagination Controls */}
                     {totalElements > 0 && (
                         <div style={{
@@ -491,7 +516,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                                 <div>
-                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages || 1}</strong> 
+                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages || 1}</strong>
                                     <span style={{ marginLeft: 8 }}>({totalElements} total calls)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -506,7 +531,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         style={{
                                             padding: '6px 10px', borderRadius: '8px',
                                             border: '1px solid #cbd5e1', background: '#fff',
-                                            color: '#0f172a', fontSize: '13px', fontWeight: 600, 
+                                            color: '#0f172a', fontSize: '13px', fontWeight: 600,
                                             outline: 'none', cursor: 'pointer', minWidth: '60px'
                                         }}
                                     >
@@ -649,7 +674,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         QTY OFFERED / ACCEPTED
                                     </div>
                                     <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-                                        {Number(selectedCall.offeredQty ?? selectedCall.totalQty ?? selectedCall.orderedQty ?? 0).toLocaleString()} / {Number(selectedCall.acceptedQty ?? selectedCall.qtyAcceptedTillNow ?? selectedCall.totalQty ?? 0).toLocaleString()}
+                                        {Number(selectedCall.offeredQty ?? selectedCall.totalQty ?? selectedCall.orderedQty ?? 0).toLocaleString()} / {Number(selectedCall.acceptedQty ?? selectedCall.qtyAcceptedTillNow ?? selectedCall.totalQty ?? 0).toLocaleString()} <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>({getCallUom(selectedCall)})</span>
                                     </div>
                                 </div>
                             </div>
@@ -770,23 +795,23 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                             textAlign: 'center'
                                         }}
                                         title="Download e-signed Inspection Certificate"
-                                        onMouseEnter={(e) => { 
-                                            e.currentTarget.style.transform = 'translateY(-2px)'; 
-                                            e.currentTarget.style.borderColor = '#fb923c'; 
-                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(251, 146, 60, 0.15)'; 
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.borderColor = '#fb923c';
+                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(251, 146, 60, 0.15)';
                                         }}
-                                        onMouseLeave={(e) => { 
-                                            e.currentTarget.style.transform = 'none'; 
-                                            e.currentTarget.style.borderColor = '#ffedd5'; 
-                                            e.currentTarget.style.boxShadow = 'none'; 
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'none';
+                                            e.currentTarget.style.borderColor = '#ffedd5';
+                                            e.currentTarget.style.boxShadow = 'none';
                                         }}
                                     >
-                                        <div style={{ 
-                                            width: '42px', height: '42px', borderRadius: '50%', 
-                                            background: '#fff', 
-                                            border: '1px solid #ffedd5', 
-                                            color: '#ea580c', 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' 
+                                        <div style={{
+                                            width: '42px', height: '42px', borderRadius: '50%',
+                                            background: '#fff',
+                                            border: '1px solid #ffedd5',
+                                            color: '#ea580c',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px'
                                         }}>
                                             {downloadingDoc === 'ic' ? (
                                                 <Loader2 size={20} className="animate-spin" />
