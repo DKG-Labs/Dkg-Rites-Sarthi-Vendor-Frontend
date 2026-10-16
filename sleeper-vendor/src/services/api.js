@@ -937,6 +937,26 @@ export const apiService = {
         }
     },
 
+    getSignedCertificate: async (icNumber) => {
+        try {
+            const headers = getAuthHeaders('application/json');
+            const encoded = encodeURIComponent(icNumber.trim());
+            const response = await fetch(`${BASE_URL}/certificate-storage/view?icNumber=${encoded}`, { headers });
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('No signed certificate found for this IC.');
+                }
+                const errorText = await response.text();
+                throw new Error(errorText || `Failed to fetch certificate: ${response.status}`);
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Error fetching signed certificate:', error);
+            throw error;
+        }
+    },
+
     getCompletedBatches: async (sleeperType, userId, excludeCallNo, plantId) => {
         try {
             const finalUserId = userId || sessionStorage.getItem('vendorCode') || ':41647';
