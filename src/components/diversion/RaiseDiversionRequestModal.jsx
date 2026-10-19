@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import diversionService from '../../services/diversionService';
 import poiMappingService from '../../services/poiMappingService';
 import poAssignedService from '../../services/poAssignedService';
+import httpClient from '../../services/httpClient';
 import '../../styles/materialDiversion.css';
 
 // Helper to format PO and Item Sr cleanly, e.g. 26255133103381/003
@@ -708,11 +709,11 @@ const SearchablePoItemDropdown = ({ options = [], value = '', onChange, placehol
 
 export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorUser, isEditMode = false, initialData = null }) => {
   const [stage, setStage] = useState('');
-  const [diversionType, setDiversionType] = useState('PARTIAL');
-  const [plantId, setPlantId] = useState('');
-  const [plantName, setPlantName] = useState('');
+  const [diversionType, setDiversionType] = useState('COMPLETE');
+  const [plantId, setPlantId] = useState('');       // numeric DB id — for POST submit
+  const [plantName, setPlantName] = useState('');   // unit name string — for GET queries
   const [plantAddress, setPlantAddress] = useState('');
-  const [rioId] = useState('NR');
+  const [rioId, setRioId] = useState('');
   const [cmUserId, setCmUserId] = useState('');
 
   const [companyName, setCompanyName] = useState('');
@@ -720,6 +721,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
   // Dropdown lists
   const [plants, setPlants] = useState([]);
+  const [cmList, setCmList] = useState([]);
   const [eligibleIcs, setEligibleIcs] = useState([]);
   const [selectedIcNo, setSelectedIcNo] = useState('');
   const [selectedIcDetails, setSelectedIcDetails] = useState(null);
@@ -740,20 +742,24 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
 
   // 1. Fetch Unit Details (Address, POI Code) on plant selection
   const handlePlantSelect = useCallback(async (selectedUnit, plantObj = null) => {
     setPlantName(selectedUnit);
-    setPlantId(selectedUnit);
 
     let matched = plantObj;
     if (!matched && plants && plants.length > 0) {
       matched = plants.find(p => (typeof p === 'object' && (p.unitName === selectedUnit || p.unit_name === selectedUnit)));
     }
 
+    // plantId must be the numeric DB id (Long), not the unit name string
+    setPlantId(matched?.id ?? selectedUnit);
+
     if (matched && (matched.address || matched.poiCode)) {
       setPlantAddress(matched.address || '');
       setPoiCode(matched.poiCode || '');
+      if (matched.rio) setRioId(matched.rio);
       if (matched.companyName) {
         setCompanyName(matched.companyName);
       }
@@ -817,7 +823,41 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         setVendorPos(poList);
       })
       .catch(err => console.error('Error fetching vendor POs:', err));
+
+    // Fetch Controlling Managers list
+    httpClient.get('/auth/api/controlling-managers')
+      .then(res => {
+        const list = res?.data || [];
+        setCmList(list);
+      })
+      .catch(err => console.error('Error fetching controlling managers:', err));
   }, [isOpen, vendorCode]);
+
+  // Derive RIO whenever plantName or plants list changes (covers async load order)
+  useEffect(() => {
+    if (!plantName || !plants.length) return;
+    const matched = plants.find(p => p.unitName === plantName || p.unit_name === plantName);
+    if (matched?.rio) setRioId(matched.rio);
+  }, [plantName, plants]);
+
+  // Reset CM selection when RIO changes
+  useEffect(() => {
+    setCmUserId('');
+  }, [rioId]);
+
+  // CMs filtered to match the selected RIO
+  const filteredCmList = useMemo(() => {
+    if (!rioId || !cmList.length) return cmList;
+    return cmList.filter(cm => cm.rio === rioId);
+  }, [cmList, rioId]);
+
+  // Show toast whenever error is set
+  useEffect(() => {
+    if (!error) return;
+    setToast(error);
+    const t = setTimeout(() => setToast(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   // 3. Handle Target PO selection
   const handleTargetPoChange = useCallback((poNumber, poObject) => {
@@ -860,14 +900,15 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       return;
     }
 
-    diversionService.getEligibleSourceIcs(vendorCode, plantId || null, stage)
+    // Pass plantName (unit name string) — the SQL filters on ic.unit_name
+    diversionService.getEligibleSourceIcs(vendorCode, plantName || null, stage)
       .then(res => {
         if (res && res.data) {
           setEligibleIcs(res.data);
         }
       })
       .catch(err => console.error('Error fetching eligible ICs:', err));
-  }, [isOpen, vendorCode, plantId, stage]);
+  }, [isOpen, vendorCode, plantName, stage]);
 
   // Handle IC selection
   const handleIcChange = async (icNo) => {
@@ -971,9 +1012,9 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     }
 
     const payload = {
-      vendorCode: vendorUser?.userName || vendorUser?.vendorCode || sessionStorage.getItem('vendorCode') || '',
+      vendorCode: vendorCode,
       companyName: companyName || vendorUser?.companyName || 'Vendor Company',
-      plantId: plantId || plantName || 1,
+      plantId: plantId,
       plantName: plantName || 'Main Plant',
       plantAddress: plantAddress,
       poiCode: poiCode,
@@ -1083,19 +1124,21 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
               <label className="diversion-form-label">Regional Office (RIO)</label>
               <div className="diversion-readonly-field">
                 <span style={{ fontSize: '15px' }}>🏛️</span>
-                <span className="diversion-readonly-tag">{rioId || 'NR'}</span>
-                <span style={{ fontSize: '12.5px', color: '#64748b' }}>Inspection Region</span>
+                <span className="diversion-readonly-tag">{rioId || '—'}</span>
+                <span style={{ fontSize: '12.5px', color: '#64748b' }}>{rioId ? 'Inspection Region' : 'Select a plant first'}</span>
               </div>
             </div>
             <div className="diversion-form-group">
               <label className="diversion-form-label">Controlling Manager (ERC)</label>
               <ModernSelect
-                options={[
-                  { value: 'CM_ERC_01', label: 'Controlling Manager - ERC Northern Region', icon: '👤', subtext: 'Northern Region (NR) HQ' },
-                  { value: 'CM_ERC_02', label: 'Controlling Manager - ERC Eastern Region', icon: '👤', subtext: 'Eastern Region (ER) HQ' }
-                ]}
+                options={filteredCmList.map(cm => ({
+                  value: String(cm.userId),
+                  label: cm.fullName || cm.username || `CM #${cm.userId}`,
+                  icon: '👤',
+                  subtext: cm.employeeCode ? `${cm.employeeCode} · ${cm.rio || ''}` : (cm.rio || '')
+                }))}
                 value={cmUserId}
-                placeholder="-- Select Controlling Manager --"
+                placeholder={rioId ? '-- Select Controlling Manager --' : '-- Select a plant first --'}
                 onChange={setCmUserId}
               />
             </div>
@@ -1152,9 +1195,16 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div className="diversion-card-title" style={{ margin: 0 }}>3. Material Line Quantities</div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                {/* HIDDEN: Partial Diversion radio
                 <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input type="radio" checked={diversionType === 'PARTIAL'} onChange={() => setDiversionType('PARTIAL')} /> Partial Diversion
+                  <input type="radio" checked={diversionType === 'PARTIAL'} onChange={() => {
+                    setDiversionType('PARTIAL');
+                    const updated = lineItems.map(i => ({ ...i, diversionQty: 0, remainingBalanceQty: i.availableBalanceQty }));
+                    setLineItems(updated);
+                  }} /> Partial Diversion
                 </label>
+                */}
+                {/* HIDDEN: Complete Diversion radio
                 <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                   <input type="radio" checked={diversionType === 'COMPLETE'} onChange={() => {
                     setDiversionType('COMPLETE');
@@ -1162,6 +1212,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
                     setLineItems(updated);
                   }} /> Complete Diversion
                 </label>
+                */}
               </div>
             </div>
 
@@ -1260,6 +1311,41 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
           </button>
         </div>
       </div>
+
+      {/* Toast notification — fixed bottom-right, always visible */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '28px',
+          right: '28px',
+          zIndex: 99999,
+          background: '#1e293b',
+          color: '#fff',
+          padding: '14px 20px',
+          borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          fontSize: '13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          maxWidth: '380px',
+          animation: 'slideInToast 0.25s ease',
+        }}>
+          <span style={{ fontSize: '16px' }}>⚠️</span>
+          <span>{toast}</span>
+          <button
+            onClick={() => setToast('')}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}
+          >✕</button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInToast {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };
