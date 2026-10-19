@@ -709,6 +709,7 @@ const SearchablePoItemDropdown = ({ options = [], value = '', onChange, placehol
 
 export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorUser, isEditMode = false, initialData = null }) => {
   const [stage, setStage] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [diversionType, setDiversionType] = useState('COMPLETE');
   const [plantId, setPlantId] = useState('');       // numeric DB id — for POST submit
   const [plantName, setPlantName] = useState('');   // unit name string — for GET queries
