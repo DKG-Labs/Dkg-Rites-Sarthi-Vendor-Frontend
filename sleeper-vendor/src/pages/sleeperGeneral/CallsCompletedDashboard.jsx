@@ -154,21 +154,20 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
 const formatDateDDMMYY = (val) => {
     if (!val) return 'N/A';
     try {
-        if (typeof val === 'string' && val.includes('T')) {
-            const parts = val.split('T')[0].split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
-            return val.split('T')[0];
-        }
-        if (typeof val === 'string' && val.includes('-')) {
-            const parts = val.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+        if (typeof val === 'string') {
+            const s = val.trim();
+            // Already dd/mm/yyyy (vendor-calls API) - normalise padding only
+            const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+            if (dmy) return `${dmy[1].padStart(2, '0')}/${dmy[2].padStart(2, '0')}/${dmy[3]}`;
+            // ISO yyyy-mm-dd[Thh:mm...]
+            const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
         }
         const d = new Date(val);
         if (!isNaN(d.getTime())) {
             const day = String(d.getDate()).padStart(2, '0');
             const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = String(d.getFullYear()).slice(-2);
-            return `${day}/${month}/${year}`;
+            return `${day}/${month}/${d.getFullYear()}`;
         }
     } catch (e) {}
     return String(val);
