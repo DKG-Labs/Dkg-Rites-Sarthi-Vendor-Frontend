@@ -109,9 +109,9 @@ const checkDpDateStatus = (item) => {
             today.setHours(0, 0, 0, 0);
             targetDay.setHours(0, 0, 0, 0);
 
-            // Cutoff Rule: Vendors can only raise calls up to DP Date - 7 days
+            // Cutoff Rule: Vendors can only raise calls up to DP Date - 5 days (including today)
             const cutoffDate = new Date(targetDay);
-            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            cutoffDate.setDate(cutoffDate.getDate() - 4);
             cutoffDate.setHours(0, 0, 0, 0);
 
             if (today > cutoffDate) {
@@ -119,7 +119,7 @@ const checkDpDateStatus = (item) => {
                 const dpLabel = hasExtDp ? 'Ext. DP' : 'DP';
                 const formattedTarget = formatDateDDMMYYYY(targetStr);
                 const formattedCutoff = formatDateDDMMYYYY(cutoffDate);
-                reason = `Call raising cutoff expired (Must be raised at least 7 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
+                reason = `Call raising cutoff expired (Must be raised at least 5 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
     } catch (e) {}
@@ -324,7 +324,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                             if (isCaseNoMissing && item.due > 0) {
                                 alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
                             } else if (isDpDisabled && item.due > 0) {
-                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
+                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
                             }
                         }}
                         style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
@@ -340,7 +340,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                                 if (isDpDisabled) {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
+                                    alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
                                     return;
                                 }
                                 try {

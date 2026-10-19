@@ -75,8 +75,11 @@ const ProcessInspectionAnnexure = ({ data = [], selectedCall }) => {
   // Helper to split reading string (e.g. "R1, R2, R3") into individual values
   const getReadingValue = (readingStr, index) => {
     if (!readingStr || readingStr === '-') return '-';
-    const values = readingStr.split(',').map(v => v.trim());
-    return values[index] || '-';
+    const values = readingStr.split(/[,&]/).map(v => v.trim());
+    const val = values[index] || '-';
+    if (val === '-') return '-';
+    const num = parseFloat(val);
+    return isNaN(num) ? val : String(num);
   };
 
   if (!data || !Array.isArray(data) || data.length === 0) {

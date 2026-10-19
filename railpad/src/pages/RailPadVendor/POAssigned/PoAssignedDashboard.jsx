@@ -138,9 +138,9 @@ const checkDpDateStatus = (item) => {
             today.setHours(0, 0, 0, 0);
             targetDay.setHours(0, 0, 0, 0);
 
-            // Rule: Vendors can only raise calls up to DP Date - 7 days
+            // Rule: Vendors can only raise calls up to DP Date - 5 days (including today)
             const cutoffDate = new Date(targetDay);
-            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            cutoffDate.setDate(cutoffDate.getDate() - 4);
             cutoffDate.setHours(0, 0, 0, 0);
 
             if (today > cutoffDate) {
@@ -148,7 +148,7 @@ const checkDpDateStatus = (item) => {
                 const dpLabel = hasExtDp ? 'Ext. DP' : 'DP';
                 const formattedTarget = formatDateDDMMYYYY(targetStr);
                 const formattedCutoff = formatDateDDMMYYYY(cutoffDate);
-                reason = `Call raising cutoff expired (Must be raised at least 7 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
+                reason = `Call raising cutoff expired (Must be raised at least 5 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
     } catch (e) {}
@@ -209,7 +209,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
     } else if (isAllDispatched) {
         hoverMessage = 'All ordered items under this PO Serial Number have already been dispatched / accepted.';
     } else if (isDpDisabled) {
-        hoverMessage = `⚠️ ${dpInfo.reason || 'DP Date Cutoff Expired. Inspection calls can only be raised up to 7 days before DP Date.'}`;
+        hoverMessage = `⚠️ ${dpInfo.reason || 'DP Date Cutoff Expired. Inspection calls can only be raised up to 5 days before DP Date.'}`;
     }
 
     return (
@@ -287,7 +287,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                             } else if (effectiveCaseNoMissing) {
                                 alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
                             } else if (isDpDisabled) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 7 days before DP Date.'}`);
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
                             }
                         }}
                     >
