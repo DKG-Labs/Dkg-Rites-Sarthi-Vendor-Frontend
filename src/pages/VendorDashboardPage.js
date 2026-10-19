@@ -4423,9 +4423,9 @@ const VendorDashboardPage = ({ onBack }) => {
                                                           const targetDay = new Date(dpDate);
                                                           targetDay.setHours(0, 0, 0, 0);
 
-                                                          // Cutoff Rule: Vendors can only raise calls up to DP Date - 7 days
+                                                          // Cutoff Rule: Vendors can only raise calls up to DP Date - 5 days (including today)
                                                           const cutoffDate = new Date(targetDay);
-                                                          cutoffDate.setDate(cutoffDate.getDate() - 7);
+                                                          cutoffDate.setDate(cutoffDate.getDate() - 4);
                                                           cutoffDate.setHours(0, 0, 0, 0);
 
                                                           const pad = (n) => String(n).padStart(2, '0');
@@ -4446,11 +4446,11 @@ const VendorDashboardPage = ({ onBack }) => {
 
                                                     const disableReason = (isErcVendor && isCaseNoMissing)
                                                       ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
-                                                      : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 7 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
+                                                      : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 5 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
 
                                                     const disableTitle = (isErcVendor && isCaseNoMissing)
                                                       ? "Case No. not found for this PO. Please contact RITES Admin."
-                                                      : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 7 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
+                                                      : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 5 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
 
                                                     const disableTooltipText = (isErcVendor && isCaseNoMissing)
                                                       ? "⚠️ Case No. not available for this PO. Inspection call disabled."
@@ -6791,7 +6791,7 @@ const VendorDashboardPage = ({ onBack }) => {
                   )}
                   {['SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus) && (
                     <>
-                      <ActionCard 
+                      <ActionCard
                         title="Call Details"
                         icon={<VisibilityIcon style={{ fontSize: '24px' }} />}
                         colors={{ bg1: '#eff6ff', bg2: '#dbeafe', border: '#bfdbfe', iconColor: '#3b82f6', textColor: '#1d4ed8', shadow1: 'rgba(59, 130, 246, 0.2)', shadow2: 'rgba(59, 130, 246, 0.1)' }}
@@ -6801,11 +6801,17 @@ const VendorDashboardPage = ({ onBack }) => {
                           handleViewCallDetails(call);
                         }}
                       />
-                      <ActionCard 
+                      <ActionCard
                         title="Call Letter"
                         icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
                         colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
                         onClick={() => handleDownloadCallLetter(call)}
+                      />
+                      <ActionCard
+                        title="IC"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#ecfdf5', bg2: '#d1fae5', border: '#a7f3d0', iconColor: '#10b981', textColor: '#059669', shadow1: 'rgba(16, 185, 129, 0.2)', shadow2: 'rgba(16, 185, 129, 0.1)' }}
+                        onClick={() => handleDownloadIC(call)}
                       />
                     </>
                   )}
