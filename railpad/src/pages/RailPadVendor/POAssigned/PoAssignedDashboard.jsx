@@ -63,7 +63,7 @@ const formatDateDDMMYYYY = (dateStr) => {
             const year = d.getFullYear();
             return `${day}-${month}-${year}`;
         }
-    } catch (e) {}
+    } catch (e) { }
     return str;
 };
 
@@ -103,20 +103,20 @@ const checkDpDateStatus = (item) => {
     const extDpStr = item.extendedDeliveryDate || item.extended_delivery_date;
 
     const hasExtDp = Boolean(
-        extDpStr && 
-        String(extDpStr).trim() !== '' && 
-        String(extDpStr).trim().toUpperCase() !== 'N/A' && 
+        extDpStr &&
+        String(extDpStr).trim() !== '' &&
+        String(extDpStr).trim().toUpperCase() !== 'N/A' &&
         String(extDpStr).trim().toLowerCase() !== 'null'
     );
     const hasDp = Boolean(
-        dpStr && 
-        String(dpStr).trim() !== '' && 
-        String(dpStr).trim().toUpperCase() !== 'N/A' && 
+        dpStr &&
+        String(dpStr).trim() !== '' &&
+        String(dpStr).trim().toUpperCase() !== 'N/A' &&
         String(dpStr).trim().toLowerCase() !== 'null'
     );
 
     const targetStr = hasExtDp ? extDpStr : (hasDp ? dpStr : null);
-    
+
     if (!targetStr) {
         return {
             isDisabled: false,
@@ -151,7 +151,7 @@ const checkDpDateStatus = (item) => {
                 reason = `Call raising cutoff expired (Must be raised at least 5 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     const formattedDp = formatDateDDMMYYYY(dpStr);
     const formattedExtDp = hasExtDp ? formatDateDDMMYYYY(extDpStr) : null;
@@ -376,12 +376,12 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
     const activeSrCount = items.filter(s => s.due > 0).length;
     const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
     const caseNoValue = po.caseNo || po.case_no || '';
-    const isCaseNoMissing = !caseNoValue || 
-        String(caseNoValue).trim() === '' || 
-        String(caseNoValue).trim().toUpperCase() === 'N/A' || 
-        String(caseNoValue).trim().toUpperCase() === 'NA' || 
-        String(caseNoValue).trim() === '-' || 
-        String(caseNoValue).trim().toUpperCase() === 'NULL' || 
+    const isCaseNoMissing = !caseNoValue ||
+        String(caseNoValue).trim() === '' ||
+        String(caseNoValue).trim().toUpperCase() === 'N/A' ||
+        String(caseNoValue).trim().toUpperCase() === 'NA' ||
+        String(caseNoValue).trim() === '-' ||
+        String(caseNoValue).trim().toUpperCase() === 'NULL' ||
         String(caseNoValue).trim().toUpperCase() === 'UNDEFINED';
 
     return (
@@ -412,16 +412,16 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                 </td>
                 {/* PO No. & Date */}
                 <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                    <div 
+                    <div
                         onClick={(e) => {
                             if (po.pdfPath) {
                                 e.stopPropagation();
                                 setViewingPdfUrl(po.pdfPath);
                             }
                         }}
-                        style={{ 
-                            fontWeight: 800, 
-                            color: po.pdfPath ? '#21808d' : '#0f172a', 
+                        style={{
+                            fontWeight: 800,
+                            color: po.pdfPath ? '#21808d' : '#0f172a',
                             fontSize: 13,
                             textDecoration: po.pdfPath ? 'underline' : 'none',
                             cursor: po.pdfPath ? 'pointer' : 'default'
@@ -642,11 +642,11 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                 || res?.data?.callNo
                 || res?.responseData
                 || (payload?.callType === 'PROCESS' ? 'RPP-SUCCESS' : 'RPF-SUCCESS');
-            
+
             const isProcess = payload?.callType === 'PROCESS' || String(callNo).startsWith('RPP');
             const callTypeLabel = isProcess ? 'Process' : 'Final';
             showNotification(`✅ ${callTypeLabel} Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
-            
+
             // Immediate and delayed re-fetches so backend DB update completes and reflects automatically
             fetchPoData();
             setTimeout(() => {
@@ -794,7 +794,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                     100% { opacity: 0.6; }
                 }
             `}</style>
-            
+
             {/* ── Toast Notification ── */}
             {notification && (
                 <div style={{
@@ -808,7 +808,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                     {notification.message}
                 </div>
             )}
-            
+
             {/* ── Page Header & Filter Bar Container ── */}
             <div style={{
                 background: '#fff',
@@ -830,7 +830,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                             </p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-                            <SyncPOButton 
+                            <SyncPOButton
                                 vendorCode={vendorCode}
                                 plantId={plantId}
                                 onSuccess={() => fetchPoData()}

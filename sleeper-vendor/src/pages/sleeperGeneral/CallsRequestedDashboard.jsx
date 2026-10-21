@@ -142,7 +142,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
     const rawStatus = String(call.status || call.rawStatus || '').toUpperCase().trim();
 
     // Completion rule: Both blocked
-    const isCompleted = 
+    const isCompleted =
         rawStatus === 'SEND_CALL_TO_IBS' ||
         rawJobStatus === 'SEND_CALL_TO_IBS' ||
         rawStatus.includes('SEND_CALL_TO_IBS') ||
@@ -711,7 +711,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         } else if (rawStatus) {
             status = rawStatus;
         }
-        
+
         return {
             ...c,
             id: c.id,
@@ -748,8 +748,8 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     };
 
     const ACTIVE_STATUSES = [
-        'Call Raised', 'Returned by Call Desk', 'Resubmitted', 
-        'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection', 
+        'Call Raised', 'Returned by Call Desk', 'Resubmitted',
+        'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection',
         'Paused', 'PO Verification', 'Withheld', 'Pending for verification', 'Created', 'PENDING'
     ];
     const displayCalls = allCalls.filter(c => {
@@ -821,7 +821,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
             try {
                 const sp = localStorage.getItem('selectedPlant');
                 if (sp) activePlant = JSON.parse(sp);
-            } catch (e) {}
+            } catch (e) { }
 
             const enrichedCall = {
                 ...call,
@@ -861,7 +861,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
             try {
                 const sp = localStorage.getItem('selectedPlant');
                 if (sp) activePlant = JSON.parse(sp);
-            } catch (e) {}
+            } catch (e) { }
 
             const enrichedCall = {
                 ...call,
