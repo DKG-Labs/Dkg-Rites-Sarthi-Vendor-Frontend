@@ -40,7 +40,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
                     inspectionCallService.getPaginatedByPlant(plantId, 0, 1, 'pending'),
                     inspectionCallService.getCompletedPaginatedByPlant(plantId, 0, 1)
                 ]);
-                
+
                 setRequestedCallsCount(pendingData?.totalElements || 0);
                 setCompletedCallsCount(completedData?.totalElements || 0);
             }

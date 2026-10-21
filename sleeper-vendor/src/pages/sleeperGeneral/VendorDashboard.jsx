@@ -40,9 +40,9 @@ const VendorDashboard = () => {
         return allowedPlantList.some(target => {
             const cleanTarget = cleanPlantStr(target);
             if (!cleanTarget) return false;
-            
+
             if (cleanCall === cleanTarget) return true;
-            
+
             if (cleanCall.includes(cleanTarget) || cleanTarget.includes(cleanCall)) {
                 const callParts = String(callPlantId).split(/[/:]/).filter(Boolean);
                 const targetParts = String(target).split(/[/:]/).filter(Boolean);
@@ -68,7 +68,7 @@ const VendorDashboard = () => {
                 const parsed = JSON.parse(savedPlant);
                 if (parsed?.plantId) return parsed.plantId;
             }
-        } catch (e) {}
+        } catch (e) { }
         return '';
     };
 

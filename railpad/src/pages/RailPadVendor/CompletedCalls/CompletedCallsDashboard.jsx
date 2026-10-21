@@ -165,13 +165,13 @@ const checkIsIcAvailable = (call) => {
 const getCallUom = (call) => {
     if (!call) return 'Nos.';
     const railPadType = (
-        call.railPadType || 
-        call.itemDescription || 
-        call.poDes || 
-        call.itemName || 
-        call.item_name || 
-        call.drawingNo || 
-        call.ncrgrspType || 
+        call.railPadType ||
+        call.itemDescription ||
+        call.poDes ||
+        call.itemName ||
+        call.item_name ||
+        call.drawingNo ||
+        call.ncrgrspType ||
         ''
     ).toUpperCase();
     const callNo = (call.callNo || call.call_no || '').toUpperCase();
