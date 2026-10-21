@@ -187,13 +187,15 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCaseNoMissing = false }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCaseNoMissing = false, isPlantBlocked = false, activeSrNos = new Set() }) => {
     const [showForm, setShowForm] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
     const isDpDisabled = dpInfo.isDisabled;
-    const shouldDisableRaiseCall = item.due === 0 || isCaseNoMissing || isDpDisabled;
+    const srKey = String(item.itemSrNo || item.srNo || '').trim();
+    const hasActiveCall = srKey ? activeSrNos.has(srKey) : false;
+    const shouldDisableRaiseCall = isPlantBlocked || hasActiveCall || item.due === 0 || isCaseNoMissing || isDpDisabled;
 
     const handleDownloadCallLetter = async (e) => {
         e.stopPropagation();
@@ -319,40 +321,26 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                 {/* Action */}
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <div
-                        title={isCaseNoMissing && item.due > 0 ? "Case No. is not available for this PO. Please contact RITES Administrator to update the Case No." : (isDpDisabled ? dpInfo.reason : "")}
+                        style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
                         onClick={() => {
-                            if (isCaseNoMissing && item.due > 0) {
-                                alert(`Cannot Raise Inspection Request:\nCase No. is not available for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case No.`);
+                            if (isPlantBlocked) {
+                                alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
+                            } else if (hasActiveCall && item.due > 0) {
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call is already active for this PO Serial No. (${srKey}).\n\nPlease wait for the current call to be completed, cancelled, or withdrawn before raising a new one.`);
+                            } else if (isCaseNoMissing && item.due > 0) {
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
                             } else if (isDpDisabled && item.due > 0) {
-                                alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
                             }
                         }}
-                        style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
                     >
                         <button
                             disabled={shouldDisableRaiseCall}
-                            onClick={async (e) => {
-                                if (isCaseNoMissing) {
+                            onClick={(e) => {
+                                if (shouldDisableRaiseCall) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     return;
-                                }
-                                if (isDpDisabled) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    alert(`Cannot Raise Inspection Request:\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
-                                    return;
-                                }
-                                try {
-                                    const plantId = sessionStorage.getItem('plantId') || '';
-                                    const vendorCode = sessionStorage.getItem('vendorCode') || '';
-                                    const blockRes = await apiService.checkPlantPaymentBlock(plantId, vendorCode);
-                                    if (blockRes?.blocked) {
-                                        alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
-                                        return;
-                                    }
-                                } catch (err) {
-                                    console.error("Payment block check error:", err);
                                 }
                                 setShowForm(true);
                             }}
@@ -367,14 +355,24 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                                 boxShadow: shouldDisableRaiseCall ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                             }}
                         >
-                            {item.due === 0 ? 'All Dispatched' : (isCaseNoMissing ? 'Raise Call (Disabled)' : (isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'))}
+                            {item.due === 0 ? 'All Dispatched' : (isPlantBlocked ? 'Raise Call (Blocked)' : (hasActiveCall ? 'Call In Progress' : (isCaseNoMissing ? 'Raise Call (Disabled)' : (isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'))))}
                         </button>
-                        {isCaseNoMissing && item.due > 0 && (
+                        {isPlantBlocked && item.due > 0 && (
+                            <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
+                                ⚠️ Payment Pending
+                            </div>
+                        )}
+                        {hasActiveCall && !isPlantBlocked && item.due > 0 && (
+                            <div style={{ fontSize: 9, color: '#d97706', marginTop: 3, fontWeight: 600 }}>
+                                ⚠️ Call In Progress
+                            </div>
+                        )}
+                        {isCaseNoMissing && !isPlantBlocked && !hasActiveCall && item.due > 0 && (
                             <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
                                 ⚠️ Case No. Missing
                             </div>
                         )}
-                        {isDpDisabled && !isCaseNoMissing && item.due > 0 && (
+                        {isDpDisabled && !isCaseNoMissing && !isPlantBlocked && !hasActiveCall && item.due > 0 && (
                             <div style={{ fontSize: 9, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
                                 ⚠️ DP Cutoff Expired
                             </div>
@@ -409,7 +407,7 @@ const resolveCaseNoForPlant = (rawCaseNo, rio) => {
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, isPlantBlocked = false, activeSrNos = new Set() }) => {
     const [expanded, setExpanded] = useState(false);
 
     const selectedPlant = useMemo(() => {
@@ -591,6 +589,8 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall }) => {
                                                 onSubmitInspectionCall={onSubmitInspectionCall}
                                                 idx={idx}
                                                 isCaseNoMissing={isCaseNoMissing}
+                                                isPlantBlocked={isPlantBlocked}
+                                                activeSrNos={activeSrNos}
                                             />
                                         ))}
                                     </tbody>
@@ -621,7 +621,9 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
 
     const [poDataList, setPoDataList] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+    const [isPlantBlocked, setIsPlantBlocked] = useState(false);
+    const [activeSrNos, setActiveSrNos] = useState(new Set());
+
     const fetchPos = useCallback(async () => {
         setLoading(true);
         try {
@@ -644,9 +646,46 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
         }
     }, []);
 
+    const checkPaymentBlock = useCallback(async () => {
+        try {
+            const plantId = sessionStorage.getItem('plantId') || '';
+            const vendorCode = sessionStorage.getItem('vendorCode') || '';
+            if (!plantId) return;
+            const res = await apiService.checkPlantPaymentBlock(plantId, vendorCode);
+            setIsPlantBlocked(Boolean(res?.blocked));
+        } catch (err) {
+            console.error('Error checking plant payment block:', err);
+        }
+    }, []);
+
     useEffect(() => {
         fetchPos();
-    }, [fetchPos]);
+        checkPaymentBlock();
+        const fetchActiveCalls = async () => {
+            try {
+                const userId = sessionStorage.getItem('userId') || sessionStorage.getItem('vendorCode') || '';
+                if (!userId) return;
+                const calls = await apiService.getVendorInspectionCalls(userId);
+                const TERMINAL = new Set([
+                    'WITHDRAW', 'WITHDRAWN', 'CANCELLED', 'CANCEL', 'REJECTED',
+                    'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS', 'SENT CALL TO IBS'
+                ]);
+                const active = new Set(
+                    (calls || [])
+                        .filter(c => {
+                            const st = (c.status || c.jobStatus || c.workflowStatus || '').toUpperCase().trim();
+                            return !TERMINAL.has(st);
+                        })
+                        .map(c => String(c.srNo || c.sr_no || '').trim())
+                        .filter(Boolean)
+                );
+                setActiveSrNos(active);
+            } catch (err) {
+                console.error('Error fetching active calls:', err);
+            }
+        };
+        fetchActiveCalls();
+    }, [fetchPos, checkPaymentBlock]);
 
 
 
@@ -759,6 +798,8 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                                         index={idx}
                                         isLast={idx === paginated.length - 1}
                                         onSubmitInspectionCall={onSubmitInspectionCall}
+                                        isPlantBlocked={isPlantBlocked}
+                                        activeSrNos={activeSrNos}
                                     />
                                 ))
                             )}

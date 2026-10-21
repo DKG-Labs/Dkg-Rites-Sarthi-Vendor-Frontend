@@ -451,6 +451,8 @@ export const RaiseInspectionCallForm = ({
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [loadingUnitDetails, setLoadingUnitDetails] = useState(false);
+  const [isPoiBlocked, setIsPoiBlocked] = useState(false);
+  const [poiBlockMessage, setPoiBlockMessage] = useState('');
 
   // Notification state
   const [notification, setNotification] = useState({ message: '', type: 'error' });
@@ -811,6 +813,8 @@ export const RaiseInspectionCallForm = ({
     const fetchUnitDetails = async () => {
       if (formData.company_name && formData.unit_name) {
         setLoadingUnitDetails(true);
+        setIsPoiBlocked(false);
+        setPoiBlockMessage('');
         try {
           console.log('📍 Fetching unit details for:', formData.company_name, '-', formData.unit_name);
           const response = await poiMappingService.getUnitDetails(
@@ -831,6 +835,22 @@ export const RaiseInspectionCallForm = ({
 
             // Store POI code in state
             setPoiCode(fetchedPoiCode || '');
+
+            // Check if this POI is blocked due to pending cancellation payment
+            if (fetchedPoiCode && vendorId) {
+              try {
+                const blockResult = await inspectionCallService.checkPlantPaymentBlock(fetchedPoiCode, vendorId);
+                if (blockResult && blockResult.blocked) {
+                  setIsPoiBlocked(true);
+                  setPoiBlockMessage(
+                    blockResult.message ||
+                    'Call raising is blocked for this Place of Inspection due to pending cancellation charges. Please clear outstanding payment in Payment Details module.'
+                  );
+                }
+              } catch (_) {
+                // Block check failure is non-fatal; allow form to proceed
+              }
+            }
           } else {
             console.log('⚠️ Response not successful');
             setFormData(prev => ({ ...prev, unit_address: '' }));
@@ -847,11 +867,13 @@ export const RaiseInspectionCallForm = ({
         // Reset address and POI code when company or unit not selected
         setFormData(prev => ({ ...prev, unit_address: '' }));
         setPoiCode('');
+        setIsPoiBlocked(false);
+        setPoiBlockMessage('');
       }
     };
 
     fetchUnitDetails();
-  }, [formData.company_name, formData.unit_name]);
+  }, [formData.company_name, formData.unit_name, vendorId]);
 
   // Fetch heat numbers when certificate numbers are selected
   // Aggregates heat numbers from ALL selected RM IC numbers
@@ -4279,6 +4301,30 @@ export const RaiseInspectionCallForm = ({
               </FormField>
             </div>
 
+            {/* Payment Block Warning */}
+            {isPoiBlocked && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                background: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderLeft: '4px solid #ea580c',
+                borderRadius: '6px',
+                padding: '12px 16px',
+                margin: '8px 0 4px',
+                color: '#9a3412',
+                fontSize: '13.5px',
+                lineHeight: '1.5'
+              }}>
+                <span style={{ fontSize: '16px', marginTop: '1px' }}>⚠️</span>
+                <div>
+                  <strong>Call Raising Blocked</strong>
+                  <div style={{ marginTop: '2px' }}>{poiBlockMessage}</div>
+                </div>
+              </div>
+            )}
+
             <SectionHeader title="Additional Information" />
 
             <div className="ric-form-grid">
@@ -4313,7 +4359,8 @@ export const RaiseInspectionCallForm = ({
                 type="button"
                 className="btn btn-primary"
                 onClick={handleSubmit}
-                disabled={isLoading || !formData.type_of_call}
+                disabled={isLoading || !formData.type_of_call || isPoiBlocked}
+                title={isPoiBlocked ? 'Call raising is blocked due to pending cancellation payment' : ''}
               >
                 {isLoading ? (isModifyMode ? 'Updating...' : 'Submitting...') : (isModifyMode ? 'Update Inspection Call' : 'Submit Inspection Call')}
               </button>
