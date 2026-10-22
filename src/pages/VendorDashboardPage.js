@@ -4441,46 +4441,28 @@ const VendorDashboardPage = ({ onBack }) => {
                                                       } catch (e) { }
                                                     }
 
-                                                    const CALL_TERMINAL = new Set([
-                                                      'WITHDRAW', 'WITHDRAWN', 'CANCELLED', 'CANCEL', 'REJECTED',
-                                                      'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS', 'SENT CALL TO IBS'
-                                                    ]);
-                                                    const hasActiveCall = [...requestedCalls, ...completedCalls].some(call => {
-                                                      const callSerial = call.poSerialNo || call.po_serial_no || '';
-                                                      const itemSerial = item.po_serial_no || item.poSerialNo || '';
-                                                      if (!callSerial || !itemSerial || callSerial !== itemSerial) return false;
-                                                      const st = (call.workflowStatus || call.status || call.jobStatus || '').toUpperCase().trim();
-                                                      return !CALL_TERMINAL.has(st);
-                                                    });
-
-                                                    const shouldDisableRaiseCall = isPlantBlocked || hasActiveCall || (isErcVendor && isCaseNoMissing) || isOdpExpired;
+                                                    const shouldDisableRaiseCall = isPlantBlocked || (isErcVendor && isCaseNoMissing) || isOdpExpired;
 
                                                     const dpTypeLabel = isEdpUsed ? "Extended Delivery Period (EDP)" : "Original Delivery Period (ODP)";
                                                     const dpShortLabel = isEdpUsed ? "EDP" : "ODP";
 
                                                     const disableReason = isPlantBlocked
                                                       ? `Call raising is blocked for this plant due to pending cancellation charges.\n\nPlease clear payment details in the Payment Details Updating Module.`
-                                                      : hasActiveCall
-                                                        ? `An inspection call is already active for PO Serial No. ${item.po_serial_no || ''}.\n\nPlease wait for the current call to be completed, cancelled, or withdrawn before raising a new one.`
-                                                        : (isErcVendor && isCaseNoMissing)
-                                                          ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
-                                                          : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 5 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
+                                                      : (isErcVendor && isCaseNoMissing)
+                                                        ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
+                                                        : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 5 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
 
                                                     const disableTitle = isPlantBlocked
                                                       ? "Call raising blocked: pending cancellation charges. Please update Payment Details."
-                                                      : hasActiveCall
-                                                        ? "A call is already in progress for this PO Serial No."
-                                                        : (isErcVendor && isCaseNoMissing)
-                                                          ? "Case No. not found for this PO. Please contact RITES Admin."
-                                                          : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 5 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
+                                                      : (isErcVendor && isCaseNoMissing)
+                                                        ? "Case No. not found for this PO. Please contact RITES Admin."
+                                                        : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 5 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
 
                                                     const disableTooltipText = isPlantBlocked
                                                       ? "⚠️ Payment Pending: Call raising blocked due to pending cancellation charges."
-                                                      : hasActiveCall
-                                                        ? "⚠️ Active Call: An inspection call is already in progress for this PO serial number."
-                                                        : (isErcVendor && isCaseNoMissing)
-                                                          ? "⚠️ Case No. not available for this PO. Inspection call disabled."
-                                                          : (isOdpExpired ? `⚠️ ${dpShortLabel} Cutoff Expired (DP: ${formattedTargetDp}, Cutoff: ${formattedCutoffDate}). Inspection call disabled.` : "");
+                                                      : (isErcVendor && isCaseNoMissing)
+                                                        ? "⚠️ Case No. not available for this PO. Inspection call disabled."
+                                                        : (isOdpExpired ? `⚠️ ${dpShortLabel} Cutoff Expired (DP: ${formattedTargetDp}, Cutoff: ${formattedCutoffDate}). Inspection call disabled.` : "");
 
                                                     return (
                                                       <tr key={item.id}>
@@ -4500,7 +4482,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                               onMouseLeave={() => setHoveredDisabledPoItemId(null)}
                                                               onClick={() => {
                                                                 if (shouldDisableRaiseCall) {
-                                                                  alert(`Cannot Raise Inspection Request:\n${disableReason}`);
+                                                                  showNotification(`⚠️ Cannot Raise Inspection Request: ${disableReason}`, 'error');
                                                                 }
                                                               }}
                                                               style={{ position: 'relative', display: 'inline-block', cursor: shouldDisableRaiseCall ? 'not-allowed' : 'default' }}
@@ -4513,7 +4495,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                                   if (shouldDisableRaiseCall) {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    alert(`Cannot Raise Inspection Request:\n${disableReason}`);
+                                                                    showNotification(`⚠️ Cannot Raise Inspection Request: ${disableReason}`, 'error');
                                                                     return;
                                                                   }
                                                                   const subPOData = selectedSubPO
@@ -4528,7 +4510,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                                   pointerEvents: 'auto'
                                                                 }}
                                                               >
-                                                                {isPlantBlocked ? 'Raise Call (Blocked)' : (hasActiveCall ? 'Call In Progress' : (isOdpExpired ? 'Cutoff Expired' : 'Raise Inspection Request'))}
+                                                                {isPlantBlocked ? 'Raise Call (Blocked)' : (isOdpExpired ? 'Cutoff Expired' : 'Raise Inspection Request')}
                                                               </button>
 
                                                               {shouldDisableRaiseCall && hoveredDisabledPoItemId === item.id && (
@@ -5717,18 +5699,39 @@ const VendorDashboardPage = ({ onBack }) => {
                   )}
                 </div>
               )}
-              <RaiseInspectionCallForm
-                selectedPO={selectedPOItem?.po}
-                selectedItem={selectedPOItem?.item}
-                selectedSubPO={selectedPOItem?.subPO}
-                inventoryEntries={inventoryEntries}
-                availableHeatNumbers={availableHeatNumbers}
-                vendorId={currentUser.id}
-                onSubmit={isViewOnlyMode ? handleCloseInspectionModal : (isModifyMode ? handleSubmitModifyRequest : handleSubmitInspectionRequest)}
-                isLoading={isLoading}
-                isModifyMode={isModifyMode}
-                isViewMode={isViewOnlyMode}
-              />
+              {(() => {
+                const _srNo = selectedPOItem?.item?.po_serial_no || selectedPOItem?.item?.poSerialNo || '';
+                const _ACTIVE_STATUSES = new Set([
+                  'VERIFY_PO_DETAILS','CREATED','CALL_REGISTERED','IE_SCHEDULED',
+                  'CALL WITHHELD','RETURNED','RETURNED BY CALL DESK'
+                ]);
+                const _blockedCallTypes = new Set(
+                  [...requestedCalls, ...completedCalls]
+                    .filter(c => {
+                      const cs = c.poSerialNo || c.po_serial_no || '';
+                      if (!cs || cs !== _srNo) return false;
+                      const st = (c.workflowStatus || c.status || c.jobStatus || '').toUpperCase().trim();
+                      return _ACTIVE_STATUSES.has(st);
+                    })
+                    .map(c => c.stage || '')
+                    .filter(Boolean)
+                );
+                return (
+                  <RaiseInspectionCallForm
+                    selectedPO={selectedPOItem?.po}
+                    selectedItem={selectedPOItem?.item}
+                    selectedSubPO={selectedPOItem?.subPO}
+                    inventoryEntries={inventoryEntries}
+                    availableHeatNumbers={availableHeatNumbers}
+                    vendorId={currentUser.id}
+                    onSubmit={isViewOnlyMode ? handleCloseInspectionModal : (isModifyMode ? handleSubmitModifyRequest : handleSubmitInspectionRequest)}
+                    isLoading={isLoading}
+                    isModifyMode={isModifyMode}
+                    isViewMode={isViewOnlyMode}
+                    blockedCallTypes={_blockedCallTypes}
+                  />
+                );
+              })()}
             </div>
           </div>
         </div>

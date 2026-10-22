@@ -326,7 +326,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                             if (isPlantBlocked) {
                                 alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
                             } else if (hasActiveCall && item.due > 0) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call is already active for this PO Serial No. (${srKey}).\n\nPlease wait for the current call to be completed, cancelled, or withdrawn before raising a new one.`);
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call for this PO Serial No. (${srKey}) is currently under review or awaiting scheduling.\n\nYou can raise a new call once the existing call proceeds to inspection, is cancelled, or withdrawn.`);
                             } else if (isCaseNoMissing && item.due > 0) {
                                 alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
                             } else if (isDpDisabled && item.due > 0) {
@@ -666,15 +666,15 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                 const userId = sessionStorage.getItem('userId') || sessionStorage.getItem('vendorCode') || '';
                 if (!userId) return;
                 const calls = await apiService.getVendorInspectionCalls(userId);
-                const TERMINAL = new Set([
-                    'WITHDRAW', 'WITHDRAWN', 'CANCELLED', 'CANCEL', 'REJECTED',
-                    'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS', 'SENT CALL TO IBS'
+                const MODIFIABLE = new Set([
+                    'CALL RAISED', 'PENDING FOR VERIFICATION', 'RETURNED BY CALL DESK',
+                    'RETURNED', 'RESUBMITTED', 'CALL ASSIGNED TO IE', 'SCHEDULED BY IE'
                 ]);
                 const active = new Set(
                     (calls || [])
                         .filter(c => {
                             const st = (c.status || c.jobStatus || c.workflowStatus || '').toUpperCase().trim();
-                            return !TERMINAL.has(st);
+                            return MODIFIABLE.has(st);
                         })
                         .map(c => String(c.srNo || c.sr_no || '').trim())
                         .filter(Boolean)

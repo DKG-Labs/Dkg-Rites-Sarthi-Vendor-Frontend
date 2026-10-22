@@ -415,7 +415,8 @@ export const RaiseInspectionCallForm = ({
   onSubmit,
   isLoading = false,
   isModifyMode = false,
-  isViewMode = false
+  isViewMode = false,
+  blockedCallTypes = new Set()
 }) => {
   const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
@@ -3214,8 +3215,21 @@ export const RaiseInspectionCallForm = ({
           </FormField>
         </div>
 
+        {/* ── Inline warning when selected call type already has an active call ── */}
+        {formData.type_of_call && blockedCallTypes.has(formData.type_of_call) && (
+          <div style={{ margin: '0 0 16px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, color: '#92400e', fontSize: '13px' }}>{formData.type_of_call} Call Awaiting Verification / Scheduling</div>
+              <div style={{ color: '#78350f', fontSize: '12px', marginTop: '4px' }}>
+                A {formData.type_of_call} inspection call for this PO Serial No. is currently under review or awaiting scheduling. You can raise a new {formData.type_of_call} call once the existing call proceeds to inspection, is cancelled, or withdrawn.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ============ SHOW REST OF FORM ONLY AFTER TYPE SELECTION ============ */}
-        {formData.type_of_call && (
+        {formData.type_of_call && !blockedCallTypes.has(formData.type_of_call) && (
           <>
             <div className="ric-form-grid">
               {/* <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="" errors={errors}>
