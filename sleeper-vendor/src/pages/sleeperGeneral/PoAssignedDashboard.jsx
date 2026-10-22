@@ -64,7 +64,7 @@ const formatDateDDMMYYYY = (dateStr) => {
             const year = d.getFullYear();
             return `${day}-${month}-${year}`;
         }
-    } catch (e) {}
+    } catch (e) { }
     return str;
 };
 
@@ -74,20 +74,20 @@ const checkDpDateStatus = (item) => {
     const extDpStr = item.extendedDeliveryDate || item.extended_delivery_date || item.extendedDeliveryPeriod || item.extended_delivery_period;
 
     const hasExtDp = Boolean(
-        extDpStr && 
-        String(extDpStr).trim() !== '' && 
-        String(extDpStr).trim().toUpperCase() !== 'N/A' && 
+        extDpStr &&
+        String(extDpStr).trim() !== '' &&
+        String(extDpStr).trim().toUpperCase() !== 'N/A' &&
         String(extDpStr).trim().toLowerCase() !== 'null'
     );
     const hasDp = Boolean(
-        dpStr && 
-        String(dpStr).trim() !== '' && 
-        String(dpStr).trim().toUpperCase() !== 'N/A' && 
+        dpStr &&
+        String(dpStr).trim() !== '' &&
+        String(dpStr).trim().toUpperCase() !== 'N/A' &&
         String(dpStr).trim().toLowerCase() !== 'null'
     );
 
     const targetStr = hasExtDp ? extDpStr : (hasDp ? dpStr : null);
-    
+
     if (!targetStr) {
         return {
             isDisabled: false,
@@ -122,7 +122,7 @@ const checkDpDateStatus = (item) => {
                 reason = `Call raising cutoff expired (Must be raised at least 5 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     const formattedDp = formatDateDDMMYYYY(dpStr);
     const formattedExtDp = hasExtDp ? formatDateDDMMYYYY(extDpStr) : null;
@@ -205,10 +205,10 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
             const srNo = String(rawSr).trim();
             const userId = sessionStorage.getItem('userId') || 118;
             const allCalls = await apiService.getVendorInspectionCalls(userId);
-            
+
             // Find matching calls for this poNo and srNo
-            const matchingCalls = (allCalls || []).filter(c => 
-                String(c.poNo).trim() === String(poNo).trim() && 
+            const matchingCalls = (allCalls || []).filter(c =>
+                String(c.poNo).trim() === String(poNo).trim() &&
                 (String(c.srNo).trim() === srNo || String(c.srNo).padStart(3, '0') === srNo.padStart(3, '0'))
             );
 
@@ -326,7 +326,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
                             if (isPlantBlocked) {
                                 alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
                             } else if (hasActiveCall && item.due > 0) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call is already active for this PO Serial No. (${srKey}).\n\nPlease wait for the current call to be completed, cancelled, or withdrawn before raising a new one.`);
+                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call for this PO Serial No. (${srKey}) is currently under review or awaiting scheduling.\n\nYou can raise a new call once the existing call proceeds to inspection, is cancelled, or withdrawn.`);
                             } else if (isCaseNoMissing && item.due > 0) {
                                 alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
                             } else if (isDpDisabled && item.due > 0) {
@@ -466,7 +466,7 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, isPlantBlocked = fal
                 </td>
                 {/* PO No. & Date */}
                 <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                    <div 
+                    <div
                         onClick={(e) => {
                             if (po.pdfPath) {
                                 e.stopPropagation();
@@ -479,9 +479,9 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, isPlantBlocked = fal
                                 document.body.removeChild(link);
                             }
                         }}
-                        style={{ 
-                            fontWeight: 800, 
-                            color: po.pdfPath ? '#21808d' : '#0f172a', 
+                        style={{
+                            fontWeight: 800,
+                            color: po.pdfPath ? '#21808d' : '#0f172a',
                             fontSize: 13,
                             textDecoration: po.pdfPath ? 'underline' : 'none',
                             cursor: po.pdfPath ? 'pointer' : 'default'
@@ -639,7 +639,7 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
             }
             const data = await apiService.getVendorPOs(undefined, activePlantId);
             setPoDataList(data || []);
-        } catch(e) {
+        } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
@@ -666,15 +666,15 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                 const userId = sessionStorage.getItem('userId') || sessionStorage.getItem('vendorCode') || '';
                 if (!userId) return;
                 const calls = await apiService.getVendorInspectionCalls(userId);
-                const TERMINAL = new Set([
-                    'WITHDRAW', 'WITHDRAWN', 'CANCELLED', 'CANCEL', 'REJECTED',
-                    'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS', 'SENT CALL TO IBS'
+                const MODIFIABLE = new Set([
+                    'CALL RAISED', 'PENDING FOR VERIFICATION', 'RETURNED BY CALL DESK',
+                    'RETURNED', 'RESUBMITTED', 'CALL ASSIGNED TO IE', 'SCHEDULED BY IE'
                 ]);
                 const active = new Set(
                     (calls || [])
                         .filter(c => {
                             const st = (c.status || c.jobStatus || c.workflowStatus || '').toUpperCase().trim();
-                            return !TERMINAL.has(st);
+                            return MODIFIABLE.has(st);
                         })
                         .map(c => String(c.srNo || c.sr_no || '').trim())
                         .filter(Boolean)
@@ -707,8 +707,8 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
         <div className="fade-in">
             {/* ── Page Header ── */}
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
-                <SyncPOButton 
-                    poList={poDataList} 
+                <SyncPOButton
+                    poList={poDataList}
                     onSuccess={(res) => {
                         fetchPos();
                         if (res && typeof res === 'object' && 'successCount' in res && 'totalCount' in res) {

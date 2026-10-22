@@ -1333,148 +1333,148 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                                             </div>
                                         </div>
 
-        {/* Section B: Quantities & Schedules */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-            <SectionHeader label="Quantities & Schedules" step="B" color="#8b5cf6" />
+                                        {/* Section B: Quantities & Schedules */}
+                                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+                                            <SectionHeader label="Quantities & Schedules" step="B" color="#8b5cf6" />
 
-            {/* Stat Boxes */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                <StatBox label="UNIT OF MEASUREMENT" value="Nos." />
-                <StatBox label="QUANTITY ON ORDER" value="50,000" />
-                <StatBox label="QTY ACCEPTED TILL NOW" value="0" color="#059669" />
-                <StatBox label="QUANTITY DUE" value="50,000" highlight={true} />
-            </div>
+                                            {/* Stat Boxes */}
+                                            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                                                <StatBox label="UNIT OF MEASUREMENT" value="Nos." />
+                                                <StatBox label="QUANTITY ON ORDER" value="50,000" />
+                                                <StatBox label="QTY ACCEPTED TILL NOW" value="0" color="#059669" />
+                                                <StatBox label="QUANTITY DUE" value="50,000" highlight={true} />
+                                            </div>
 
-            {/* Editable Fields */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                        {modifyForm.callType === 'FINAL' ? 'TOTAL QUANTITY TO OFFER *' : 'QUANTITY DESIRED FOR FINAL INSPECTION *'}
-                    </label>
-                    <input
-                        type="number"
-                        value={modifyForm.totalQty}
-                        onChange={(e) => setModifyForm(prev => ({ ...prev, totalQty: e.target.value }))}
-                        placeholder="Enter quantity"
-                        required
-                        min="1"
-                        style={{
-                            width: '100%', padding: '12px 16px', borderRadius: '12px',
-                            border: '1.5px solid #8b5cf6', background: '#fff',
-                            color: '#0f172a', fontWeight: 800, fontSize: '14px', outline: 'none'
-                        }}
-                    />
-                </div>
+                                            {/* Editable Fields */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                        {modifyForm.callType === 'FINAL' ? 'TOTAL QUANTITY TO OFFER *' : 'QUANTITY DESIRED FOR FINAL INSPECTION *'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        value={modifyForm.totalQty}
+                                                        onChange={(e) => setModifyForm(prev => ({ ...prev, totalQty: e.target.value }))}
+                                                        placeholder="Enter quantity"
+                                                        required
+                                                        min="1"
+                                                        style={{
+                                                            width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                            border: '1.5px solid #8b5cf6', background: '#fff',
+                                                            color: '#0f172a', fontWeight: 800, fontSize: '14px', outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
 
-                <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                        {modifyForm.callType === 'FINAL' ? 'DESIRED INSPECTION DATE *' : 'APPROX. DATE OF PRODUCTION INITIATION *'}
-                    </label>
-                    <input
-                        type="date"
-                        value={modifyForm.inspectionDate}
-                        onChange={(e) => setModifyForm(prev => ({ ...prev, inspectionDate: e.target.value }))}
-                        required
-                        style={{
-                            width: '100%', padding: '12px 16px', borderRadius: '12px',
-                            border: '1.5px solid #8b5cf6', background: '#fff',
-                            color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
-                        }}
-                    />
-                </div>
-            </div>
-        </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                        {modifyForm.callType === 'FINAL' ? 'DESIRED INSPECTION DATE *' : 'APPROX. DATE OF PRODUCTION INITIATION *'}
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={modifyForm.inspectionDate}
+                                                        onChange={(e) => setModifyForm(prev => ({ ...prev, inspectionDate: e.target.value }))}
+                                                        required
+                                                        style={{
+                                                            width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                                            border: '1.5px solid #8b5cf6', background: '#fff',
+                                                            color: '#0f172a', fontWeight: 700, fontSize: '14px', outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
 
-        {/* Section C: Offered Lots & Batches (for Final Calls) */}
-        {modifyForm.callType === 'FINAL' && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-                <SectionHeader label="Offered Lots & Batches" step="C" color="#10b981" />
-                {(modifyForm.lots || []).length > 0 ? (
-                    (modifyForm.lots || []).map((lot, lIdx) => (
-                        <div key={lot.id || lIdx} style={{ marginBottom: '16px', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '15px' }}>{lot.lotNo || `Lot ${lIdx + 1}`}</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Lot Size:</span>
-                                    <input
-                                        type="number"
-                                        value={lot.lotSize || 0}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value, 10) || 0;
-                                            setModifyForm(prev => {
-                                                const updatedLots = [...(prev.lots || [])];
-                                                updatedLots[lIdx] = { ...updatedLots[lIdx], lotSize: val };
-                                                return { ...prev, lots: updatedLots };
-                                            });
-                                        }}
-                                        style={{
-                                            width: '100px', padding: '6px 10px', borderRadius: '8px',
-                                            border: '1.5px solid #10b981', fontWeight: 800, fontSize: '13px',
-                                            color: '#059669', background: '#fff'
-                                        }}
-                                    />
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
-                                </div>
-                            </div>
+                                        {/* Section C: Offered Lots & Batches (for Final Calls) */}
+                                        {modifyForm.callType === 'FINAL' && (
+                                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+                                                <SectionHeader label="Offered Lots & Batches" step="C" color="#10b981" />
+                                                {(modifyForm.lots || []).length > 0 ? (
+                                                    (modifyForm.lots || []).map((lot, lIdx) => (
+                                                        <div key={lot.id || lIdx} style={{ marginBottom: '16px', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '15px' }}>{lot.lotNo || `Lot ${lIdx + 1}`}</div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Lot Size:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={lot.lotSize || 0}
+                                                                        onChange={(e) => {
+                                                                            const val = parseInt(e.target.value, 10) || 0;
+                                                                            setModifyForm(prev => {
+                                                                                const updatedLots = [...(prev.lots || [])];
+                                                                                updatedLots[lIdx] = { ...updatedLots[lIdx], lotSize: val };
+                                                                                return { ...prev, lots: updatedLots };
+                                                                            });
+                                                                        }}
+                                                                        style={{
+                                                                            width: '100px', padding: '6px 10px', borderRadius: '8px',
+                                                                            border: '1.5px solid #10b981', fontWeight: 800, fontSize: '13px',
+                                                                            color: '#059669', background: '#fff'
+                                                                        }}
+                                                                    />
+                                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Nos.</span>
+                                                                </div>
+                                                            </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
-                                {(lot.batches || []).map((batch, bIdx) => (
-                                    <div key={batch.id || bIdx} style={{ background: '#fff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Batch No</div>
-                                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px' }}>{batch.batchNo}</div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #f1f5f9', fontSize: '10px', color: '#64748b' }}>
-                                            <span>Qty: <strong>{batch.quantity || batch.qtyToUse || batch.availableQty || 0}</strong></span>
-                                            <span>Drawing: <strong>{batch.drawingNo || modifyForm.drawingNo || 'N/A'}</strong></span>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+                                                                {(lot.batches || []).map((batch, bIdx) => (
+                                                                    <div key={batch.id || bIdx} style={{ background: '#fff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Batch No</div>
+                                                                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px' }}>{batch.batchNo}</div>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #f1f5f9', fontSize: '10px', color: '#64748b' }}>
+                                                                            <span>Qty: <strong>{batch.quantity || batch.qtyToUse || batch.availableQty || 0}</strong></span>
+                                                                            <span>Drawing: <strong>{batch.drawingNo || modifyForm.drawingNo || 'N/A'}</strong></span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div style={{ color: '#64748b', fontSize: '13px', fontStyle: 'italic', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
+                                                        No offered lots assigned to this final call.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Pinned Sticky Footer Row */}
+                                    <div style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '16px 32px', borderTop: '1px solid #e2e8f0', background: '#ffffff',
+                                        flexShrink: 0
+                                    }}>
+                                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                                            All modifications are logged in audit trail (call_no, field_name, old_value, new_value).
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsModifyModalOpen(false)}
+                                                style={{
+                                                    padding: '10px 24px', borderRadius: '10px', border: '1px solid #cbd5e1',
+                                                    background: '#fff', color: '#475569', fontSize: '14px', fontWeight: 700,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={savingModification}
+                                                style={{
+                                                    padding: '10px 28px', borderRadius: '10px', border: 'none',
+                                                    background: '#21808d', color: '#ffffff', fontSize: '14px', fontWeight: 800,
+                                                    cursor: savingModification ? 'not-allowed' : 'pointer', opacity: savingModification ? 0.7 : 1,
+                                                    boxShadow: '0 4px 12px rgba(33,128,141,0.25)'
+                                                }}
+                                            >
+                                                {savingModification ? 'Saving...' : 'Save Modifications'}
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div style={{ color: '#64748b', fontSize: '13px', fontStyle: 'italic', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
-                        No offered lots assigned to this final call.
-                    </div>
-                )}
-            </div>
-        )}
-    </div>
-
-    {/* Pinned Sticky Footer Row */ }
-    <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '16px 32px', borderTop: '1px solid #e2e8f0', background: '#ffffff',
-        flexShrink: 0
-    }}>
-        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-            All modifications are logged in audit trail (call_no, field_name, old_value, new_value).
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-                type="button"
-                onClick={() => setIsModifyModalOpen(false)}
-                style={{
-                    padding: '10px 24px', borderRadius: '10px', border: '1px solid #cbd5e1',
-                    background: '#fff', color: '#475569', fontSize: '14px', fontWeight: 700,
-                    cursor: 'pointer'
-                }}
-            >
-                Cancel
-            </button>
-            <button
-                type="submit"
-                disabled={savingModification}
-                style={{
-                    padding: '10px 28px', borderRadius: '10px', border: 'none',
-                    background: '#21808d', color: '#ffffff', fontSize: '14px', fontWeight: 800,
-                    cursor: savingModification ? 'not-allowed' : 'pointer', opacity: savingModification ? 0.7 : 1,
-                    boxShadow: '0 4px 12px rgba(33,128,141,0.25)'
-                }}
-            >
-                {savingModification ? 'Saving...' : 'Save Modifications'}
-            </button>
-        </div>
-    </div>
                                 </form >
                             </>
                         )}
@@ -1482,49 +1482,49 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                 </div >
             )}
 
-{/* ============ WITHDRAW CALL MODAL ============ */ }
-{
-    isWithdrawModalOpen && controlPanelCall && (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
-            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-        }} onClick={() => setIsWithdrawModalOpen(false)}>
-            <div style={{
-                background: '#fff', borderRadius: '20px', maxWidth: '540px', width: '100%',
-                padding: '28px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)', border: '1px solid #e2e8f0'
-            }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>Withdraw Inspection Call</h3>
-                    <button onClick={() => setIsWithdrawModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>×</button>
-                </div>
-                <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', padding: '16px', color: '#991b1b', fontSize: '13px', marginBottom: '20px' }}>
-                    <strong>Attention:</strong> Withdrawing this inspection call will cancel the request. This action cannot be undone.
-                </div>
-                <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                        Withdrawal Remarks <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <textarea
-                        rows="3"
-                        value={withdrawRemarks}
-                        onChange={(e) => setWithdrawRemarks(e.target.value)}
-                        placeholder="Please provide a reason for withdrawing this inspection call..."
-                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                    />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                    <button onClick={() => setIsWithdrawModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}>
-                        Cancel
-                    </button>
-                    <button onClick={handleWithdrawSubmit} disabled={withdrawing || !withdrawRemarks.trim()} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: withdrawing || !withdrawRemarks.trim() ? 'not-allowed' : 'pointer', opacity: withdrawing || !withdrawRemarks.trim() ? 0.6 : 1 }}>
-                        {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
+            {/* ============ WITHDRAW CALL MODAL ============ */}
+            {
+                isWithdrawModalOpen && controlPanelCall && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+                        zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                    }} onClick={() => setIsWithdrawModalOpen(false)}>
+                        <div style={{
+                            background: '#fff', borderRadius: '20px', maxWidth: '540px', width: '100%',
+                            padding: '28px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)', border: '1px solid #e2e8f0'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>Withdraw Inspection Call</h3>
+                                <button onClick={() => setIsWithdrawModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>×</button>
+                            </div>
+                            <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', padding: '16px', color: '#991b1b', fontSize: '13px', marginBottom: '20px' }}>
+                                <strong>Attention:</strong> Withdrawing this inspection call will cancel the request. This action cannot be undone.
+                            </div>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                                    Withdrawal Remarks <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <textarea
+                                    rows="3"
+                                    value={withdrawRemarks}
+                                    onChange={(e) => setWithdrawRemarks(e.target.value)}
+                                    placeholder="Please provide a reason for withdrawing this inspection call..."
+                                    style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                <button onClick={() => setIsWithdrawModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}>
+                                    Cancel
+                                </button>
+                                <button onClick={handleWithdrawSubmit} disabled={withdrawing || !withdrawRemarks.trim()} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: withdrawing || !withdrawRemarks.trim() ? 'not-allowed' : 'pointer', opacity: withdrawing || !withdrawRemarks.trim() ? 0.6 : 1 }}>
+                                    {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 };

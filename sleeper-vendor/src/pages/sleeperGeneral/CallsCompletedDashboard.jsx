@@ -154,23 +154,22 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
 const formatDateDDMMYY = (val) => {
     if (!val) return 'N/A';
     try {
-        if (typeof val === 'string' && val.includes('T')) {
-            const parts = val.split('T')[0].split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
-            return val.split('T')[0];
-        }
-        if (typeof val === 'string' && val.includes('-')) {
-            const parts = val.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+        if (typeof val === 'string') {
+            const s = val.trim();
+            // Already dd/mm/yyyy (vendor-calls API) - normalise padding only
+            const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+            if (dmy) return `${dmy[1].padStart(2, '0')}/${dmy[2].padStart(2, '0')}/${dmy[3]}`;
+            // ISO yyyy-mm-dd[Thh:mm...]
+            const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
         }
         const d = new Date(val);
         if (!isNaN(d.getTime())) {
             const day = String(d.getDate()).padStart(2, '0');
             const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = String(d.getFullYear()).slice(-2);
-            return `${day}/${month}/${year}`;
+            return `${day}/${month}/${d.getFullYear()}`;
         }
-    } catch (e) {}
+    } catch (e) { }
     return String(val);
 };
 
@@ -211,9 +210,9 @@ const isPlantMatching = (callPlantId, allowedPlantList) => {
     return allowedPlantList.some(target => {
         const cleanTarget = cleanPlantStr(target);
         if (!cleanTarget) return false;
-        
+
         if (cleanCall === cleanTarget) return true;
-        
+
         if (cleanCall.includes(cleanTarget) || cleanTarget.includes(cleanCall)) {
             const callParts = String(callPlantId).split(/[/:]/).filter(Boolean);
             const targetParts = String(target).split(/[/:]/).filter(Boolean);
@@ -240,7 +239,7 @@ const getEffectivePlantId = (propPlantId) => {
             const parsed = JSON.parse(savedPlant);
             if (parsed?.plantId) return parsed.plantId;
         }
-    } catch (e) {}
+    } catch (e) { }
     return '';
 };
 
@@ -283,11 +282,11 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                 );
             };
 
-            const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value)) 
-                ? completedRes.value.filter(isSendCallToIbs) 
+            const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value))
+                ? completedRes.value.filter(isSendCallToIbs)
                 : [];
-            const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value)) 
-                ? vendorCallsRes.value.filter(isSendCallToIbs) 
+            const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value))
+                ? vendorCallsRes.value.filter(isSendCallToIbs)
                 : [];
 
             const combined = [...list1];
@@ -496,8 +495,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     };
 
     const SkeletonRow = () => (
-        <div style={{ 
-            display: 'flex', gap: '16px', padding: '16px', background: '#fff', 
+        <div style={{
+            display: 'flex', gap: '16px', padding: '16px', background: '#fff',
             borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px',
             animation: 'pulse 1.5s infinite ease-in-out'
         }}>
@@ -565,12 +564,12 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>Completed Calls</h1>
                     <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>View and manage your completed inspection requests and download certificates</p>
                 </div>
-                
+
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                         <SearchIcon size={18} color="#94a3b8" />
                     </div>
-                    <input 
+                    <input
                         type="text"
                         placeholder="Search Call No / PO No / IC No..."
                         value={search}
@@ -637,10 +636,10 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                 const icDate = call.icDate || call.certificateDate || call.updatedDate || call.createdDate || call.callDate;
 
                                 return (
-                                    <tr 
-                                        key={call.workflowTransitionId || call.id || idx} 
-                                        style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} 
+                                    <tr
+                                        key={call.workflowTransitionId || call.id || idx}
+                                        style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.15s ease' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                     >
                                         {/* 1. Call Details */}
@@ -703,7 +702,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
                                         {/* 5. Status */}
                                         <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
-                                            <div style={{ 
+                                            <div style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 padding: '5px 12px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700,
                                                 whiteSpace: 'nowrap',
@@ -716,9 +715,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
                                         {/* 6. Action */}
                                         <td style={{ padding: '16px 20px', textAlign: 'right', verticalAlign: 'middle' }}>
-                                            <button 
+                                            <button
                                                 onClick={() => handleViewActions(call)}
-                                                style={{ 
+                                                style={{
                                                     padding: '7px 14px', borderRadius: '8px', border: '1px solid #e2e8f0',
                                                     background: '#fff', color: '#1e293b', fontSize: '12.5px', fontWeight: 700,
                                                     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -736,7 +735,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                             })}
                         </tbody>
                     </table>
-                    
+
                     {/* Pagination Controls */}
                     {filteredCalls.length > 0 && (
                         <div style={{
@@ -747,7 +746,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                                 <div>
-                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages}</strong> 
+                                    Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages}</strong>
                                     <span style={{ marginLeft: 8 }}>({filteredCalls.length} total calls)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -762,7 +761,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         style={{
                                             padding: '6px 10px', borderRadius: '8px',
                                             border: '1px solid #cbd5e1', background: '#fff',
-                                            color: '#0f172a', fontSize: '13px', fontWeight: 600, 
+                                            color: '#0f172a', fontSize: '13px', fontWeight: 600,
                                             outline: 'none', cursor: 'pointer', minWidth: '60px'
                                         }}
                                     >

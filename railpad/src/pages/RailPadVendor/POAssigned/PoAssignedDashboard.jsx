@@ -63,7 +63,7 @@ const formatDateDDMMYYYY = (dateStr) => {
             const year = d.getFullYear();
             return `${day}-${month}-${year}`;
         }
-    } catch (e) {}
+    } catch (e) { }
     return str;
 };
 
@@ -103,20 +103,20 @@ const checkDpDateStatus = (item) => {
     const extDpStr = item.extendedDeliveryDate || item.extended_delivery_date;
 
     const hasExtDp = Boolean(
-        extDpStr && 
-        String(extDpStr).trim() !== '' && 
-        String(extDpStr).trim().toUpperCase() !== 'N/A' && 
+        extDpStr &&
+        String(extDpStr).trim() !== '' &&
+        String(extDpStr).trim().toUpperCase() !== 'N/A' &&
         String(extDpStr).trim().toLowerCase() !== 'null'
     );
     const hasDp = Boolean(
-        dpStr && 
-        String(dpStr).trim() !== '' && 
-        String(dpStr).trim().toUpperCase() !== 'N/A' && 
+        dpStr &&
+        String(dpStr).trim() !== '' &&
+        String(dpStr).trim().toUpperCase() !== 'N/A' &&
         String(dpStr).trim().toLowerCase() !== 'null'
     );
 
     const targetStr = hasExtDp ? extDpStr : (hasDp ? dpStr : null);
-    
+
     if (!targetStr) {
         return {
             isDisabled: false,
@@ -151,7 +151,7 @@ const checkDpDateStatus = (item) => {
                 reason = `Call raising cutoff expired (Must be raised at least 5 days before ${dpLabel} Date: ${formattedTarget}. Cutoff was ${formattedCutoff})`;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     const formattedDp = formatDateDDMMYYYY(dpStr);
     const formattedExtDp = hasExtDp ? formatDateDDMMYYYY(extDpStr) : null;
@@ -186,7 +186,7 @@ const checkDpDateStatus = (item) => {
 };
 
 // ─── SR. No. Sub-Table Row ────────────────────────────────────────────────────
-const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false, onRefreshData, isPlantBlocked = false, activeSrNos = new Set() }) => {
+const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantId, vendorCode, isCaseNoMissing = false, onRefreshData, isPlantBlocked = false, activeProcessSrNos = new Set(), activeFinalSrNos = new Set(), onNotify }) => {
     const [showForm, setShowForm] = useState(false);
     const dueColor = item.due === 0 ? '#16a34a' : '#0f172a';
     const dpInfo = checkDpDateStatus(item);
@@ -200,14 +200,19 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 
     const isDpDisabled = dpInfo.isDisabled;
     const srKey = String(item.itemSrNo || item.srNo || '').trim();
-    const hasActiveCall = srKey ? activeSrNos.has(srKey) : false;
-    const isDisabled = isPlantBlocked || hasActiveCall || effectiveCaseNoMissing || isAllDispatched || isDpDisabled;
+    const hasActiveProcessCall = srKey ? activeProcessSrNos.has(srKey) : false;
+    const hasActiveFinalCall   = srKey ? activeFinalSrNos.has(srKey)   : false;
+    const isDisabled = isPlantBlocked || (hasActiveProcessCall && hasActiveFinalCall) || effectiveCaseNoMissing || isAllDispatched || isDpDisabled;
 
     let hoverMessage = '';
     if (isPlantBlocked) {
         hoverMessage = '⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.';
-    } else if (hasActiveCall) {
-        hoverMessage = `⚠️ An inspection call is already active for this PO Serial No. (${srKey}). Please wait for the current call to be completed, cancelled, or withdrawn.`;
+    } else if (hasActiveProcessCall && hasActiveFinalCall) {
+        hoverMessage = `⚠️ Both Process and Final inspection calls are already active for PO SR No. (${srKey}). Please wait for the current calls to complete.`;
+    } else if (hasActiveProcessCall) {
+        hoverMessage = `⚠️ A Process call (RPP) is already active for PO SR No. (${srKey}). You may still raise a Final call (RPF).`;
+    } else if (hasActiveFinalCall) {
+        hoverMessage = `⚠️ A Final call (RPF) is already active for PO SR No. (${srKey}). You may still raise a Process call (RPP).`;
     } else if (effectiveCaseNoMissing) {
         hoverMessage = '⚠️ Case Number is not present or N/A for this Purchase Order. Inspection call cannot be raised without a valid Case Number. Please contact RITES Administrator to update the Case No.';
     } else if (isAllDispatched) {
@@ -287,13 +292,11 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                         }}
                         onClick={() => {
                             if (isPlantBlocked) {
-                                alert("⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.");
-                            } else if (hasActiveCall) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\nAn inspection call is already active for this PO Serial No. (${srKey}).\n\nPlease wait for the current call to be completed, cancelled, or withdrawn before raising a new one.`);
+                                onNotify?.('⚠️ Call raising is blocked for this plant due to pending cancellation charges. Please clear payment details in the Payment Details Updating Module.', 'error');
                             } else if (effectiveCaseNoMissing) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\nCase Number is not available or N/A for PO No. ${poNo || ''}.\n\nPlease contact RITES Administrator to update the Case Number.`);
+                                onNotify?.(`⚠️ Case Number is not available or N/A for PO No. ${poNo || ''}. Please contact RITES Administrator to update the Case Number.`, 'error');
                             } else if (isDpDisabled) {
-                                alert(`⚠️ Cannot Raise Inspection Call:\n\n${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`);
+                                onNotify?.(`⚠️ ${dpInfo.reason || 'Cutoff date expired. Inspection calls must be raised at least 5 days before DP Date.'}`, 'error');
                             }
                         }}
                     >
@@ -320,20 +323,20 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                                 boxShadow: isDisabled ? 'none' : '0 2px 8px rgba(33,128,141,0.3)'
                             }}
                         >
-                            {isAllDispatched ? 'All Dispatched' : (isPlantBlocked ? 'Raise Call (Blocked)' : (hasActiveCall ? 'Call In Progress' : (effectiveCaseNoMissing ? 'Raise Call (Disabled)' : (isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'))))}
+                            {isAllDispatched ? 'All Dispatched' : isPlantBlocked ? 'Raise Call (Blocked)' : (hasActiveProcessCall && hasActiveFinalCall) ? 'All Calls In Progress' : effectiveCaseNoMissing ? 'Raise Call (Disabled)' : isDpDisabled ? 'Cutoff Expired' : 'Raise Inspection Call'}
                         </button>
                     </div>
-                    {hasActiveCall && !isAllDispatched && !isPlantBlocked && (
+                    {(hasActiveProcessCall || hasActiveFinalCall) && !isAllDispatched && !isPlantBlocked && (
                         <div style={{ fontSize: 9.5, color: '#d97706', marginTop: 3, fontWeight: 700 }}>
-                            ⚠️ Call In Progress
+                            {hasActiveProcessCall && hasActiveFinalCall ? '⚠️ Both Calls In Progress' : hasActiveProcessCall ? '⚠️ Process Call In Progress' : '⚠️ Final Call In Progress'}
                         </div>
                     )}
-                    {effectiveCaseNoMissing && !isAllDispatched && !hasActiveCall && !isPlantBlocked && (
+                    {effectiveCaseNoMissing && !isAllDispatched && !(hasActiveProcessCall || hasActiveFinalCall) && !isPlantBlocked && (
                         <div style={{ fontSize: 9.5, color: '#dc2626', marginTop: 3, fontWeight: 700 }}>
                             ⚠️ Case No. Missing
                         </div>
                     )}
-                    {isDpDisabled && !isAllDispatched && !effectiveCaseNoMissing && !hasActiveCall && !isPlantBlocked && (
+                    {isDpDisabled && !isAllDispatched && !effectiveCaseNoMissing && !(hasActiveProcessCall || hasActiveFinalCall) && !isPlantBlocked && (
                         <div style={{ fontSize: 9.5, color: '#dc2626', marginTop: 3, fontWeight: 700 }}>
                             ⚠️ DP Cutoff Expired
                         </div>
@@ -351,6 +354,8 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
                         if (onRefreshData) onRefreshData();
                     }}
                     onSubmitInspectionCall={onSubmitInspectionCall}
+                    activeProcessSrNos={activeProcessSrNos}
+                    activeFinalSrNos={activeFinalSrNos}
                 />
             )}
         </>
@@ -358,7 +363,7 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 };
 
 // ─── PO Row (with Expandable accordion) ──────────────────────────────────────
-const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl, onRefreshData, isPlantBlocked = false, activeSrNos = new Set() }) => {
+const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode, setViewingPdfUrl, onRefreshData, isPlantBlocked = false, activeProcessSrNos = new Set(), activeFinalSrNos = new Set(), onNotify }) => {
     const [expanded, setExpanded] = useState(false);
 
     // Sort items numerically by SR No / poSerialNo
@@ -376,12 +381,12 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
     const activeSrCount = items.filter(s => s.due > 0).length;
     const totalPoQty = po.qty || items.reduce((acc, s) => acc + (s.orderedQty || s.ordered || 0), 0);
     const caseNoValue = po.caseNo || po.case_no || '';
-    const isCaseNoMissing = !caseNoValue || 
-        String(caseNoValue).trim() === '' || 
-        String(caseNoValue).trim().toUpperCase() === 'N/A' || 
-        String(caseNoValue).trim().toUpperCase() === 'NA' || 
-        String(caseNoValue).trim() === '-' || 
-        String(caseNoValue).trim().toUpperCase() === 'NULL' || 
+    const isCaseNoMissing = !caseNoValue ||
+        String(caseNoValue).trim() === '' ||
+        String(caseNoValue).trim().toUpperCase() === 'N/A' ||
+        String(caseNoValue).trim().toUpperCase() === 'NA' ||
+        String(caseNoValue).trim() === '-' ||
+        String(caseNoValue).trim().toUpperCase() === 'NULL' ||
         String(caseNoValue).trim().toUpperCase() === 'UNDEFINED';
 
     return (
@@ -412,16 +417,16 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                 </td>
                 {/* PO No. & Date */}
                 <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
-                    <div 
+                    <div
                         onClick={(e) => {
                             if (po.pdfPath) {
                                 e.stopPropagation();
                                 setViewingPdfUrl(po.pdfPath);
                             }
                         }}
-                        style={{ 
-                            fontWeight: 800, 
-                            color: po.pdfPath ? '#21808d' : '#0f172a', 
+                        style={{
+                            fontWeight: 800,
+                            color: po.pdfPath ? '#21808d' : '#0f172a',
                             fontSize: 13,
                             textDecoration: po.pdfPath ? 'underline' : 'none',
                             cursor: po.pdfPath ? 'pointer' : 'default'
@@ -525,7 +530,9 @@ const PoRow = ({ po, index, isLast, onSubmitInspectionCall, plantId, vendorCode,
                                                 isCaseNoMissing={isCaseNoMissing}
                                                 onRefreshData={onRefreshData}
                                                 isPlantBlocked={isPlantBlocked}
-                                                activeSrNos={activeSrNos}
+                                                activeProcessSrNos={activeProcessSrNos}
+                                                activeFinalSrNos={activeFinalSrNos}
+                                                onNotify={onNotify}
                                             />
                                         ))}
                                     </tbody>
@@ -559,17 +566,18 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
     const [notification, setNotification] = useState(null);
     const [isPlantBlocked, setIsPlantBlocked] = useState(false);
     const [blockReason, setBlockReason] = useState('');
-    const [activeSrNos, setActiveSrNos] = useState(new Set());
+    const [activeProcessSrNos, setActiveProcessSrNos] = useState(new Set());
+    const [activeFinalSrNos, setActiveFinalSrNos] = useState(new Set());
 
-    const fetchPoData = async () => {
+    const fetchPoData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await poAssignedService.getPoAssigned(vendorCode);
             setPoDataList(Array.isArray(data) ? data : (data.responseData || []));
         } catch (error) {
             console.error('Error fetching PO data:', error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -591,18 +599,26 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
             checkPlantBlock();
             const fetchActiveCalls = async () => {
                 try {
-                    const calls = await inspectionCallService.getByVendor(vendorCode);
-                    const TERMINAL = new Set([
-                        'WITHDRAW', 'WITHDRAWN', 'CANCELLED', 'CANCEL', 'REJECTED',
-                        'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS', 'SENT CALL TO IBS'
-                    ]);
-                    const active = new Set(
-                        (Array.isArray(calls) ? calls : (calls?.responseData || []))
-                            .filter(c => !TERMINAL.has((c.status || '').toUpperCase().trim()))
-                            .map(c => String(c.poSr || c.po_sr || '').trim())
-                            .filter(Boolean)
-                    );
-                    setActiveSrNos(active);
+                    const cleanVendorCode = (vendorCode || '').replace(/^:/, '');
+                    const calls = await inspectionCallService.getByVendor(cleanVendorCode);
+                    const BLOCK_ACTIONS = new Set(['CREATED', 'VERIFY', 'MAIN_IE_SCHEDULE_CALL', 'INITIATE_CALL']);
+                    const activeProcess = new Set();
+                    const activeFinal = new Set();
+                    (Array.isArray(calls) ? calls : (calls?.responseData || []))
+                        .filter(c => {
+                            const action = (c.latestAction || c.workflowStatus || c.status || '').toUpperCase().trim();
+                            return BLOCK_ACTIONS.has(action);
+                        })
+                        .forEach(c => {
+                            const sr = String(c.poSr || c.po_sr || '').trim();
+                            if (!sr) return;
+                            const type = (c.callType || '').toUpperCase();
+                            const prefix = (c.callNo || c.call_no || '').toUpperCase().slice(0, 3);
+                            if (type === 'PROCESS' || prefix === 'RPP') activeProcess.add(sr);
+                            else activeFinal.add(sr);
+                        });
+                    setActiveProcessSrNos(activeProcess);
+                    setActiveFinalSrNos(activeFinal);
                 } catch (err) {
                     console.error('Error fetching active calls:', err);
                 }
@@ -642,19 +658,14 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                 || res?.data?.callNo
                 || res?.responseData
                 || (payload?.callType === 'PROCESS' ? 'RPP-SUCCESS' : 'RPF-SUCCESS');
-            
+
             const isProcess = payload?.callType === 'PROCESS' || String(callNo).startsWith('RPP');
             const callTypeLabel = isProcess ? 'Process' : 'Final';
             showNotification(`✅ ${callTypeLabel} Inspection Call Raised Successfully! Call No: ${callNo}`, 'success');
-            
-            // Immediate and delayed re-fetches so backend DB update completes and reflects automatically
-            fetchPoData();
-            setTimeout(() => {
-                fetchPoData();
-            }, 1200);
-            setTimeout(() => {
-                fetchPoData();
-            }, 2500);
+
+            // Silent re-fetches after submit so backend DB update reflects without blanking the table
+            fetchPoData(true);
+            setTimeout(() => fetchPoData(true), 1500);
 
             return res;
         } catch (err) {
@@ -794,7 +805,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                     100% { opacity: 0.6; }
                 }
             `}</style>
-            
+
             {/* ── Toast Notification ── */}
             {notification && (
                 <div style={{
@@ -808,7 +819,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                     {notification.message}
                 </div>
             )}
-            
+
             {/* ── Page Header & Filter Bar Container ── */}
             <div style={{
                 background: '#fff',
@@ -830,7 +841,7 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                             </p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-                            <SyncPOButton 
+                            <SyncPOButton
                                 vendorCode={vendorCode}
                                 plantId={plantId}
                                 onSuccess={() => fetchPoData()}
@@ -959,7 +970,9 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                                         setViewingPdfUrl={setViewingPdfUrl}
                                         onRefreshData={fetchPoData}
                                         isPlantBlocked={isPlantBlocked}
-                                        activeSrNos={activeSrNos}
+                                        activeProcessSrNos={activeProcessSrNos}
+                                        activeFinalSrNos={activeFinalSrNos}
+                                        onNotify={showNotification}
                                     />
                                 ))
                             )}

@@ -5,6 +5,9 @@ import RaiseRailPadProcessCallForm from './RaiseRailPadProcessCallForm';
 import { Package, Plus } from 'lucide-react';
 
 const RaiseRailPadCallWrapper = (props) => {
+    const srKey = String(props.srItem?.itemSrNo || props.srItem?.srNo || '').trim();
+    const isProcessBlocked = srKey ? props.activeProcessSrNos?.has(srKey) : false;
+    const isFinalBlocked   = srKey ? props.activeFinalSrNos?.has(srKey)   : false;
     const wrapperKey = `railpad_draft_call_type_${String(props.poNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${props.srItem?.itemSrNo || props.srItem?.srNo || '1'}`;
     const [callType, setCallType] = useState(() => {
         try {
@@ -80,6 +83,30 @@ const RaiseRailPadCallWrapper = (props) => {
                     </select>
                 </div>
 
+                {/* ── Inline block warning ── */}
+                {callType === 'PROCESS' && isProcessBlocked && (
+                    <div style={{ margin: '0 20px 4px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
+                        <div>
+                            <div style={{ fontWeight: 700, color: '#92400e', fontSize: '13px' }}>Process Call Awaiting Verification / Scheduling</div>
+                            <div style={{ color: '#78350f', fontSize: '12px', marginTop: '4px' }}>
+                                A Process inspection call for SR No. {srKey} is currently under review or awaiting scheduling. You can raise a new Process call once the existing call proceeds to inspection, is cancelled, or withdrawn.
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {callType === 'FINAL' && isFinalBlocked && (
+                    <div style={{ margin: '0 20px 4px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
+                        <div>
+                            <div style={{ fontWeight: 700, color: '#92400e', fontSize: '13px' }}>Final Call Awaiting Verification / Scheduling</div>
+                            <div style={{ color: '#78350f', fontSize: '12px', marginTop: '4px' }}>
+                                A Final inspection call for SR No. {srKey} is currently under review or awaiting scheduling. You can raise a new Final call once the existing call proceeds to inspection, is cancelled, or withdrawn.
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Dynamic Content ── */}
                 <div style={{ flex: 1, overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     {callType === '' && (
@@ -89,8 +116,8 @@ const RaiseRailPadCallWrapper = (props) => {
                             <p style={{ margin: 0, fontSize: '13px' }}>Please select the type of call from the dropdown above to proceed.</p>
                         </div>
                     )}
-                    {callType === 'PROCESS' && <RaiseRailPadProcessCallForm {...props} isWrapped />}
-                    {callType === 'FINAL' && <RaiseRailPadInspectionCallForm {...props} isWrapped />}
+                    {callType === 'PROCESS' && !isProcessBlocked && <RaiseRailPadProcessCallForm {...props} isWrapped />}
+                    {callType === 'FINAL'   && !isFinalBlocked   && <RaiseRailPadInspectionCallForm {...props} isWrapped />}
                 </div>
             </div>
         </div>,
