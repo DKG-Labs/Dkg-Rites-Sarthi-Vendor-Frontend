@@ -51,6 +51,7 @@ import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
 import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
 import MaterialDiversionPage from './MaterialDiversionPage';
+import diversionService from '../services/diversionService';
 
 // Set worker source for pdfjs-dist locally
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -325,6 +326,23 @@ const VendorDashboardPage = ({ onBack }) => {
     role: 'VENDOR',
     email: 'vendor@example.com'
   }), [user.userName]);
+
+  // Complete-diversion source SR nos — hides those ICs from raise-call dropdowns
+  const [completeDiversionSrNos, setCompleteDiversionSrNos] = useState(new Set());
+
+  useEffect(() => {
+    const fetchCompleteDiversionSrNos = async () => {
+      if (!user.userName) return;
+      try {
+        const res = await diversionService.getCompleteDiversionSourceSrNos(user.userName);
+        const srNos = res?.responseData || res?.data || [];
+        setCompleteDiversionSrNos(new Set(Array.isArray(srNos) ? srNos : []));
+      } catch {
+        // non-fatal — keep empty set
+      }
+    };
+    fetchCompleteDiversionSrNos();
+  }, [user.userName]);
 
   // ============ FETCH PO ASSIGNED DATA ============
   const fetchPOAssignedData = useCallback(async () => {
@@ -5166,6 +5184,7 @@ const VendorDashboardPage = ({ onBack }) => {
                 vendorId={currentUser.id}
                 onSubmit={handleSubmitInspectionRequest}
                 isLoading={isLoading}
+                completeDiversionSrNos={completeDiversionSrNos}
               />
             </>
           )}
@@ -5742,6 +5761,7 @@ const VendorDashboardPage = ({ onBack }) => {
                     isModifyMode={isModifyMode}
                     isViewMode={isViewOnlyMode}
                     blockedCallTypes={_blockedCallTypes}
+                    completeDiversionSrNos={completeDiversionSrNos}
                   />
                 );
               })()}

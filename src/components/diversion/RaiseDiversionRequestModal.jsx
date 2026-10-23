@@ -739,6 +739,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const [railwayPermissionNo, setRailwayPermissionNo] = useState('');
   const [railwayPermissionDate, setRailwayPermissionDate] = useState(new Date().toISOString().split('T')[0]);
   const [railwayPermissionDocUrl, setRailwayPermissionDocUrl] = useState('');
+  const [railwayDocUploading, setRailwayDocUploading] = useState(false);
+  const [railwayDocFileName, setRailwayDocFileName] = useState('');
   const [vendorRemarks, setVendorRemarks] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -955,14 +957,22 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     setLineItems(updated);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setRailwayPermissionDocUrl(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    setRailwayDocUploading(true);
+    setRailwayDocFileName(file.name);
+    setRailwayPermissionDocUrl('');
+    try {
+      const res = await diversionService.uploadRailwayDoc(file);
+      const url = res?.data?.url || res?.url;
+      if (!url) throw new Error('No URL returned from upload');
+      setRailwayPermissionDocUrl(url);
+    } catch (err) {
+      setError('Failed to upload Railway Permission document. Please try again.');
+      setRailwayDocFileName('');
+    } finally {
+      setRailwayDocUploading(false);
     }
   };
 
@@ -1292,7 +1302,17 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
             </div>
             <div className="diversion-form-group">
               <label className="diversion-form-label">Upload Railway Permission Doc (PDF) *</label>
-              <input type="file" accept=".pdf" className="diversion-input" onChange={handleFileUpload} />
+              <input type="file" accept=".pdf" className="diversion-input" onChange={handleFileUpload} disabled={railwayDocUploading} />
+              {railwayDocUploading && (
+                <span style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px', display: 'block' }}>
+                  ⏳ Uploading {railwayDocFileName}…
+                </span>
+              )}
+              {!railwayDocUploading && railwayPermissionDocUrl && (
+                <span style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px', display: 'block' }}>
+                  ✓ Uploaded: {railwayDocFileName}
+                </span>
+              )}
             </div>
           </div>
           <div className="diversion-form-group" style={{ marginTop: '16px' }}>
@@ -1304,11 +1324,11 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
           <button type="button" className="diversion-tab-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="diversion-btn-primary" style={{ background: '#f1f5f9', color: '#334155' }} onClick={() => handleSubmit(true)} disabled={isLoading}>
+          <button type="button" className="diversion-btn-primary" style={{ background: '#f1f5f9', color: '#334155' }} onClick={() => handleSubmit(true)} disabled={isLoading || railwayDocUploading}>
             Save as Draft
           </button>
-          <button type="button" className="diversion-btn-primary" style={{ background: '#0284c7', color: '#ffffff' }} onClick={() => handleSubmit(false)} disabled={isLoading}>
-            {isLoading ? 'Submitting...' : 'Submit to Controlling Manager'}
+          <button type="button" className="diversion-btn-primary" style={{ background: '#0284c7', color: '#ffffff' }} onClick={() => handleSubmit(false)} disabled={isLoading || railwayDocUploading}>
+            {railwayDocUploading ? 'Uploading document…' : isLoading ? 'Submitting...' : 'Submit to Controlling Manager'}
           </button>
         </div>
       </div>

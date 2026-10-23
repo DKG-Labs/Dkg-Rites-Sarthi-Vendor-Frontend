@@ -55,6 +55,24 @@ const diversionService = {
   },
 
   /**
+   * Upload Railway Permission document — returns { url, blobName }
+   * @param {File} file
+   */
+  uploadRailwayDoc: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      // Do NOT set Content-Type manually — browser sets multipart boundary automatically
+      // _timeout: 5 min because large PDFs uploading through backend to Azure can be slow
+      const response = await httpClient.post('/erc/diversion/upload-railway-doc', formData, { _timeout: 300000 });
+      return response;
+    } catch (error) {
+      console.error('Error uploading railway permission doc:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Submit diversion request
    * @param {Object} requestData
    */
@@ -135,6 +153,16 @@ const diversionService = {
     } catch (error) {
       console.error('Error fetching available basket items:', error);
       throw error;
+    }
+  },
+
+  getCompleteDiversionSourceSrNos: async (vendorCode) => {
+    try {
+      const response = await httpClient.get(`/erc/diversion/complete-source-sr-nos?vendorCode=${encodeURIComponent(vendorCode)}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching complete diversion source SR nos:', error);
+      return null;
     }
   }
 };
