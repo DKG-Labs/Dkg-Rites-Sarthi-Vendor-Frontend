@@ -50,6 +50,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import AnnexurePage from './AnnexurePage';
 import AnnexureLoader from '../components/annexures/AnnexureLoader';
 import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
+import MaterialDiversionPage from './MaterialDiversionPage';
+import diversionService from '../services/diversionService';
 
 // Set worker source for pdfjs-dist locally
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -324,6 +326,23 @@ const VendorDashboardPage = ({ onBack }) => {
     role: 'VENDOR',
     email: 'vendor@example.com'
   }), [user.userName]);
+
+  // Complete-diversion source SR nos — hides those ICs from raise-call dropdowns
+  const [completeDiversionSrNos, setCompleteDiversionSrNos] = useState(new Set());
+
+  useEffect(() => {
+    const fetchCompleteDiversionSrNos = async () => {
+      if (!user.userName) return;
+      try {
+        const res = await diversionService.getCompleteDiversionSourceSrNos(user.userName);
+        const srNos = res?.responseData || res?.data || [];
+        setCompleteDiversionSrNos(new Set(Array.isArray(srNos) ? srNos : []));
+      } catch {
+        // non-fatal — keep empty set
+      }
+    };
+    fetchCompleteDiversionSrNos();
+  }, [user.userName]);
 
   // ============ FETCH PO ASSIGNED DATA ============
   const fetchPOAssignedData = useCallback(async () => {
@@ -2538,6 +2557,11 @@ const VendorDashboardPage = ({ onBack }) => {
       id: 'master-updating',
       label: 'Master Updating',
       description: 'Place / Factory / Contractor / Manufacturer'
+    },
+    {
+      id: 'material-diversion',
+      label: 'Material Diversion',
+      description: 'ERC Material Diversion & Basket Management'
     },
     {
       id: 'feedback-system',
@@ -5160,6 +5184,7 @@ const VendorDashboardPage = ({ onBack }) => {
                 vendorId={currentUser.id}
                 onSubmit={handleSubmitInspectionRequest}
                 isLoading={isLoading}
+                completeDiversionSrNos={completeDiversionSrNos}
               />
             </>
           )}
@@ -5258,7 +5283,14 @@ const VendorDashboardPage = ({ onBack }) => {
             </>
           )}
 
-          {/* 11. Feedback System */}
+          {/* 11. Material Diversion */}
+          {activeTab === 'material-diversion' && (
+            <div className="material-diversion-tab-wrapper">
+              <MaterialDiversionPage />
+            </div>
+          )}
+
+          {/* 12. Feedback System */}
           {activeTab === 'feedback-system' && (
             <div className="feedback-module-wrapper">
               <div className="vendor-section-header">
@@ -5729,6 +5761,7 @@ const VendorDashboardPage = ({ onBack }) => {
                     isModifyMode={isModifyMode}
                     isViewMode={isViewOnlyMode}
                     blockedCallTypes={_blockedCallTypes}
+                    completeDiversionSrNos={completeDiversionSrNos}
                   />
                 );
               })()}

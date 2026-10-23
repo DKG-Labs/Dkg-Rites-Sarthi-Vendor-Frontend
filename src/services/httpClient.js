@@ -76,8 +76,16 @@ const request = async (endpoint, options = {}) => {
   // Remove token from config if passed (already added to headers)
   delete config.token;
 
+  // For FormData bodies, remove Content-Type so the browser sets it with the multipart boundary
+  if (config.body instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
+  const requestTimeout = config._timeout || REQUEST_TIMEOUT;
+  delete config._timeout;
+
   try {
-    const response = await fetchWithTimeout(url, config);
+    const response = await fetchWithTimeout(url, config, requestTimeout);
     const data = await parseResponse(response);
 
     if (!response.ok) {
@@ -148,7 +156,7 @@ export const httpClient = {
     request(endpoint, {
       ...options,
       method: 'POST',
-      body: JSON.stringify(data)
+      body: data instanceof FormData ? data : JSON.stringify(data)
     }),
 
   put: (endpoint, data, options = {}) =>

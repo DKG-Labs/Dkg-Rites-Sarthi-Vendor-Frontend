@@ -6,8 +6,9 @@ import { Package, Plus } from 'lucide-react';
 
 const RaiseRailPadCallWrapper = (props) => {
     const srKey = String(props.srItem?.itemSrNo || props.srItem?.srNo || '').trim();
-    const isProcessBlocked = srKey ? props.activeProcessSrNos?.has(srKey) : false;
-    const isFinalBlocked   = srKey ? props.activeFinalSrNos?.has(srKey)   : false;
+    const poSrKey = props.poNo && srKey ? `${props.poNo}_${srKey}` : '';
+    const isProcessBlocked = poSrKey ? props.activeProcessSrNos?.has(poSrKey) : false;
+    const isFinalBlocked   = poSrKey ? props.activeFinalSrNos?.has(poSrKey)   : false;
     const wrapperKey = `railpad_draft_call_type_${String(props.poNo || 'PO').replace(/[^a-zA-Z0-9_-]/g, '_')}_${props.srItem?.itemSrNo || props.srItem?.srNo || '1'}`;
     const [callType, setCallType] = useState(() => {
         try {

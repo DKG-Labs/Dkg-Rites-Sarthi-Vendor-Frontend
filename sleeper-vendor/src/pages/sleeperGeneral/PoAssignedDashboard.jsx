@@ -194,7 +194,8 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, isCase
     const dpInfo = checkDpDateStatus(item);
     const isDpDisabled = dpInfo.isDisabled;
     const srKey = String(item.itemSrNo || item.srNo || '').trim();
-    const hasActiveCall = srKey ? activeSrNos.has(srKey) : false;
+    const poSrKey = poNo && srKey ? `${poNo}_${srKey}` : '';
+    const hasActiveCall = poSrKey ? activeSrNos.has(poSrKey) : false;
     const shouldDisableRaiseCall = isPlantBlocked || hasActiveCall || item.due === 0 || isCaseNoMissing || isDpDisabled;
 
     const handleDownloadCallLetter = async (e) => {
@@ -676,7 +677,11 @@ const PoAssignedDashboard = ({ onSubmitInspectionCall }) => {
                             const st = (c.status || c.jobStatus || c.workflowStatus || '').toUpperCase().trim();
                             return MODIFIABLE.has(st);
                         })
-                        .map(c => String(c.srNo || c.sr_no || '').trim())
+                        .map(c => {
+                            const po = String(c.poNo || c.po_no || '').trim();
+                            const sr = String(c.srNo || c.sr_no || '').trim();
+                            return po && sr ? `${po}_${sr}` : '';
+                        })
                         .filter(Boolean)
                 );
                 setActiveSrNos(active);

@@ -416,7 +416,8 @@ export const RaiseInspectionCallForm = ({
   isLoading = false,
   isModifyMode = false,
   isViewMode = false,
-  blockedCallTypes = new Set()
+  blockedCallTypes = new Set(),
+  completeDiversionSrNos = new Set()
 }) => {
   const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
@@ -713,7 +714,11 @@ export const RaiseInspectionCallForm = ({
               });
             }
 
-            setApprovedRMICsForProcess(formattedData);
+            // Hide ICs whose PO SR no has a COMPLETE diversion
+            const visibleData = completeDiversionSrNos.has(formData.po_serial_no)
+              ? []
+              : formattedData;
+            setApprovedRMICsForProcess(visibleData);
           } else {
             console.log('⚠️ Response not successful, setting empty array');
             // Still inject pre-selected values so they show in modify mode
@@ -1087,7 +1092,9 @@ export const RaiseInspectionCallForm = ({
               });
             }
 
-            setRmIcNumbersForFinal(certificates);
+            // Hide ICs whose PO SR no has a COMPLETE diversion
+            const visibleCerts = completeDiversionSrNos.has(formData.po_serial_no) ? [] : certificates;
+            setRmIcNumbersForFinal(visibleCerts);
           } else {
             console.warn('⚠️ No RM IC certificates found');
             if (isModifyMode && formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
@@ -3641,7 +3648,7 @@ export const RaiseInspectionCallForm = ({
                     label="RM IC Numbers"
                     name="process_rm_ic_numbers"
                     required
-                    hint={loadingRMICs ? "Loading completed RM ICs..." : "Select certificate number for completed RM inspections"}
+                    hint={loadingRMICs ? "Loading completed RM ICs..." : completeDiversionSrNos.has(formData.po_serial_no) ? "RM ICs not available — material for this PO SR no has been completely diverted" : "Select certificate number for completed RM inspections"}
                     fullWidth
                   >
                     <MultiSelectDropdown
@@ -3651,8 +3658,8 @@ export const RaiseInspectionCallForm = ({
                       }))}
                       selectedValues={formData.process_rm_ic_numbers}
                       onChange={(selectedValues) => handleRmIcSelection(selectedValues)}
-                      placeholder={loadingRMICs ? "Loading..." : "Select Certificate Numbers"}
-                      disabled={isViewMode}
+                      placeholder={loadingRMICs ? "Loading..." : completeDiversionSrNos.has(formData.po_serial_no) ? "Not available — material completely diverted" : "Select Certificate Numbers"}
+                      disabled={isViewMode || completeDiversionSrNos.has(formData.po_serial_no)}
                     />
                     {formData.process_rm_ic_numbers.length > 0 && (
                       <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
@@ -3912,7 +3919,7 @@ export const RaiseInspectionCallForm = ({
                     label="RM IC Numbers"
                     name="final_rm_ic_numbers"
                     required
-                    hint="Certificate numbers from completed RM ICs (ER prefix)"
+                    hint={completeDiversionSrNos.has(formData.po_serial_no) ? "RM ICs not available — material for this PO SR no has been completely diverted" : "Certificate numbers from completed RM ICs (ER prefix)"}
                   >
                     {loadingRmIcsForFinal ? (
                       <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
@@ -3938,8 +3945,8 @@ export const RaiseInspectionCallForm = ({
                             final_lot_numbers: []
                           }));
                         }}
-                        placeholder="Select RM IC Certificate Number"
-                        disabled={isViewMode}
+                        placeholder={completeDiversionSrNos.has(formData.po_serial_no) ? "Not available — material completely diverted" : "Select RM IC Certificate Number"}
+                        disabled={isViewMode || completeDiversionSrNos.has(formData.po_serial_no)}
                       />
                     )}
                     {formData.final_rm_ic_numbers.length > 0 && (

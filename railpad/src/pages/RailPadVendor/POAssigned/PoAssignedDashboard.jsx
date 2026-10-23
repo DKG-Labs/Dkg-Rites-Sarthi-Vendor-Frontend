@@ -200,8 +200,9 @@ const SrItemRow = ({ item, poNo, isLast, onSubmitInspectionCall, idx = 0, plantI
 
     const isDpDisabled = dpInfo.isDisabled;
     const srKey = String(item.itemSrNo || item.srNo || '').trim();
-    const hasActiveProcessCall = srKey ? activeProcessSrNos.has(srKey) : false;
-    const hasActiveFinalCall   = srKey ? activeFinalSrNos.has(srKey)   : false;
+    const poSrKey = poNo && srKey ? `${poNo}_${srKey}` : '';
+    const hasActiveProcessCall = poSrKey ? activeProcessSrNos.has(poSrKey) : false;
+    const hasActiveFinalCall   = poSrKey ? activeFinalSrNos.has(poSrKey)   : false;
     const isDisabled = isPlantBlocked || (hasActiveProcessCall && hasActiveFinalCall) || effectiveCaseNoMissing || isAllDispatched || isDpDisabled;
 
     let hoverMessage = '';
@@ -610,12 +611,14 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
                             return BLOCK_ACTIONS.has(action);
                         })
                         .forEach(c => {
+                            const po = String(c.poNo || c.po_no || '').trim();
                             const sr = String(c.poSr || c.po_sr || '').trim();
-                            if (!sr) return;
+                            if (!po || !sr) return;
+                            const key = `${po}_${sr}`;
                             const type = (c.callType || '').toUpperCase();
                             const prefix = (c.callNo || c.call_no || '').toUpperCase().slice(0, 3);
-                            if (type === 'PROCESS' || prefix === 'RPP') activeProcess.add(sr);
-                            else activeFinal.add(sr);
+                            if (type === 'PROCESS' || prefix === 'RPP') activeProcess.add(key);
+                            else activeFinal.add(key);
                         });
                     setActiveProcessSrNos(activeProcess);
                     setActiveFinalSrNos(activeFinal);
