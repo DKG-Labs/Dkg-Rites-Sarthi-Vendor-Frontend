@@ -156,6 +156,36 @@ const diversionService = {
     }
   },
 
+  deleteRequest: async (id) => {
+    try {
+      const response = await httpClient.delete(`/erc/diversion/request/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`Error deleting diversion request ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateRequest: async (id, requestData) => {
+    try {
+      const response = await httpClient.put(`/erc/diversion/request/${id}`, requestData);
+      return response;
+    } catch (error) {
+      console.error(`Error updating diversion request ${id}:`, error);
+      throw error;
+    }
+  },
+
+  getDocUrl: async (id) => {
+    try {
+      const response = await httpClient.get(`/erc/diversion/doc-url/${id}`);
+      return response?.data?.railwayPermissionDocUrl || response?.railwayPermissionDocUrl || null;
+    } catch (error) {
+      console.error(`Error fetching doc url for ${id}:`, error);
+      return null;
+    }
+  },
+
   getCompleteDiversionSourceSrNos: async (vendorCode) => {
     try {
       const response = await httpClient.get(`/erc/diversion/complete-source-sr-nos?vendorCode=${encodeURIComponent(vendorCode)}`);

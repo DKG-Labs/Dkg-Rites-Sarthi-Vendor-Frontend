@@ -107,12 +107,14 @@ const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder 
                 Bal: {selectedOption.availableBalanceQty} {selectedOption.unitOfMeasurement || 'MT'}
               </span>
             </div>
+          ) : value ? (
+            <span className="searchable-select-ic-badge">{value}</span>
           ) : (
             <span style={{ color: '#94a3b8' }}>{placeholder}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {selectedOption && (
+          {(selectedOption || value) && (
             <button
               type="button"
               className="searchable-select-clear-btn"
@@ -497,6 +499,8 @@ const SearchablePoDropdown = ({ options = [], value = '', onChange, placeholder 
                 </span>
               )}
             </div>
+          ) : value ? (
+            <span className="searchable-select-ic-badge" style={{ color: '#0f172a' }}>{value}</span>
           ) : (
             <span style={{ color: '#94a3b8' }}>{placeholder}</span>
           )}
@@ -639,6 +643,11 @@ const SearchablePoItemDropdown = ({ options = [], value = '', onChange, placehol
                 </span>
               )}
             </div>
+          ) : value ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px' }}>🔢</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{value}</span>
+            </div>
           ) : (
             <span style={{ color: '#94a3b8' }}>{disabled ? 'Select Target PO first' : placeholder}</span>
           )}
@@ -747,6 +756,9 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
 
+  // Track when we are seeding from initialData so CM-reset effect is suppressed
+  const seedingRef = useRef(false);
+
   // 1. Fetch Unit Details (Address, POI Code) on plant selection
   const handlePlantSelect = useCallback(async (selectedUnit, plantObj = null) => {
     setPlantName(selectedUnit);
@@ -788,6 +800,32 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
   const rawVendorCode = vendorUser?.userName || vendorUser?.vendorCode || vendorUser?.id || sessionStorage.getItem('vendorCode') || localStorage.getItem('vendorCode') || '';
   const vendorCode = rawVendorCode.replace(/^:+/, '');
+
+  // Reset all form state when opening for a new request (not edit mode)
+  useEffect(() => {
+    if (!isOpen || isEditMode) return;
+    setStage('');
+    setDiversionType('COMPLETE');
+    setPlantId('');
+    setPlantName('');
+    setPlantAddress('');
+    setRioId('');
+    setCmUserId('');
+    setPoiCode('');
+    setSelectedIcNo('');
+    setSelectedIcDetails(null);
+    setLineItems([]);
+    setTargetPoNo('');
+    setTargetPoSrNo('');
+    setTargetPoItems([]);
+    setReasonCode('');
+    setRailwayPermissionNo('');
+    setRailwayPermissionDate(new Date().toISOString().split('T')[0]);
+    setRailwayPermissionDocUrl('');
+    setRailwayDocFileName('');
+    setVendorRemarks('');
+    setError('');
+  }, [isOpen, isEditMode]);
 
   // 2. Fetch Plants with Address & Assigned POs on mount when modal is open
   useEffect(() => {
@@ -843,8 +881,77 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     if (matched?.rio) setRioId(matched.rio);
   }, [plantName, plants]);
 
-  // Reset CM selection when RIO changes
+  // Seed form from initialData when editing — runs once lists are loaded
   useEffect(() => {
+    if (!isEditMode || !initialData || !isOpen) return;
+    if (!plants.length) return; // wait for plants to load
+
+    seedingRef.current = true;
+
+    setStage(initialData.stage || '');
+    setDiversionType(initialData.diversionType || 'COMPLETE');
+    setPlantName(initialData.plantName || '');
+    setPlantAddress(initialData.plantAddress || '');
+    setRioId(initialData.rioId || '');
+    setCmUserId(initialData.cmUserId || '');
+    setCompanyName(initialData.companyName || '');
+    setReasonCode(initialData.reasonCode || '');
+    setRailwayPermissionNo(initialData.railwayPermissionNo || '');
+    setRailwayPermissionDate(initialData.railwayPermissionDate || new Date().toISOString().split('T')[0]);
+    setVendorRemarks(initialData.vendorRemarks || '');
+    setSelectedIcNo(initialData.sourceIcNo || '');
+    setTargetPoNo(initialData.targetPoNo || '');
+    setTargetPoSrNo(initialData.targetPoSrNo || '');
+
+    // Reconstruct IC details from saved fields so submit payload is correct
+    setSelectedIcDetails({
+      certificateNo: initialData.sourceIcNo,
+      poNo: initialData.sourcePoNo,
+      poSerialNo: initialData.sourcePoSrNo,
+      callNo: initialData.sourceCallNo,
+      icDate: initialData.sourceIcDate,
+    });
+
+    // Populate line items from saved items
+    if (initialData.items && initialData.items.length > 0) {
+      setLineItems(initialData.items.map(item => ({
+        ...item,
+        diversionQty: item.diversionQty ?? item.totalDiversionQty ?? '',
+        availableBalanceQty: item.availableBalanceQty ?? '',
+        remainingBalanceQty: Math.max(0, (parseFloat(item.availableBalanceQty) || 0) - (parseFloat(item.diversionQty ?? item.totalDiversionQty) || 0)),
+      })));
+    }
+
+    // Resolve plantId from plants list
+    const matched = plants.find(p => p.unitName === initialData.plantName || p.unit_name === initialData.plantName);
+    setPlantId(matched?.id || initialData.plantId || '');
+    if (matched?.poiCode) setPoiCode(matched.poiCode);
+
+    // Load railway doc URL separately (excluded from list projection)
+    if (initialData.id) {
+      diversionService.getDocUrl(initialData.id)
+        .then(url => { if (url) setRailwayPermissionDocUrl(url); })
+        .catch(() => {});
+    }
+
+    // Release seeding lock after all synchronous state updates queued
+    setTimeout(() => { seedingRef.current = false; }, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, initialData, isOpen, plants]);
+
+  // Seed targetPoItems once vendorPos loads in edit mode
+  useEffect(() => {
+    if (!isEditMode || !initialData?.targetPoNo || !vendorPos.length) return;
+    const poObj = vendorPos.find(p => p.poNo === initialData.targetPoNo || p.po_no === initialData.targetPoNo);
+    if (poObj) {
+      setTargetPoItems(poObj.poItem || poObj.items || []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, initialData, vendorPos]);
+
+  // Reset CM selection when RIO changes (suppressed during edit-mode seeding)
+  useEffect(() => {
+    if (seedingRef.current) return;
     setCmUserId('');
   }, [rioId]);
 
@@ -926,7 +1033,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         if (res && res.data) {
           const items = res.data.map(i => ({
             ...i,
-            diversionQty: diversionType === 'COMPLETE' ? i.availableBalanceQty : ''
+            diversionQty: diversionType === 'COMPLETE' ? i.availableBalanceQty : '',
+            remainingBalanceQty: diversionType === 'COMPLETE' ? 0 : (i.availableBalanceQty || 0)
           }));
           setLineItems(items);
         }
@@ -980,7 +1088,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     return lineItems.reduce((acc, curr) => acc + (parseFloat(curr.diversionQty) || 0), 0);
   };
 
-  const handleSubmit = async (isDraft = false) => {
+  const handleSubmit = async () => {
     setError('');
 
     if (!stage) {
@@ -1017,7 +1125,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       setError('Please select a Reason for Diversion.');
       return;
     }
-    if (!isDraft && (!railwayPermissionNo || !railwayPermissionDocUrl)) {
+    if (!railwayPermissionNo || !railwayPermissionDocUrl) {
       setError('Railway permission number and document upload are mandatory.');
       return;
     }
@@ -1062,8 +1170,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
     setIsLoading(true);
     try {
-      if (isDraft) {
-        await diversionService.saveDraft(payload);
+      if (isEditMode && initialData?.id) {
+        await diversionService.updateRequest(initialData.id, payload);
       } else {
         await diversionService.submitRequest(payload);
       }
@@ -1092,12 +1200,6 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
           </div>
           <button className="diversion-modal-close" onClick={onClose}>✕</button>
         </div>
-
-        {error && (
-          <div style={{ background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', color: '#b91c1c', fontSize: '13px' }}>
-            ⚠️ {error}
-          </div>
-        )}
 
         {/* Section 1: Stage & Authority */}
         <div className="diversion-card">
@@ -1324,11 +1426,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
           <button type="button" className="diversion-tab-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="diversion-btn-primary" style={{ background: '#f1f5f9', color: '#334155' }} onClick={() => handleSubmit(true)} disabled={isLoading || railwayDocUploading}>
-            Save as Draft
-          </button>
           <button type="button" className="diversion-btn-primary" style={{ background: '#0284c7', color: '#ffffff' }} onClick={() => handleSubmit(false)} disabled={isLoading || railwayDocUploading}>
-            {railwayDocUploading ? 'Uploading document…' : isLoading ? 'Submitting...' : 'Submit to Controlling Manager'}
+            {railwayDocUploading ? 'Uploading document…' : isLoading ? 'Submitting...' : isEditMode ? 'Update Request' : 'Submit to Controlling Manager'}
           </button>
         </div>
       </div>
@@ -1337,7 +1436,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       {toast && (
         <div style={{
           position: 'fixed',
-          bottom: '28px',
+          top: '28px',
           right: '28px',
           zIndex: 99999,
           background: '#1e293b',
@@ -1363,7 +1462,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
       <style>{`
         @keyframes slideInToast {
-          from { opacity: 0; transform: translateY(12px); }
+          from { opacity: 0; transform: translateY(-12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
