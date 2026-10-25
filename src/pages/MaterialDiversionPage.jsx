@@ -13,7 +13,7 @@ const STATUS_CONFIG = {
   RETURNED_TO_VENDOR:       { label: 'Returned',         color: '#dc2626', bg: '#fee2e2' },
   PENDING_SBU_APPROVAL:     { label: 'Under SBU Review', color: '#7c3aed', bg: '#ede9fe' },
   SENT_TO_SBU_HEAD:         { label: 'Under SBU Review', color: '#7c3aed', bg: '#ede9fe' },
-  CM_APPROVE_DIVERSION:     { label: 'Under SBU Review', color: '#7c3aed', bg: '#ede9fe' },
+  CM_APPROVE_DIVERSION:     { label: 'CM Approved',      color: '#059669', bg: '#d1fae5' },
   SBU_HEAD_RETURN_DIVERSION:{ label: 'Returned by SBU',  color: '#dc2626', bg: '#fee2e2' },
   SBU_HEAD_APPROVE_DIVERSION:{ label: 'SBU Approved',   color: '#059669', bg: '#d1fae5' },
   BASKET_CREATED:           { label: 'Basket Created',   color: '#0369a1', bg: '#e0f2fe' },
@@ -32,6 +32,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+// eslint-disable-next-line no-unused-vars
 const InfoRow = ({ label, value }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
     <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
@@ -39,16 +40,21 @@ const InfoRow = ({ label, value }) => (
   </div>
 );
 
+const EDITABLE_STATUSES = ['PENDING_CM_APPROVAL', 'CM_RETURN_DIVERSION', 'SBU_HEAD_RETURN_DIVERSION'];
+
 export const MaterialDiversionPage = () => {
   const [activeTab, setActiveTab] = useState('REQUESTS');
   const [requests, setRequests] = useState([]);
   const [basketItems, setBasketItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editRequest, setEditRequest] = useState(null);
   const [user, setUser] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // request to confirm delete
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -84,6 +90,19 @@ export const MaterialDiversionPage = () => {
       setLoading(false);
     }
   }, [user]);
+
+  const handleDelete = async (req) => {
+    setActionLoading(true);
+    try {
+      await diversionService.deleteRequest(req.id);
+      setDeleteConfirm(null);
+      loadRequests();
+    } catch (err) {
+      alert('Failed to delete: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'REQUESTS') loadRequests();
@@ -145,7 +164,7 @@ export const MaterialDiversionPage = () => {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditRequest(null); setIsModalOpen(true); }}
           style={{
             padding: '11px 22px', background: '#fff', color: '#1e40af',
             border: 'none', borderRadius: '10px', cursor: 'pointer',
@@ -161,9 +180,9 @@ export const MaterialDiversionPage = () => {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
         {[
           { label: 'Total Requests', value: requests.length, color: '#0284c7', bg: '#e0f2fe' },
-          { label: 'Under Review', value: requests.filter(r => ['PENDING_CM_APPROVAL','SUBMIT_DIVERSION_REQUEST','PENDING_SBU_APPROVAL','SENT_TO_SBU_HEAD','CM_APPROVE_DIVERSION'].includes(r.status)).length, color: '#b45309', bg: '#fef9c3' },
+          { label: 'Under Review', value: requests.filter(r => ['PENDING_CM_APPROVAL','SUBMIT_DIVERSION_REQUEST','PENDING_SBU_APPROVAL','SENT_TO_SBU_HEAD'].includes(r.status)).length, color: '#b45309', bg: '#fef9c3' },
           { label: 'Returned', value: requests.filter(r => ['CM_RETURN_DIVERSION','RETURNED_TO_VENDOR','SBU_HEAD_RETURN_DIVERSION'].includes(r.status)).length, color: '#dc2626', bg: '#fee2e2' },
-          { label: 'Approved / Basket', value: requests.filter(r => ['SBU_HEAD_APPROVE_DIVERSION','BASKET_CREATED','COMPLETED'].includes(r.status)).length, color: '#059669', bg: '#d1fae5' },
+          { label: 'Approved / Basket', value: requests.filter(r => ['CM_APPROVE_DIVERSION','SBU_HEAD_APPROVE_DIVERSION','BASKET_CREATED','COMPLETED'].includes(r.status)).length, color: '#059669', bg: '#d1fae5' },
         ].map(s => (
           <div key={s.label} style={{
             flex: 1, background: '#fff', borderRadius: '12px', padding: '16px 20px',
@@ -259,24 +278,17 @@ export const MaterialDiversionPage = () => {
                         <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{req.stage}</span>
                       </td>
                       <td style={{ padding: '12px 14px', color: '#0284c7', fontWeight: '600', whiteSpace: 'nowrap' }}>{req.sourceIcNo || req.sourceCallNo || '—'}</td>
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontWeight: '600' }}>{req.sourcePoNo}/{req.sourcePoSrNo}</td>
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontWeight: '600' }}>{req.targetPoNo}/{req.targetPoSrNo}</td>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontWeight: '600' }}>{req.sourcePoSrNo || req.sourcePoNo || '—'}</td>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontWeight: '600' }}>{req.targetPoSrNo || req.targetPoNo || '—'}</td>
                       <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap' }}>{req.totalDiversionQty} <span style={{ fontSize: '11px', color: '#64748b' }}>{req.unitOfMeasurement}</span></td>
                       <td style={{ padding: '12px 14px', color: '#475569' }}>{req.railwayPermissionNo || '—'}</td>
                       <td style={{ padding: '12px 14px' }}><StatusBadge status={req.status} /></td>
                       <td style={{ padding: '12px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{req.createdDate ? new Date(req.createdDate).toLocaleDateString('en-IN') : '—'}</td>
                       <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            onClick={() => setSelectedRequest(req)}
-                            style={{ padding: '5px 12px', background: '#1e40af', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}
-                          >Details</button>
-                          {req.railwayPermissionDocUrl && (
-                            <a href={req.railwayPermissionDocUrl} target="_blank" rel="noopener noreferrer"
-                              style={{ padding: '5px 12px', background: '#059669', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}
-                            >📄 Doc</a>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setSelectedRequest(req)}
+                          style={{ padding: '6px 16px', background: '#1e40af', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}
+                        >View Details</button>
                       </td>
                     </tr>
                   ))}
@@ -333,87 +345,175 @@ export const MaterialDiversionPage = () => {
 
       {/* Details Modal */}
       {selectedRequest && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '720px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(2px)' }}>
+          <div style={{ background: '#fff', borderRadius: '20px', width: '760px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
 
-            {/* Modal Header */}
-            <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            {/* Gradient Header */}
+            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 100%)', borderRadius: '20px 20px 0 0', padding: '24px 28px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Diversion Request</div>
-                <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{selectedRequest.requestNo}</div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>Diversion Request</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', letterSpacing: '-0.3px' }}>{selectedRequest.requestNo}</div>
+                <div style={{ marginTop: '10px' }}><StatusBadge status={selectedRequest.status} /></div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <StatusBadge status={selectedRequest.status} />
-                <button onClick={() => setSelectedRequest(null)} style={{ width: '32px', height: '32px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#f8fafc', cursor: 'pointer', fontSize: '16px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-              </div>
+              <button onClick={() => setSelectedRequest(null)} style={{ width: '34px', height: '34px', border: 'none', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', cursor: 'pointer', fontSize: '16px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
             </div>
 
-            <div style={{ padding: '20px 28px' }}>
+            {/* Scrollable Body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '24px 28px' }}>
+
               {/* Section: Material Details */}
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Material Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                <InfoRow label="Stage" value={selectedRequest.stage} />
-                <InfoRow label="Diversion Type" value={selectedRequest.diversionType} />
-                <InfoRow label="Total Diversion Qty" value={`${selectedRequest.totalDiversionQty || '—'} ${selectedRequest.unitOfMeasurement || ''}`} />
-                <InfoRow label="Source IC No." value={selectedRequest.sourceIcNo || selectedRequest.sourceCallNo} />
-                <InfoRow label="Source PO / Sr." value={`${selectedRequest.sourcePoNo || '—'}/${selectedRequest.sourcePoSrNo || '—'}`} />
-                <InfoRow label="Target PO / Sr." value={`${selectedRequest.targetPoNo || '—'}/${selectedRequest.targetPoSrNo || '—'}`} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ width: '4px', height: '16px', background: '#1e40af', borderRadius: '2px' }} />
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '1px' }}>Material Details</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  { label: 'Stage', value: selectedRequest.stage },
+                  { label: 'Diversion Type', value: selectedRequest.diversionType },
+                  { label: 'Total Diversion Qty', value: `${selectedRequest.totalDiversionQty || '—'} ${selectedRequest.unitOfMeasurement || ''}` },
+                  { label: 'Source IC No.', value: selectedRequest.sourceIcNo || selectedRequest.sourceCallNo },
+                  { label: 'Source PO / Sr.', value: selectedRequest.sourcePoSrNo || selectedRequest.sourcePoNo || '—' },
+                  { label: 'Target PO / Sr.', value: selectedRequest.targetPoSrNo || selectedRequest.targetPoNo || '—' },
+                ].map(f => (
+                  <div key={f.label} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{f.label}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{f.value || '—'}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Section: Reason & Permission */}
-              <div style={{ height: '1px', background: '#f1f5f9', margin: '0 0 16px' }} />
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Reason & Permission</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                <InfoRow label="Reason Code" value={selectedRequest.reasonCode} />
-                <InfoRow label="Railway Permission No." value={selectedRequest.railwayPermissionNo} />
-                <InfoRow label="Railway Permission Date" value={selectedRequest.railwayPermissionDate ? new Date(selectedRequest.railwayPermissionDate).toLocaleDateString('en-IN') : null} />
-                <div style={{ gridColumn: '1 / -1' }}><InfoRow label="Reason Remarks" value={selectedRequest.reasonRemarks} /></div>
-                <div style={{ gridColumn: '1 / -1' }}><InfoRow label="Vendor Remarks" value={selectedRequest.vendorRemarks} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ width: '4px', height: '16px', background: '#7c3aed', borderRadius: '2px' }} />
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '1px' }}>Reason & Permission</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  { label: 'Reason Code', value: selectedRequest.reasonCode },
+                  { label: 'Railway Permission No.', value: selectedRequest.railwayPermissionNo },
+                  { label: 'Railway Permission Date', value: selectedRequest.railwayPermissionDate ? new Date(selectedRequest.railwayPermissionDate).toLocaleDateString('en-IN') : null },
+                ].map(f => (
+                  <div key={f.label} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{f.label}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{f.value || '—'}</div>
+                  </div>
+                ))}
+                {selectedRequest.reasonRemarks && (
+                  <div style={{ gridColumn: '1 / -1', background: '#fefce8', borderRadius: '10px', padding: '12px 14px', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Reason Remarks</div>
+                    <div style={{ fontSize: '13px', color: '#78350f' }}>{selectedRequest.reasonRemarks}</div>
+                  </div>
+                )}
+                {selectedRequest.vendorRemarks && (
+                  <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', borderRadius: '10px', padding: '12px 14px', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Vendor Remarks</div>
+                    <div style={{ fontSize: '13px', color: '#14532d' }}>{selectedRequest.vendorRemarks}</div>
+                  </div>
+                )}
               </div>
 
               {/* Section: Workflow */}
-              <div style={{ height: '1px', background: '#f1f5f9', margin: '0 0 16px' }} />
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Workflow</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '20px' }}>
-                <InfoRow label="CM / Controlling Manager" value={selectedRequest.cmUserName || selectedRequest.cmUserId} />
-                <InfoRow label="Created Date" value={selectedRequest.createdDate ? new Date(selectedRequest.createdDate).toLocaleDateString('en-IN') : null} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ width: '4px', height: '16px', background: '#059669', borderRadius: '2px' }} />
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '1px' }}>Workflow</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  { label: 'CM / Controlling Manager', value: selectedRequest.cmUserName ? `${selectedRequest.cmUserName}${selectedRequest.cmEmployeeCode ? ` (${selectedRequest.cmEmployeeCode})` : ''}` : selectedRequest.cmUserId },
+                  { label: 'Created Date', value: selectedRequest.createdDate ? new Date(selectedRequest.createdDate).toLocaleDateString('en-IN') : null },
+                ].map(f => (
+                  <div key={f.label} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{f.label}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{f.value || '—'}</div>
+                  </div>
+                ))}
               </div>
 
-              {/* View Doc button */}
-              {selectedRequest.railwayPermissionDocUrl && (
-                <a href={selectedRequest.railwayPermissionDocUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: '#059669', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontSize: '13px', fontWeight: '700', marginBottom: '20px' }}
-                >📄 View Railway Permission Document</a>
-              )}
-
               {/* Items table */}
-              {selectedRequest.items && selectedRequest.items.length > 0 && (
-                <>
-                  <div style={{ height: '1px', background: '#f1f5f9', margin: '0 0 16px' }} />
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-                    Diversion Items ({selectedRequest.items.length})
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              {selectedRequest.items && selectedRequest.items.length > 0 && (<>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ width: '4px', height: '16px', background: '#0284c7', borderRadius: '2px' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#0284c7', textTransform: 'uppercase', letterSpacing: '1px' }}>Diversion Items ({selectedRequest.items.length})</span>
+                </div>
+                <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc' }}>
+                      <tr style={{ background: '#f1f5f9' }}>
                         {['#', 'Heat No.', 'TC / Lot No.', 'Diversion Qty'].map(h => (
-                          <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontWeight: '700', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {selectedRequest.items.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 12px', color: '#94a3b8', fontWeight: '600' }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 12px', fontWeight: '600' }}>{item.heatNo || '—'}</td>
-                          <td style={{ padding: '8px 12px' }}>{item.tcNo || item.lotNo || '—'}</td>
-                          <td style={{ padding: '8px 12px', fontWeight: '700', color: '#0284c7' }}>{item.diversionQty}</td>
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                          <td style={{ padding: '10px 14px', color: '#94a3b8', fontWeight: '600' }}>{idx + 1}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: '600', color: '#0f172a' }}>{item.heatNo || '—'}</td>
+                          <td style={{ padding: '10px 14px', color: '#475569' }}>{item.tcNo || item.lotNo || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: '700', color: '#0284c7' }}>{item.diversionQty}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </>
+                </div>
+              </>)}
+            </div>
+
+            {/* Sticky Footer with Actions */}
+            <div style={{ borderTop: '1px solid #f1f5f9', padding: '16px 28px', display: 'flex', gap: '10px', flexWrap: 'wrap', background: '#fff', borderRadius: '0 0 20px 20px' }}>
+              {selectedRequest.railwayPermissionNo && (
+                <button
+                  disabled={actionLoading}
+                  onClick={async () => {
+                    try {
+                      const res = await diversionService.getRequestById(selectedRequest.id);
+                      const url = res?.data?.railwayPermissionDocUrl || '';
+                      if (url) window.open(url, '_blank');
+                      else alert('Document not available.');
+                    } catch { alert('Unable to open document.'); }
+                  }}
+                  style={{ padding: '10px 20px', background: '#059669', color: '#fff', border: 'none', borderRadius: '10px', cursor: actionLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '7px', opacity: actionLoading ? 0.5 : 1 }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  View Document
+                </button>
               )}
+              {EDITABLE_STATUSES.includes(selectedRequest.status) && (<>
+                <button
+                  disabled={actionLoading}
+                  onClick={async () => {
+                    setActionLoading(true);
+                    try {
+                      const res = await diversionService.getRequestById(selectedRequest.id);
+                      const full = res?.data || res?.responseData || res || selectedRequest;
+                      setEditRequest(full);
+                    } catch {
+                      setEditRequest(selectedRequest);
+                    } finally {
+                      setActionLoading(false);
+                    }
+                    setSelectedRequest(null);
+                    setIsModalOpen(true);
+                  }}
+                  style={{ padding: '10px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '10px', cursor: actionLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '7px', opacity: actionLoading ? 0.7 : 1 }}
+                >
+                  {actionLoading ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  )}
+                  {actionLoading ? 'Loading...' : 'Edit Request'}
+                </button>
+                <button
+                  disabled={actionLoading}
+                  onClick={() => { setDeleteConfirm(selectedRequest); setSelectedRequest(null); }}
+                  style={{ padding: '10px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '10px', cursor: actionLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '7px', opacity: actionLoading ? 0.5 : 1 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  Delete Request
+                </button>
+              </>)}
+              <button disabled={actionLoading} onClick={() => setSelectedRequest(null)} style={{ padding: '10px 20px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '10px', cursor: actionLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600', marginLeft: 'auto', opacity: actionLoading ? 0.5 : 1 }}>Close</button>
             </div>
           </div>
         </div>
@@ -421,10 +521,37 @@ export const MaterialDiversionPage = () => {
 
       <RaiseDiversionRequestModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => { loadRequests(); }}
+        onClose={() => { setIsModalOpen(false); setEditRequest(null); }}
+        onSuccess={() => { loadRequests(); setEditRequest(null); }}
         vendorUser={user}
+        isEditMode={!!editRequest}
+        initialData={editRequest}
       />
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '32px 28px', width: '420px', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', textAlign: 'center' }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗑️</div>
+            <div style={{ fontSize: '17px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>Delete Diversion Request?</div>
+            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>
+              This will permanently delete <strong>{deleteConfirm.requestNo}</strong>. This action cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={actionLoading}
+                style={{ padding: '9px 22px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+              >Cancel</button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={actionLoading}
+                style={{ padding: '9px 22px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+              >{actionLoading ? 'Deleting...' : 'Yes, Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

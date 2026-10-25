@@ -107,12 +107,14 @@ const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder 
                 Bal: {selectedOption.availableBalanceQty} {selectedOption.unitOfMeasurement || 'MT'}
               </span>
             </div>
+          ) : value ? (
+            <span className="searchable-select-ic-badge">{value}</span>
           ) : (
             <span style={{ color: '#94a3b8' }}>{placeholder}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {selectedOption && (
+          {(selectedOption || value) && (
             <button
               type="button"
               className="searchable-select-clear-btn"
@@ -177,6 +179,24 @@ const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder 
                     <div className="searchable-select-option-sub">
                       <span>📄 PO / Item: <strong>{formatPoAndItem(ic.poNo, ic.poSerialNo)}</strong></span>
                       {ic.callNo && <span>📞 Call: {ic.callNo}</span>}
+                    </div>
+                    <div className="searchable-select-option-sub" style={{ marginTop: '2px', gap: '12px' }}>
+                      {ic.ieName && (
+                        <span style={{ color: '#0f172a', fontSize: '11px' }}>
+                          👤 IE: <strong>{ic.ieName}</strong>
+                        </span>
+                      )}
+                      {ic.certDocUrl && (
+                        <a
+                          href={ic.certDocUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          📋 View Certificate
+                        </a>
+                      )}
                     </div>
                   </div>
                 );
@@ -497,6 +517,8 @@ const SearchablePoDropdown = ({ options = [], value = '', onChange, placeholder 
                 </span>
               )}
             </div>
+          ) : value ? (
+            <span className="searchable-select-ic-badge" style={{ color: '#0f172a' }}>{value}</span>
           ) : (
             <span style={{ color: '#94a3b8' }}>{placeholder}</span>
           )}
@@ -639,6 +661,11 @@ const SearchablePoItemDropdown = ({ options = [], value = '', onChange, placehol
                 </span>
               )}
             </div>
+          ) : value ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px' }}>🔢</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{value}</span>
+            </div>
           ) : (
             <span style={{ color: '#94a3b8' }}>{disabled ? 'Select Target PO first' : placeholder}</span>
           )}
@@ -747,6 +774,9 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
 
+  // Track when we are seeding from initialData so CM-reset effect is suppressed
+  const seedingRef = useRef(false);
+
   // 1. Fetch Unit Details (Address, POI Code) on plant selection
   const handlePlantSelect = useCallback(async (selectedUnit, plantObj = null) => {
     setPlantName(selectedUnit);
@@ -788,6 +818,32 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
   const rawVendorCode = vendorUser?.userName || vendorUser?.vendorCode || vendorUser?.id || sessionStorage.getItem('vendorCode') || localStorage.getItem('vendorCode') || '';
   const vendorCode = rawVendorCode.replace(/^:+/, '');
+
+  // Reset all form state when opening for a new request (not edit mode)
+  useEffect(() => {
+    if (!isOpen || isEditMode) return;
+    setStage('');
+    setDiversionType('COMPLETE');
+    setPlantId('');
+    setPlantName('');
+    setPlantAddress('');
+    setRioId('');
+    setCmUserId('');
+    setPoiCode('');
+    setSelectedIcNo('');
+    setSelectedIcDetails(null);
+    setLineItems([]);
+    setTargetPoNo('');
+    setTargetPoSrNo('');
+    setTargetPoItems([]);
+    setReasonCode('');
+    setRailwayPermissionNo('');
+    setRailwayPermissionDate(new Date().toISOString().split('T')[0]);
+    setRailwayPermissionDocUrl('');
+    setRailwayDocFileName('');
+    setVendorRemarks('');
+    setError('');
+  }, [isOpen, isEditMode]);
 
   // 2. Fetch Plants with Address & Assigned POs on mount when modal is open
   useEffect(() => {
@@ -843,8 +899,77 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     if (matched?.rio) setRioId(matched.rio);
   }, [plantName, plants]);
 
-  // Reset CM selection when RIO changes
+  // Seed form from initialData when editing — runs once lists are loaded
   useEffect(() => {
+    if (!isEditMode || !initialData || !isOpen) return;
+    if (!plants.length) return; // wait for plants to load
+
+    seedingRef.current = true;
+
+    setStage(initialData.stage || '');
+    setDiversionType(initialData.diversionType || 'COMPLETE');
+    setPlantName(initialData.plantName || '');
+    setPlantAddress(initialData.plantAddress || '');
+    setRioId(initialData.rioId || '');
+    setCmUserId(initialData.cmUserId || '');
+    setCompanyName(initialData.companyName || '');
+    setReasonCode(initialData.reasonCode || '');
+    setRailwayPermissionNo(initialData.railwayPermissionNo || '');
+    setRailwayPermissionDate(initialData.railwayPermissionDate || new Date().toISOString().split('T')[0]);
+    setVendorRemarks(initialData.vendorRemarks || '');
+    setSelectedIcNo(initialData.sourceIcNo || '');
+    setTargetPoNo(initialData.targetPoNo || '');
+    setTargetPoSrNo(initialData.targetPoSrNo || '');
+
+    // Reconstruct IC details from saved fields so submit payload is correct
+    setSelectedIcDetails({
+      certificateNo: initialData.sourceIcNo,
+      poNo: initialData.sourcePoNo,
+      poSerialNo: initialData.sourcePoSrNo,
+      callNo: initialData.sourceCallNo,
+      icDate: initialData.sourceIcDate,
+    });
+
+    // Populate line items from saved items
+    if (initialData.items && initialData.items.length > 0) {
+      setLineItems(initialData.items.map(item => ({
+        ...item,
+        diversionQty: item.diversionQty ?? item.totalDiversionQty ?? '',
+        availableBalanceQty: item.availableBalanceQty ?? '',
+        remainingBalanceQty: Math.max(0, (parseFloat(item.availableBalanceQty) || 0) - (parseFloat(item.diversionQty ?? item.totalDiversionQty) || 0)),
+      })));
+    }
+
+    // Resolve plantId from plants list
+    const matched = plants.find(p => p.unitName === initialData.plantName || p.unit_name === initialData.plantName);
+    setPlantId(matched?.id || initialData.plantId || '');
+    if (matched?.poiCode) setPoiCode(matched.poiCode);
+
+    // Load railway doc URL separately (excluded from list projection)
+    if (initialData.id) {
+      diversionService.getDocUrl(initialData.id)
+        .then(url => { if (url) setRailwayPermissionDocUrl(url); })
+        .catch(() => {});
+    }
+
+    // Release seeding lock after all synchronous state updates queued
+    setTimeout(() => { seedingRef.current = false; }, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, initialData, isOpen, plants]);
+
+  // Seed targetPoItems once vendorPos loads in edit mode
+  useEffect(() => {
+    if (!isEditMode || !initialData?.targetPoNo || !vendorPos.length) return;
+    const poObj = vendorPos.find(p => p.poNo === initialData.targetPoNo || p.po_no === initialData.targetPoNo);
+    if (poObj) {
+      setTargetPoItems(poObj.poItem || poObj.items || []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, initialData, vendorPos]);
+
+  // Reset CM selection when RIO changes (suppressed during edit-mode seeding)
+  useEffect(() => {
+    if (seedingRef.current) return;
     setCmUserId('');
   }, [rioId]);
 
@@ -896,15 +1021,15 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     });
   }, [targetPoItems, targetPoNo, selectedIcDetails]);
 
-  // 4. Fetch eligible ICs only when stage is selected and modal is open
+  // 4. Fetch eligible ICs only when stage, plant, and vendor are all selected
   useEffect(() => {
-    if (!isOpen || !vendorCode || !stage) {
+    if (!isOpen || !vendorCode || !stage || !plantName) {
       setEligibleIcs([]);
       return;
     }
 
     // Pass plantName (unit name string) — the SQL filters on ic.unit_name
-    diversionService.getEligibleSourceIcs(vendorCode, plantName || null, stage)
+    diversionService.getEligibleSourceIcs(vendorCode, plantName, stage)
       .then(res => {
         if (res && res.data) {
           setEligibleIcs(res.data);
@@ -920,13 +1045,27 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     setSelectedIcDetails(icObj);
     setTargetPoSrNo('');
 
+    // If certDocUrl is missing in the eligible IC object, fetch it directly
+    if (icObj && !icObj.certDocUrl && (icObj.callNo || icNo)) {
+      const token = icObj.callNo || icNo;
+      httpClient.get(`/api/certificate-storage/view?icNumber=${encodeURIComponent(token)}`)
+        .then(docRes => {
+          const docUrl = docRes?.data?.url || (typeof docRes?.data === 'string' ? docRes.data : null);
+          if (docUrl) {
+            setSelectedIcDetails(prev => prev ? ({ ...prev, certDocUrl: docUrl }) : prev);
+          }
+        })
+        .catch(() => {});
+    }
+
     if (icNo) {
       try {
         const res = await diversionService.getSourceIcLineItems(icNo, stage);
         if (res && res.data) {
           const items = res.data.map(i => ({
             ...i,
-            diversionQty: diversionType === 'COMPLETE' ? i.availableBalanceQty : ''
+            diversionQty: diversionType === 'COMPLETE' ? i.availableBalanceQty : '',
+            remainingBalanceQty: diversionType === 'COMPLETE' ? 0 : (i.availableBalanceQty || 0)
           }));
           setLineItems(items);
         }
@@ -960,6 +1099,18 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError('Only PDF files are allowed for the Railway Permission document.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must not exceed 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
     setRailwayDocUploading(true);
     setRailwayDocFileName(file.name);
     setRailwayPermissionDocUrl('');
@@ -971,6 +1122,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     } catch (err) {
       setError('Failed to upload Railway Permission document. Please try again.');
       setRailwayDocFileName('');
+      e.target.value = '';
     } finally {
       setRailwayDocUploading(false);
     }
@@ -980,7 +1132,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     return lineItems.reduce((acc, curr) => acc + (parseFloat(curr.diversionQty) || 0), 0);
   };
 
-  const handleSubmit = async (isDraft = false) => {
+  const handleSubmit = async () => {
     setError('');
 
     if (!stage) {
@@ -1017,7 +1169,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       setError('Please select a Reason for Diversion.');
       return;
     }
-    if (!isDraft && (!railwayPermissionNo || !railwayPermissionDocUrl)) {
+    if (!railwayPermissionNo || !railwayPermissionDocUrl) {
       setError('Railway permission number and document upload are mandatory.');
       return;
     }
@@ -1038,6 +1190,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       sourceIcNo: selectedIcNo,
       sourceCallNo: selectedIcDetails?.callNo || '',
       sourceIcDate: selectedIcDetails?.icDate,
+      sourceIeName: selectedIcDetails?.ieName || null,
+      sourceIeUserId: selectedIcDetails?.ieUserId || null,
       targetPoNo: targetPoNo,
       targetPoSrNo: targetPoSrNo,
       totalDiversionQty: totalQty,
@@ -1062,8 +1216,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
     setIsLoading(true);
     try {
-      if (isDraft) {
-        await diversionService.saveDraft(payload);
+      if (isEditMode && initialData?.id) {
+        await diversionService.updateRequest(initialData.id, payload);
       } else {
         await diversionService.submitRequest(payload);
       }
@@ -1092,12 +1246,6 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
           </div>
           <button className="diversion-modal-close" onClick={onClose}>✕</button>
         </div>
-
-        {error && (
-          <div style={{ background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', color: '#b91c1c', fontSize: '13px' }}>
-            ⚠️ {error}
-          </div>
-        )}
 
         {/* Section 1: Stage & Authority */}
         <div className="diversion-card">
@@ -1203,7 +1351,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         {/* Section 3: Material Line Grid */}
         {lineItems.length > 0 && (
           <div className="diversion-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div className="diversion-card-title" style={{ margin: 0 }}>3. Material Line Quantities</div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 {/* HIDDEN: Partial Diversion radio
@@ -1227,50 +1375,169 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
               </div>
             </div>
 
-            <div className="diversion-table-wrapper">
-              <table className="diversion-table">
+            {(selectedIcDetails?.ieName || selectedIcDetails?.certDocUrl || selectedIcNo) && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', padding: '10px 16px', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', borderRadius: '10px', border: '1px solid #bfdbfe', boxShadow: '0 1px 3px rgba(59,130,246,0.08)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  {selectedIcDetails?.ieName ? (
+                    <div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 500, letterSpacing: '0.3px', textTransform: 'uppercase' }}>Certificate Generated By</div>
+                      <div style={{ fontSize: '13px', color: '#1e40af', fontWeight: 700, marginTop: '1px' }}>{selectedIcDetails.ieName}</div>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 500 }}>Source IC Selected</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const token = selectedIcDetails?.callNo || selectedIcDetails?.certificateNo || selectedIcNo;
+                    if (!token) {
+                      alert('Please select a valid Source IC first.');
+                      return;
+                    }
+                    try {
+                      const res = await httpClient.get(`/api/certificate-storage/view?icNumber=${encodeURIComponent(token)}`);
+                      const certData = res?.data || res;
+                      if (certData && certData.signedData) {
+                        const cleanBase64 = String(certData.signedData).replace(/^data:application\/pdf;base64,/, '').trim();
+                        const byteCharacters = atob(cleanBase64);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                          byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const file = new Blob([byteArray], { type: 'application/pdf' });
+                        const fileURL = URL.createObjectURL(file);
+                        window.open(fileURL, '_blank');
+                        return;
+                      }
+
+                      // If no signedData, check url fallback
+                      const targetUrl = certData?.url || selectedIcDetails?.certDocUrl;
+                      if (targetUrl) {
+                        window.open(targetUrl, '_blank');
+                      } else {
+                        alert('Certificate document is not available in storage.');
+                      }
+                    } catch (e) {
+                      if (selectedIcDetails?.certDocUrl) {
+                        window.open(selectedIcDetails.certDocUrl, '_blank');
+                      } else {
+                        alert('Could not retrieve certificate document from storage.');
+                      }
+                    }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#fff', background: 'linear-gradient(135deg, #0284c7, #0ea5e9)', border: 'none', padding: '7px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(2,132,199,0.3)', flexShrink: 0 }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  View IC Certificate
+                </button>
+              </div>
+            )}
+
+            <div className="diversion-table-wrapper" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <table className="diversion-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                 <thead>
-                  <tr>
-                    <th>{stage === 'RAW_MATERIAL' ? 'Heat No.' : 'Lot No.'}</th>
-                    <th>{stage === 'RAW_MATERIAL' ? 'TC No.' : 'Heat No.'}</th>
-                    <th>Total Accepted ({stage === 'RAW_MATERIAL' ? 'MT' : 'Nos'})</th>
-                    <th>Available Balance</th>
-                    <th>Diversion Qty Intended *</th>
-                    <th>Remaining Source Balance</th>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <th style={{ width: diversionType === 'PARTIAL' ? '14%' : '18%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                      {stage === 'RAW_MATERIAL' ? 'Heat No.' : 'Lot No.'}
+                    </th>
+                    <th style={{ width: diversionType === 'PARTIAL' ? '15%' : '20%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                      {stage === 'RAW_MATERIAL' ? 'TC No.' : 'Heat No.'}
+                    </th>
+                    <th style={{ width: diversionType === 'PARTIAL' ? (stage === 'PROCESS' ? '18%' : '22%') : '25%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                      {stage === 'PROCESS' ? 'Qty Accepted in Process' : `Total Accepted (${stage === 'RAW_MATERIAL' ? 'MT' : 'Nos'})`}
+                    </th>
+                    {stage === 'PROCESS' && diversionType === 'PARTIAL' && (
+                      <th style={{ width: '14%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                        Called Offered Earlier
+                      </th>
+                    )}
+                    <th style={{ width: diversionType === 'PARTIAL' ? '13%' : '18%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                      Available Balance
+                    </th>
+                    <th style={{ width: diversionType === 'PARTIAL' ? '14%' : '19%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                      Diversion Qty Intended *
+                    </th>
+                    {diversionType === 'PARTIAL' && (
+                      <th style={{ width: '12%', padding: '12px 16px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                        Remaining Source Balance
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {lineItems.map((item, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: '600' }}>
+                    <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafbfc' }}>
+                      <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b', verticalAlign: 'middle' }}>
                         {stage === 'RAW_MATERIAL' ? (item.heatNo || '-') : (item.lotNo || '-')}
                       </td>
-                      <td>
+                      <td style={{ padding: '14px 16px', color: '#475569', fontWeight: '500', verticalAlign: 'middle' }}>
                         {stage === 'RAW_MATERIAL' ? (item.tcNo || '-') : (item.heatNo || '-')}
                       </td>
-                      <td>{item.acceptedQty}</td>
-                      <td style={{ color: '#0369a1', fontWeight: '600' }}>{item.availableBalanceQty}</td>
-                      <td>
+                      <td style={{ padding: '14px 16px', fontWeight: '600', color: '#334155', verticalAlign: 'middle' }}>
+                        {item.acceptedQty}
+                      </td>
+                      {stage === 'PROCESS' && diversionType === 'PARTIAL' && (
+                        <td style={{ padding: '14px 16px', color: '#64748b', fontWeight: '500', verticalAlign: 'middle' }}>
+                          {item.downstreamConsumedQty !== undefined ? item.downstreamConsumedQty : 0}
+                        </td>
+                      )}
+                      <td style={{ padding: '14px 16px', color: '#0284c7', fontWeight: '700', fontSize: '13.5px', verticalAlign: 'middle' }}>
+                        {item.availableBalanceQty}
+                      </td>
+                      <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                         <input
                           type="number"
                           step={stage === 'RAW_MATERIAL' ? '0.001' : '1'}
                           className="diversion-input"
-                          style={{ width: '130px', padding: '6px 10px' }}
+                          style={{
+                            width: '100%',
+                            maxWidth: '135px',
+                            padding: '7px 12px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderRadius: '7px',
+                            background: diversionType === 'COMPLETE' ? '#f8fafc' : '#ffffff',
+                            border: '1px solid #cbd5e1'
+                          }}
                           value={item.diversionQty}
                           disabled={diversionType === 'COMPLETE'}
                           onChange={e => handleQtyChange(idx, e.target.value)}
                         />
                       </td>
-                      <td style={{ fontWeight: '600', color: '#475569' }}>
-                        {item.remainingBalanceQty !== undefined ? item.remainingBalanceQty : item.availableBalanceQty}
-                      </td>
+                      {diversionType === 'PARTIAL' && (
+                        <td style={{ padding: '14px 16px', fontWeight: '600', color: '#475569', verticalAlign: 'middle' }}>
+                          {item.remainingBalanceQty !== undefined ? item.remainingBalanceQty : item.availableBalanceQty}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ textAlign: 'right', marginTop: '12px', fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
-              Total Diversion Quantity: {stage === 'RAW_MATERIAL' ? calculateTotalDiversion().toFixed(3) : calculateTotalDiversion()} {stage === 'RAW_MATERIAL' ? 'MT' : 'Nos'}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: '10px',
+              marginTop: '14px',
+              padding: '10px 16px',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <span style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Total Diversion Quantity:</span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#0284c7' }}>
+                {stage === 'RAW_MATERIAL' ? calculateTotalDiversion().toFixed(3) : calculateTotalDiversion()} {stage === 'RAW_MATERIAL' ? 'MT' : 'Nos'}
+              </span>
             </div>
           </div>
         )}
@@ -1283,9 +1550,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
               <label className="diversion-form-label">Reason for Diversion</label>
               <ModernSelect
                 options={[
-                  { value: 'RAILWAY_DIRECTIVE', label: 'Railway Directive / Urgent Requirement', icon: '📋' },
-                  { value: 'PO_QUANTITY_REVISION', label: 'PO Quantity Revision', icon: '🔄' },
-                  { value: 'FACTORY_STOCK_REALLOCATION', label: 'Plant Stock Reallocation', icon: '🏭' }
+                  { value: 'PO_CANCELLATION', label: 'PO Cancellation', icon: '🔄' },
+                  { value: 'PO_QUANTITY_REVISION', label: 'PO Quantity Revision', icon: '🔄' }
                 ]}
                 value={reasonCode}
                 placeholder="-- Select Reason for Diversion --"
@@ -1301,8 +1567,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
               <input type="date" className="diversion-input" value={railwayPermissionDate} onChange={e => setRailwayPermissionDate(e.target.value)} />
             </div>
             <div className="diversion-form-group">
-              <label className="diversion-form-label">Upload Railway Permission Doc (PDF) *</label>
-              <input type="file" accept=".pdf" className="diversion-input" onChange={handleFileUpload} disabled={railwayDocUploading} />
+              <label className="diversion-form-label">Upload Railway Permission Doc (PDF) * <span style={{ fontWeight: 400, color: '#64748b', fontSize: '12px' }}>PDF only, max 5 MB</span></label>
+              <input type="file" accept="application/pdf,.pdf" className="diversion-input" onChange={handleFileUpload} disabled={railwayDocUploading} />
               {railwayDocUploading && (
                 <span style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px', display: 'block' }}>
                   ⏳ Uploading {railwayDocFileName}…
@@ -1324,11 +1590,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
           <button type="button" className="diversion-tab-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="diversion-btn-primary" style={{ background: '#f1f5f9', color: '#334155' }} onClick={() => handleSubmit(true)} disabled={isLoading || railwayDocUploading}>
-            Save as Draft
-          </button>
           <button type="button" className="diversion-btn-primary" style={{ background: '#0284c7', color: '#ffffff' }} onClick={() => handleSubmit(false)} disabled={isLoading || railwayDocUploading}>
-            {railwayDocUploading ? 'Uploading document…' : isLoading ? 'Submitting...' : 'Submit to Controlling Manager'}
+            {railwayDocUploading ? 'Uploading document…' : isLoading ? 'Submitting...' : isEditMode ? 'Update Request' : 'Submit to Controlling Manager'}
           </button>
         </div>
       </div>
@@ -1337,7 +1600,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       {toast && (
         <div style={{
           position: 'fixed',
-          bottom: '28px',
+          top: '28px',
           right: '28px',
           zIndex: 99999,
           background: '#1e293b',
@@ -1363,7 +1626,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
 
       <style>{`
         @keyframes slideInToast {
-          from { opacity: 0; transform: translateY(12px); }
+          from { opacity: 0; transform: translateY(-12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
