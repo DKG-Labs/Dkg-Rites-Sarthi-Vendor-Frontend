@@ -63,7 +63,10 @@ const parseResponse = async (response) => {
  */
 const request = async (endpoint, options = {}) => {
   const baseUrl = getBaseUrl();
-  const url = `${baseUrl}${endpoint}`;
+  const cleanEndpoint = (baseUrl.endsWith('/api') && endpoint.startsWith('/api/'))
+    ? endpoint.substring(4)
+    : endpoint;
+  const url = `${baseUrl}${cleanEndpoint}`;
 
   const config = {
     ...options,

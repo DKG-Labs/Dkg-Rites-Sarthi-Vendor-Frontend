@@ -1046,8 +1046,8 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     setTargetPoSrNo('');
 
     // If certDocUrl is missing in the eligible IC object, fetch it directly
-    if (icObj && !icObj.certDocUrl && (icObj.callNo || icNo)) {
-      const token = icObj.callNo || icNo;
+    if (icObj && !icObj.certDocUrl && (icNo || icObj.certificateNo || icObj.callNo)) {
+      const token = icNo || icObj.certificateNo || icObj.callNo;
       httpClient.get(`/api/certificate-storage/view?icNumber=${encodeURIComponent(token)}`)
         .then(docRes => {
           const docUrl = docRes?.data?.url || (typeof docRes?.data === 'string' ? docRes.data : null);
@@ -1395,7 +1395,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
                 <button
                   type="button"
                   onClick={async () => {
-                    const token = selectedIcDetails?.callNo || selectedIcDetails?.certificateNo || selectedIcNo;
+                    const token = selectedIcDetails?.certificateNo || selectedIcNo || selectedIcDetails?.callNo;
                     if (!token) {
                       alert('Please select a valid Source IC first.');
                       return;

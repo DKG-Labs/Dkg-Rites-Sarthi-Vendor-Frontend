@@ -62,14 +62,28 @@ export const MaterialDiversionPage = () => {
     setUser(u);
   }, []);
 
-  const handleViewIcCertificate = async (token) => {
+  const handleViewIcCertificate = async (token, stage) => {
     if (!token) {
       alert('Source IC Number is not available.');
       return;
     }
     try {
       setActionLoading(true);
-      const res = await httpClient.get(`/api/certificate-storage/view?icNumber=${encodeURIComponent(token)}`);
+      let icToView = token;
+
+      // 1. Fetch full IC Number from the new get-ic-number API (from IC edit table)
+      try {
+        const icRes = await httpClient.get(`/erc/diversion/get-ic-number?callNo=${encodeURIComponent(token)}${stage ? `&stage=${encodeURIComponent(stage)}` : ''}`);
+        const resolved = icRes?.data?.icNumber || icRes?.icNumber;
+        if (resolved) {
+          icToView = resolved;
+        }
+      } catch (err) {
+        console.warn('Could not fetch IC Number from edit tables, falling back to call token:', err);
+      }
+
+      // 2. Fetch certificate using the resolved IC Number
+      const res = await httpClient.get(`/certificate-storage/view?icNumber=${encodeURIComponent(icToView)}`);
       const certData = res?.data || res;
       if (certData && certData.signedData) {
         const cleanBase64 = String(certData.signedData).replace(/^data:application\/pdf;base64,/, '').trim();
@@ -92,7 +106,7 @@ export const MaterialDiversionPage = () => {
       }
     } catch (e) {
       console.error('Error fetching IC Certificate:', e);
-      alert('Could not retrieve certificate document from storage.');
+      alert('Could not retrieve certificate document from storage: ' + (e?.message || ''));
     } finally {
       setActionLoading(false);
     }
@@ -439,7 +453,7 @@ export const MaterialDiversionPage = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleViewIcCertificate(selectedRequest.sourceCallNo || selectedRequest.sourceIcNo)}
+                    onClick={() => handleViewIcCertificate(selectedRequest.sourceIcNo || selectedRequest.sourceCallNo, selectedRequest.stage)}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#fff', background: 'linear-gradient(135deg, #0284c7, #0ea5e9)', border: 'none', padding: '7px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(2,132,199,0.3)', flexShrink: 0 }}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
