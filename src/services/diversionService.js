@@ -179,7 +179,7 @@ const diversionService = {
   getDocUrl: async (id) => {
     try {
       const response = await httpClient.get(`/erc/diversion/doc-url/${id}`);
-      return response?.data?.railwayPermissionDocUrl || response?.railwayPermissionDocUrl || null;
+      return response?.responseData || response?.data || response || null;
     } catch (error) {
       console.error(`Error fetching doc url for ${id}:`, error);
       return null;
