@@ -5,10 +5,10 @@ import VerifyPaymentModal from './VerifyPaymentModal';
 import inspectionCallService from '../../../services/inspectionCallService';
 import { API_BASE_URL } from '../../../services/config';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
-import { 
+import {
     Search, CreditCard, CheckCircle2,
     FileText, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Loader2,
-    Copy, Check, Mail, Info, ArrowRight, ShieldAlert
+    Copy, Check, Mail, Info, ArrowRight, ShieldAlert, ExternalLink
 } from 'lucide-react';
 
 const PaymentDetailsDashboard = ({ plantId, vendorCode, vendorName }) => {
