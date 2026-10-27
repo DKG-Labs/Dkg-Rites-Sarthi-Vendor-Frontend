@@ -67,7 +67,10 @@ const inspectionCallService = {
           unitAddress: rmInspectionData.unit_address,
           remarks: rmInspectionData.remarks || '',
           createdBy: parseInt(user.userId) || user.userId, // Use logged-in userId
-          updatedBy: parseInt(user.userId) || user.userId  // Also set updatedBy
+          updatedBy: parseInt(user.userId) || user.userId,  // Also set updatedBy
+          callNature: rmInspectionData.call_nature || rmInspectionData.callNature || 'FRESH',
+          isDivertedMaterial: rmInspectionData.call_nature === 'DIVERTED' || Boolean(rmInspectionData.is_diverted_material),
+          sourceIcNo: rmInspectionData.source_ic_no || null
         },
         rmInspectionDetails: {
           // Required fields - use defaults if not provided (for testing without inventory)
@@ -251,11 +254,19 @@ const inspectionCallService = {
    * @param {string} poNo - Purchase Order Number (optional)
    * @returns {Promise<Object>} - API response with list of completed RM IC certificate numbers
    */
-  getCompletedRmIcNumbers: async (poSerialNo = null) => {
+  getCompletedRmIcNumbers: async (poSerialNo = null, callCategory = null) => {
     try {
-      const endpoint = poSerialNo
-        ? `/raw-material/completed-rm-ics?poSerialNo=${encodeURIComponent(poSerialNo)}`
-        : '/raw-material/completed-rm-ics';
+      let endpoint = '/raw-material/completed-rm-ics';
+      const params = [];
+      if (poSerialNo) {
+        params.push(`poSerialNo=${encodeURIComponent(poSerialNo)}`);
+      }
+      if (callCategory) {
+        params.push(`callCategory=${encodeURIComponent(callCategory)}`);
+      }
+      if (params.length > 0) {
+        endpoint += `?${params.join('&')}`;
+      }
       const response = await httpClient.get(endpoint);
       return response;
     } catch (error) {
@@ -623,14 +634,48 @@ const inspectionCallService = {
    * @param {string} poSerialNo - PO Serial Number
    * @returns {Promise<Object>} - API response with list of RM IC certificate numbers
    */
-  getRmIcCertificates: async (poSerialNo) => {
+  getRmIcCertificates: async (poSerialNo, callCategory = null) => {
     try {
-      const response = await httpClient.get(
-        `/final-material/rm-ic-certificates?poSerialNo=${encodeURIComponent(poSerialNo)}`
-      );
+      let endpoint = `/final-material/rm-ic-certificates?poSerialNo=${encodeURIComponent(poSerialNo)}`;
+      if (callCategory) {
+        endpoint += `&callCategory=${encodeURIComponent(callCategory)}`;
+      }
+      const response = await httpClient.get(endpoint);
       return response;
     } catch (error) {
       console.error('Error fetching RM IC certificates:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Diverted Process IC certificate numbers for target PO Serial Number
+   * @param {string} poSerialNo - PO Serial Number
+   * @returns {Promise<Object>} - API response with list of Process IC certificate numbers
+   */
+  getDivertedProcessIcs: async (poSerialNo) => {
+    try {
+      const endpoint = `/final-material/diverted-process-ics?poSerialNo=${encodeURIComponent(poSerialNo)}`;
+      const response = await httpClient.get(endpoint);
+      return response;
+    } catch (error) {
+      console.error('Error fetching diverted Process IC certificates:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get RM IC certificate numbers associated with a Process IC
+   * @param {string} processCertificateNo - Process IC certificate number
+   * @returns {Promise<Object>} - API response with list of RM IC numbers
+   */
+  getRmIcsByProcessCertificate: async (processCertificateNo) => {
+    try {
+      const endpoint = `/final-material/rm-ic-by-process?processCertificateNo=${encodeURIComponent(processCertificateNo)}`;
+      const response = await httpClient.get(endpoint);
+      return response;
+    } catch (error) {
+      console.error('Error fetching RM ICs by Process certificate:', error);
       throw error;
     }
   },
