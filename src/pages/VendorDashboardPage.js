@@ -1153,7 +1153,10 @@ const VendorDashboardPage = ({ onBack }) => {
             unitAddress: data.unit_address,
             remarks: data.remarks,
             createdBy: parseInt(user.userId) || user.userId, // Use logged-in userId
-            updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
+            updatedBy: parseInt(user.userId) || user.userId, // Use logged-in userId
+            callNature: data.call_nature || data.callNature || 'FRESH',
+            isDivertedMaterial: Boolean(data.is_diverted_material) || data.call_nature === 'DIVERTED',
+            sourceIcNo: data.source_ic_no || null
           },
           processInspectionDetails: data.process_lot_heat_mapping.map(lotHeat => ({
             // Send ALL selected RM IC numbers as comma-separated string per lot row
@@ -1215,7 +1218,10 @@ const VendorDashboardPage = ({ onBack }) => {
             unitAddress: data.unit_address,
             remarks: data.remarks || '',
             createdBy: parseInt(user.userId) || user.userId, // Use logged-in userId
-            updatedBy: parseInt(user.userId) || user.userId  // Use logged-in userId
+            updatedBy: parseInt(user.userId) || user.userId, // Use logged-in userId
+            callNature: data.call_nature || data.callNature || 'FRESH',
+            isDivertedMaterial: Boolean(data.is_diverted_material) || data.call_nature === 'DIVERTED',
+            sourceIcNo: data.source_ic_no || null
           },
           finalInspectionDetails: {
             // ---- Send ALL selected RM IC and Process IC numbers (new multi-select fields) ----

@@ -214,6 +214,12 @@ const INSPECTION_STAGES = [
   { value: 'Final', label: ' Final' }
 ];
 
+// Call Nature options
+const CALL_NATURE_OPTIONS = [
+  { value: 'FRESH', label: 'Fresh Call' },
+  { value: 'DIVERTED', label: 'Diverted Call' }
+];
+
 // ERC type options
 const ERC_TYPES = [
   { value: '', label: 'Select Type of ERC' },
@@ -278,6 +284,7 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
     vendor_contact_phone: '',
 
     // === CALL TYPE ===
+    call_category: selectedItem?.call_category || selectedItem?.callCategory || 'FRESH',
     type_of_call: '',
     type_of_erc: '',
     desired_inspection_date: '',
@@ -666,8 +673,8 @@ export const RaiseInspectionCallForm = ({
         setLoadingRMICs(true);
 
         try {
-          console.log('🔍 Fetching completed RM ICs (certificate numbers) for PO Serial No:', formData.po_serial_no);
-          const response = await inspectionCallService.getCompletedRmIcNumbers(formData.po_serial_no);
+          console.log('🔍 Fetching completed RM ICs (certificate numbers) for PO Serial No:', formData.po_serial_no, 'call_category:', formData.call_category);
+          const response = await inspectionCallService.getCompletedRmIcNumbers(formData.po_serial_no, formData.call_category);
           console.log('📦 Completed certificate numbers response:', response);
 
           if (response && response.data) {
@@ -714,8 +721,8 @@ export const RaiseInspectionCallForm = ({
               });
             }
 
-            // Hide ICs whose PO SR no has a COMPLETE diversion
-            const visibleData = completeDiversionSrNos.has(formData.po_serial_no)
+            // Hide ICs whose PO SR no has a COMPLETE diversion (unless it is a diverted call)
+            const visibleData = (formData.call_category !== 'DIVERTED' && completeDiversionSrNos.has(formData.po_serial_no))
               ? []
               : formattedData;
             setApprovedRMICsForProcess(visibleData);
@@ -747,7 +754,7 @@ export const RaiseInspectionCallForm = ({
 
     fetchCompletedRMICs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.type_of_call, formData.po_serial_no]);
+  }, [formData.type_of_call, formData.po_serial_no, formData.call_category]);
 
   // Fetch companies for POI dropdown on component mount
   useEffect(() => {
@@ -1065,18 +1072,25 @@ export const RaiseInspectionCallForm = ({
 
   // Step 1: Fetch RM IC certificates when Final inspection type is selected
   useEffect(() => {
-    console.log('🔄 Final IC useEffect triggered - type_of_call:', formData.type_of_call, 'po_serial_no:', formData.po_serial_no);
+    console.log('🔄 Final IC useEffect triggered - type_of_call:', formData.type_of_call, 'po_serial_no:', formData.po_serial_no, 'call_category:', formData.call_category);
 
     const fetchRmIcCertificates = async () => {
       if (formData.type_of_call === 'Final' && formData.po_serial_no) {
         setLoadingRmIcsForFinal(true);
         try {
-          console.log('🔍 Fetching RM IC certificates for PO Serial No:', formData.po_serial_no);
-          const response = await inspectionCallService.getRmIcCertificates(formData.po_serial_no);
+          console.log('🔍 Fetching RM IC certificates for PO Serial No:', formData.po_serial_no, 'call_category:', formData.call_category);
+          const response = await inspectionCallService.getRmIcCertificates(formData.po_serial_no, formData.call_category);
           console.log('📦 RM IC certificates response:', response);
 
           if (response && response.data) {
-            const certificates = Array.isArray(response.data) ? [...response.data] : [];
+            const rawCertificates = Array.isArray(response.data) ? [...response.data] : [];
+            const seen = new Set();
+            const certificates = rawCertificates.filter(item => {
+              const certNo = typeof item === 'object' ? item?.certificateNo : item;
+              if (!certNo || seen.has(certNo)) return false;
+              seen.add(certNo);
+              return true;
+            });
             console.log('✅ Setting RM IC certificates:', certificates);
 
             // In modify mode: ensure pre-selected RM IC numbers are available as options
@@ -1092,8 +1106,8 @@ export const RaiseInspectionCallForm = ({
               });
             }
 
-            // Hide ICs whose PO SR no has a COMPLETE diversion
-            const visibleCerts = completeDiversionSrNos.has(formData.po_serial_no) ? [] : certificates;
+            // Hide ICs whose PO SR no has a COMPLETE diversion (unless it is a diverted call)
+            const visibleCerts = (formData.call_category !== 'DIVERTED' && completeDiversionSrNos.has(formData.po_serial_no)) ? [] : certificates;
             setRmIcNumbersForFinal(visibleCerts);
           } else {
             console.warn('⚠️ No RM IC certificates found');
@@ -1120,55 +1134,88 @@ export const RaiseInspectionCallForm = ({
 
     fetchRmIcCertificates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.type_of_call, formData.po_serial_no]);
+  }, [formData.type_of_call, formData.po_serial_no, formData.call_category]);
 
-  // Step 2: Fetch Process IC certificates when RM IC certificate is selected
+  // Step 2: Fetch Process IC certificates when RM IC certificate is selected (or when Diverted Final is selected)
   useEffect(() => {
     const fetchProcessIcCertificates = async () => {
-      if (formData.type_of_call === 'Final' && formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
-        setLoadingProcessIcs(true);
-        try {
-          console.log('🔍 Fetching Process IC certificates for multiple RM certificates:', formData.final_rm_ic_numbers);
-
-          // Get Process ICs for ALL selected RM IC certificates
-          const response = await inspectionCallService.getProcessIcCertificatesByMultipleRmCertificates(formData.final_rm_ic_numbers);
-          console.log('📦 Process IC certificates response:', response);
-
-          if (response && response.data) {
-            const certificates = Array.isArray(response.data) ? [...response.data] : [];
-            console.log('✅ Setting Process IC certificates:', certificates);
-
-            // In modify mode: ensure pre-selected Process IC numbers are available as options
-            if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
-              const existingValues = new Set(certificates.map(d => (typeof d === 'object' ? d.certificateNo : d)));
-              formData.final_process_ic_numbers.forEach(preSelected => {
-                if (!existingValues.has(preSelected)) {
-                  certificates.push({
-                    certificateNo: preSelected,
-                    createdAt: null
-                  });
-                }
-              });
+      if (formData.type_of_call === 'Final') {
+        if (formData.call_category === 'DIVERTED') {
+          // Diverted Call: Fetch Process IC of this target PO Serial No (diverted process ICs)
+          if (formData.po_serial_no) {
+            setLoadingProcessIcs(true);
+            try {
+              console.log('🔍 Fetching Diverted Process ICs for PO Serial No:', formData.po_serial_no);
+              const response = await inspectionCallService.getDivertedProcessIcs(formData.po_serial_no);
+              if (response && response.data) {
+                const rawCertificates = Array.isArray(response.data) ? [...response.data] : [];
+                const seen = new Set();
+                const certificates = rawCertificates.filter(item => {
+                  const certNo = typeof item === 'object' ? item?.certificateNo : item;
+                  if (!certNo || seen.has(certNo)) return false;
+                  seen.add(certNo);
+                  return true;
+                });
+                setProcessIcCertificates(certificates);
+              } else {
+                setProcessIcCertificates([]);
+              }
+            } catch (error) {
+              console.error('❌ Error fetching diverted Process IC certificates:', error);
+              setProcessIcCertificates([]);
+            } finally {
+              setLoadingProcessIcs(false);
             }
-
-            setProcessIcCertificates(certificates);
           } else {
-            console.warn('⚠️ No Process IC certificates found');
+            setProcessIcCertificates([]);
+          }
+        } else if (formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
+          setLoadingProcessIcs(true);
+          try {
+            console.log('🔍 Fetching Process IC certificates for multiple RM certificates:', formData.final_rm_ic_numbers);
+
+            // Get Process ICs for ALL selected RM IC certificates
+            const response = await inspectionCallService.getProcessIcCertificatesByMultipleRmCertificates(formData.final_rm_ic_numbers);
+            console.log('📦 Process IC certificates response:', response);
+
+            if (response && response.data) {
+              const certificates = Array.isArray(response.data) ? [...response.data] : [];
+              console.log('✅ Setting Process IC certificates:', certificates);
+
+              // In modify mode: ensure pre-selected Process IC numbers are available as options
+              if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+                const existingValues = new Set(certificates.map(d => (typeof d === 'object' ? d.certificateNo : d)));
+                formData.final_process_ic_numbers.forEach(preSelected => {
+                  if (!existingValues.has(preSelected)) {
+                    certificates.push({
+                      certificateNo: preSelected,
+                      createdAt: null
+                    });
+                  }
+                });
+              }
+
+              setProcessIcCertificates(certificates);
+            } else {
+              console.warn('⚠️ No Process IC certificates found');
+              if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+                setProcessIcCertificates(formData.final_process_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
+              } else {
+                setProcessIcCertificates([]);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error fetching Process IC certificates:', error);
             if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
               setProcessIcCertificates(formData.final_process_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
             } else {
               setProcessIcCertificates([]);
             }
+          } finally {
+            setLoadingProcessIcs(false);
           }
-        } catch (error) {
-          console.error('❌ Error fetching Process IC certificates:', error);
-          if (isModifyMode && formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
-            setProcessIcCertificates(formData.final_process_ic_numbers.map(ic => ({ certificateNo: ic, createdAt: null })));
-          } else {
-            setProcessIcCertificates([]);
-          }
-        } finally {
-          setLoadingProcessIcs(false);
+        } else {
+          setProcessIcCertificates([]);
         }
       } else {
         setProcessIcCertificates([]);
@@ -1177,20 +1224,23 @@ export const RaiseInspectionCallForm = ({
 
     fetchProcessIcCertificates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.type_of_call, formData.final_rm_ic_numbers]);
+  }, [formData.type_of_call, formData.final_rm_ic_numbers, formData.call_category, formData.po_serial_no]);
 
   // Step 3: Fetch Lot numbers when both RM IC and Process IC are selected
   useEffect(() => {
     const fetchLotNumbers = async () => {
-      if (formData.type_of_call === 'Final' &&
-        formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0 &&
-        formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0) {
+      const hasRmIc = formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0;
+      const hasProcessIc = formData.final_process_ic_numbers && formData.final_process_ic_numbers.length > 0;
+      const canFetch = formData.type_of_call === 'Final' && hasProcessIc && (formData.call_category === 'DIVERTED' || hasRmIc);
+
+      if (canFetch) {
         setLoadingLotsForFinal(true);
         try {
-          // Get lots based on ALL selected RM IC and Process IC certificates (MULTI-SELECT)
-          console.log('🔍 Fetching lot numbers for multiple RM certificates:', formData.final_rm_ic_numbers, 'and Process certificates:', formData.final_process_ic_numbers);
+          // Get lots based on selected RM IC and Process IC certificates (MULTI-SELECT)
+          const rmCerts = hasRmIc ? formData.final_rm_ic_numbers : ['ALL'];
+          console.log('🔍 Fetching lot numbers for RM certificates:', rmCerts, 'and Process certificates:', formData.final_process_ic_numbers);
 
-          const response = await inspectionCallService.getLotNumbersByMultipleCertificates(formData.final_rm_ic_numbers, formData.final_process_ic_numbers);
+          const response = await inspectionCallService.getLotNumbersByMultipleCertificates(rmCerts, formData.final_process_ic_numbers);
           console.log('📦 Lot numbers response:', response);
 
           if (response && response.data) {
@@ -1233,15 +1283,18 @@ export const RaiseInspectionCallForm = ({
 
     fetchLotNumbers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.type_of_call, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
+  }, [formData.type_of_call, formData.final_rm_ic_numbers, formData.final_process_ic_numbers, formData.call_category]);
 
   // Step 4: Fetch heat numbers for each selected lot
   // Step 4: Fetch heat numbers for each selected lot
   useEffect(() => {
     const fetchHeatNumbersForLots = async () => {
-      if (formData.type_of_call === 'Final' &&
+      const hasRmIc = formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0;
+      const canFetchHeat = formData.type_of_call === 'Final' &&
         formData.final_lot_numbers && formData.final_lot_numbers.length > 0 &&
-        formData.final_rm_ic_numbers && formData.final_rm_ic_numbers.length > 0) {
+        (formData.call_category === 'DIVERTED' || hasRmIc);
+
+      if (canFetchHeat) {
         try {
           const newLotHeatMapping = {};
 
@@ -1255,7 +1308,11 @@ export const RaiseInspectionCallForm = ({
               : [''];
 
             for (const procCertificate of procCertificates) {
-              for (const rmCertificate of formData.final_rm_ic_numbers) {
+              const rmCertificates = (hasRmIc && formData.call_category !== 'DIVERTED')
+                ? formData.final_rm_ic_numbers
+                : [''];
+
+              for (const rmCertificate of rmCertificates) {
                 console.log('🔍 Fetching heat numbers for lot:', lotNumber, 'with RM certificate:', rmCertificate, 'Process cert:', procCertificate);
                 try {
                   const response = await inspectionCallService.getHeatNumbersByLotNumber(lotNumber, rmCertificate, procCertificate);
@@ -1319,7 +1376,7 @@ export const RaiseInspectionCallForm = ({
 
     fetchHeatNumbersForLots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.type_of_call, formData.final_lot_numbers, formData.final_rm_ic_numbers, formData.final_process_ic_numbers]);
+  }, [formData.type_of_call, formData.final_lot_numbers, formData.final_rm_ic_numbers, formData.final_process_ic_numbers, formData.call_category]);
 
   // Step 5: Sync final_lots_data and fetch acceptedProcessQty
   useEffect(() => {
@@ -2538,6 +2595,22 @@ export const RaiseInspectionCallForm = ({
     //   return;
     // }
 
+    if (name === 'call_category') {
+      setFormData(prev => ({
+        ...prev,
+        call_category: value,
+        type_of_call: (value === 'DIVERTED' && prev.type_of_call === 'Raw Material') ? '' : prev.type_of_call,
+        process_rm_ic_numbers: [],
+        final_rm_ic_numbers: [],
+        final_process_ic_numbers: [],
+        final_lot_numbers: []
+      }));
+      if (errors.call_category) {
+        setErrors(prev => ({ ...prev, call_category: '' }));
+      }
+      return;
+    }
+
     if (name === 'type_of_erc' && (value === 'MK-III' || value === 'J-Type')) {
       setPendingErcType(value);
       setShowErcWarning(true);
@@ -2782,7 +2855,7 @@ export const RaiseInspectionCallForm = ({
 
     // Final stage validations
     if (formData.type_of_call === 'Final') {
-      if (!formData.final_rm_ic_numbers || formData.final_rm_ic_numbers.length === 0) {
+      if (formData.call_category !== 'DIVERTED' && (!formData.final_rm_ic_numbers || formData.final_rm_ic_numbers.length === 0)) {
         newErrors.final_rm_ic_numbers = 'At least one RM IC Number is required';
       }
       if (!formData.final_process_ic_numbers || formData.final_process_ic_numbers.length === 0) {
@@ -2872,6 +2945,13 @@ export const RaiseInspectionCallForm = ({
       po_description: formData.po_description,
       po_qty: formData.po_qty,
       po_unit: formData.po_unit,
+      call_nature: formData.call_category || 'FRESH',
+      callNature: formData.call_category || 'FRESH',
+      is_diverted_material: formData.call_category === 'DIVERTED',
+      isDivertedMaterial: formData.call_category === 'DIVERTED',
+      source_ic_no: formData.call_category === 'DIVERTED'
+        ? (formData.process_rm_ic_numbers?.[0] || formData.final_process_ic_numbers?.[0] || formData.final_rm_ic_numbers?.[0] || null)
+        : null,
       type_of_call: formData.type_of_call,
       type_of_erc: formData.type_of_erc,
       desired_inspection_date: formData.desired_inspection_date,
@@ -3167,17 +3247,37 @@ export const RaiseInspectionCallForm = ({
         )}
 
         {/* ============ CALL TYPE SELECTION ============ */}
-        <SectionHeader title="Call Details" subtitle="Select type of inspection call" />
+        <SectionHeader title="Call Details" subtitle="Select nature and type of inspection call" />
 
         <div className="ric-form-grid">
+          <FormField label="Call Nature" name="call_category" required hint="Select Fresh or Diverted Call" errors={errors}>
+            <select
+              name="call_category"
+              className="ric-form-select"
+              value={formData.call_category || 'FRESH'}
+              onChange={handleChange}
+              disabled={isViewMode}
+            >
+              {CALL_NATURE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </FormField>
+
           <FormField label="Type of Call" name="type_of_call" required hint="Select inspection stage" errors={errors}>
             <select
               name="type_of_call"
               className="ric-form-select"
               value={formData.type_of_call}
               onChange={handleChange}
+              disabled={isViewMode}
             >
-              {INSPECTION_STAGES.map(opt => (
+              {INSPECTION_STAGES.filter(opt => {
+                if (formData.call_category === 'DIVERTED' && opt.value === 'Raw Material') {
+                  return false;
+                }
+                return true;
+              }).map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -3648,7 +3748,15 @@ export const RaiseInspectionCallForm = ({
                     label="RM IC Numbers"
                     name="process_rm_ic_numbers"
                     required
-                    hint={loadingRMICs ? "Loading completed RM ICs..." : completeDiversionSrNos.has(formData.po_serial_no) ? "RM ICs not available — material for this PO SR no has been completely diverted" : "Select certificate number for completed RM inspections"}
+                    hint={
+                      loadingRMICs
+                        ? "Loading completed RM ICs..."
+                        : (formData.call_category !== 'DIVERTED' && completeDiversionSrNos.has(formData.po_serial_no))
+                          ? "RM ICs not available — material for this PO SR no has been completely diverted"
+                          : formData.call_category === 'DIVERTED'
+                            ? "Select certificate number for diverted RM inspections"
+                            : "Select certificate number for completed RM inspections"
+                    }
                     fullWidth
                   >
                     <MultiSelectDropdown
@@ -3658,8 +3766,16 @@ export const RaiseInspectionCallForm = ({
                       }))}
                       selectedValues={formData.process_rm_ic_numbers}
                       onChange={(selectedValues) => handleRmIcSelection(selectedValues)}
-                      placeholder={loadingRMICs ? "Loading..." : completeDiversionSrNos.has(formData.po_serial_no) ? "Not available — material completely diverted" : "Select Certificate Numbers"}
-                      disabled={isViewMode || completeDiversionSrNos.has(formData.po_serial_no)}
+                      placeholder={
+                        loadingRMICs
+                          ? "Loading..."
+                          : (formData.call_category !== 'DIVERTED' && completeDiversionSrNos.has(formData.po_serial_no))
+                            ? "Not available — material completely diverted"
+                            : formData.call_category === 'DIVERTED'
+                              ? "Select Diverted RM IC Certificate Numbers"
+                              : "Select Certificate Numbers"
+                      }
+                      disabled={isViewMode || (formData.call_category !== 'DIVERTED' && completeDiversionSrNos.has(formData.po_serial_no))}
                     />
                     {formData.process_rm_ic_numbers.length > 0 && (
                       <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
@@ -3914,54 +4030,57 @@ export const RaiseInspectionCallForm = ({
                 />
 
                 <div className="ric-form-grid">
-                  {/* STEP 1: RM IC Numbers - First Dropdown (Multi-Select) */}
-                  <FormField
-                    label="RM IC Numbers"
-                    name="final_rm_ic_numbers"
-                    required
-                    hint={completeDiversionSrNos.has(formData.po_serial_no) ? "RM ICs not available — material for this PO SR no has been completely diverted" : "Certificate numbers from completed RM ICs (ER prefix)"}
-                  >
-                    {loadingRmIcsForFinal ? (
-                      <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
-                        Loading RM IC certificates...
-                      </div>
-                    ) : (
-                      <MultiSelectDropdown
-                        options={rmIcNumbersForFinal.map(item => {
-                          const certNo = (item && typeof item === 'object') ? item.certificateNo : (item || '');
-                          const createdAt = (item && typeof item === 'object') ? item.createdAt : null;
-                          const displayLabel = createdAt ? `${certNo} (${formatDate(createdAt)})` : certNo;
-                          return {
-                            value: certNo,
-                            label: displayLabel
-                          };
-                        })}
-                        selectedValues={formData.final_rm_ic_numbers}
-                        onChange={(selectedValues) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            final_rm_ic_numbers: selectedValues,
-                            final_process_ic_numbers: [], // Reset downstream selections
-                            final_lot_numbers: []
-                          }));
-                        }}
-                        placeholder={completeDiversionSrNos.has(formData.po_serial_no) ? "Not available — material completely diverted" : "Select RM IC Certificate Number"}
-                        disabled={isViewMode || completeDiversionSrNos.has(formData.po_serial_no)}
-                      />
-                    )}
-                    {formData.final_rm_ic_numbers.length > 0 && (
-                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                        Selected: {formData.final_rm_ic_numbers.join(', ')}
-                      </div>
-                    )}
-                  </FormField>
+                  {/* STEP 1: RM IC Numbers - Only for FRESH calls */}
+                  {formData.call_category !== 'DIVERTED' && (
+                    <FormField
+                      label="RM IC Numbers"
+                      name="final_rm_ic_numbers"
+                      required
+                      hint={completeDiversionSrNos.has(formData.po_serial_no) ? "RM ICs not available — material for this PO SR no has been completely diverted" : "Certificate numbers from completed RM ICs (ER prefix)"}
+                    >
+                      {loadingRmIcsForFinal ? (
+                        <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+                          Loading RM IC certificates...
+                        </div>
+                      ) : (
+                        <MultiSelectDropdown
+                          options={rmIcNumbersForFinal.map(item => {
+                            const certNo = (item && typeof item === 'object') ? item.certificateNo : (item || '');
+                            const createdAt = (item && typeof item === 'object') ? item.createdAt : null;
+                            const displayLabel = createdAt ? `${certNo} (${formatDate(createdAt)})` : certNo;
+                            return {
+                              value: certNo,
+                              label: displayLabel
+                            };
+                          })}
+                          selectedValues={formData.final_rm_ic_numbers}
+                          onChange={(selectedValues) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              final_rm_ic_numbers: selectedValues,
+                              final_process_ic_numbers: [], // Reset downstream selections
+                              final_lot_numbers: []
+                            }));
+                          }}
+                          placeholder={completeDiversionSrNos.has(formData.po_serial_no) ? "Not available — material completely diverted" : "Select RM IC Certificate Number"}
+                          disabled={isViewMode || completeDiversionSrNos.has(formData.po_serial_no)}
+                        />
+                      )}
+                      {formData.final_rm_ic_numbers.length > 0 && (
+                        <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                          Selected: {formData.final_rm_ic_numbers.join(', ')}
+                        </div>
+                      )}
+                    </FormField>
+                  )}
 
                   {/* STEP 2: Process IC Numbers - Second Dropdown (Multi-Select) */}
                   <FormField
                     label="Process IC Numbers"
                     name="final_process_ic_numbers"
                     required
-                    hint="Certificate numbers from completed Process ICs (EP prefix)"
+                    hint={formData.call_category === 'DIVERTED' ? "Diverted Process IC certificates for this PO Serial" : "Certificate numbers from completed Process ICs (EP prefix)"}
+                    fullWidth={formData.call_category === 'DIVERTED'}
                   >
                     {loadingProcessIcs ? (
                       <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
@@ -3979,15 +4098,30 @@ export const RaiseInspectionCallForm = ({
                           };
                         })}
                         selectedValues={formData.final_process_ic_numbers}
-                        onChange={(selectedValues) => {
+                        onChange={async (selectedValues) => {
                           setFormData(prev => ({
                             ...prev,
                             final_process_ic_numbers: selectedValues,
                             final_lot_numbers: [] // Reset downstream selections
                           }));
+
+                          // In Diverted mode: when a Process IC is chosen, auto-populate the RM IC if empty
+                          if (formData.call_category === 'DIVERTED' && selectedValues && selectedValues.length > 0) {
+                            try {
+                              const rmRes = await inspectionCallService.getRmIcsByProcessCertificate(selectedValues[0]);
+                              if (rmRes && rmRes.data && rmRes.data.length > 0) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  final_rm_ic_numbers: prev.final_rm_ic_numbers.length === 0 ? rmRes.data : prev.final_rm_ic_numbers
+                                }));
+                              }
+                            } catch (e) {
+                              console.warn('Could not auto-fetch RM IC for diverted Process IC:', e);
+                            }
+                          }
                         }}
-                        placeholder={formData.final_rm_ic_numbers.length === 0 ? "Select RM IC first" : "Select Process IC Certificate Number"}
-                        disabled={isViewMode || formData.final_rm_ic_numbers.length === 0}
+                        placeholder={formData.call_category !== 'DIVERTED' && formData.final_rm_ic_numbers.length === 0 ? "Select RM IC first" : "Select Process IC Certificate Number"}
+                        disabled={isViewMode || (formData.call_category !== 'DIVERTED' && formData.final_rm_ic_numbers.length === 0)}
                       />
                     )}
                     {formData.final_process_ic_numbers.length > 0 && (
@@ -4002,7 +4136,7 @@ export const RaiseInspectionCallForm = ({
                     label="Lot No."
                     name="final_lot_numbers"
                     required
-                    hint="Lot numbers from selected RM IC and Process IC"
+                    hint={formData.call_category === 'DIVERTED' ? "Lot numbers from selected Process IC" : "Lot numbers from selected RM IC and Process IC"}
                     fullWidth
                   >
                     {loadingLotsForFinal ? (
@@ -4020,13 +4154,17 @@ export const RaiseInspectionCallForm = ({
                           setFormData(prev => ({ ...prev, final_lot_numbers: selectedValues }));
                         }}
                         placeholder={
-                          formData.final_rm_ic_numbers.length === 0
+                          formData.call_category !== 'DIVERTED' && formData.final_rm_ic_numbers.length === 0
                             ? "Select RM IC first"
                             : formData.final_process_ic_numbers.length === 0
                               ? "Select Process IC first"
                               : "Select Lot Numbers"
                         }
-                        disabled={isViewMode || formData.final_rm_ic_numbers.length === 0 || formData.final_process_ic_numbers.length === 0}
+                        disabled={
+                          isViewMode ||
+                          (formData.call_category !== 'DIVERTED' && formData.final_rm_ic_numbers.length === 0) ||
+                          formData.final_process_ic_numbers.length === 0
+                        }
                       />
                     )}
                     {formData.final_lot_numbers.length > 0 && (
