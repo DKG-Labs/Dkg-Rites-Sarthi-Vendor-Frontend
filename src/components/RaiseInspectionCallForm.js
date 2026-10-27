@@ -385,27 +385,27 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
   // This lets VendorDashboardPage pass all IC fields through selectedItem.
   if (selectedItem && selectedItem.type_of_call) {
     const initialState = { ...defaults, ...selectedItem };
-    
+
     // In modify mode, the backend's maxQty/tcQtyRemaining for Raw Material already has the 
     // original offered quantity deducted. We need to add it back for validation.
     if (initialState.rm_heat_tc_mapping && Array.isArray(initialState.rm_heat_tc_mapping)) {
-        initialState.rm_heat_tc_mapping = initialState.rm_heat_tc_mapping.map(heat => {
-            if (heat.offeredQty) {
-                const offered = parseFloat(heat.offeredQty) || 0;
-                const currentMax = parseFloat(heat.maxQty) || parseFloat(heat.tcQtyRemaining) || 0;
-                const newMax = currentMax + offered;
-                const unit = heat.unit || (heat.tcQtyRemaining && heat.tcQtyRemaining.includes('MT') ? 'MT' : 'Nos');
-                
-                return {
-                    ...heat,
-                    maxQty: newMax,
-                    tcQtyRemaining: `${newMax} ${unit}`
-                };
-            }
-            return heat;
-        });
+      initialState.rm_heat_tc_mapping = initialState.rm_heat_tc_mapping.map(heat => {
+        if (heat.offeredQty) {
+          const offered = parseFloat(heat.offeredQty) || 0;
+          const currentMax = parseFloat(heat.maxQty) || parseFloat(heat.tcQtyRemaining) || 0;
+          const newMax = currentMax + offered;
+          const unit = heat.unit || (heat.tcQtyRemaining && heat.tcQtyRemaining.includes('MT') ? 'MT' : 'Nos');
+
+          return {
+            ...heat,
+            maxQty: newMax,
+            tcQtyRemaining: `${newMax} ${unit}`
+          };
+        }
+        return heat;
+      });
     }
-    
+
     return initialState;
   }
 
@@ -540,12 +540,12 @@ export const RaiseInspectionCallForm = ({
           ).toFixed(2);
 
           let currentQtyLeft = parseFloat(entry.qtyLeftForInspection) || 0;
-          
+
           if (isModifyMode && selectedItem && selectedItem.rm_heat_tc_mapping) {
-              const originalHeat = selectedItem.rm_heat_tc_mapping.find(h => h.heatNumber === heat.heatNumber && h.tcNumber === heat.tcNumber);
-              if (originalHeat && originalHeat.offeredQty) {
-                  currentQtyLeft += parseFloat(originalHeat.offeredQty) || 0;
-              }
+            const originalHeat = selectedItem.rm_heat_tc_mapping.find(h => h.heatNumber === heat.heatNumber && h.tcNumber === heat.tcNumber);
+            if (originalHeat && originalHeat.offeredQty) {
+              currentQtyLeft += parseFloat(originalHeat.offeredQty) || 0;
+            }
           }
 
           isUpdated = true;
@@ -1352,7 +1352,7 @@ export const RaiseInspectionCallForm = ({
             // Fallback 2: Check existing lot data (e.g. in modify mode)
             if (!heatNumberFound) {
               const existingLot = formData.final_lots_data?.find(l => l.lotNumber === lotNumber) ||
-                                  selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
+                selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
               if (existingLot && existingLot.heatNo) {
                 newLotHeatMapping[lotNumber] = existingLot.heatNo;
                 heatNumberFound = true;
@@ -1392,7 +1392,7 @@ export const RaiseInspectionCallForm = ({
 
         const updatedLotsData = await Promise.all(formData.final_lot_numbers.map(async (lotNumber) => {
           const existing = formData.final_lots_data?.find(l => l.lotNumber === lotNumber) ||
-                           selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
+            selectedItem?.final_lots_data?.find(l => l.lotNumber === lotNumber);
           const heatNo = lotHeatMapping[lotNumber] || existing?.heatNo || '';
 
           let acceptedQtyProcess = existing?.acceptedQtyProcess || 0;
@@ -2005,7 +2005,7 @@ export const RaiseInspectionCallForm = ({
 
               // Wait for all heat summaries for this RM IC to resolve
               const heatSummaries = await Promise.all(heatSummaryPromises);
-              
+
               // Add valid summaries to the array
               heatSummaries.forEach(summary => {
                 if (summary) {
@@ -2036,18 +2036,18 @@ export const RaiseInspectionCallForm = ({
         const currentCallOfferedQty = formData.process_lot_heat_mapping
           .filter(lot => lot.heatNumber === heat.heatNo)
           .reduce((sum, lot) => sum + (parseInt(lot.offeredQty) || 0), 0);
-          
+
         let adjustedOfferedEarlier = heat.offeredEarlier;
-        
+
         // In modify mode, the backend's offeredEarlier already includes this call's quantity.
         // We need to subtract it so it doesn't get double-counted.
         if (isModifyMode && currentCallOfferedQty > 0) {
           adjustedOfferedEarlier = Math.max(0, adjustedOfferedEarlier - currentCallOfferedQty);
         }
-        
+
         // Calculate new future balance
         const newFutureBalance = heat.maxErc - adjustedOfferedEarlier - currentCallOfferedQty;
-        
+
         // Determine status
         let newStatus = 'Good';
         if (newFutureBalance < 0) {
@@ -2055,7 +2055,7 @@ export const RaiseInspectionCallForm = ({
         } else if (newFutureBalance === 0) {
           newStatus = 'Exhausted';
         }
-        
+
         return {
           ...heat,
           offeredEarlier: adjustedOfferedEarlier,

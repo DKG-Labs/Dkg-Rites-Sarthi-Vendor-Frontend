@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { loginUser, verifyOtp, storeAuthData, isAuthenticated, setActiveRole, getStoredUser, getActiveRole, resetPassword } from '../services/authService';
+import { loginUser, verifyOtp, storeAuthData, isAuthenticated, setActiveRole, getStoredUser, getActiveRole } from '../services/authService';
 import './LoginPage.css';
 
 // Import Assets
@@ -18,10 +18,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [resetSuccess, setResetSuccess] = useState('');
+
 
   // MFA OTP States
   const [showOtpScreen, setShowOtpScreen] = useState(false);
@@ -178,27 +175,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleForgotPasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      await resetPassword(userId, newPassword);
-      setResetSuccess('Password reset successfully! Please log in.');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err) {
-      setError(err.message || 'Failed to reset password');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleRoleSelect = (role) => {
     setActiveRole(role);
@@ -260,94 +236,7 @@ const LoginPage = () => {
                   <p className="dashboard-fullform">System for Automated Review Tracking & Holistic Inspection</p>
                 </div>
 
-                {showForgotPassword ? (
-                  <form className="dashboard-form forgot-password-form" onSubmit={handleForgotPasswordSubmit}>
-                    <div className="form-header" style={{marginBottom: '20px'}}>
-                      <h2 style={{fontSize: '1.25rem', color: '#1a1a1a'}}>Reset Password</h2>
-                      <p style={{fontSize: '0.875rem', color: '#666'}}>Enter your details to change your password</p>
-                    </div>
-
-                    {error && (
-                      <div className="login-error-toast">
-                        <span>⚠️ {error}</span>
-                      </div>
-                    )}
-                    {resetSuccess && (
-                      <div className="login-error-toast" style={{ backgroundColor: '#e8f5e9', color: '#2e7d32', border: '1px solid #c8e6c9' }}>
-                        <span>✓ {resetSuccess}</span>
-                      </div>
-                    )}
-
-                    <div className="form-group">
-                      <label>User ID</label>
-                      <div className="input-field-shell">
-                        <span className="input-icon">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.1 0-8 2.1-8 5v1h16v-1c0-2.9-3.9-5-8-5Z" />
-                          </svg>
-                        </span>
-                        <input
-                          type="text"
-                          placeholder="Enter your User ID"
-                          value={userId}
-                          onChange={(e) => setUserId(e.target.value)}
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label>New Password</label>
-                      <div className="input-field-shell">
-                        <span className="input-icon">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                            <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4Zm2 10.75A1.75 1.75 0 1 1 13.75 16 1.75 1.75 0 0 1 12 17.75Z" />
-                          </svg>
-                        </span>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Enter new password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                        />
-                        <button type="button" className="password-toggle-redesign" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? '🙈' : '👁️'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Confirm Password</label>
-                      <div className="input-field-shell">
-                        <span className="input-icon">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                            <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4Zm2 10.75A1.75 1.75 0 1 1 13.75 16 1.75 1.75 0 0 1 12 17.75Z" />
-                          </svg>
-                        </span>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Confirm new password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                        />
-                        <button type="button" className="password-toggle-redesign" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? '🙈' : '👁️'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button type="submit" className="submit-btn" disabled={isLoading}>
-                      {isLoading ? 'Resetting...' : 'Reset Password'}
-                    </button>
-                    
-                    <div className="dashboard-options" style={{ justifyContent: 'center', marginTop: '1rem' }}>
-                      <button type="button" className="forgot-link" style={{background: 'none', border: 'none', cursor: 'pointer'}} onClick={() => { setShowForgotPassword(false); setError(''); setResetSuccess(''); }}>Back to Login</button>
-                    </div>
-                  </form>
-                ) : showOtpScreen ? (
+                {showOtpScreen ? (
                   <form className="dashboard-form otp-form" onSubmit={handleOtpSubmit}>
                     <div className="form-header" style={{ marginBottom: '16px' }}>
                       <h2 style={{ fontSize: '1.25rem', color: '#1a1a1a', fontWeight: '800' }}>Security Verification</h2>
@@ -377,7 +266,7 @@ const LoginPage = () => {
                       <div className="input-field-shell">
                         <span className="input-icon">
                           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
                           </svg>
                         </span>
                         <input
@@ -478,7 +367,6 @@ const LoginPage = () => {
                       <label className="remember-me">
                         <input type="checkbox" /> <span>Remember me</span>
                       </label>
-                      <a href="/#" className="forgot-link" onClick={(e) => { e.preventDefault(); setShowForgotPassword(true); setError(''); setResetSuccess(''); }}>Forgot password?</a>
                     </div>
 
                     <button type="submit" className="submit-btn" disabled={isLoading}>
