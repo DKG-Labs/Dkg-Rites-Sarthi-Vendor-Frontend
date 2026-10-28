@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ShiftProductionForm from './sections/ShiftProductionForm';
 import { apiService } from '../../services/api';
+import PaginationBar, { usePagination } from '../../components/common/PaginationBar';
 
 // ── Cache helpers ─────────────────────────────────────────────────────────────
 const CACHE_KEY = 'pd_declarations_cache';
@@ -222,6 +223,10 @@ const ProductionDeclarationDashboard = () => {
             }
         };
     }, [declarations, isVerified]);
+
+    // Each tab's table shows one page at a time; the stats above keep using the full list
+    const pendingPagination = usePagination(pendingDeclarations);
+    const verifiedPagination = usePagination(verifiedDeclarations);
 
     if (showForm) {
         return <ShiftProductionForm
@@ -487,8 +492,8 @@ const ProductionDeclarationDashboard = () => {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            pendingDeclarations.map((item, index) => (
-                                                <tr key={item.id || index} style={{ borderBottom: index === pendingDeclarations.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                                            pendingPagination.pageItems.map((item, index) => (
+                                                <tr key={item.id || index} style={{ borderBottom: index === pendingPagination.pageItems.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
                                                     <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
                                                         <div style={{ fontWeight: '600' }}>{item.castingDate}</div>
                                                         <div style={{ fontSize: '11px', color: '#64748b' }}>{item.shift}</div>
@@ -519,6 +524,7 @@ const ProductionDeclarationDashboard = () => {
                                         )}
                                     </tbody>
                                 </table>
+                                <div style={{ padding: '4px 20px 12px' }}><PaginationBar pagination={pendingPagination} /></div>
                             </div>
                         </div>
                     )}
@@ -548,8 +554,8 @@ const ProductionDeclarationDashboard = () => {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            verifiedDeclarations.map((item, index) => (
-                                                <tr key={item.id || index} style={{ borderBottom: index === verifiedDeclarations.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                                            verifiedPagination.pageItems.map((item, index) => (
+                                                <tr key={item.id || index} style={{ borderBottom: index === verifiedPagination.pageItems.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
                                                     <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
                                                         <div style={{ fontWeight: '600' }}>{item.castingDate}</div>
                                                         <div style={{ fontSize: '11px', color: '#64748b' }}>{item.shift}</div>
@@ -579,6 +585,7 @@ const ProductionDeclarationDashboard = () => {
                                         )}
                                     </tbody>
                                 </table>
+                                <div style={{ padding: '4px 20px 12px' }}><PaginationBar pagination={verifiedPagination} /></div>
                             </div>
                         </div>
                     )}

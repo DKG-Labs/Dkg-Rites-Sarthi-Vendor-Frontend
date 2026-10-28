@@ -386,7 +386,15 @@ export const apiService = {
     // Production Declaration APIs
     getProductionDeclarations: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/production-declaration/getAll`);
+            // Both callers filter by the selected plant, so ask the server for just that plant
+            // and only the last 60 days of history
+            const queryParts = ['days=60'];
+            try {
+                const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+                if (selectedPlant?.plantId) queryParts.unshift(`plantId=${encodeURIComponent(selectedPlant.plantId)}`);
+            } catch (e) { /* no plant selected: fetch unfiltered */ }
+            const plantQuery = `?${queryParts.join('&')}`;
+            const response = await fetch(`${BASE_URL}/production-declaration/getAllLite${plantQuery}`);
             if (!response.ok) throw new Error('Failed to fetch production declarations');
             const data = await response.json();
             return data.responseData;
@@ -818,7 +826,15 @@ export const apiService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error('Failed to submit inspection call');
+            if (!response.ok) {
+                // Keep the server's reason (e.g. blocked plant, missing IBS mapping) so the screen can show it
+                let serverMessage = '';
+                try {
+                    const errBody = await response.json();
+                    serverMessage = errBody?.responseStatus?.message || '';
+                } catch (e) { /* body was not JSON */ }
+                throw new Error(serverMessage || 'Failed to submit inspection call');
+            }
             return await response.json();
         } catch (error) {
             console.error('API Error:', error);
