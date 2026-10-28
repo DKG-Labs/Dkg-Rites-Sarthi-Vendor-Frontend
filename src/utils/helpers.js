@@ -62,17 +62,17 @@ export const formatDate = (dateString) => {
 };
 
 /**
- * Extracts and formats Call Date (DD-MM-YYYY) from Call No using MMDDYY nomenclature.
- * Example: ER-0722260005 -> MMDDYY = 07 (July), 22 (Day), 26 (Year 2026) -> 22-07-2026
- * Example: W/EP-0721260003/DKV -> MMDDYY = 07 (July), 21 (Day), 26 (Year 2026) -> 21-07-2026
+ * Extracts and formats Call Date (DD-MM-YYYY) from Call No using YYMMDD nomenclature.
+ * Example: ER-26102801 -> YYMMDD = 26 (Year 2026), 10 (Oct), 28 (Day) -> 28-10-2026
+ * Example: W/EP-26102801/DKV -> YYMMDD = 26, 10, 28 -> 28-10-2026
  */
 export const getCallDateFromCallNo = (callNo, fallbackDate) => {
   if (callNo && typeof callNo === 'string') {
     const match = callNo.match(/(?:[A-Z0-9/]+-)?(\d{2})(\d{2})(\d{2})\d*/);
     if (match) {
-      const mm = parseInt(match[1], 10);
-      const dd = parseInt(match[2], 10);
-      const yy = parseInt(match[3], 10);
+      const yy = parseInt(match[1], 10);
+      const mm = parseInt(match[2], 10);
+      const dd = parseInt(match[3], 10);
 
       if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
         const fullYear = 2000 + yy;
