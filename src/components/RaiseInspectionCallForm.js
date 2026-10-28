@@ -3285,7 +3285,7 @@ export const RaiseInspectionCallForm = ({
         </div>
 
         {/* ── Inline warning when selected call type already has an active call ── */}
-        {formData.type_of_call && blockedCallTypes.has(formData.type_of_call) && (
+        {formData.type_of_call && !isModifyMode && blockedCallTypes.has(formData.type_of_call) && (
           <div style={{ margin: '0 0 16px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
             <div>
@@ -3298,7 +3298,7 @@ export const RaiseInspectionCallForm = ({
         )}
 
         {/* ============ SHOW REST OF FORM ONLY AFTER TYPE SELECTION ============ */}
-        {formData.type_of_call && !blockedCallTypes.has(formData.type_of_call) && (
+        {formData.type_of_call && (isModifyMode || !blockedCallTypes.has(formData.type_of_call)) && (
           <>
             <div className="ric-form-grid">
               {/* <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="" errors={errors}>
