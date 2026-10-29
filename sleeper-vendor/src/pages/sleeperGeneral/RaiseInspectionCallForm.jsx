@@ -1623,7 +1623,10 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 }
                                 onClose();
                             } catch (error) {
-                                alert(isEdit ? "Failed to modify inspection call. Please try again." : "Failed to submit inspection call. Please try again.");
+                                const fallback = isEdit ? "Failed to modify inspection call. Please try again." : "Failed to submit inspection call. Please try again.";
+                                // Show the server's reason when it sent one; otherwise the generic text
+                                const reason = error?.message && error.message !== 'Failed to submit inspection call' ? error.message : '';
+                                alert(reason ? `${fallback}\n\nReason: ${reason}` : fallback);
                                 setIsSubmitting(false);
                             }
                         }}

@@ -39,6 +39,7 @@ const UNIFIED_NCRGRSP_DRAWINGS = [
     { code: "RT-4867", label: "RT-4867 (1 in 8.5 T/out for 52 Kg)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-5691", label: "RT-5691 (6 mm Thick 1 in 16 Turnout ORS)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-5691-1", label: "RT-5691-1 (1 in 16 Turnout with 11200 mm O.R. Switch)", category: "6mm & 10mm", is6mm: true, is10mm: true },
+    { code: "RT-5691-2", label: "RT-5691-2 (1 in 16 Turnout with 11200 mm O.R. Switch & C.M.S. X-ing Alt-2)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-5693", label: "RT-5693 (6 mm Thick CMS Crossing 1 in 16)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-5693-1", label: "RT-5693-1 (1 in 16 C.M.S. Crossing)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-10241", label: "RT-10241 (6 mm Thick TWS 1 in 16 Turnout, 60 kg)", category: "6mm & 10mm", is6mm: true, is10mm: true },
