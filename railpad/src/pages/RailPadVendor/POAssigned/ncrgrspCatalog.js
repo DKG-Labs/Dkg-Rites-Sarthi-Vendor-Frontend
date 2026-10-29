@@ -172,6 +172,44 @@ export const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10162', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10250', qtyPerSet: 174, description: 'Nylon Cord Reinforced GRSP' }
   ],
+  // RDSO/T-5691-2 – 1 in 16 Turnout with 11200 mm O.R. Switch (Curved) & C.M.S. Crossing (Total 402 Pads / 35 Items)
+  'RT-5691-2': [
+    { drawingNo: 'RT-10276', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10275', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10274', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10273', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10272', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10271', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10270', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10269', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10268', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10267', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10266', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10265', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10264', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10250', qtyPerSet: 232, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10260', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10259', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10258', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10257', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10256', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10255', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10254', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10253', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10252', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10200', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10202', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10251', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10163', qtyPerSet: 2, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10164', qtyPerSet: 36, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 28, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8893', qtyPerSet: 38, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10263', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10262', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10261', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // TYPE 6 – Source: Northern Railway – Annexure-B | Date: 2026
   'RT-5693': [
     { drawingNo: 'RT-10160', qtyPerSet: 14, description: 'Pocket Type Nylon Cord Reinforced GRSP' },
@@ -636,7 +674,10 @@ export const resolveNcrgrspCatalogKey = (dwgOrType, candidateDrawings = []) => {
     }
     return 'RT-4865 (52 KG)';
   }
-  if (str.includes('5691-1') || str.includes('5691_1') || str.includes('5691 (1)') || str.includes('5691-01')) {
+  if (str.includes('5691-2') || str.includes('5691_2') || str.includes('5691 (2)') || str.includes('5691-02') || str.includes('5691/2')) {
+    return 'RT-5691-2';
+  }
+  if (str.includes('5691-1') || str.includes('5691_1') || str.includes('5691 (1)') || str.includes('5691-01') || str.includes('5691/1')) {
     return 'RT-5691-1';
   }
   if (str.includes('5693-1') || str.includes('5693_1') || str.includes('5693 (1)') || str.includes('5693-01')) {
