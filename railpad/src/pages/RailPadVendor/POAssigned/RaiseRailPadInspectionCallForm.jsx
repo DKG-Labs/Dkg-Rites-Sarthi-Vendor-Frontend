@@ -153,6 +153,26 @@ const RaiseRailPadInspectionCallForm = ({
     };
     const effectiveCallNo = callData?.callNo || callData?.call_no || '';
 
+    const effectiveSr = String(
+        effectiveSrItem?.itemSrNo ||
+        effectiveSrItem?.srNo ||
+        effectiveSrItem?.poSr ||
+        effectiveSrItem?.poSerialNo ||
+        (effectivePoNo && String(effectivePoNo).includes('/') ? String(effectivePoNo).split('/')[1] : '') ||
+        ''
+    ).trim();
+
+    const isSrMatching = (itemSr, targetSr) => {
+        if (!targetSr) return true;
+        if (!itemSr) return false;
+        const s1 = String(itemSr).trim();
+        const s2 = String(targetSr).trim();
+        if (s1.toLowerCase() === s2.toLowerCase()) return true;
+        const n1 = parseInt(s1, 10);
+        const n2 = parseInt(s2, 10);
+        return !isNaN(n1) && !isNaN(n2) && n1 === n2;
+    };
+
     // ─── ALL STATE HOOKS (must all be declared before any conditional return) ─────
     const storageKey = useMemo(() => {
         const po = effectivePoNo ? String(effectivePoNo).replace(/[^a-zA-Z0-9_-]/g, '_') : 'PO';
@@ -320,8 +340,10 @@ const RaiseRailPadInspectionCallForm = ({
             try {
                 setLoadingProcessCalls(true);
                 const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
-                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, '');
-                const sortedData = Array.isArray(data) ? [...data].sort((a, b) => {
+                const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, effectiveSr);
+                const validCalls = Array.isArray(data) ? data : [];
+                const filteredData = effectiveSr ? validCalls.filter(pc => isSrMatching(pc.poSr || pc.po_sr || pc.poSerialNo || (pc.poNo && String(pc.poNo).includes('/') ? String(pc.poNo).split('/')[1] : ''), effectiveSr)) : validCalls;
+                const sortedData = [...filteredData].sort((a, b) => {
                     const dateA = new Date(a.createdAt || a.created_at || a.createdOn || a.inspectionDate || 0);
                     const dateB = new Date(b.createdAt || b.created_at || b.createdOn || b.inspectionDate || 0);
                     if (dateA.getTime() !== dateB.getTime()) {
@@ -330,7 +352,7 @@ const RaiseRailPadInspectionCallForm = ({
                     const callNoA = String(a.inspectionCallNo || a.callNo || a.id || '');
                     const callNoB = String(b.inspectionCallNo || b.callNo || b.id || '');
                     return callNoB.localeCompare(callNoA, undefined, { numeric: true, sensitivity: 'base' });
-                }) : [];
+                });
 
                 // Fetch detailed available final batches breakdown for each process call
                 const detailsList = await Promise.all(
@@ -382,7 +404,7 @@ const RaiseRailPadInspectionCallForm = ({
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId, effectivePoNo, callData, isReadOnly, isModifyMode]);
+    }, [railPadType, drawingNo, plantId, effectivePoNo, effectiveSr, callData, isReadOnly, isModifyMode]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
@@ -1028,6 +1050,7 @@ const RaiseRailPadInspectionCallForm = ({
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
                     {/* Top Field: Type of Call */}
+
                     <div style={{
                         background: '#fff', border: '1px solid #e2e8f0',
                         borderRadius: '10px', padding: '10px 14px',
@@ -1275,7 +1298,7 @@ const RaiseRailPadInspectionCallForm = ({
                                         <tbody>
                                             {(() => {
                                                 const items = [...processCalls];
-                                                selectedProcessIcs.forEach(ic => {
+                                                if (callData) selectedProcessIcs.forEach(ic => {
                                                     const exists = items.some(c => (c.callNo || c.inspectionCallNo || c.id) === ic);
                                                     if (!exists) {
                                                         items.push({ callNo: ic, inspectionCallNo: ic, id: ic, totalAccepted: 0, totalPreviouslyUsed: 0, totalAvailableBalance: 0 });
