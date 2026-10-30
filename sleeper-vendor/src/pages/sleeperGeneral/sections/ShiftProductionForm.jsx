@@ -362,7 +362,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
     useEffect(() => {
         const fetchPOs = async () => {
             try {
-                const data = await apiService.getVendorPOs(vendorCode);
+                const data = await apiService.getVendorPOs(vendorCode, plantId);
                 setPoOptions(data || []);
             } catch (err) {
                 console.error('Failed to fetch POs for vendor:', err);
