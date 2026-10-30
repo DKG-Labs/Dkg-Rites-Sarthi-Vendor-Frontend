@@ -79,7 +79,7 @@ const VendorDashboard = () => {
 
             const [calls, pos, completed] = await Promise.allSettled([
                 apiService.getVendorInspectionCalls(userId),
-                apiService.getVendorPOs(),
+                apiService.getVendorPOs(undefined, plantId),
                 apiService.getCompletedFinalCalls(plantId)
             ]);
 
