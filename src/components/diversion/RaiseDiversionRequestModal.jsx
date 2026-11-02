@@ -39,7 +39,7 @@ const normalizeSerial = (sr) => {
 };
 
 // Modern Searchable & Scrollable Dropdown for IC Selection
-const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder = '-- Select Completed Source IC --' }) => {
+const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder = '-- Select Completed Source IC --', loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef(null);
@@ -156,7 +156,18 @@ const SearchableIcDropdown = ({ options = [], value = '', onChange, placeholder 
           </div>
 
           <div className="searchable-select-options">
-            {filteredOptions.length === 0 ? (
+            {loading ? (
+              <div className="searchable-select-empty">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
+                  <span style={{
+                    display: 'inline-block', width: 16, height: 16,
+                    border: '2px solid #e2e8f0', borderTopColor: '#2563eb',
+                    borderRadius: '50%', animation: 'spin 0.7s linear infinite'
+                  }} />
+                  Loading ICs...
+                </span>
+              </div>
+            ) : filteredOptions.length === 0 ? (
               <div className="searchable-select-empty">
                 <span>No matching source ICs found</span>
                 <small style={{ color: '#cbd5e1' }}>Try searching with a different term</small>
@@ -751,6 +762,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const [plants, setPlants] = useState([]);
   const [cmList, setCmList] = useState([]);
   const [eligibleIcs, setEligibleIcs] = useState([]);
+  const [loadingIcs, setLoadingIcs] = useState(false);
   const [selectedIcNo, setSelectedIcNo] = useState('');
   const [selectedIcDetails, setSelectedIcDetails] = useState(null);
   const [lineItems, setLineItems] = useState([]);
@@ -983,7 +995,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   useEffect(() => {
     if (!error) return;
     setToast(error);
-    const t = setTimeout(() => setToast(''), 4000);
+    const t = setTimeout(() => setToast(''), 7000);
     return () => clearTimeout(t);
   }, [error]);
 
@@ -1029,13 +1041,15 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     }
 
     // Pass plantName (unit name string) — the SQL filters on ic.unit_name
+    setLoadingIcs(true);
     diversionService.getEligibleSourceIcs(vendorCode, plantName, stage)
       .then(res => {
         if (res && res.data) {
           setEligibleIcs(res.data);
         }
       })
-      .catch(err => console.error('Error fetching eligible ICs:', err));
+      .catch(err => console.error('Error fetching eligible ICs:', err))
+      .finally(() => setLoadingIcs(false));
   }, [isOpen, vendorCode, plantName, stage]);
 
   // Handle IC selection
@@ -1317,6 +1331,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
                 value={selectedIcNo}
                 onChange={handleIcChange}
                 placeholder="-- Search & Select Completed Source IC --"
+                loading={loadingIcs}
               />
             </div>
             <div className="diversion-form-group diversion-grid-span-2">

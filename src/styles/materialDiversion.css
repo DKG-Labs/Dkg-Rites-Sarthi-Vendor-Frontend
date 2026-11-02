@@ -479,6 +479,10 @@
   gap: 6px;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Modern Generic Select Dropdown */
 .modern-select-item {
   display: flex;
