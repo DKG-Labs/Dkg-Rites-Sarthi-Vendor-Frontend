@@ -1202,7 +1202,9 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       railwayPermissionDate: railwayPermissionDate,
       railwayPermissionDocUrl: railwayPermissionDocUrl,
       vendorRemarks: vendorRemarks,
-      items: lineItems.map(item => ({
+      items: lineItems
+        .filter(item => (parseFloat(item.diversionQty) || 0) > 0)
+        .map(item => ({
         heatNo: item.heatNo,
         tcNo: item.tcNo,
         lotNo: item.lotNo,
@@ -1354,24 +1356,24 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div className="diversion-card-title" style={{ margin: 0 }}>3. Material Line Quantities</div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {/* HIDDEN: Partial Diversion radio
+
                 <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input type="radio" checked={diversionType === 'PARTIAL'} onChange={() => {
+                  <input type="radio" name="diversionTypeOption" checked={diversionType === 'PARTIAL'} onChange={() => {
                     setDiversionType('PARTIAL');
                     const updated = lineItems.map(i => ({ ...i, diversionQty: 0, remainingBalanceQty: i.availableBalanceQty }));
                     setLineItems(updated);
                   }} /> Partial Diversion
                 </label>
-                */}
-                {/* HIDDEN: Complete Diversion radio
+
+
                 <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input type="radio" checked={diversionType === 'COMPLETE'} onChange={() => {
+                  <input type="radio" name="diversionTypeOption" checked={diversionType === 'COMPLETE'} onChange={() => {
                     setDiversionType('COMPLETE');
                     const updated = lineItems.map(i => ({ ...i, diversionQty: i.availableBalanceQty, remainingBalanceQty: 0 }));
                     setLineItems(updated);
                   }} /> Complete Diversion
                 </label>
-                */}
+
               </div>
             </div>
 
