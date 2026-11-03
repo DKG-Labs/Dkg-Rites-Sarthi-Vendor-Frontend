@@ -765,6 +765,56 @@ const NCRGRSPFinalInspectionCall = ({
     ...callData
   };
   const effectiveCallNo = callData?.callNo || callData?.call_no || '';
+
+  const extractSrFromPo = (poStr) => {
+    if (!poStr) return '';
+    const str = String(poStr).trim();
+    if (!str.includes('/')) return '';
+    const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+    return parts.length > 1 ? parts[parts.length - 1] : '';
+  };
+
+  const extractCleanPo = (poStr) => {
+    if (!poStr) return '';
+    const str = String(poStr).trim();
+    if (!str.includes('/')) return str;
+    const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 3) return parts[1];
+    if (parts.length === 2) return parts[0];
+    return parts[0];
+  };
+
+  const extractSrFromCall = (c) => {
+    if (!c) return '';
+    const directSr = c.poSr || c.po_sr || c.poSerialNo || c.rlyPoSrNo || c.itemSrNo || c.srNo;
+    if (directSr !== null && directSr !== undefined && String(directSr).trim() !== '' && String(directSr).trim().toLowerCase() !== 'null') {
+      return String(directSr).trim();
+    }
+    return extractSrFromPo(c.poNo || c.po_no || c.poReference || c.po_reference || '');
+  };
+
+  const isSrMatching = (itemSr, targetSr) => {
+    if (!targetSr) return true;
+    if (!itemSr) return false;
+    const s1 = String(itemSr).trim();
+    const s2 = String(targetSr).trim();
+    if (s1.toLowerCase() === s2.toLowerCase()) return true;
+    const n1 = parseInt(s1, 10);
+    const n2 = parseInt(s2, 10);
+    return !isNaN(n1) && !isNaN(n2) && n1 === n2;
+  };
+
+  const effectiveSr = String(
+    effectiveSrItem?.itemSrNo ||
+    effectiveSrItem?.srNo ||
+    effectiveSrItem?.poSr ||
+    effectiveSrItem?.po_sr ||
+    effectiveSrItem?.poSerialNo ||
+    callData?.poSr ||
+    callData?.po_sr ||
+    extractSrFromPo(effectivePoNo) ||
+    ''
+  ).trim();
   const uom = effectiveSrItem?.unit || effectiveSrItem?.uom || effectiveSrItem?.poUom || callData?.uom || callData?.unit || (selectedRailPadType?.toUpperCase().includes('NCR') ? 'Set' : 'Nos.');
 
   const storageKey = useMemo(() => {
@@ -877,17 +927,21 @@ const NCRGRSPFinalInspectionCall = ({
       if (!plantId) return;
       try {
         setLoadingProcessCalls(true);
-        const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
-        // For NCRGRSP, process calls can be selected across any PO serial number under the same PO
+        const cleanPo = extractCleanPo(effectivePoNo);
+        // Only fetch and display process calls matching the selected PO Serial Number
         const calls = await inspectionCallService.getProcessCalls(
           selectedRailPadType || initialRailPadType || '6.00mm NCRGRSP',
           ncrgrspType || '',
           plantId,
           cleanPo,
-          '' // Empty poSr so it fetches all process calls under this PO
+          effectiveSr
         );
-        if (Array.isArray(calls) && calls.length > 0) {
-          const sortedCalls = [...calls].sort((a, b) => {
+        const validCalls = Array.isArray(calls) ? calls : [];
+        const filteredCalls = effectiveSr
+          ? validCalls.filter(c => isSrMatching(extractSrFromCall(c), effectiveSr))
+          : validCalls;
+        if (filteredCalls.length > 0) {
+          const sortedCalls = [...filteredCalls].sort((a, b) => {
             const dateA = new Date(a.createdAt || a.created_at || a.createdOn || 0);
             const dateB = new Date(b.createdAt || b.created_at || b.createdOn || 0);
             if (dateA.getTime() !== dateB.getTime()) {
@@ -961,7 +1015,7 @@ const NCRGRSPFinalInspectionCall = ({
       }
     };
     fetchCerts();
-  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo, effectiveCallNo]);
+  }, [selectedRailPadType, initialRailPadType, ncrgrspType, plantId, effectivePoNo, effectiveCallNo, effectiveSr]);
 
   // Aggregate balance summary across vendor-selected Process ICs
   const selectedProcessSummary = useMemo(() => {
@@ -2582,7 +2636,7 @@ const NCRGRSPFinalInspectionCall = ({
                   <tbody>
                     {(() => {
                       const items = [...processCalls];
-                      selectedProcessCertNos.forEach(ic => {
+                      if (callData) selectedProcessCertNos.forEach(ic => {
                         const exists = items.some(c => (c.callNo || c.inspectionCallNo || c.id) === ic);
                         if (!exists) {
                           items.push({ callNo: ic, inspectionCallNo: ic, id: ic, totalAccepted: 0, totalPreviouslyUsed: 0, totalAvailableBalance: 0 });
