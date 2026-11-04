@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { inventoryService } from '../../../services/inventoryService';
 import inspectionCallService from '../../../services/inspectionCallService';
@@ -357,17 +357,25 @@ const RaiseRailPadInspectionCallForm = ({
         }
     }, [storageKey, callData, isReadOnly, isModifyMode, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots, remarks]);
 
-    // Fetch process calls matching railPadType and drawingNo
+    const processCallsKeyRef = useRef('');
+
+    // Fetch process calls as soon as the rail pad type is chosen; drawingNo (optional) narrows the list.
+    // processCallsKeyRef: skip a request whose parameters were already sent (StrictMode / re-renders).
     useEffect(() => {
         const fetchProcessCalls = async () => {
-            if (!railPadType || !drawingNo || !plantId) {
+            if (!railPadType || !plantId) {
+                processCallsKeyRef.current = '';
                 setProcessCalls([]);
                 return;
             }
+            const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
+            const requestKey = [railPadType, drawingNo, plantId, cleanPo, effectiveSr, effectiveCallNo].join('|');
+            if (processCallsKeyRef.current === requestKey) return;
+            processCallsKeyRef.current = requestKey;
             try {
                 setLoadingProcessCalls(true);
-                const cleanPo = extractCleanPo(effectivePoNo);
                 const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, effectiveSr);
+                if (processCallsKeyRef.current !== requestKey) return; // newer selection in progress
                 const validCalls = Array.isArray(data) ? data : [];
                 const filteredData = effectiveSr ? validCalls.filter(pc => isSrMatching(extractSrFromCall(pc), effectiveSr)) : validCalls;
                 const sortedData = [...filteredData].sort((a, b) => {
@@ -414,6 +422,7 @@ const RaiseRailPadInspectionCallForm = ({
                     })
                 );
 
+                if (processCallsKeyRef.current !== requestKey) return; // newer selection in progress
                 setProcessCalls(detailsList);
                 const fetchedCertNos = detailsList.map(pc => pc.callNo).filter(Boolean);
                 if (!callData) {
@@ -430,12 +439,13 @@ const RaiseRailPadInspectionCallForm = ({
                 }
             } catch (error) {
                 console.error('Error fetching process calls:', error);
+                processCallsKeyRef.current = ''; // allow a retry
             } finally {
-                setLoadingProcessCalls(false);
+                if (processCallsKeyRef.current === requestKey) setLoadingProcessCalls(false);
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId, effectivePoNo, effectiveSr, callData, isReadOnly, isModifyMode]);
+    }, [railPadType, drawingNo, plantId, effectivePoNo, effectiveSr, effectiveCallNo, callData, isReadOnly, isModifyMode]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
@@ -800,7 +810,8 @@ const RaiseRailPadInspectionCallForm = ({
             }
         } catch (error) {
             console.error("[Submit Inspection Call] Error:", error);
-            showNotification(isModifyMode ? "❌ Failed to modify inspection call." : "❌ Failed to raise inspection call.", 'error');
+            const backendMsg = error?.response?.data?.responseStatus?.message || error?.response?.data?.message;
+            showNotification(backendMsg ? `❌ ${backendMsg}` : (isModifyMode ? "❌ Failed to modify inspection call." : "❌ Failed to raise inspection call."), 'error');
         } finally {
             setIsSubmitting(false);
         }
