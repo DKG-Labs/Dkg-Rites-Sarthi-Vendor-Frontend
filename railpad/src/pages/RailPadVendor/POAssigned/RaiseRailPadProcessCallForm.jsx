@@ -642,7 +642,8 @@ const RaiseRailPadProcessCallForm = ({ srItem, poNo, plantId, vendorCode, onClos
             showNotification(`✅ Process Inspection Call raised successfully!\nCall No: ${callNo}`, 'success');
         } catch (error) {
             console.error("[Submit Process Call] Error:", error);
-            showNotification("❌ Failed to raise process inspection call.", 'error');
+            const backendMsg = error?.response?.data?.responseStatus?.message || error?.response?.data?.message;
+            showNotification(backendMsg ? `❌ ${backendMsg}` : "❌ Failed to raise process inspection call.", 'error');
         } finally {
             setIsSubmitting(false);
         }

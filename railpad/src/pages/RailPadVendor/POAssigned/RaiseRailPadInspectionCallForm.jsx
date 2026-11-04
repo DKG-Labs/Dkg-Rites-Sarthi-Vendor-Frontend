@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { inventoryService } from '../../../services/inventoryService';
 import inspectionCallService from '../../../services/inspectionCallService';
@@ -153,12 +153,39 @@ const RaiseRailPadInspectionCallForm = ({
     };
     const effectiveCallNo = callData?.callNo || callData?.call_no || '';
 
+    const extractSrFromPo = (poStr) => {
+        if (!poStr) return '';
+        const str = String(poStr).trim();
+        if (!str.includes('/')) return '';
+        const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+        return parts.length > 1 ? parts[parts.length - 1] : '';
+    };
+
+    const extractCleanPo = (poStr) => {
+        if (!poStr) return '';
+        const str = String(poStr).trim();
+        if (!str.includes('/')) return str;
+        const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 3) return parts[1];
+        if (parts.length === 2) return parts[0];
+        return parts[0];
+    };
+
+    const extractSrFromCall = (c) => {
+        if (!c) return '';
+        const directSr = c.poSr || c.po_sr || c.poSerialNo || c.rlyPoSrNo || c.itemSrNo || c.srNo;
+        if (directSr !== null && directSr !== undefined && String(directSr).trim() !== '' && String(directSr).trim().toLowerCase() !== 'null') {
+            return String(directSr).trim();
+        }
+        return extractSrFromPo(c.poNo || c.po_no || c.poReference || c.po_reference || '');
+    };
+
     const effectiveSr = String(
         effectiveSrItem?.itemSrNo ||
         effectiveSrItem?.srNo ||
         effectiveSrItem?.poSr ||
         effectiveSrItem?.poSerialNo ||
-        (effectivePoNo && String(effectivePoNo).includes('/') ? String(effectivePoNo).split('/')[1] : '') ||
+        extractSrFromPo(effectivePoNo) ||
         ''
     ).trim();
 
@@ -330,19 +357,27 @@ const RaiseRailPadInspectionCallForm = ({
         }
     }, [storageKey, callData, isReadOnly, isModifyMode, railPadType, drawingNo, selectedProcessIcs, desiredDate, totalQtyToOffer, noOfLots, lots, remarks]);
 
-    // Fetch process calls matching railPadType and drawingNo
+    const processCallsKeyRef = useRef('');
+
+    // Fetch process calls as soon as the rail pad type is chosen; drawingNo (optional) narrows the list.
+    // processCallsKeyRef: skip a request whose parameters were already sent (StrictMode / re-renders).
     useEffect(() => {
         const fetchProcessCalls = async () => {
-            if (!railPadType || !drawingNo || !plantId) {
+            if (!railPadType || !plantId) {
+                processCallsKeyRef.current = '';
                 setProcessCalls([]);
                 return;
             }
+            const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
+            const requestKey = [railPadType, drawingNo, plantId, cleanPo, effectiveSr, effectiveCallNo].join('|');
+            if (processCallsKeyRef.current === requestKey) return;
+            processCallsKeyRef.current = requestKey;
             try {
                 setLoadingProcessCalls(true);
-                const cleanPo = effectivePoNo ? String(effectivePoNo).split('/')[0].trim() : '';
                 const data = await inspectionCallService.getProcessCalls(railPadType, drawingNo, plantId, cleanPo, effectiveSr);
+                if (processCallsKeyRef.current !== requestKey) return; // newer selection in progress
                 const validCalls = Array.isArray(data) ? data : [];
-                const filteredData = effectiveSr ? validCalls.filter(pc => isSrMatching(pc.poSr || pc.po_sr || pc.poSerialNo || (pc.poNo && String(pc.poNo).includes('/') ? String(pc.poNo).split('/')[1] : ''), effectiveSr)) : validCalls;
+                const filteredData = effectiveSr ? validCalls.filter(pc => isSrMatching(extractSrFromCall(pc), effectiveSr)) : validCalls;
                 const sortedData = [...filteredData].sort((a, b) => {
                     const dateA = new Date(a.createdAt || a.created_at || a.createdOn || a.inspectionDate || 0);
                     const dateB = new Date(b.createdAt || b.created_at || b.createdOn || b.inspectionDate || 0);
@@ -387,7 +422,12 @@ const RaiseRailPadInspectionCallForm = ({
                     })
                 );
 
+                if (processCallsKeyRef.current !== requestKey) return; // newer selection in progress
                 setProcessCalls(detailsList);
+                const fetchedCertNos = detailsList.map(pc => pc.callNo).filter(Boolean);
+                if (!callData) {
+                    setSelectedProcessIcs(prev => (prev || []).filter(ic => fetchedCertNos.includes(ic)));
+                }
 
                 // Only preselect process ICs for existing saved calls (view/modify mode)
                 if (callData) {
@@ -399,12 +439,13 @@ const RaiseRailPadInspectionCallForm = ({
                 }
             } catch (error) {
                 console.error('Error fetching process calls:', error);
+                processCallsKeyRef.current = ''; // allow a retry
             } finally {
-                setLoadingProcessCalls(false);
+                if (processCallsKeyRef.current === requestKey) setLoadingProcessCalls(false);
             }
         };
         fetchProcessCalls();
-    }, [railPadType, drawingNo, plantId, effectivePoNo, effectiveSr, callData, isReadOnly, isModifyMode]);
+    }, [railPadType, drawingNo, plantId, effectivePoNo, effectiveSr, effectiveCallNo, callData, isReadOnly, isModifyMode]);
 
     // Fetch process inspection result batches on selectedProcessIcs change
     useEffect(() => {
@@ -769,7 +810,8 @@ const RaiseRailPadInspectionCallForm = ({
             }
         } catch (error) {
             console.error("[Submit Inspection Call] Error:", error);
-            showNotification(isModifyMode ? "❌ Failed to modify inspection call." : "❌ Failed to raise inspection call.", 'error');
+            const backendMsg = error?.response?.data?.responseStatus?.message || error?.response?.data?.message;
+            showNotification(backendMsg ? `❌ ${backendMsg}` : (isModifyMode ? "❌ Failed to modify inspection call." : "❌ Failed to raise inspection call."), 'error');
         } finally {
             setIsSubmitting(false);
         }

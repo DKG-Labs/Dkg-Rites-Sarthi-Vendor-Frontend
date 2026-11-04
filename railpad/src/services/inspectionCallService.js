@@ -14,6 +14,9 @@ const inspectionCallService = {
             return response.data?.responseData;
         } catch (error) {
             console.error('Error creating inspection call:', error);
+            // Surface the backend's reason (e.g. "Call raising is blocked: IBS Vendor Code is not configured...")
+            const backendMsg = error?.response?.data?.responseStatus?.message || error?.response?.data?.message;
+            if (backendMsg) error.message = backendMsg;
             throw error;
         }
     },
