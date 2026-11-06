@@ -10,6 +10,7 @@ import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
 import MasterUpdatingDashboard from './MasterUpdatingDashboard';
 import VendorIncomingRequests from '../vendor/VendorIncomingRequests';
 import VendorFeedback from '../../components/Feedback/VendorFeedback';
+import VendorRejectionDisposal from '../../components/rejection-disposal/VendorRejectionDisposal';
 import { apiService } from '../../services/api';
 
 
@@ -148,6 +149,7 @@ const VendorDashboard = () => {
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
         { id: 'payment-module', title: 'Payment Details', subtitle: 'Payment Details Updating Module', icon: '💳' },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
+        { id: 'rejection-disposal', title: 'Rejection & Disposal', subtitle: 'Rejected sleepers & scrap ledger', icon: '🗑️' },
         { id: 'finance', title: 'Finance', subtitle: 'Payments & Billings', icon: '💰', underDevelopment: true, hidden: true },
         { id: 'master-updating', title: 'Master Updating', subtitle: 'Resource masters', icon: '🔄', underDevelopment: true, hidden: true },
         { id: 'requested-changes', title: 'Requested Changes', subtitle: 'Modifications from IE', icon: '🔔', hidden: true },
@@ -164,6 +166,8 @@ const VendorDashboard = () => {
                 return <PlantDeclarationDashboard />;
             case 'production-declaration':
                 return <ProductionDeclarationDashboard />;
+            case 'rejection-disposal':
+                return <VendorRejectionDisposal />;
             case 'inventory-management':
                 return <InventoryManagementDashboard />;
             case 'po-assigned':
