@@ -62,7 +62,11 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
     const callDate = isEdit && editCall?.callDate ? editCall.callDate : new Date().toLocaleDateString('en-IN');
     const editCallNo = isEdit ? (editCall?.callNo || editCall?.callNumber || editCall?.id) : null;
     const uom = srItem?.uom || srItem?.unit || srItem?.poUnit || srItem?.itemUom || 'Nos.';
-    const isEffectiveSetUom = Boolean(uom && String(uom).toUpperCase().includes('SET'));
+    // SET and MTR are declared manually: the vendor enters the quantity (Sets / Metres) to offer,
+    // and it is NOT the count of individual sleepers selected.
+    const uomUpper = String(uom || '').toUpperCase().replace(/\./g, '').trim();
+    const isMtrUom = uomUpper === 'MTR' || uomUpper === 'MTRS' || uomUpper === 'M' || uomUpper.includes('METER') || uomUpper.includes('METRE');
+    const isEffectiveSetUom = Boolean(uomUpper.includes('SET') || isMtrUom);
     const displayUom = uom;
 
     // Section A & B state
@@ -797,13 +801,19 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     </div>
                                     <input
                                         type="number"
-                                        min="1"
+                                        min={isMtrUom ? '0.01' : '1'}
                                         max={srItem.due !== undefined ? srItem.due : undefined}
-                                        step="1"
+                                        step={isMtrUom ? '0.01' : '1'}
                                         value={toBeOffered}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            setToBeOffered(val === '' ? '' : parseInt(val, 10) || 0);
+                                            if (val === '') { setToBeOffered(''); return; }
+                                            if (isMtrUom) {
+                                                // keep max 2 decimals; keep raw text while typing (e.g. "12.")
+                                                if (/^\d*\.?\d{0,2}$/.test(val)) setToBeOffered(val);
+                                                return;
+                                            }
+                                            setToBeOffered(parseInt(val, 10) || 0);
                                         }}
                                         placeholder="1"
                                         style={{
@@ -821,7 +831,9 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                         }}
                                     />
                                     <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 3 }}>
-                                        Enter number of <strong>Sets</strong> (e.g. 1)
+                                        {isMtrUom
+                                            ? <>Enter quantity in <strong>Metres</strong> (e.g. 100)</>
+                                            : <>Enter number of <strong>Sets</strong> (e.g. 1)</>}
                                     </div>
                                 </div>
                             ) : (
@@ -1549,7 +1561,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType: mainSleeperType,
-                                    totalOffered: effectiveOffered,
+                                    totalOffered: isMtrUom ? Number(effectiveOffered.toFixed(2)) : effectiveOffered,
                                     totalRejected: Number(summary.totalRejectedCount) || 0,
                                     desiredInspectionDate: dateOfInspection || null,
                                     createdBy: numericUserId,
