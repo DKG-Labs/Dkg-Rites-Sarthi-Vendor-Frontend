@@ -475,7 +475,13 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     checkPageBreak(50);
 
     drawRow('Raw Material Qty Already Passed for this PO Sr. No.', val(call.rawMaterialQtyPassed, 'N/A'), { rowH: 12 });
-    drawRow('Final Accepted Qty of this PO Sr. No.', val(call.finalAcceptedQty || (call.acceptedTillNow ? `${call.acceptedTillNow} Nos.` : '0 Nos.')), { rowH: 12 });
+    // Same resolution as the IE call letter: use backend cumulative value, else this call's accepted qty
+    const resolvedFinalAccepted = (call.finalAcceptedQty && call.finalAcceptedQty !== '0 Nos.' && call.finalAcceptedQty !== '0')
+        ? call.finalAcceptedQty
+        : (call.acceptedQty != null
+            ? `${call.acceptedQty} Nos.`
+            : (call.acceptedTillNow ? `${call.acceptedTillNow} Nos.` : (call.finalAcceptedQty || '0 Nos.')));
+    drawRow('Final Accepted Qty of this PO Sr. No.', val(resolvedFinalAccepted), { rowH: 12 });
     drawRow('Total PO Quantity', val(call.poQuantity || call.poQty || '-'), { rowH: 9 });
     drawRow('Total PO Value', val(call.poValue || (call.totalValue ? `₹${call.totalValue}` : '-')), { rowH: 9 });
 
