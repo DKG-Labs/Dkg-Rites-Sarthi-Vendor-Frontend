@@ -51,16 +51,16 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
   // Debounced TC Number & Supplier uniqueness check across all vendors
   useEffect(() => {
     const checkUniqueness = async () => {
-      // If we are editing and both TC number and Supplier are unchanged, it's not a duplicate of itself
-      if (editData && formData.tcNumber === editData.tcNumber && formData.supplierName === editData.supplierName) {
+      // If we are editing and the TC number is unchanged, it's not a duplicate of itself
+      if (editData && (formData.tcNumber || '').trim().toLowerCase() === (editData.tcNumber || '').trim().toLowerCase()) {
         return;
       }
 
       const trimmedTc = formData.tcNumber ? formData.tcNumber.trim() : '';
       const trimmedSupplier = formData.supplierName ? formData.supplierName.trim() : '';
 
-      // Check when both TC Number and Supplier are provided
-      if (trimmedTc && trimmedSupplier) {
+      // TC Number must be unique system-wide – check as soon as it is entered
+      if (trimmedTc) {
         setIsCheckingTC(true);
         try {
           const user = getStoredUser();
@@ -69,7 +69,7 @@ const NewInventoryEntryForm = ({ masterData = {}, inventoryEntries = [], onSubmi
 
           const response = await inventoryService.checkTcUniqueness(trimmedTc, trimmedSupplier, vendorCode, excludeId);
           if (response.success && response.exists) {
-            const errorMsg = `Combination of Supplier '${trimmedSupplier}' and TC Number '${trimmedTc}' already exists in the system.`;
+            const errorMsg = `TC Number '${trimmedTc}' already exists in the system.`;
             setErrors(prev => ({
               ...prev,
               tcNumber: errorMsg
