@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateRailpadCallLetterPDF } from './generateCallLetterPDF';
 import inspectionCallService from '../services/inspectionCallService';
+import { generateRailpadAnnexurePDF } from './generateAnnexurePDF';
 
 /**
  * Downloads a base64 encoded PDF string as a physical .pdf file
@@ -229,6 +230,9 @@ export const generateRailpadIcPdf = async (call, shouldDownload = true) => {
         call.icNo,
         call.icNumber,
         call.certificateNo,
+        call.requestId,
+        call.inspectionCallNo,
+        call.call_no,
         callNo
     ].filter(Boolean);
 
@@ -263,7 +267,13 @@ export const downloadAllCallDocuments = async (call) => {
         await new Promise(r => setTimeout(r, 600));
         await generateRailpadPoPDF(call, true);
         await new Promise(r => setTimeout(r, 600));
-        await generateRailpadIcPdf(call, true);
+        await generateRailpadAnnexurePDF(call, true);
+        await new Promise(r => setTimeout(r, 600));
+        try {
+            await generateRailpadIcPdf(call, true);
+        } catch (icErr) {
+            console.warn('IC PDF not available for download all:', icErr.message);
+        }
     } catch (e) {
         console.error('Error downloading all documents:', e);
         throw e;

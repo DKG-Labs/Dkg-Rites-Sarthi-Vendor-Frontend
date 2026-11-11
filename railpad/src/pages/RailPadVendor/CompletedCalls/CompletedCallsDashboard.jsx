@@ -13,6 +13,7 @@ import {
     generateRailpadIcPdf,
     downloadAllCallDocuments
 } from '../../../utils/generateDocumentPDFs';
+import { generateRailpadAnnexurePDF } from '../../../utils/generateAnnexurePDF';
 
 const getCallStatusInfo = (statusStr, actionStr) => {
     const rawStatus = String(statusStr || '').toUpperCase().trim();
@@ -159,7 +160,9 @@ const formatPoSrNo = (call, includeRly = true) => {
 const checkIsIcAvailable = (call) => {
     if (!call) return false;
     const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
-    return statusInfo?.label === 'Completed - E-Signed';
+    const rawStatus = String(call.status || call.workflowStatus || '').toUpperCase();
+    const act = String(call.latestAction || call.action || call.workflowAction || '').toUpperCase();
+    return !rawStatus.includes('CANCEL') && !act.includes('CANCEL') && !rawStatus.includes('WITHDRAW') && !act.includes('WITHDRAW');
 };
 
 const getCallUom = (call) => {
@@ -197,6 +200,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const [isActionsModalOpen, setIsActionsModalOpen] = useState(false);
     const [downloadingDoc, setDownloadingDoc] = useState(null);
     const [toast, setToast] = useState(null);
+    const [annexureNotification, setAnnexureNotification] = useState(null);
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
@@ -245,6 +249,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const handleOpenActions = async (call) => {
         setSelectedCall(call);
         setTransitionHistory([]);
+        setAnnexureNotification(null);
         setIsActionsModalOpen(true);
 
         try {
@@ -294,10 +299,29 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
+    const handleDownloadAnnexures = async (call) => {
+        try {
+            setDownloadingDoc('annexures');
+            const callNo = call?.callNo || call?.call_no || call?.requestId || '';
+            setAnnexureNotification(null);
+            showToast('info', `Checking Annexure for Call No: ${callNo}...`);
+            await generateRailpadAnnexurePDF(call, true);
+            showToast('success', `Annexures PDF downloaded successfully!`);
+        } catch (err) {
+            console.error("Error downloading Annexures PDF:", err);
+            const fallbackCallNo = call?.callNo || call?.call_no || call?.requestId || '';
+            const msg = err.message || `Annexure could not find for call no : ${fallbackCallNo}`;
+            showToast('warning', msg);
+            setAnnexureNotification({ type: 'warning', message: msg });
+        } finally {
+            setDownloadingDoc(null);
+        }
+    };
+
     const handleDownloadIC = async (call) => {
         const isIcAvailable = checkIsIcAvailable(call);
-        if (!isIcAvailable) {
-            showToast('info', 'Inspection Certificate (IC) is only available when status is Completed - E-Signed.');
+        if (!call) {
+            // IC available
             return;
         }
 
@@ -319,7 +343,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         try {
             setDownloadingDoc('all');
             if (isIcAvailable) {
-                showToast('info', `Downloading all available documents (Call Letter, PO, IC)...`);
+                showToast('info', `Downloading all available documents (Call Letter, PO, Annexures, IC)...`);
                 await downloadAllCallDocuments(call);
                 showToast('success', `All documents downloaded successfully!`);
             } else {
@@ -383,11 +407,12 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                     color: '#fff', fontWeight: 600, fontSize: 13,
                     display: 'flex', alignItems: 'center', gap: 10,
                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
-                    background: toast.type === 'success' ? '#059669' : (toast.type === 'error' ? '#dc2626' : '#2563eb'),
+                    background: toast.type === 'success' ? '#059669' : (toast.type === 'error' ? '#dc2626' : (toast.type === 'warning' ? '#d97706' : '#2563eb')),
                     animation: 'slideIn 0.3s ease'
                 }}>
                     {toast.type === 'success' && <CheckCircle2 size={18} />}
                     {toast.type === 'error' && <AlertCircle size={18} />}
+                    {toast.type === 'warning' && <AlertCircle size={18} />}
                     {toast.type === 'info' && <Info size={18} />}
                     <span>{toast.message}</span>
                 </div>
@@ -680,6 +705,39 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             </div>
                         </div>
 
+                        {/* Annexure Notification Banner (Userfriendly UI) */}
+                        {annexureNotification && (
+                            <div style={{
+                                background: annexureNotification.type === 'warning' ? '#fffbeb' : '#f0fdf4',
+                                border: `1.5px solid ${annexureNotification.type === 'warning' ? '#fde68a' : '#bbf7d0'}`,
+                                color: annexureNotification.type === 'warning' ? '#92400e' : '#166534',
+                                borderRadius: '14px',
+                                padding: '12px 18px',
+                                marginBottom: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                fontSize: '13.5px',
+                                fontWeight: 700,
+                                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.08)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <AlertCircle size={20} color={annexureNotification.type === 'warning' ? '#d97706' : '#16a34a'} />
+                                    <span>{annexureNotification.message}</span>
+                                </div>
+                                <button
+                                    onClick={() => setAnnexureNotification(null)}
+                                    style={{
+                                        background: 'none', border: 'none', cursor: 'pointer',
+                                        color: annexureNotification.type === 'warning' ? '#92400e' : '#166534',
+                                        fontSize: '18px', fontWeight: 'bold', padding: '0 4px'
+                                    }}
+                                    title="Dismiss"
+                                >×</button>
+                            </div>
+                        )}
+
                         {/* Actions & Documents Cards */}
                         <div>
                             <h4 style={{
@@ -693,6 +751,47 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             }}>
                                 <span style={{ color: '#f59e0b' }}>⚡</span> Actions & Documents
                             </h4>
+
+                            {/* User-friendly UI Notification for Annexures or actions */}
+                            {annexureNotification && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    padding: '12px 16px',
+                                    borderRadius: '12px',
+                                    background: '#fffbeb',
+                                    border: '1.5px solid #fde68a',
+                                    color: '#b45309',
+                                    fontSize: '13.5px',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px',
+                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle size={18} color="#d97706" style={{ flexShrink: 0 }} />
+                                        <span>{annexureNotification.message}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAnnexureNotification(null)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#b45309',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold',
+                                            padding: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                        title="Dismiss"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
 
                             <div style={{
                                 display: 'grid',
@@ -735,19 +834,21 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                         flexDirection: 'column',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        cursor: 'not-allowed',
+                                        cursor: 'pointer',
                                         transition: 'all 0.2s',
                                         textAlign: 'center',
                                         position: 'relative'
                                     }}
-                                    title="Under Development"
-                                    onClick={() => showToast('info', 'Annexures feature is currently under development.')}
+                                    title="Download Inspection Activity Report & Test Annexures"
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(37, 99, 235, 0.15)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#dbeafe'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onClick={() => handleDownloadAnnexures(selectedCall)}
                                 >
                                     <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                                        <FileText size={20} />
+                                        {downloadingDoc === 'annexures' ? <Loader2 size={20} className="animate-spin" /> : <FileText size={20} />}
                                     </div>
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8' }}>Annexures</div>
-                                    <div style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', background: '#fef3c7', padding: '2px 6px', borderRadius: '6px', marginTop: '4px' }}>
+                                    <div style={{ display: 'none' }}>
                                         Under Dev
                                     </div>
                                 </div>

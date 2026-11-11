@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../../services/api';
+import { generateSleeperAnnexuresPDF } from '../../utils/generateSleeperAnnexures';
 
 // Native SVG Icons to ensure 100% React 19 compatibility
 const SearchIcon = ({ size = 18, color = '#94a3b8' }) => (
@@ -340,6 +341,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     const [actionCall, setActionCall] = useState(null);
     const [icLoading, setIcLoading] = useState(false);
     const [icDownloading, setIcDownloading] = useState(false);
+    const [annexuresDownloading, setAnnexuresDownloading] = useState(false);
     const [icError, setIcError] = useState(null);
     const [icData, setIcData] = useState(null);
     const [showIcPreview, setShowIcPreview] = useState(false);
@@ -491,6 +493,24 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             showToast('error', msg);
         } finally {
             setIcDownloading(false);
+        }
+    };
+
+    const handleDownloadAnnexures = async (call) => {
+        setAnnexuresDownloading(true);
+        try {
+            const callNo = call?.requestId || call?.callNo || call?.call_no || 'Call';
+            showToast('info', `Preparing Annexures (Inspection Statement Annexure-1) for ${callNo}...`);
+            await generateSleeperAnnexuresPDF(call, true);
+            showToast('success', `Annexures PDF for ${callNo} downloaded successfully!`);
+        } catch (err) {
+            console.error("Download Annexures error:", err);
+            const msg = err.message || `Annexure could not find for call no : ${callNo}`;
+            showToast('warning', msg);
+            return;
+            showToast('error', msg);
+        } finally {
+            setAnnexuresDownloading(false);
         }
     };
 
@@ -1007,7 +1027,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
                                     {/* Action Cards Grid */}
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
-                                        Inspection Certificate (IC) Actions
+                                        Inspection Certificate (IC) & Annexures Actions
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
@@ -1081,6 +1101,81 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 ) : (
                                                     <>
                                                         <EyeIcon size={16} color="#fff" /> View IC Certificate
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Card 3: Download Annexures */}
+                                        <div
+                                            onClick={() => !annexuresDownloading && handleDownloadAnnexures(actionCall)}
+                                            style={{
+                                                background: '#f8fafc',
+                                                border: '1.5px solid #e2e8f0',
+                                                borderRadius: '18px',
+                                                padding: '20px',
+                                                cursor: annexuresDownloading ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!annexuresDownloading) {
+                                                    e.currentTarget.style.borderColor = '#8b5cf6';
+                                                    e.currentTarget.style.background = '#f5f3ff';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.15)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!annexuresDownloading) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.background = '#f8fafc';
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                                <div style={{
+                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    background: '#ede9fe', color: '#7c3aed',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {annexuresDownloading ? <LoaderIcon size={22} color="#7c3aed" /> : <FileTextIcon size={22} color="#7c3aed" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                        Download Annexures
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        Inspection Statement (Annexure-1)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                                Download the official batch-wise inspection statement, accepted/rejection metrics and test annexures.
+                                            </p>
+                                            <button
+                                                disabled={annexuresDownloading}
+                                                style={{
+                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                    border: 'none', background: '#7c3aed', color: '#fff',
+                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
+                                                }}
+                                            >
+                                                {annexuresDownloading ? (
+                                                    <>
+                                                        <LoaderIcon size={16} color="#fff" /> Preparing Annexures...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <DownloadIcon size={16} color="#fff" /> Download Annexures PDF
                                                     </>
                                                 )}
                                             </button>

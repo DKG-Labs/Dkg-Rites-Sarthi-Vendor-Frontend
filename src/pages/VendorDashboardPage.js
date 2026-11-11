@@ -2149,6 +2149,143 @@ const VendorDashboardPage = ({ onBack }) => {
     showNotification(`Downloading Inspection Documents for ${call.call_no}:\n- ${call.documents?.join('\n- ') || 'No documents available'}`, 'info');
   };
 
+  // Download Annexure using Case Letter Info API
+  const handleDownloadAnnexure = async (call) => {
+    const rawCallNo = call?.call_no || call?.callNumber || call?.requestId || '';
+    if (!rawCallNo) {
+      showNotification('Call Number not found.', 'error');
+      return;
+    }
+    const cleanCallNo = String(rawCallNo).trim();
+
+    setPdfGeneratingText({
+      title: 'Fetching Annexure',
+      subtitle: `Checking Annexure for Call No: ${cleanCallNo}...`
+    });
+    setPdfGenerating(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+
+      const candidateKeys = Array.from(new Set([
+        cleanCallNo,
+        call.call_no,
+        call.callNumber,
+        call.requestId,
+        cleanCallNo.startsWith('ER-') ? cleanCallNo.replace('ER-', 'RPP-') : null,
+        cleanCallNo.startsWith('RPP-') ? cleanCallNo.replace('RPP-', 'ER-') : null
+      ].filter(Boolean).map(s => String(s).trim())));
+
+      const baseUrls = [
+        getBaseUrl(),
+        'https://api.ritesqasarthi.com/sarthi-backend/api',
+        'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api'
+      ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
+
+      let docData = null;
+      let matchedCallNo = cleanCallNo;
+      let matchedBase = getBaseUrl();
+
+      for (const bUrl of baseUrls) {
+        for (const k of candidateKeys) {
+          try {
+            const res = await fetch(`${bUrl}/case-letter/info/${encodeURIComponent(k)}`, { headers });
+            if (res.ok) {
+              const json = await res.json();
+              if (json && json.exists && json.data) {
+                docData = json.data;
+                matchedCallNo = k;
+                matchedBase = bUrl;
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+        if (docData) break;
+      }
+
+      if (!docData) {
+        for (const bUrl of baseUrls) {
+          for (const k of candidateKeys) {
+            try {
+              const listRes = await fetch(`${bUrl}/ic-annexures/list?callNo=${encodeURIComponent(k)}&moduleType=ERC`, { headers });
+              if (listRes.ok) {
+                const listJson = await listRes.json();
+                const docs = listJson?.responseData || listJson?.data || (Array.isArray(listJson) ? listJson : []);
+                if (Array.isArray(docs) && docs.length > 0 && docs[0]) {
+                  const first = docs[0];
+                  docData = {
+                    blobUrl: first.fileUrl || `${bUrl}/ic-annexures/download/${first.id || first.documentId}`,
+                    originalFileName: first.fileName || `Annexure_${k}.pdf`
+                  };
+                  matchedCallNo = k;
+                  matchedBase = bUrl;
+                  break;
+                }
+              }
+            } catch (_) {}
+          }
+          if (docData) break;
+        }
+      }
+
+      if (!docData) {
+        showNotification(`Annexure could not find for call no : ${cleanCallNo}`, 'warning');
+        return;
+      }
+
+      const fileName = docData.originalFileName || `Annexure_${matchedCallNo.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+      const dlUrls = [
+
+        `${matchedBase}/case-letter/download/${encodeURIComponent(matchedCallNo)}`,
+        `${matchedBase}/case-letter/view/${encodeURIComponent(matchedCallNo)}`
+      ].filter(Boolean);
+
+      for (const dlUrl of dlUrls) {
+        try {
+          const resp = await fetch(dlUrl, { method: 'GET', headers });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => window.URL.revokeObjectURL(url), 3000);
+            showNotification(`Annexure for ${cleanCallNo} downloaded successfully!`, 'success');
+            return;
+          }
+        } catch (_) {}
+      }
+
+      if (docData.blobUrl) {
+        const link = document.createElement('a');
+        link.href = docData.blobUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showNotification(`Annexure for ${cleanCallNo} opened successfully!`, 'success');
+        return;
+      }
+
+      showNotification(`Annexure could not find for call no : ${cleanCallNo}`, 'warning');
+    } catch (err) {
+      console.error('Error downloading Annexure:', err);
+      showNotification(`Annexure could not find for call no : ${cleanCallNo}`, 'warning');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   // PO PDF Document download helper
   const downloadPoDoc = (pdfPath, poNo) => {
     if (!pdfPath) {
@@ -2230,7 +2367,7 @@ const VendorDashboardPage = ({ onBack }) => {
       })();
 
       const fetchCallLetter = (async () => {
-        if (!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC', 'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus)) {
+        if (call.workflowStatus === 'WITHDRAW') {
           return null;
         }
         try {
@@ -2261,7 +2398,7 @@ const VendorDashboardPage = ({ onBack }) => {
       })();
 
       const fetchIC = (async () => {
-        if (!['DSC_SIGN_IC'].includes(call.workflowStatus)) {
+        if (call.workflowStatus === 'WITHDRAW') {
           return null;
         }
         try {
@@ -2396,7 +2533,7 @@ const VendorDashboardPage = ({ onBack }) => {
   // Bulk download available completed inspection call documents in a single merged PDF
   const handleDownloadAllDocs = async (call) => {
     // If status has annexures, trigger auto generation first
-    const hasAnnexures = ['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC'].includes(call.workflowStatus);
+    const hasAnnexures = Boolean(call?.call_no) && call.workflowStatus !== 'WITHDRAW';
 
     setPdfGeneratingText({
       title: 'Generating PDF',
@@ -6857,7 +6994,47 @@ const VendorDashboardPage = ({ onBack }) => {
                       onClick={() => handleOpenHeatDetails(call)}
                     />
                   )}
-                  {['SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus) && (
+                  {call.workflowStatus !== 'WITHDRAW' && (
+                    <>
+                      <ActionCard
+                        title="Call Details"
+                        icon={<VisibilityIcon style={{ fontSize: '24px' }} />}
+                        colors={{ bg1: '#eff6ff', bg2: '#dbeafe', border: '#bfdbfe', iconColor: '#3b82f6', textColor: '#1d4ed8', shadow1: 'rgba(59, 130, 246, 0.2)', shadow2: 'rgba(59, 130, 246, 0.1)' }}
+                        onClick={() => {
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
+                          handleViewCallDetails(call);
+                        }}
+                      />
+                      <ActionCard
+                        title="Call Letter"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                        colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
+                        onClick={() => handleDownloadCallLetter(call)}
+                      />
+                      <ActionCard
+                        title="IC"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#ecfdf5', bg2: '#d1fae5', border: '#a7f3d0', iconColor: '#10b981', textColor: '#059669', shadow1: 'rgba(16, 185, 129, 0.2)', shadow2: 'rgba(16, 185, 129, 0.1)' }}
+                        onClick={() => handleDownloadIC(call)}
+                      />
+                      <ActionCard
+                        title="Annexures"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
+                        onClick={() => {
+                          handleDownloadAnnexure(call);
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
+                        }}
+                      />
+                    </>
+                  )}
+                  {false && (
+                    <span style={{ display: 'none' }}
+                    />
+                  )}
+                  {false && (
                     <>
                       <ActionCard
                         title="Call Details"
@@ -6883,14 +7060,14 @@ const VendorDashboardPage = ({ onBack }) => {
                       />
                     </>
                   )}
-                  {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
+                  {false && (
                     <>
                       <ActionCard
                         title="Annexures"
                         icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
                         colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
                         onClick={() => {
-                          setSelectedCallForAnnexure(call);
+                          handleDownloadAnnexure(call);
                           setIsCompletedActionsModalOpen(false);
                           setSelectedCompletedCallForActions(null);
                         }}
@@ -6916,7 +7093,7 @@ const VendorDashboardPage = ({ onBack }) => {
                       }}
                     />
                   )}
-                  {call.workflowStatus === 'DSC_SIGN_IC' && (
+                  {false && (
                     <>
                       <ActionCard
                         title="Call Letter"
@@ -6935,7 +7112,7 @@ const VendorDashboardPage = ({ onBack }) => {
                         icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
                         colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
                         onClick={() => {
-                          setSelectedCallForAnnexure(call);
+                          handleDownloadAnnexure(call);
                           setIsCompletedActionsModalOpen(false);
                           setSelectedCompletedCallForActions(null);
                         }}
