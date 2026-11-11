@@ -264,6 +264,15 @@ const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-10162', qtyPerSet: 22, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' },
     { drawingNo: 'RT-10335', qtyPerSet: 3, description: 'Nylon Cord / Pocket Type Nylon Cord Reinforced GRSP' }
   ],
+  // RDSO/T-4966 – NCR GRSP (Total 72 Pads / 6 Items)
+  'RT-4966': [
+    { drawingNo: 'RT-10160', qtyPerSet: 24, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8911', qtyPerSet: 22, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8906', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10162', qtyPerSet: 4, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8955', qtyPerSet: 12, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-8913', qtyPerSet: 6, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // RT-5836 – 6 mm Thick NCR GRSP (Total 80 Pads)
   'RT-5836': [
     { drawingNo: 'RT-8887', qtyPerSet: 17, description: 'Nylon Cord Reinforced GRSP' },
