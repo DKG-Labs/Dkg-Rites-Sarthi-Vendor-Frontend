@@ -6,7 +6,7 @@ import {
     AlertCircle, Plus, Search, ChevronDown, Check, X, Layers, Sparkles, Eye
 } from 'lucide-react';
 import NCRGRSPSubDrawingsModal from './NCRGRSPSubDrawingsModal';
-import { NCRGRSP_CATALOG, resolveNcrgrspCatalogKey } from './ncrgrspCatalog';
+import { NCRGRSP_CATALOG, resolveNcrgrspCatalogKey, normalizeDwg } from './ncrgrspCatalog';
 
 // ─── Constants & Master Drawing Catalog ────────────────────────────────────────
 const RAIL_PAD_TYPES = [
@@ -19,7 +19,8 @@ const RAIL_PAD_TYPES = [
 ];
 
 // Unified Master NCRGRSP Main Drawings (Merged 6mm & 10mm from Official Main Drawing Specifications)
-const UNIFIED_NCRGRSP_DRAWINGS = [
+const CURATED_NCRGRSP_DRAWINGS = [
+    { code: "RT-4966", label: "RT-4966 (6 mm NCR GRSP Turnout)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-6154", label: "RT-6154 (1 in 12 TWB Switch for 60 Kg)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-6155", label: "RT-6155 (1 in 12 60kg TWS Drg. No. T-6155)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-8779", label: "RT-8779 (60 kg 1 in 12 Turnout per Set Alt-3)", category: "6mm", is6mm: true, is10mm: false },
@@ -54,6 +55,27 @@ const UNIFIED_NCRGRSP_DRAWINGS = [
     { code: "T-9842 to T-9843", label: "T-9842 to T-9843 (10 mm Turnout Series)", category: "10mm", is6mm: false, is10mm: true },
     { code: "RT-7014 to RT-7021", label: "RT-7014 to RT-7021 (6 mm Crossing Portion 1 in 12 Turnout)", category: "6mm & 10mm", is6mm: true, is10mm: true }
 ];
+
+// Keep this list in step with the NCRGRSP catalog (same source the Final call uses):
+// any catalog main drawing missing above is appended, so a new catalog key always shows here.
+const UNIFIED_NCRGRSP_DRAWINGS = (() => {
+    // Strip every RDSO/RT/T prefix (also inside ranges like "T-9842 to T-9843") before comparing
+    const norm = s => normalizeDwg(String(s).replace(/\b(RDSO[\/-])?R?T[\/-]/gi, '')).replace(/\s+/g, ' ');
+    const known = new Set(CURATED_NCRGRSP_DRAWINGS.map(d => norm(d.code)));
+    const extra = Object.keys(NCRGRSP_CATALOG)
+        .filter(key => !known.has(norm(key)))
+        .map(key => {
+            const is10 = /10\s*mm/i.test((NCRGRSP_CATALOG[key][0] || {}).description || '');
+            return { code: key, label: key, category: is10 ? '10mm' : '6mm', is6mm: !is10, is10mm: is10 };
+        });
+    return [...CURATED_NCRGRSP_DRAWINGS, ...extra];
+})();
+const NCRGRSP_FILTER_COUNTS = {
+    // Same rules as the filter in ModernSearchableDrawingSelect
+    BOTH: UNIFIED_NCRGRSP_DRAWINGS.filter(d => d.category === '6mm & 10mm').length,
+    SIX: UNIFIED_NCRGRSP_DRAWINGS.filter(d => d.is6mm).length,
+    TEN: UNIFIED_NCRGRSP_DRAWINGS.filter(d => d.is10mm).length,
+};
 
 const DRAWING_MAPPING = {
     "6.00mm GRSP": [
@@ -272,9 +294,9 @@ const ModernSearchableDrawingSelect = ({ options = [], value, onChange, placehol
                             <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
                                 {[
                                     { id: 'ALL', label: `All (${options.length})` },
-                                    { id: 'BOTH', label: '6mm & 10mm (11)' },
-                                    { id: '6MM', label: '6mm Only (11)' },
-                                    { id: '10MM', label: '10mm Only (2)' }
+                                    { id: 'BOTH', label: `6mm & 10mm (${NCRGRSP_FILTER_COUNTS.BOTH})` },
+                                    { id: '6MM', label: `6mm Only (${NCRGRSP_FILTER_COUNTS.SIX})` },
+                                    { id: '10MM', label: `10mm Only (${NCRGRSP_FILTER_COUNTS.TEN})` }
                                 ].map(tab => (
                                     <button
                                         key={tab.id}
