@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../../services/api';
+import { generateSleeperAnnexuresPDF } from '../../utils/generateSleeperAnnexures';
 
 // Native SVG Icons to ensure 100% React 19 compatibility
 const SearchIcon = ({ size = 18, color = '#94a3b8' }) => (
@@ -119,9 +120,79 @@ const InfoIcon = ({ size = 18, color = '#fff' }) => (
     </svg>
 );
 
+const isHiddenSleeperCall = (c) => {
+    const combined = [
+        c?.status,
+        c?.workflowStatus,
+        c?.latestAction,
+        c?.action,
+        c?.rawStatus,
+        c?.jobStatus,
+        c?.job_status
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return (
+        combined.includes('WITHDRAW') ||
+        combined.includes('CANCEL') ||
+        combined.includes('REJECT')
+    );
+};
+
+const isTerminalCompletedCall = (c) => {
+    if (!c) return false;
+    if (isHiddenSleeperCall(c)) return true;
+    const combined = [
+        c?.status,
+        c?.workflowStatus,
+        c?.latestAction,
+        c?.action,
+        c?.rawStatus,
+        c?.jobStatus,
+        c?.job_status
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return (
+        combined.includes('SEND_CALL_TO_IBS') ||
+        combined.includes('SENT_CALL_TO_IBS') ||
+        combined.includes('SENT_TO_IBS') ||
+        combined.includes('SEND_TO_IBS') ||
+        combined.includes('SEND CALL TO IBS') ||
+        combined.includes('IBS') ||
+        combined.includes('COMPLETED') ||
+        combined.includes('LOCKED') ||
+        combined.includes('IC_ISSUE') ||
+        combined.includes('IC_ISSUED') ||
+        combined.includes('GENERATE_IC') ||
+        combined.includes('DSC_SIGN') ||
+        combined.includes('FINISH')
+    );
+};
+
+const isSendCallToIbsCall = (c) => {
+    if (!c || isHiddenSleeperCall(c)) return false;
+    const combined = [
+        c?.status,
+        c?.workflowStatus,
+        c?.latestAction,
+        c?.action,
+        c?.rawStatus,
+        c?.jobStatus,
+        c?.job_status
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return (
+        combined.includes('SEND_CALL_TO_IBS') ||
+        combined.includes('SENT_CALL_TO_IBS') ||
+        combined.includes('SENT_TO_IBS') ||
+        combined.includes('SEND_TO_IBS') ||
+        combined.includes('SEND CALL TO IBS') ||
+        combined.includes('IBS')
+    );
+};
+
 const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
-    const raw = String(actionStr || jobStatusStr || statusStr || '').toUpperCase().trim();
-    if (raw.includes('CANCEL')) {
+    const raw = String(actionStr || jobStatusStr || statusStr || '').trim();
+    const combined = [actionStr, jobStatusStr, statusStr]
+        .map(v => String(v || '').toUpperCase().trim())
+        .join(' ');
+    if (combined.includes('CANCEL')) {
         return {
             label: 'Cancelled',
             bg: '#fef2f2',
@@ -131,7 +202,7 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
             type: 'cancel'
         };
     }
-    if (raw.includes('WITHDRAW')) {
+    if (combined.includes('WITHDRAW')) {
         return {
             label: 'Withdrawn',
             bg: '#fef2f2',
@@ -141,13 +212,53 @@ const getCallStatusInfo = (statusStr, actionStr, jobStatusStr) => {
             type: 'withdraw'
         };
     }
+    if (combined.includes('REJECT')) {
+        return {
+            label: 'Rejected',
+            bg: '#fef2f2',
+            color: '#b91c1c',
+            border: '#fca5a5',
+            dot: '#ef4444',
+            type: 'reject'
+        };
+    }
+    if (combined.includes('IBS')) {
+        return {
+            label: 'Send Call to IBS',
+            bg: '#eff6ff',
+            color: '#1d4ed8',
+            border: '#bfdbfe',
+            dot: '#3b82f6',
+            type: 'ibs'
+        };
+    }
+    if (combined.includes('DSC_SIGN') || combined.includes('E_SIGN') || combined.includes('ESIGN')) {
+        return {
+            label: 'Completed - E-Signed',
+            bg: '#ecfdf5',
+            color: '#047857',
+            border: '#a7f3d0',
+            dot: '#10b981',
+            type: 'completed'
+        };
+    }
+    if (combined.includes('IC_ISSUE') || combined.includes('GENERATE_IC') || combined.includes('IC ISSUE')) {
+        return {
+            label: 'Completed - IC Issued',
+            bg: '#f0fdf4',
+            color: '#15803d',
+            border: '#bbf7d0',
+            dot: '#22c55e',
+            type: 'completed'
+        };
+    }
     return {
-        label: 'SEND_CALL_TO_IBS',
-        bg: '#eff6ff',
-        color: '#1d4ed8',
-        border: '#bfdbfe',
-        dot: '#3b82f6',
-        type: 'ibs'
+        label: raw || 'Completed',
+        bg: '#f1f5f9',
+        color: '#334155',
+        border: '#cbd5e1',
+        dot: '#64748b',
+        type: 'completed'
     };
 };
 
@@ -269,24 +380,11 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                 apiService.getVendorInspectionCalls(userId)
             ]);
 
-            const isSendCallToIbs = (c) => {
-                const raw = String(c?.status || c?.action || c?.rawStatus || '').trim().toUpperCase();
-                const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
-                return (
-                    raw === 'SEND_CALL_TO_IBS' ||
-                    rawJob === 'SEND_CALL_TO_IBS' ||
-                    raw.includes('SEND_CALL_TO_IBS') ||
-                    rawJob.includes('SEND_CALL_TO_IBS') ||
-                    raw.includes('IBS') ||
-                    rawJob.includes('IBS')
-                );
-            };
-
             const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value))
-                ? completedRes.value.filter(isSendCallToIbs)
+                ? completedRes.value
                 : [];
             const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value))
-                ? vendorCallsRes.value.filter(isSendCallToIbs)
+                ? vendorCallsRes.value.filter(isTerminalCompletedCall)
                 : [];
 
             const combined = [...list1];
@@ -317,9 +415,10 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     }, [initialCalls, plantId]);
 
     const filteredCalls = useMemo(() => {
-        if (!search.trim()) return calls;
+        const visibleCalls = calls;
+        if (!search.trim()) return visibleCalls;
         const q = search.toLowerCase();
-        return calls.filter(call => {
+        return visibleCalls.filter(call => {
             const callNo = (call.requestId || call.callNo || '').toLowerCase();
             const icNo = (call.icNo || call.icNumber || call.certificateNo || '').toLowerCase();
             const icDate = (call.icDate ? formatDateDDMMYY(call.icDate) : '').toLowerCase();
@@ -340,6 +439,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     const [actionCall, setActionCall] = useState(null);
     const [icLoading, setIcLoading] = useState(false);
     const [icDownloading, setIcDownloading] = useState(false);
+    const [annexuresDownloading, setAnnexuresDownloading] = useState(false);
     const [icError, setIcError] = useState(null);
     const [icData, setIcData] = useState(null);
     const [showIcPreview, setShowIcPreview] = useState(false);
@@ -387,39 +487,45 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
         let response = null;
         let lastError = null;
+        const hasCertPayload = (res) => Boolean(res && (res.signedData || res.url || res.blobUrl));
 
         // 1. Try with IC Number
         if (rawIc) {
             try {
-                response = await apiService.getSignedCertificate(rawIc);
+                const res = await apiService.getSignedCertificate(rawIc);
+                if (hasCertPayload(res)) response = res;
             } catch (e) {
                 lastError = e;
             }
         }
 
         // 2. Try with Call Number
-        if (!response && callNo) {
+        if (!hasCertPayload(response) && callNo) {
             try {
-                response = await apiService.getSignedCertificate(callNo);
+                const res = await apiService.getSignedCertificate(callNo);
+                if (hasCertPayload(res)) response = res;
             } catch (e) {
                 lastError = e;
             }
         }
 
         // 3. Try parts / tokens if slash exists
-        if (!response && rawIc.includes('/')) {
+        if (!hasCertPayload(response) && rawIc.includes('/')) {
             const parts = rawIc.split('/').filter(p => p.length >= 6 && /\d/.test(p));
             for (const part of parts) {
                 try {
-                    response = await apiService.getSignedCertificate(part);
-                    if (response) break;
+                    const res = await apiService.getSignedCertificate(part);
+                    if (hasCertPayload(res)) {
+                        response = res;
+                        break;
+                    }
                 } catch (e) {
                     lastError = e;
                 }
             }
         }
 
-        if (!response) {
+        if (!hasCertPayload(response)) {
             throw new Error(lastError?.message || "No signed Inspection Certificate (IC) found in storage for this call.");
         }
 
@@ -437,8 +543,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             const blob = new Blob([byteArray], { type: 'application/pdf' });
             blobUrl = window.URL.createObjectURL(blob);
             isLocalBlob = true;
-        } else if (response.url) {
-            blobUrl = response.url;
+        } else if (response.url || response.blobUrl) {
+            blobUrl = response.url || response.blobUrl;
             isLocalBlob = false;
         } else {
             throw new Error("Signed certificate data is empty.");
@@ -456,6 +562,10 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     };
 
     const handlePreviewIC = async (call) => {
+        if (!isSendCallToIbsCall(call)) {
+            showToast('warning', 'Inspection Certificate (IC) is only available for calls with status Send Call to IBS.');
+            return;
+        }
         setIcLoading(true);
         setIcError(null);
         try {
@@ -472,6 +582,10 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     };
 
     const handleDownloadIC = async (call) => {
+        if (!isSendCallToIbsCall(call)) {
+            showToast('warning', 'Inspection Certificate (IC) is only available for calls with status Send Call to IBS.');
+            return;
+        }
         setIcDownloading(true);
         setIcError(null);
         try {
@@ -491,6 +605,26 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             showToast('error', msg);
         } finally {
             setIcDownloading(false);
+        }
+    };
+
+    const handleDownloadAnnexures = async (call) => {
+        if (!isSendCallToIbsCall(call)) {
+            showToast('warning', 'Annexures are only available for calls with status Send Call to IBS.');
+            return;
+        }
+        const callNo = call?.requestId || call?.callNo || call?.call_no || 'Call';
+        setAnnexuresDownloading(true);
+        try {
+            showToast('info', `Preparing Annexures (Inspection Statement Annexure-1) for ${callNo}...`);
+            await generateSleeperAnnexuresPDF(call, true);
+            showToast('success', `Annexures PDF for ${callNo} downloaded successfully!`);
+        } catch (err) {
+            console.error("Download Annexures error:", err);
+            const msg = err?.message || `Annexure could not find for call no : ${callNo}`;
+            showToast('warning', msg);
+        } finally {
+            setAnnexuresDownloading(false);
         }
     };
 
@@ -981,7 +1115,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 <div style={{ fontSize: '11px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>IC Number</div>
                                                 <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <AwardIcon size={14} color="#059669" />
-                                                    {actionCall.icNo || actionCall.icNumber || actionCall.certificateNo || 'Available in System'}
+                                                    {isSendCallToIbsCall(actionCall) ? (actionCall.icNo || actionCall.icNumber || actionCall.certificateNo || 'Available in System') : '-'}
                                                 </div>
                                             </div>
                                             <div>
@@ -1006,11 +1140,13 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                     )}
 
                                     {/* Action Cards Grid */}
-                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
-                                        Inspection Certificate (IC) Actions
-                                    </div>
+                                    {isSendCallToIbsCall(actionCall) ? (
+                                        <>
+                                            <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
+                                                Inspection Certificate (IC) & Annexures Actions
+                                            </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
                                         {/* Card 1: See / Preview IC */}
                                         <div
                                             onClick={() => !icLoading && handlePreviewIC(actionCall)}
@@ -1081,6 +1217,81 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 ) : (
                                                     <>
                                                         <EyeIcon size={16} color="#fff" /> View IC Certificate
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Card 3: Download Annexures */}
+                                        <div
+                                            onClick={() => !annexuresDownloading && handleDownloadAnnexures(actionCall)}
+                                            style={{
+                                                background: '#f8fafc',
+                                                border: '1.5px solid #e2e8f0',
+                                                borderRadius: '18px',
+                                                padding: '20px',
+                                                cursor: annexuresDownloading ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!annexuresDownloading) {
+                                                    e.currentTarget.style.borderColor = '#8b5cf6';
+                                                    e.currentTarget.style.background = '#f5f3ff';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.15)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!annexuresDownloading) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.background = '#f8fafc';
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                                <div style={{
+                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    background: '#ede9fe', color: '#7c3aed',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {annexuresDownloading ? <LoaderIcon size={22} color="#7c3aed" /> : <FileTextIcon size={22} color="#7c3aed" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                        Download Annexures
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        Inspection Statement (Annexure-1)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                                Download the official batch-wise inspection statement, accepted/rejection metrics and test annexures.
+                                            </p>
+                                            <button
+                                                disabled={annexuresDownloading}
+                                                style={{
+                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                    border: 'none', background: '#7c3aed', color: '#fff',
+                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
+                                                }}
+                                            >
+                                                {annexuresDownloading ? (
+                                                    <>
+                                                        <LoaderIcon size={16} color="#fff" /> Preparing Annexures...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <DownloadIcon size={16} color="#fff" /> Download Annexures PDF
                                                     </>
                                                 )}
                                             </button>
@@ -1161,6 +1372,21 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             </button>
                                         </div>
                                     </div>
+                                        </>
+                                    ) : (
+                                        <div style={{
+                                            padding: '16px 20px',
+                                            background: '#f8fafc',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '14px',
+                                            color: '#475569',
+                                            fontSize: '13.5px',
+                                            fontWeight: 600,
+                                            lineHeight: 1.5
+                                        }}>
+                                            Inspection Certificate (IC) and Annexures are hidden for this call status and are only available when status is <strong>Send Call to IBS</strong>.
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Modal Footer */}

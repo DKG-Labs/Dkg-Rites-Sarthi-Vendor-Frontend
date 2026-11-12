@@ -181,8 +181,15 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const filteredCalls = useMemo(() => {
         return calls.filter(call => {
-            const rawStatus = String(call.status || call.workflowStatus || call.latestAction || '').toUpperCase();
-            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW')) {
+            const rawStatus = [
+                call.status,
+                call.workflowStatus,
+                call.latestAction,
+                call.action,
+                call.workflowAction,
+                call.jobStatus
+            ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW') || rawStatus.includes('REJECT')) {
                 return false;
             }
             const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||

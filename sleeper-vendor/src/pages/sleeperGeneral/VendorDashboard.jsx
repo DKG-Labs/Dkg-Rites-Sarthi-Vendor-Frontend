@@ -87,23 +87,40 @@ const VendorDashboard = () => {
             const posData = pos.status === 'fulfilled' ? pos.value : [];
             const completedData = completed.status === 'fulfilled' ? completed.value : [];
 
-            const isCompletedOrIbs = (c) => {
-                const raw = String(c?.status || c?.action || c?.rawStatus || '').trim().toUpperCase();
-                const rawJob = String(c?.jobStatus || c?.job_status || '').trim().toUpperCase();
+            const isCompletedSectionCall = (c) => {
+                const combined = [
+                    c?.status,
+                    c?.workflowStatus,
+                    c?.latestAction,
+                    c?.action,
+                    c?.rawStatus,
+                    c?.jobStatus,
+                    c?.job_status
+                ].map(v => String(v || '').trim().toUpperCase()).join(' ');
                 return (
-                    raw === 'SEND_CALL_TO_IBS' ||
-                    rawJob === 'SEND_CALL_TO_IBS' ||
-                    raw.includes('SEND_CALL_TO_IBS') ||
-                    rawJob.includes('SEND_CALL_TO_IBS') ||
-                    raw.includes('IBS') ||
-                    rawJob.includes('IBS')
+                    combined.includes('WITHDRAW') ||
+                    combined.includes('CANCEL') ||
+                    combined.includes('REJECT') ||
+                    combined.includes('SEND_CALL_TO_IBS') ||
+                    combined.includes('SENT_CALL_TO_IBS') ||
+                    combined.includes('SENT_TO_IBS') ||
+                    combined.includes('SEND_TO_IBS') ||
+                    combined.includes('SEND CALL TO IBS') ||
+                    combined.includes('IBS') ||
+                    combined.includes('COMPLETED') ||
+                    combined.includes('LOCKED') ||
+                    combined.includes('IC_ISSUE') ||
+                    combined.includes('IC_ISSUED') ||
+                    combined.includes('GENERATE_IC') ||
+                    combined.includes('DSC_SIGN') ||
+                    combined.includes('FINISH')
                 );
             };
 
-            const activeRequestedCalls = (callsData || []).filter(c => !isCompletedOrIbs(c));
-            const completedFromInspectionCalls = (callsData || []).filter(c => isCompletedOrIbs(c));
+            const activeRequestedCalls = (callsData || []).filter(c => !isCompletedSectionCall(c));
+            const completedFromInspectionCalls = (callsData || []).filter(c => isCompletedSectionCall(c));
 
-            const combinedCompleted = (Array.isArray(completedData) ? completedData.filter(isCompletedOrIbs) : []);
+            const combinedCompleted = Array.isArray(completedData) ? [...completedData] : [];
             completedFromInspectionCalls.forEach(c => {
                 const callKey = (c.callNo || c.requestId || c.id || '').toString();
                 if (!combinedCompleted.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {

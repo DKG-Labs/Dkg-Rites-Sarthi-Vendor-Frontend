@@ -156,6 +156,20 @@ const diversionService = {
     }
   },
 
+  /**
+   * Vendor's Material Basket tab: all available basket rows (every stage / target PO).
+   * @param {string} vendorCode
+   */
+  getVendorBasketItems: async (vendorCode) => {
+    try {
+      const params = new URLSearchParams({ vendorCode });
+      return await httpClient.get(`/erc/diversion/basket/vendor?${params.toString()}`);
+    } catch (error) {
+      console.error('Error fetching vendor basket items:', error);
+      throw error;
+    }
+  },
+
   deleteRequest: async (id) => {
     try {
       const response = await httpClient.delete(`/erc/diversion/request/${id}`);

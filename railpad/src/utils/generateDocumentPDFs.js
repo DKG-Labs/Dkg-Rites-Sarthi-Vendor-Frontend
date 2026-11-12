@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateRailpadCallLetterPDF } from './generateCallLetterPDF';
 import inspectionCallService from '../services/inspectionCallService';
+import { generateRailpadAnnexurePDF } from './generateAnnexurePDF';
 
 /**
  * Downloads a base64 encoded PDF string as a physical .pdf file
@@ -229,6 +230,9 @@ export const generateRailpadIcPdf = async (call, shouldDownload = true) => {
         call.icNo,
         call.icNumber,
         call.certificateNo,
+        call.requestId,
+        call.inspectionCallNo,
+        call.call_no,
         callNo
     ].filter(Boolean);
 
@@ -243,6 +247,21 @@ export const generateRailpadIcPdf = async (call, shouldDownload = true) => {
                     downloadBase64Pdf(base64Data, fileName);
                 }
                 return { isAzureSigned: true, fileName, base64: base64Data };
+            }
+            if (azureDoc && (azureDoc.url || azureDoc.blobUrl)) {
+                const directUrl = azureDoc.url || azureDoc.blobUrl;
+                const fileName = azureDoc.fileName || `${cleanCallNo}_Signed_Inspection_Certificate.pdf`;
+                if (shouldDownload) {
+                    const link = document.createElement('a');
+                    link.href = directUrl;
+                    link.download = fileName;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+                return { isAzureSigned: true, fileName, url: directUrl };
             }
         } catch (err) {
             console.warn(`Azure IC lookup for key ${key} skipped:`, err.message);
@@ -263,7 +282,13 @@ export const downloadAllCallDocuments = async (call) => {
         await new Promise(r => setTimeout(r, 600));
         await generateRailpadPoPDF(call, true);
         await new Promise(r => setTimeout(r, 600));
-        await generateRailpadIcPdf(call, true);
+        await generateRailpadAnnexurePDF(call, true);
+        await new Promise(r => setTimeout(r, 600));
+        try {
+            await generateRailpadIcPdf(call, true);
+        } catch (icErr) {
+            console.warn('IC PDF not available for download all:', icErr.message);
+        }
     } catch (e) {
         console.error('Error downloading all documents:', e);
         throw e;

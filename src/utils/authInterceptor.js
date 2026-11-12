@@ -151,7 +151,8 @@ export const setupAuthInterceptor = () => {
                 url.includes('/loginBasedOnType') ||
                 url.includes('/login') ||
                 url.includes('/verifyOtp') ||
-                url.includes('/forgot-password');
+                url.includes('/forgot-password') ||
+            url.includes('blob.core.windows.net');
 
             if (!isPublicAuth && !this.__sarthiHasAuthHeader) {
                 const token = getToken();
@@ -194,7 +195,8 @@ export const setupAuthInterceptor = () => {
             url.includes('/loginBasedOnType') ||
             url.includes('/login') ||
             url.includes('/verifyOtp') ||
-            url.includes('/forgot-password');
+            url.includes('/forgot-password') ||
+            url.includes('blob.core.windows.net');
 
         if (!isPublicAuth) {
             const token = getToken();

@@ -21,6 +21,9 @@ const STATUS_CONFIG = {
   COMPLETED:                { label: 'Completed',        color: '#0369a1', bg: '#e0f2fe' },
 };
 
+/** Approved requests: shown only in the Material Basket tab (not in Diversion Requests). */
+const APPROVED_STATUSES = ['CM_APPROVE_DIVERSION', 'SBU_HEAD_APPROVE_DIVERSION', 'BASKET_CREATED', 'COMPLETED'];
+
 const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || { label: status, color: '#64748b', bg: '#f1f5f9' };
   return (
@@ -52,6 +55,25 @@ export const MaterialDiversionPage = () => {
   const [editRequest, setEditRequest] = useState(null);
   const [user, setUser] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [basketOpeningId, setBasketOpeningId] = useState(null);
+
+  /** Basket row → open the same Diversion Request details popup (from the loaded list, else fetch by id). */
+  const openBasketRequest = async (item) => {
+    const reqId = item?.diversionRequestId;
+    if (!reqId) return;
+    const loaded = requests.find(r => String(r.id) === String(reqId));
+    if (loaded) { setSelectedRequest(loaded); return; }
+    setBasketOpeningId(item.id);
+    try {
+      const res = await diversionService.getRequestById(reqId);
+      const full = res?.data || res?.responseData || res;
+      if (full && full.id) setSelectedRequest(full);
+    } catch (err) {
+      console.error('Error loading diversion request for basket row:', err);
+    } finally {
+      setBasketOpeningId(null);
+    }
+  };
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState(null); // request to confirm delete
@@ -133,7 +155,9 @@ export const MaterialDiversionPage = () => {
     try {
       const raw = user.vendorCode || user.userName || '';
       const vendorId = raw.replace(/^:+/, '');
-      const res = await diversionService.getAvailableBasketItems(vendorId, 'RAW_MATERIAL', '', '');
+      // All available basket rows of this vendor (any stage / target PO).
+      // (getAvailableBasketItems needs an exact stage + target PO and is for the inspection-call screen.)
+      const res = await diversionService.getVendorBasketItems(vendorId);
       if (res && res.data) setBasketItems(res.data);
     } catch (err) {
       console.error('Error fetching basket items:', err);
@@ -160,8 +184,14 @@ export const MaterialDiversionPage = () => {
     else loadBasket();
   }, [activeTab, loadRequests, loadBasket]);
 
+  // Approved requests live only in the Material Basket tab; the Requests tab shows the rest
+  const openRequests = useMemo(
+    () => requests.filter(r => !APPROVED_STATUSES.includes(r.status)),
+    [requests]
+  );
+
   const filteredRequests = useMemo(() => {
-    let list = requests;
+    let list = openRequests;
     if (statusFilter !== 'ALL') {
       const cfg = STATUS_CONFIG[statusFilter];
       list = list.filter(r => {
@@ -180,12 +210,12 @@ export const MaterialDiversionPage = () => {
       );
     }
     return list;
-  }, [requests, search, statusFilter]);
+  }, [openRequests, search, statusFilter]);
 
   const statusOptions = useMemo(() => {
     const seen = new Set();
     const opts = [{ value: 'ALL', label: 'All Statuses' }];
-    requests.forEach(r => {
+    openRequests.forEach(r => {
       const cfg = STATUS_CONFIG[r.status];
       if (cfg && !seen.has(cfg.label)) {
         seen.add(cfg.label);
@@ -193,7 +223,7 @@ export const MaterialDiversionPage = () => {
       }
     });
     return opts;
-  }, [requests]);
+  }, [openRequests]);
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -251,7 +281,7 @@ export const MaterialDiversionPage = () => {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#f1f5f9', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
         {[
-          { key: 'REQUESTS', label: `Diversion Requests (${requests.length})` },
+          { key: 'REQUESTS', label: `Diversion Requests (${openRequests.length})` },
           { key: 'BASKET', label: `Material Basket (${basketItems.length})` },
         ].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
@@ -292,7 +322,7 @@ export const MaterialDiversionPage = () => {
               {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-              {filteredRequests.length} of {requests.length} records
+              {filteredRequests.length} of {openRequests.length} records
             </span>
           </div>
 
@@ -304,9 +334,14 @@ export const MaterialDiversionPage = () => {
             <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
               <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
               <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '4px' }}>
-                {requests.length === 0 ? 'No diversion requests raised yet' : 'No results match your search'}
+                {requests.length === 0 ? 'No diversion requests raised yet'
+                  : openRequests.length === 0 ? 'No pending diversion requests'
+                  : 'No results match your search'}
               </div>
               {requests.length === 0 && <div style={{ fontSize: '13px' }}>Click <strong>+ Raise Diversion Request</strong> to create one.</div>}
+              {requests.length > 0 && openRequests.length === 0 && (
+                <div style={{ fontSize: '13px' }}>Approved requests are listed in the <strong>Material Basket</strong> tab.</div>
+              )}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -355,7 +390,7 @@ export const MaterialDiversionPage = () => {
         <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
             <div style={{ fontWeight: '700', fontSize: '15px', color: '#1e293b' }}>Available Diverted Material Basket</div>
-            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Material cleared by SBU Head — ready for new target PO inspection calls</div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Material approved by CM / SBU Head — ready for new target PO inspection calls · Quantities in Nos.</div>
           </div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>Loading basket ledger...</div>
@@ -366,27 +401,70 @@ export const MaterialDiversionPage = () => {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed' }}>
+                {/* Fixed widths so columns are evenly spaced; alignment: text left, numbers right, badges / buttons centred */}
+                <colgroup>
+                  <col style={{ width: '17%' }} />
+                  <col style={{ width: '19%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '13%' }} />
+                </colgroup>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                    {['Target PO / Sr.', 'Stage', 'Heat No.', 'TC / Lot No.', 'Source IC', 'Approved Qty', 'Locked in Calls', 'Available Balance'].map(h => (
-                      <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: '700', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
+                    {[
+                      ['Target PO / Sr.', 'left'], ['Diversion / Source IC', 'left'], ['Stage', 'center'], ['Heat / Lot', 'left'],
+                      ['Approved Qty', 'right'], ['Status', 'center'], ['Actions', 'center'],
+                    ].map(([h, align]) => (
+                      <th key={h} style={{ padding: '11px 16px', textAlign: align, fontWeight: '700', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {basketItems.map((item, idx) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                      <td style={{ padding: '12px 14px', fontWeight: '700' }}>{item.targetPoNo} / {item.targetPoSrNo}</td>
-                      <td style={{ padding: '12px 14px' }}><span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{item.stage}</span></td>
-                      <td style={{ padding: '12px 14px', fontWeight: '600' }}>{item.heatNo || '—'}</td>
-                      <td style={{ padding: '12px 14px' }}>{item.tcNo || item.lotNo || '—'}</td>
-                      <td style={{ padding: '12px 14px', color: '#0284c7' }}>{item.sourceIcNo}</td>
-                      <td style={{ padding: '12px 14px', fontWeight: '600' }}>{item.approvedDivertedQty}</td>
-                      <td style={{ padding: '12px 14px', color: '#b45309', fontWeight: '600' }}>{item.allocatedCallQty}</td>
-                      <td style={{ padding: '12px 14px', fontWeight: '700', color: '#059669' }}>{item.availableBalanceQty}</td>
-                    </tr>
-                  ))}
+                  {basketItems.map((item, idx) => {
+                    const num = v => (v === null || v === undefined || v === '' ? '—' : Number(v).toLocaleString('en-IN'));
+                    // Status = approval status of the linked diversion request (CM Approved / SBU Approved / Basket Created)
+                    const linkedReq = requests.find(r => String(r.id) === String(item.diversionRequestId));
+                    // "60250003103020/003" → "003" (PO is shown on its own line)
+                    const sr = item.targetPoSrNo && item.targetPoNo && item.targetPoSrNo.startsWith(item.targetPoNo + '/')
+                      ? item.targetPoSrNo.slice(item.targetPoNo.length + 1) : item.targetPoSrNo;
+                    // Same padding as the headers so text lines up under each column title
+                    const cell = { padding: '12px 16px', verticalAlign: 'middle', overflow: 'hidden', textOverflow: 'ellipsis' };
+                    const sub = { fontSize: '11.5px', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+                    return (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                        <td style={cell}>
+                          <div style={{ fontWeight: '700', color: '#0f172a' }}>{item.targetPoNo || '—'}</div>
+                          <div style={sub}>Sr. {sr || '—'}</div>
+                        </td>
+                        <td style={cell}>
+                          <div style={{ fontWeight: '600', color: '#1e40af' }}>{item.diversionRequestNo || '—'}</div>
+                          <div style={sub}>IC: {item.sourceIcNo || '—'}</div>
+                        </td>
+                        <td style={{ ...cell, textAlign: 'center' }}>
+                          <span style={{ background: '#eef2ff', color: '#4338ca', padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{item.stage}</span>
+                        </td>
+                        <td style={cell}>
+                          <div style={{ fontWeight: '600', color: '#0f172a' }}>{item.heatNo || '—'}</div>
+                          <div style={sub}>{item.tcNo ? `TC ${item.tcNo}` : ''}{item.tcNo && item.lotNo ? ' · ' : ''}{item.lotNo ? `Lot ${item.lotNo}` : (!item.tcNo ? '—' : '')}</div>
+                        </td>
+                        <td style={{ ...cell, textAlign: 'right', fontWeight: '700', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{num(item.approvedDivertedQty)}</td>
+                        <td style={{ ...cell, textAlign: 'center' }}>
+                          {linkedReq ? <StatusBadge status={linkedReq.status} /> : <StatusBadge status="BASKET_CREATED" />}
+                        </td>
+                        <td style={{ ...cell, textAlign: 'center' }}>
+                          <button
+                            onClick={() => openBasketRequest(item)}
+                            disabled={!item.diversionRequestId || basketOpeningId === item.id}
+                            title="Material details, IC certificate, reason & railway permission"
+                            style={{ padding: '6px 16px', background: '#1e40af', color: '#fff', border: 'none', borderRadius: '6px', cursor: basketOpeningId === item.id ? 'progress' : 'pointer', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap', opacity: !item.diversionRequestId ? 0.5 : 1 }}
+                          >{basketOpeningId === item.id ? 'Opening…' : 'View Details'}</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -235,8 +235,9 @@ const VendorDashboardPage = ({ onBack }) => {
     });
   }, [poAssignedList]);
 
-  // Helper state to generate annexures in the background for bulk download
+  // Helper state to generate annexures in the background for bulk download or standalone fallback
   const [autoGenerateAnnexuresCall, setAutoGenerateAnnexuresCall] = useState(null);
+  const [autoGenerateAnnexuresOnly, setAutoGenerateAnnexuresOnly] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfGeneratingText, setPdfGeneratingText] = useState({
     title: 'Generating PDF',
@@ -656,25 +657,41 @@ const VendorDashboardPage = ({ onBack }) => {
           );
         };
 
-        const isCallCompleted = (call) => {
+        const isCallHiddenDocs = (call) => {
           const wf = String(call.workflowStatus || '').trim().toUpperCase();
           const st = String(call.status || '').trim().toUpperCase();
           const jb = String(call.jobStatus || '').trim().toUpperCase();
 
+          return (
+            wf.includes('WITHDRAW') || st.includes('WITHDRAW') || jb.includes('WITHDRAW') ||
+            wf.includes('CANCEL') || st.includes('CANCEL') || jb.includes('CANCEL') ||
+            wf.includes('REJECT') || st.includes('REJECT') || jb.includes('REJECT')
+          );
+        };
+
+        const isCallSendToIbs = (call) => {
+          if (isCallHiddenDocs(call)) {
+            return false;
+          }
+          const wf = String(call.workflowStatus || '').trim().toUpperCase();
+          const st = String(call.status || '').trim().toUpperCase();
+          const jb = String(call.jobStatus || '').trim().toUpperCase();
+
+          return (
+            isSendCallToIbsStatus(wf) ||
+            isSendCallToIbsStatus(st) ||
+            isSendCallToIbsStatus(jb) ||
+            wf.includes('IBS') ||
+            st.includes('IBS') ||
+            jb.includes('IBS')
+          );
+        };
+
+        const isCallCompleted = (call) => {
           // Rule: In vendor completed calls, display ONLY calls whose status is:
           // withdraw, cancel, rejected, send call to ibs.
-          const isWithdraw = wf.includes('WITHDRAW') || st.includes('WITHDRAW') || jb.includes('WITHDRAW');
-          const isCancel = wf.includes('CANCEL') || st.includes('CANCEL') || jb.includes('CANCEL');
-          const isReject = wf.includes('REJECT') || st.includes('REJECT') || jb.includes('REJECT');
-          const isCallSendToIbs = isSendCallToIbsStatus(wf) || isSendCallToIbsStatus(st) || isSendCallToIbsStatus(jb) || wf.includes('IBS') || st.includes('IBS');
-
-          if (isWithdraw || isCancel || isReject || isCallSendToIbs) {
-            return true;
-          }
-
-          // If status is completed, completed ic pending, completed ic issued (or any other active status),
-          // show in requested calls instead of completed calls.
-          return false;
+          // (IC & Annexure actions are shown ONLY for send call to ibs, hidden for withdraw/cancel/reject and all other statuses.)
+          return isCallHiddenDocs(call) || isCallSendToIbs(call);
         };
 
         const active = transformedCalls.filter(call => !isCallCompleted(call));
@@ -1922,20 +1939,73 @@ const VendorDashboardPage = ({ onBack }) => {
     setSelectedCompletedCall(null);
   };
 
+  // Helper: true only when completed call status is Send to IBS (not withdraw / cancel / reject / others)
+  const isCompletedCallSendToIbs = (call) => {
+    if (!call) return false;
+    const wf = String(call.workflowStatus || '').trim().toUpperCase();
+    const st = String(call.status || '').trim().toUpperCase();
+    const jb = String(call.jobStatus || '').trim().toUpperCase();
+    const combined = `${wf} ${st} ${jb}`;
+    if (combined.includes('WITHDRAW') || combined.includes('CANCEL') || combined.includes('REJECT')) {
+      return false;
+    }
+    return [wf, st, jb].some((val) => {
+      const norm = val.replace(/_/g, ' ');
+      return (
+        val === 'SEND_CALL_TO_IBS' ||
+        val === 'SENT_TO_IBS' ||
+        val === 'SEND_TO_IBS' ||
+        val === 'SENT_CALL_TO_IBS' ||
+        norm === 'SEND CALL TO IBS' ||
+        norm === 'SENT CALL TO IBS' ||
+        val.includes('IBS')
+      );
+    });
+  };
+
   // Download IC handler
   const handleDownloadIC = async (call) => {
-    const icNum = call.ic_number || call.call_no;
-    if (!icNum) {
+    if (!isCompletedCallSendToIbs(call)) {
+      showNotification('IC is available only for calls with Send to IBS status.', 'warning');
+      return;
+    }
+    const candidateKeys = Array.from(new Set([
+      call?.ic_number,
+      call?.icNumber,
+      call?.call_no,
+      call?.callNumber,
+      call?.requestId
+    ].filter(Boolean).map(v => String(v).trim())));
+
+    if (candidateKeys.length === 0) {
       showNotification('IC Number not found.', 'error');
       return;
     }
+
+    const displayIcNum = candidateKeys[0];
     setPdfGeneratingText({
       title: 'Downloading Certificate',
-      subtitle: `Fetching signed IC certificate for ${icNum}...`
+      subtitle: `Fetching signed IC certificate for ${displayIcNum}...`
     });
     setPdfGenerating(true);
     try {
-      const response = await viewSignedCertificate(icNum);
+      let response = null;
+      let matchedKey = displayIcNum;
+      let lastError = null;
+
+      for (const key of candidateKeys) {
+        try {
+          const res = await viewSignedCertificate(key);
+          if (res && (res.signedData || res.url || res.blobUrl)) {
+            response = res;
+            matchedKey = key;
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
       if (response && response.signedData) {
         // Base64 to blob and download
         const byteCharacters = atob(response.signedData);
@@ -1949,7 +2019,7 @@ const VendorDashboardPage = ({ onBack }) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = response.fileName || `Inspection_Certificate_${icNum}.pdf`;
+        a.download = response.fileName || `Inspection_Certificate_${matchedKey}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1959,6 +2029,19 @@ const VendorDashboardPage = ({ onBack }) => {
         setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 
         showNotification('Inspection Certificate downloaded successfully!', 'success');
+      } else if (response && (response.url || response.blobUrl)) {
+        const directUrl = response.url || response.blobUrl;
+        const a = document.createElement('a');
+        a.href = directUrl;
+        a.download = response.fileName || `Inspection_Certificate_${matchedKey}.pdf`;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showNotification('Inspection Certificate opened successfully!', 'success');
+      } else if (lastError) {
+        throw lastError;
       } else {
         showNotification('No signed certificate data found.', 'warning');
       }
@@ -2149,6 +2232,176 @@ const VendorDashboardPage = ({ onBack }) => {
     showNotification(`Downloading Inspection Documents for ${call.call_no}:\n- ${call.documents?.join('\n- ') || 'No documents available'}`, 'info');
   };
 
+  // Download Annexure using Case Letter Info API
+  const handleDownloadAnnexure = async (call) => {
+    if (!isCompletedCallSendToIbs(call)) {
+      showNotification('Annexure is available only for calls with Send to IBS status.', 'warning');
+      return;
+    }
+    const rawCallNo = call?.call_no || call?.callNumber || call?.requestId || '';
+    if (!rawCallNo) {
+      showNotification('Call Number not found.', 'error');
+      return;
+    }
+    const cleanCallNo = String(rawCallNo).trim();
+
+    setPdfGeneratingText({
+      title: 'Fetching Annexure',
+      subtitle: `Checking Annexure for Call No: ${cleanCallNo}...`
+    });
+    setPdfGenerating(true);
+
+    let fallbackTriggered = false;
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      const downloadHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const candidateKeys = Array.from(new Set([
+        cleanCallNo,
+        call.call_no,
+        call.callNumber,
+        call.requestId,
+        call.ic_number,
+        call.icNumber,
+        cleanCallNo.startsWith('ER-') ? cleanCallNo.replace('ER-', 'RPP-') : null,
+        cleanCallNo.startsWith('RPP-') ? cleanCallNo.replace('RPP-', 'ER-') : null
+      ].filter(Boolean).map(s => String(s).trim())));
+
+      const baseUrls = [
+        getBaseUrl(),
+        'https://api.ritesqasarthi.com/sarthi-backend/api',
+        'https://sarthibackendservice-bfe2eag3byfkbsa6.canadacentral-01.azurewebsites.net/sarthi-backend/api'
+      ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
+
+      let docData = null;
+      let matchedCallNo = cleanCallNo;
+      let matchedBase = getBaseUrl();
+
+      for (const bUrl of baseUrls) {
+        for (const k of candidateKeys) {
+          try {
+            const listRes = await fetch(`${bUrl}/ic-annexures/list?callNo=${encodeURIComponent(k)}&moduleType=ERC`, { headers });
+            if (listRes.ok) {
+              const listJson = await listRes.json();
+              const docs = listJson?.data || listJson?.responseData || (Array.isArray(listJson) ? listJson : []);
+              if (Array.isArray(docs) && docs.length > 0 && docs[0]) {
+                const first = docs[0];
+                const rawDocId = first.id || first.documentId;
+                docData = {
+                  source: 'ic-annexures',
+                  id: rawDocId,
+                  blobUrl: first.blobUrl || first.fileUrl || (rawDocId ? `${bUrl}/ic-annexures/download/${rawDocId}` : null),
+                  originalFileName: first.originalFileName || first.fileName || `Annexure_${k}.pdf`
+                };
+                matchedCallNo = k;
+                matchedBase = bUrl;
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+        if (docData) break;
+      }
+
+      if (!docData) {
+        for (const bUrl of baseUrls) {
+          for (const k of candidateKeys) {
+            try {
+              const res = await fetch(`${bUrl}/case-letter/info/${encodeURIComponent(k)}`, { headers });
+              if (res.ok) {
+                const json = await res.json();
+                if (json && json.exists && json.data) {
+                  docData = {
+                    ...json.data,
+                    source: 'case-letter'
+                  };
+                  matchedCallNo = k;
+                  matchedBase = bUrl;
+                  break;
+                }
+              }
+            } catch (_) {}
+          }
+          if (docData) break;
+        }
+      }
+
+      if (docData) {
+        const fileName = docData.originalFileName || `Annexure_${matchedCallNo.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+        const dlUrls = docData.source === 'ic-annexures'
+          ? [
+              docData.id ? `${matchedBase}/ic-annexures/download/${docData.id}` : null,
+              docData.blobUrl
+            ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i)
+          : [
+              `${matchedBase}/case-letter/download/${encodeURIComponent(matchedCallNo)}`,
+              `${matchedBase}/case-letter/view/${encodeURIComponent(matchedCallNo)}`
+            ].filter(Boolean);
+
+        for (const dlUrl of dlUrls) {
+          try {
+            const resp = await fetch(dlUrl, { method: 'GET', headers: downloadHeaders });
+            if (resp.ok) {
+              const blob = await resp.blob();
+              if (blob && blob.size > 0) {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.open(url, '_blank');
+                setTimeout(() => window.URL.revokeObjectURL(url), 3000);
+                showNotification(`Annexure for ${cleanCallNo} downloaded successfully!`, 'success');
+                return;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (docData.blobUrl && !String(docData.blobUrl).includes('/ic-annexures/download/')) {
+          const link = document.createElement('a');
+          link.href = docData.blobUrl;
+          link.download = fileName;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showNotification(`Annexure for ${cleanCallNo} opened successfully!`, 'success');
+          return;
+        }
+      }
+
+      // Fallback: generate ERC Annexures PDF directly from call data via background AnnexurePage
+      if (call?.call_no) {
+        fallbackTriggered = true;
+        setPdfGeneratingText({
+          title: 'Generating Annexures',
+          subtitle: `Generating Annexure PDF for Call No: ${cleanCallNo}...`
+        });
+        setAutoGenerateAnnexuresOnly(true);
+        setAutoGenerateAnnexuresCall(call);
+        return;
+      }
+
+      showNotification(`Annexure could not find for call no : ${cleanCallNo}`, 'warning');
+    } catch (err) {
+      console.error('Error downloading Annexure:', err);
+      showNotification(`Annexure could not find for call no : ${cleanCallNo}`, 'warning');
+    } finally {
+      if (!fallbackTriggered) {
+        setPdfGenerating(false);
+      }
+    }
+  };
+
   // PO PDF Document download helper
   const downloadPoDoc = (pdfPath, poNo) => {
     if (!pdfPath) {
@@ -2230,7 +2483,7 @@ const VendorDashboardPage = ({ onBack }) => {
       })();
 
       const fetchCallLetter = (async () => {
-        if (!['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC', 'SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus)) {
+        if (call.workflowStatus === 'WITHDRAW') {
           return null;
         }
         try {
@@ -2261,7 +2514,7 @@ const VendorDashboardPage = ({ onBack }) => {
       })();
 
       const fetchIC = (async () => {
-        if (!['DSC_SIGN_IC'].includes(call.workflowStatus)) {
+        if (!isCompletedCallSendToIbs(call)) {
           return null;
         }
         try {
@@ -2395,8 +2648,8 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // Bulk download available completed inspection call documents in a single merged PDF
   const handleDownloadAllDocs = async (call) => {
-    // If status has annexures, trigger auto generation first
-    const hasAnnexures = ['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC', 'DSC_SIGN_IC'].includes(call.workflowStatus);
+    // Only generate/include Annexures & IC when status is Send to IBS
+    const hasAnnexures = Boolean(call?.call_no) && isCompletedCallSendToIbs(call);
 
     setPdfGeneratingText({
       title: 'Generating PDF',
@@ -2406,6 +2659,7 @@ const VendorDashboardPage = ({ onBack }) => {
 
     if (hasAnnexures) {
       showNotification('Fetching and generating Annexures PDF in background...', 'info');
+      setAutoGenerateAnnexuresOnly(false);
       setAutoGenerateAnnexuresCall(call);
     } else {
       // Just proceed without annexures
@@ -3971,7 +4225,7 @@ const VendorDashboardPage = ({ onBack }) => {
         />
       )}
 
-      {/* Background Annexures PDF Generator for merge-download */}
+      {/* Background Annexures PDF Generator for merge-download or standalone fallback */}
       {autoGenerateAnnexuresCall && (
         <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1600px', zIndex: -100 }}>
           <AnnexurePage
@@ -3980,22 +4234,47 @@ const VendorDashboardPage = ({ onBack }) => {
             triggerAutoDownloadAll={true}
             onAllGenerated={async (pdfBlob) => {
               console.log('[DownloadAllDocs] Annexures auto-generated successfully!');
+              const targetCall = autoGenerateAnnexuresCall;
+              const isOnly = autoGenerateAnnexuresOnly;
+              setAutoGenerateAnnexuresCall(null);
+              setAutoGenerateAnnexuresOnly(false);
               try {
-                const annexuresBuf = await pdfBlob.arrayBuffer();
-                await proceedWithMergeAndDownload(autoGenerateAnnexuresCall, annexuresBuf);
+                if (isOnly) {
+                  const safeCall = String(targetCall?.call_no || 'Call').replace(/[/\\?%*:|"<>]/g, '_');
+                  const url = window.URL.createObjectURL(pdfBlob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Annexures_${safeCall}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.open(url, '_blank');
+                  setTimeout(() => window.URL.revokeObjectURL(url), 3000);
+                  showNotification(`Annexure for ${targetCall?.call_no || 'Call'} downloaded successfully!`, 'success');
+                  setPdfGenerating(false);
+                } else {
+                  const annexuresBuf = await pdfBlob.arrayBuffer();
+                  await proceedWithMergeAndDownload(targetCall, annexuresBuf);
+                }
               } catch (e) {
                 console.error('[DownloadAllDocs] Error matching/reading annexures buffer:', e);
                 showNotification('Error reading generated annexures PDF.', 'error');
                 setPdfGenerating(false);
-              } finally {
-                setAutoGenerateAnnexuresCall(null);
               }
             }}
             onGenerationError={(err) => {
               console.error('[DownloadAllDocs] Error auto-generating annexures:', err);
-              showNotification('Failed to generate Annexures PDF. Merging remaining documents...', 'warning');
-              proceedWithMergeAndDownload(autoGenerateAnnexuresCall, null);
+              const targetCall = autoGenerateAnnexuresCall;
+              const isOnly = autoGenerateAnnexuresOnly;
               setAutoGenerateAnnexuresCall(null);
+              setAutoGenerateAnnexuresOnly(false);
+              if (isOnly) {
+                showNotification(`Annexure could not find for call no : ${targetCall?.call_no || ''}`, 'warning');
+                setPdfGenerating(false);
+              } else {
+                showNotification('Failed to generate Annexures PDF. Merging remaining documents...', 'warning');
+                proceedWithMergeAndDownload(targetCall, null);
+              }
             }}
           />
         </div>
@@ -6716,6 +6995,8 @@ const VendorDashboardPage = ({ onBack }) => {
       {isCompletedActionsModalOpen && selectedCompletedCallForActions && (() => {
         const call = selectedCompletedCallForActions;
         const matchingPO = findMatchingPO(call.po_no || call.poNo);
+        const isSendToIbs = isCompletedCallSendToIbs(call);
+        const isWithdrawnCall = `${call.workflowStatus || ''} ${call.status || ''}`.toUpperCase().includes('WITHDRAW');
 
         const ActionCard = ({ title, icon, onClick, colors }) => (
           <button
@@ -6857,7 +7138,51 @@ const VendorDashboardPage = ({ onBack }) => {
                       onClick={() => handleOpenHeatDetails(call)}
                     />
                   )}
-                  {['SEND_CALL_TO_IBS', 'SENT_TO_IBS', 'SEND_TO_IBS'].includes(call.workflowStatus) && (
+                  {!isWithdrawnCall && (
+                    <>
+                      <ActionCard
+                        title="Call Details"
+                        icon={<VisibilityIcon style={{ fontSize: '24px' }} />}
+                        colors={{ bg1: '#eff6ff', bg2: '#dbeafe', border: '#bfdbfe', iconColor: '#3b82f6', textColor: '#1d4ed8', shadow1: 'rgba(59, 130, 246, 0.2)', shadow2: 'rgba(59, 130, 246, 0.1)' }}
+                        onClick={() => {
+                          setIsCompletedActionsModalOpen(false);
+                          setSelectedCompletedCallForActions(null);
+                          handleViewCallDetails(call);
+                        }}
+                      />
+                      <ActionCard
+                        title="Call Letter"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
+                        colors={{ bg1: '#ecfeff', bg2: '#cffafe', border: '#a5f3fc', iconColor: '#06b6d4', textColor: '#0891b2', shadow1: 'rgba(6, 182, 212, 0.2)', shadow2: 'rgba(6, 182, 212, 0.1)' }}
+                        onClick={() => handleDownloadCallLetter(call)}
+                      />
+                      {isSendToIbs && (
+                        <>
+                          <ActionCard
+                            title="IC"
+                            icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                            colors={{ bg1: '#ecfdf5', bg2: '#d1fae5', border: '#a7f3d0', iconColor: '#10b981', textColor: '#059669', shadow1: 'rgba(16, 185, 129, 0.2)', shadow2: 'rgba(16, 185, 129, 0.1)' }}
+                            onClick={() => handleDownloadIC(call)}
+                          />
+                          <ActionCard
+                            title="Annexures"
+                            icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                            colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
+                            onClick={() => {
+                              handleDownloadAnnexure(call);
+                              setIsCompletedActionsModalOpen(false);
+                              setSelectedCompletedCallForActions(null);
+                            }}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                  {false && (
+                    <span style={{ display: 'none' }}
+                    />
+                  )}
+                  {false && (
                     <>
                       <ActionCard
                         title="Call Details"
@@ -6883,14 +7208,14 @@ const VendorDashboardPage = ({ onBack }) => {
                       />
                     </>
                   )}
-                  {['INSPECTION_COMPLETE_CONFIRM', 'GENERATE_IC'].includes(call.workflowStatus) && (
+                  {false && (
                     <>
                       <ActionCard
                         title="Annexures"
                         icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
                         colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
                         onClick={() => {
-                          setSelectedCallForAnnexure(call);
+                          handleDownloadAnnexure(call);
                           setIsCompletedActionsModalOpen(false);
                           setSelectedCompletedCallForActions(null);
                         }}
@@ -6903,7 +7228,7 @@ const VendorDashboardPage = ({ onBack }) => {
                       />
                     </>
                   )}
-                  {call.workflowStatus === 'WITHDRAW' && (
+                  {isWithdrawnCall && (
                     <ActionCard
                       title="Call Details"
                       icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>}
@@ -6916,7 +7241,7 @@ const VendorDashboardPage = ({ onBack }) => {
                       }}
                     />
                   )}
-                  {call.workflowStatus === 'DSC_SIGN_IC' && (
+                  {false && (
                     <>
                       <ActionCard
                         title="Call Letter"
@@ -6935,7 +7260,7 @@ const VendorDashboardPage = ({ onBack }) => {
                         icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
                         colors={{ bg1: '#eef2ff', bg2: '#e0e7ff', border: '#c7d2fe', iconColor: '#6366f1', textColor: '#4f46e5', shadow1: 'rgba(99, 102, 241, 0.2)', shadow2: 'rgba(99, 102, 241, 0.1)' }}
                         onClick={() => {
-                          setSelectedCallForAnnexure(call);
+                          handleDownloadAnnexure(call);
                           setIsCompletedActionsModalOpen(false);
                           setSelectedCompletedCallForActions(null);
                         }}

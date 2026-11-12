@@ -13,6 +13,7 @@ import {
     generateRailpadIcPdf,
     downloadAllCallDocuments
 } from '../../../utils/generateDocumentPDFs';
+import { generateRailpadAnnexurePDF } from '../../../utils/generateAnnexurePDF';
 
 const getCallStatusInfo = (statusStr, actionStr) => {
     const rawStatus = String(statusStr || '').toUpperCase().trim();
@@ -36,15 +37,32 @@ const getCallStatusInfo = (statusStr, actionStr) => {
             icon: <AlertCircle size={12} />
         };
     }
+    if (rawStatus.includes('REJECT') || act.includes('REJECT')) {
+        return {
+            label: 'REJECTED',
+            bg: '#fee2e2',
+            color: '#b91c1c',
+            border: '#fca5a5',
+            icon: <AlertCircle size={12} />
+        };
+    }
 
     // SEND CALL TO IBS
     if (
         act.includes('SEND_CALL_TO_IBS') ||
+        act.includes('SENT_CALL_TO_IBS') ||
         act.includes('SEND TO IBS') ||
+        act.includes('SENT TO IBS') ||
         act.includes('SEND_TO_IBS') ||
+        act.includes('SENT_TO_IBS') ||
+        act.includes('IBS') ||
         rawStatus.includes('SEND_CALL_TO_IBS') ||
+        rawStatus.includes('SENT_CALL_TO_IBS') ||
         rawStatus.includes('SEND TO IBS') ||
-        rawStatus.includes('SEND_TO_IBS')
+        rawStatus.includes('SENT TO IBS') ||
+        rawStatus.includes('SEND_TO_IBS') ||
+        rawStatus.includes('SENT_TO_IBS') ||
+        rawStatus.includes('IBS')
     ) {
         return {
             label: 'Send Call to IBS',
@@ -156,10 +174,34 @@ const formatPoSrNo = (call, includeRly = true) => {
     return fullPoSr;
 };
 
-const checkIsIcAvailable = (call) => {
+const isHiddenRailpadCall = (call) => {
     if (!call) return false;
-    const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
-    return statusInfo?.label === 'Completed - E-Signed';
+    const combined = [
+        call.status,
+        call.workflowStatus,
+        call.latestAction,
+        call.action,
+        call.workflowAction,
+        call.jobStatus
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return (
+        combined.includes('CANCEL') ||
+        combined.includes('WITHDRAW') ||
+        combined.includes('REJECT')
+    );
+};
+
+const checkIsSendToIbs = (call) => {
+    if (!call || isHiddenRailpadCall(call)) return false;
+    const combined = [
+        call.status,
+        call.workflowStatus,
+        call.latestAction,
+        call.action,
+        call.workflowAction,
+        call.jobStatus
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return combined.includes('IBS');
 };
 
 const getCallUom = (call) => {
@@ -197,6 +239,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const [isActionsModalOpen, setIsActionsModalOpen] = useState(false);
     const [downloadingDoc, setDownloadingDoc] = useState(null);
     const [toast, setToast] = useState(null);
+    const [annexureNotification, setAnnexureNotification] = useState(null);
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
@@ -245,6 +288,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const handleOpenActions = async (call) => {
         setSelectedCall(call);
         setTransitionHistory([]);
+        setAnnexureNotification(null);
         setIsActionsModalOpen(true);
 
         try {
@@ -294,10 +338,32 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
+    const handleDownloadAnnexures = async (call) => {
+        if (!checkIsSendToIbs(call)) {
+            showToast('warning', 'Annexures are only available for calls with status Send Call to IBS.');
+            return;
+        }
+        try {
+            setDownloadingDoc('annexures');
+            const callNo = call?.callNo || call?.call_no || call?.requestId || '';
+            setAnnexureNotification(null);
+            showToast('info', `Checking Annexure for Call No: ${callNo}...`);
+            await generateRailpadAnnexurePDF(call, true);
+            showToast('success', `Annexures PDF downloaded successfully!`);
+        } catch (err) {
+            console.error("Error downloading Annexures PDF:", err);
+            const fallbackCallNo = call?.callNo || call?.call_no || call?.requestId || '';
+            const msg = err.message || `Annexure could not find for call no : ${fallbackCallNo}`;
+            showToast('warning', msg);
+            setAnnexureNotification({ type: 'warning', message: msg });
+        } finally {
+            setDownloadingDoc(null);
+        }
+    };
+
     const handleDownloadIC = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call);
-        if (!isIcAvailable) {
-            showToast('info', 'Inspection Certificate (IC) is only available when status is Completed - E-Signed.');
+        if (!call || !checkIsSendToIbs(call)) {
+            showToast('warning', 'Inspection Certificate (IC) is only available for calls with status Send Call to IBS.');
             return;
         }
 
@@ -315,15 +381,15 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadAll = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call);
+        const isSendToIbs = checkIsSendToIbs(call);
         try {
             setDownloadingDoc('all');
-            if (isIcAvailable) {
-                showToast('info', `Downloading all available documents (Call Letter, PO, IC)...`);
+            if (isSendToIbs) {
+                showToast('info', `Downloading all available documents (Call Letter, PO, Annexures, IC)...`);
                 await downloadAllCallDocuments(call);
                 showToast('success', `All documents downloaded successfully!`);
             } else {
-                showToast('info', `Downloading available documents (Call Letter & PO). IC is not yet generated.`);
+                showToast('info', `Downloading available documents (Call Letter & PO). IC and Annexures are available only for Send Call to IBS calls.`);
                 await generateRailpadCallLetterPDF(call, true);
                 await new Promise(r => setTimeout(r, 600));
                 await generateRailpadPoPDF(call, true);
@@ -337,7 +403,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
-    const isCurrentIcAvailable = checkIsIcAvailable(selectedCall);
+    const isCurrentSendToIbs = checkIsSendToIbs(selectedCall);
 
     const SkeletonRow = () => (
         <div style={{
@@ -383,11 +449,12 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                     color: '#fff', fontWeight: 600, fontSize: 13,
                     display: 'flex', alignItems: 'center', gap: 10,
                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
-                    background: toast.type === 'success' ? '#059669' : (toast.type === 'error' ? '#dc2626' : '#2563eb'),
+                    background: toast.type === 'success' ? '#059669' : (toast.type === 'error' ? '#dc2626' : (toast.type === 'warning' ? '#d97706' : '#2563eb')),
                     animation: 'slideIn 0.3s ease'
                 }}>
                     {toast.type === 'success' && <CheckCircle2 size={18} />}
                     {toast.type === 'error' && <AlertCircle size={18} />}
+                    {toast.type === 'warning' && <AlertCircle size={18} />}
                     {toast.type === 'info' && <Info size={18} />}
                     <span>{toast.message}</span>
                 </div>
@@ -680,6 +747,39 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             </div>
                         </div>
 
+                        {/* Annexure Notification Banner (Userfriendly UI) */}
+                        {annexureNotification && (
+                            <div style={{
+                                background: annexureNotification.type === 'warning' ? '#fffbeb' : '#f0fdf4',
+                                border: `1.5px solid ${annexureNotification.type === 'warning' ? '#fde68a' : '#bbf7d0'}`,
+                                color: annexureNotification.type === 'warning' ? '#92400e' : '#166534',
+                                borderRadius: '14px',
+                                padding: '12px 18px',
+                                marginBottom: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                fontSize: '13.5px',
+                                fontWeight: 700,
+                                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.08)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <AlertCircle size={20} color={annexureNotification.type === 'warning' ? '#d97706' : '#16a34a'} />
+                                    <span>{annexureNotification.message}</span>
+                                </div>
+                                <button
+                                    onClick={() => setAnnexureNotification(null)}
+                                    style={{
+                                        background: 'none', border: 'none', cursor: 'pointer',
+                                        color: annexureNotification.type === 'warning' ? '#92400e' : '#166534',
+                                        fontSize: '18px', fontWeight: 'bold', padding: '0 4px'
+                                    }}
+                                    title="Dismiss"
+                                >×</button>
+                            </div>
+                        )}
+
                         {/* Actions & Documents Cards */}
                         <div>
                             <h4 style={{
@@ -693,6 +793,47 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             }}>
                                 <span style={{ color: '#f59e0b' }}>⚡</span> Actions & Documents
                             </h4>
+
+                            {/* User-friendly UI Notification for Annexures or actions */}
+                            {annexureNotification && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    padding: '12px 16px',
+                                    borderRadius: '12px',
+                                    background: '#fffbeb',
+                                    border: '1.5px solid #fde68a',
+                                    color: '#b45309',
+                                    fontSize: '13.5px',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px',
+                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle size={18} color="#d97706" style={{ flexShrink: 0 }} />
+                                        <span>{annexureNotification.message}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAnnexureNotification(null)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#b45309',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold',
+                                            padding: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                        title="Dismiss"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
 
                             <div style={{
                                 display: 'grid',
@@ -724,33 +865,37 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#7e22ce' }}>PO & MA</div>
                                 </div>
 
-                                {/* Card 2: Annexures (Under Development) */}
-                                <div
-                                    style={{
-                                        background: '#eff6ff',
-                                        border: '1.5px solid #dbeafe',
-                                        borderRadius: '16px',
-                                        padding: '20px 12px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'not-allowed',
-                                        transition: 'all 0.2s',
-                                        textAlign: 'center',
-                                        position: 'relative'
-                                    }}
-                                    title="Under Development"
-                                    onClick={() => showToast('info', 'Annexures feature is currently under development.')}
-                                >
-                                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                                        <FileText size={20} />
+                                {/* Card 2: Annexures - Displayed ONLY for Send Call to IBS calls */}
+                                {isCurrentSendToIbs && (
+                                    <div
+                                        style={{
+                                            background: '#eff6ff',
+                                            border: '1.5px solid #dbeafe',
+                                            borderRadius: '16px',
+                                            padding: '20px 12px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            textAlign: 'center',
+                                            position: 'relative'
+                                        }}
+                                        title="Download Inspection Activity Report & Test Annexures"
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(37, 99, 235, 0.15)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#dbeafe'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        onClick={() => handleDownloadAnnexures(selectedCall)}
+                                    >
+                                        <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                                            {downloadingDoc === 'annexures' ? <Loader2 size={20} className="animate-spin" /> : <FileText size={20} />}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8' }}>Annexures</div>
+                                        <div style={{ display: 'none' }}>
+                                            Under Dev
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8' }}>Annexures</div>
-                                    <div style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', background: '#fef3c7', padding: '2px 6px', borderRadius: '6px', marginTop: '4px' }}>
-                                        Under Dev
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Card 3: Call Letter */}
                                 <div
@@ -777,8 +922,8 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#0e7490' }}>Call Letter</div>
                                 </div>
 
-                                {/* Card 4: IC (Inspection Certificate) - Displayed ONLY when status/action is IC_GENERATION */}
-                                {isCurrentIcAvailable && (
+                                {/* Card 4: IC (Inspection Certificate) - Displayed ONLY for Send Call to IBS calls */}
+                                {isCurrentSendToIbs && (
                                     <div
                                         onClick={() => handleDownloadIC(selectedCall)}
                                         style={{
