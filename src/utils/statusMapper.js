@@ -121,7 +121,7 @@ export const getStatusVariant = (apiStatus) => {
  * @returns {Object} { mainStatus: string, subStatus: string }
  */
 export const getDetailedStatus = (systemStatus) => {
-  const statusLower = (systemStatus || '').toUpperCase();
+  const statusLower = (systemStatus || '').trim().toUpperCase().replace(/\s+/g, '_');
 
   const mapping = {
     'CREATED': { mainStatus: 'Pending', subStatus: 'Call Raised' },
@@ -138,12 +138,19 @@ export const getDetailedStatus = (systemStatus) => {
     'INSPECTION_COMPLETE_CONFIRM': { mainStatus: 'Completed', subStatus: 'IC Issuance Pending' },
     'GENERATE_IC': { mainStatus: 'Completed', subStatus: 'IC Issued' },
     'DSC_SIGN_IC': { mainStatus: 'Completed', subStatus: 'E-Signed' },
-    'CANCELLED': { mainStatus: 'Completed', subStatus: 'cancelled' },
+    'CANCEL': { mainStatus: 'Cancelled', subStatus: '' },
+    'CANCELED': { mainStatus: 'Cancelled', subStatus: '' },
+    'CANCELLED': { mainStatus: 'Cancelled', subStatus: '' },
+    'WITHDRAW': { mainStatus: 'Withdrawn', subStatus: '' },
+    'WITHDRAWN': { mainStatus: 'Withdrawn', subStatus: '' },
+    'REJECT': { mainStatus: 'Rejected', subStatus: '' },
+    'REJECTED': { mainStatus: 'Rejected', subStatus: '' },
     'WITHHELD': { mainStatus: 'Under Inspection', subStatus: 'withheld' },
     'IC_PENDING': { mainStatus: 'Completed', subStatus: 'IC Pending' },
     'SEND_CALL_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
     'SENT_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
     'SEND_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
+    'SENT_CALL_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
     'CLOSED': { mainStatus: 'Completed', subStatus: 'Sent to IBS' }
   };
 

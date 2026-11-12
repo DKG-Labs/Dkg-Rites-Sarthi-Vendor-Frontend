@@ -752,9 +752,26 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection',
         'Paused', 'PO Verification', 'Withheld', 'Pending for verification', 'Created', 'PENDING'
     ];
+    const isHiddenStatus = (c) => {
+        const combined = [
+            c?.status,
+            c?.workflowStatus,
+            c?.latestAction,
+            c?.action,
+            c?.rawStatus,
+            c?.jobStatus,
+            c?.job_status
+        ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+        return (
+            combined.includes('WITHDRAW') ||
+            combined.includes('CANCEL') ||
+            combined.includes('REJECT') ||
+            combined.includes('LOCKED')
+        );
+    };
     const displayCalls = allCalls.filter(c => {
-        if (isCompletedOrIbs(c)) return false;
-        return ACTIVE_STATUSES.includes(c.status) || (!['Cancelled', 'Locked', 'COMPLETED'].includes(c.status));
+        if (isHiddenStatus(c) || isCompletedOrIbs(c)) return false;
+        return ACTIVE_STATUSES.includes(c.status) || (String(c.status || '').toUpperCase() !== 'COMPLETED');
     });
 
     const statusCounts = {};

@@ -37,15 +37,32 @@ const getCallStatusInfo = (statusStr, actionStr) => {
             icon: <AlertCircle size={12} />
         };
     }
+    if (rawStatus.includes('REJECT') || act.includes('REJECT')) {
+        return {
+            label: 'REJECTED',
+            bg: '#fee2e2',
+            color: '#b91c1c',
+            border: '#fca5a5',
+            icon: <AlertCircle size={12} />
+        };
+    }
 
     // SEND CALL TO IBS
     if (
         act.includes('SEND_CALL_TO_IBS') ||
+        act.includes('SENT_CALL_TO_IBS') ||
         act.includes('SEND TO IBS') ||
+        act.includes('SENT TO IBS') ||
         act.includes('SEND_TO_IBS') ||
+        act.includes('SENT_TO_IBS') ||
+        act.includes('IBS') ||
         rawStatus.includes('SEND_CALL_TO_IBS') ||
+        rawStatus.includes('SENT_CALL_TO_IBS') ||
         rawStatus.includes('SEND TO IBS') ||
-        rawStatus.includes('SEND_TO_IBS')
+        rawStatus.includes('SENT TO IBS') ||
+        rawStatus.includes('SEND_TO_IBS') ||
+        rawStatus.includes('SENT_TO_IBS') ||
+        rawStatus.includes('IBS')
     ) {
         return {
             label: 'Send Call to IBS',
@@ -157,12 +174,34 @@ const formatPoSrNo = (call, includeRly = true) => {
     return fullPoSr;
 };
 
-const checkIsIcAvailable = (call) => {
+const isHiddenRailpadCall = (call) => {
     if (!call) return false;
-    const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
-    const rawStatus = String(call.status || call.workflowStatus || '').toUpperCase();
-    const act = String(call.latestAction || call.action || call.workflowAction || '').toUpperCase();
-    return !rawStatus.includes('CANCEL') && !act.includes('CANCEL') && !rawStatus.includes('WITHDRAW') && !act.includes('WITHDRAW');
+    const combined = [
+        call.status,
+        call.workflowStatus,
+        call.latestAction,
+        call.action,
+        call.workflowAction,
+        call.jobStatus
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return (
+        combined.includes('CANCEL') ||
+        combined.includes('WITHDRAW') ||
+        combined.includes('REJECT')
+    );
+};
+
+const checkIsSendToIbs = (call) => {
+    if (!call || isHiddenRailpadCall(call)) return false;
+    const combined = [
+        call.status,
+        call.workflowStatus,
+        call.latestAction,
+        call.action,
+        call.workflowAction,
+        call.jobStatus
+    ].map(v => String(v || '').trim().toUpperCase()).join(' ');
+    return combined.includes('IBS');
 };
 
 const getCallUom = (call) => {
@@ -300,6 +339,10 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadAnnexures = async (call) => {
+        if (!checkIsSendToIbs(call)) {
+            showToast('warning', 'Annexures are only available for calls with status Send Call to IBS.');
+            return;
+        }
         try {
             setDownloadingDoc('annexures');
             const callNo = call?.callNo || call?.call_no || call?.requestId || '';
@@ -319,9 +362,8 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadIC = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call);
-        if (!call) {
-            // IC available
+        if (!call || !checkIsSendToIbs(call)) {
+            showToast('warning', 'Inspection Certificate (IC) is only available for calls with status Send Call to IBS.');
             return;
         }
 
@@ -339,15 +381,15 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     };
 
     const handleDownloadAll = async (call) => {
-        const isIcAvailable = checkIsIcAvailable(call);
+        const isSendToIbs = checkIsSendToIbs(call);
         try {
             setDownloadingDoc('all');
-            if (isIcAvailable) {
+            if (isSendToIbs) {
                 showToast('info', `Downloading all available documents (Call Letter, PO, Annexures, IC)...`);
                 await downloadAllCallDocuments(call);
                 showToast('success', `All documents downloaded successfully!`);
             } else {
-                showToast('info', `Downloading available documents (Call Letter & PO). IC is not yet generated.`);
+                showToast('info', `Downloading available documents (Call Letter & PO). IC and Annexures are available only for Send Call to IBS calls.`);
                 await generateRailpadCallLetterPDF(call, true);
                 await new Promise(r => setTimeout(r, 600));
                 await generateRailpadPoPDF(call, true);
@@ -361,7 +403,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
-    const isCurrentIcAvailable = checkIsIcAvailable(selectedCall);
+    const isCurrentSendToIbs = checkIsSendToIbs(selectedCall);
 
     const SkeletonRow = () => (
         <div style={{
@@ -823,35 +865,37 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#7e22ce' }}>PO & MA</div>
                                 </div>
 
-                                {/* Card 2: Annexures (Under Development) */}
-                                <div
-                                    style={{
-                                        background: '#eff6ff',
-                                        border: '1.5px solid #dbeafe',
-                                        borderRadius: '16px',
-                                        padding: '20px 12px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        textAlign: 'center',
-                                        position: 'relative'
-                                    }}
-                                    title="Download Inspection Activity Report & Test Annexures"
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(37, 99, 235, 0.15)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#dbeafe'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    onClick={() => handleDownloadAnnexures(selectedCall)}
-                                >
-                                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                                        {downloadingDoc === 'annexures' ? <Loader2 size={20} className="animate-spin" /> : <FileText size={20} />}
+                                {/* Card 2: Annexures - Displayed ONLY for Send Call to IBS calls */}
+                                {isCurrentSendToIbs && (
+                                    <div
+                                        style={{
+                                            background: '#eff6ff',
+                                            border: '1.5px solid #dbeafe',
+                                            borderRadius: '16px',
+                                            padding: '20px 12px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            textAlign: 'center',
+                                            position: 'relative'
+                                        }}
+                                        title="Download Inspection Activity Report & Test Annexures"
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(37, 99, 235, 0.15)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#dbeafe'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        onClick={() => handleDownloadAnnexures(selectedCall)}
+                                    >
+                                        <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                                            {downloadingDoc === 'annexures' ? <Loader2 size={20} className="animate-spin" /> : <FileText size={20} />}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8' }}>Annexures</div>
+                                        <div style={{ display: 'none' }}>
+                                            Under Dev
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8' }}>Annexures</div>
-                                    <div style={{ display: 'none' }}>
-                                        Under Dev
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Card 3: Call Letter */}
                                 <div
@@ -878,8 +922,8 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#0e7490' }}>Call Letter</div>
                                 </div>
 
-                                {/* Card 4: IC (Inspection Certificate) - Displayed ONLY when status/action is IC_GENERATION */}
-                                {isCurrentIcAvailable && (
+                                {/* Card 4: IC (Inspection Certificate) - Displayed ONLY for Send Call to IBS calls */}
+                                {isCurrentSendToIbs && (
                                     <div
                                         onClick={() => handleDownloadIC(selectedCall)}
                                         style={{

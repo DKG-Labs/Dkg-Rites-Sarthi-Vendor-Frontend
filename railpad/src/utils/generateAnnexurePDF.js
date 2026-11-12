@@ -26,6 +26,9 @@ export const generateRailpadAnnexurePDF = async (call, shouldDownload = true) =>
         call.call_no,
         call.requestId,
         call.inspectionCallNo,
+        call.icNumber,
+        call.icNo,
+        call.ic_number,
         cleanCallNo.startsWith('RPP-') ? cleanCallNo.replace('RPP-', 'ER-') : null,
         cleanCallNo.startsWith('RPP-') ? cleanCallNo.replace('RPP-', 'EP-') : null,
         cleanCallNo.startsWith('ER-') ? cleanCallNo.replace('ER-', 'RPP-') : null,
@@ -47,50 +50,56 @@ export const generateRailpadAnnexurePDF = async (call, shouldDownload = true) =>
     let matchedCallNo = cleanCallNo;
     let matchedBaseUrl = API_BASE_URL;
 
-    // 1. Check official API: GET /case-letter/info/{callNo}
+    // 1. Check /ic-annexures/list?callNo=...&moduleType=RAILPAD first
     for (const bUrl of baseUrls) {
         for (const k of candidateKeys) {
             try {
-                const infoUrl = `${bUrl}/case-letter/info/${encodeURIComponent(k)}`;
-                const res = await fetch(infoUrl, { method: 'GET', headers });
+                const listUrl = `${bUrl}/ic-annexures/list?callNo=${encodeURIComponent(k)}&moduleType=RAILPAD`;
+                const res = await fetch(listUrl, { method: 'GET', headers });
                 if (res.ok) {
-                    const json = await res.json();
-                    if (json && json.exists && json.data) {
-                        docData = json.data;
+                    const listJson = await res.json();
+                    const docs = listJson?.data || listJson?.responseData || (Array.isArray(listJson) ? listJson : []);
+                    if (Array.isArray(docs) && docs.length > 0 && docs[0]) {
+                        const first = docs[0];
+                        const rawDocId = first.id || first.documentId;
+                        docData = {
+                            source: 'ic-annexures',
+                            id: rawDocId,
+                            blobUrl: first.blobUrl || first.fileUrl || (rawDocId ? `${bUrl}/ic-annexures/download/${rawDocId}` : null),
+                            originalFileName: first.originalFileName || first.fileName || `Annexure_${k}.pdf`
+                        };
                         matchedCallNo = k;
                         matchedBaseUrl = bUrl;
                         break;
                     }
                 }
-            } catch (err) {
-                // Connection or CORS error on this endpoint, continue
-            }
+            } catch (_) {}
         }
         if (docData) break;
     }
 
-    // 2. Check /ic-annexures/list?callNo=... if case-letter didn't match
+    // 2. Check official API: GET /case-letter/info/{callNo} if /ic-annexures didn't match
     if (!docData) {
         for (const bUrl of baseUrls) {
             for (const k of candidateKeys) {
                 try {
-                    const listUrl = `${bUrl}/ic-annexures/list?callNo=${encodeURIComponent(k)}&moduleType=RAILPAD`;
-                    const res = await fetch(listUrl, { method: 'GET', headers });
+                    const infoUrl = `${bUrl}/case-letter/info/${encodeURIComponent(k)}`;
+                    const res = await fetch(infoUrl, { method: 'GET', headers });
                     if (res.ok) {
-                        const listJson = await res.json();
-                        const docs = listJson?.responseData || listJson?.data || (Array.isArray(listJson) ? listJson : []);
-                        if (Array.isArray(docs) && docs.length > 0 && docs[0]) {
-                            const first = docs[0];
+                        const json = await res.json();
+                        if (json && json.exists && json.data) {
                             docData = {
-                                blobUrl: first.fileUrl || `${bUrl}/ic-annexures/download/${first.id || first.documentId}`,
-                                originalFileName: first.fileName || `Annexure_${k}.pdf`
+                                ...json.data,
+                                source: 'case-letter'
                             };
                             matchedCallNo = k;
                             matchedBaseUrl = bUrl;
                             break;
                         }
                     }
-                } catch (_) {}
+                } catch (err) {
+                    // Connection or CORS error on this endpoint, continue
+                }
             }
             if (docData) break;
         }
@@ -101,11 +110,50 @@ export const generateRailpadAnnexurePDF = async (call, shouldDownload = true) =>
         throw new Error(`Annexure could not find for call no : ${cleanCallNo}`);
     }
 
-    // 4. Download or open the found Annexure document
+    // 4. Download or open the found Annexure document (authenticated backend stream first)
     const finalFileName = docData.originalFileName || `Annexure_${matchedCallNo.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+    const dlHeaders = {
+        'Accept': 'application/pdf, */*',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
 
-    // Direct browser download via <a> tag (no fetch, completely avoids CORS preflight net::ERR_FAILED)
-    if (docData.blobUrl) {
+    const backendEndpoints = docData.source === 'ic-annexures'
+        ? [
+            docData.id ? `${matchedBaseUrl}/ic-annexures/download/${docData.id}` : null,
+            docData.blobUrl
+        ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i)
+        : [
+            `${matchedBaseUrl}/case-letter/download/${encodeURIComponent(matchedCallNo)}`,
+            `${matchedBaseUrl}/case-letter/view/${encodeURIComponent(matchedCallNo)}`,
+            cleanCallNo !== matchedCallNo ? `${matchedBaseUrl}/case-letter/download/${encodeURIComponent(cleanCallNo)}` : null,
+            cleanCallNo !== matchedCallNo ? `${matchedBaseUrl}/case-letter/view/${encodeURIComponent(cleanCallNo)}` : null
+        ].filter(Boolean);
+
+    for (const dlUrl of backendEndpoints) {
+        try {
+            const resp = await fetch(dlUrl, { method: 'GET', headers: dlHeaders });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                if (blob && blob.size > 0) {
+                    const objUrl = window.URL.createObjectURL(blob);
+                    if (shouldDownload) {
+                        const a = document.createElement('a');
+                        a.href = objUrl;
+                        a.download = finalFileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        setTimeout(() => window.URL.revokeObjectURL(objUrl), 5000);
+                    } else {
+                        window.open(objUrl, '_blank');
+                    }
+                    return { success: true, blob, fileName: finalFileName, url: objUrl };
+                }
+            }
+        } catch (_) {}
+    }
+
+    if (docData.blobUrl && !String(docData.blobUrl).includes('/ic-annexures/download/')) {
         if (shouldDownload) {
             const link = document.createElement('a');
             link.href = docData.blobUrl;
@@ -119,39 +167,6 @@ export const generateRailpadAnnexurePDF = async (call, shouldDownload = true) =>
             window.open(docData.blobUrl, '_blank');
         }
         return { success: true, fileName: finalFileName, url: docData.blobUrl };
-    }
-
-    // Backend streaming fallback if blobUrl was not directly provided
-    const dlHeaders = {
-        'Accept': 'application/pdf, */*',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    };
-
-    const backendEndpoints = [
-        `${matchedBaseUrl}/case-letter/download/${encodeURIComponent(matchedCallNo)}`,
-        `${matchedBaseUrl}/case-letter/view/${encodeURIComponent(matchedCallNo)}`,
-        cleanCallNo !== matchedCallNo ? `${matchedBaseUrl}/case-letter/download/${encodeURIComponent(cleanCallNo)}` : null,
-        cleanCallNo !== matchedCallNo ? `${matchedBaseUrl}/case-letter/view/${encodeURIComponent(cleanCallNo)}` : null
-    ].filter(Boolean);
-
-    for (const dlUrl of backendEndpoints) {
-        try {
-            const resp = await fetch(dlUrl, { method: 'GET', headers: dlHeaders });
-            if (resp.ok) {
-                const blob = await resp.blob();
-                const objUrl = window.URL.createObjectURL(blob);
-                if (shouldDownload) {
-                    const a = document.createElement('a');
-                    a.href = objUrl;
-                    a.download = finalFileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(() => window.URL.revokeObjectURL(objUrl), 5000);
-                }
-                return { success: true, blob, fileName: finalFileName, url: objUrl };
-            }
-        } catch (_) {}
     }
 
     throw new Error(`Annexure could not find for call no : ${cleanCallNo}`);

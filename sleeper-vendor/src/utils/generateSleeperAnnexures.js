@@ -579,48 +579,64 @@ export const buildAnnexure1Doc = (call, customHeading = 'ANNEXURE 1 TO IC') => {
 export const generateSleeperAnnexuresPDF = async (call, autoDownload = true) => {
     if (!call) return null;
     const callId = call.call_no || call.callNo || call.callNumber || call.requestId || call.id;
+    const rawHeaders = getAuthHeaders('application/json');
+    const downloadHeaders = rawHeaders?.Authorization ? { Authorization: rawHeaders.Authorization } : {};
+    const candidateKeys = Array.from(new Set([
+        callId,
+        call.callNo,
+        call.call_no,
+        call.callNumber,
+        call.requestId,
+        call.icNo,
+        call.icNumber,
+        call.certificateNo,
+        call.certificate_no
+    ].filter(Boolean).map(v => String(v).trim())));
+    const baseUrls = [BASE_URL, 'https://api.ritesqasarthi.com/sarthi-backend/api']
+        .filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
     // 0. Check official API: GET /case-letter/info/{callNo}
     try {
-        const headers = getAuthHeaders('application/json');
-        const candidateKeys = Array.from(new Set([callId, call.callNo, call.call_no, call.requestId].filter(Boolean)));
-        const baseUrls = [BASE_URL, 'https://api.ritesqasarthi.com/sarthi-backend/api'];
         for (const bUrl of baseUrls) {
             for (const k of candidateKeys) {
                 try {
-                    const infoRes = await fetch(`${bUrl}/case-letter/info/${encodeURIComponent(k)}`, { headers });
+                    const infoRes = await fetch(`${bUrl}/case-letter/info/${encodeURIComponent(k)}`, { headers: rawHeaders });
                     if (infoRes.ok) {
                         const infoJson = await infoRes.json();
                         if (infoJson && infoJson.exists && infoJson.data) {
                             const targetAnnex = infoJson.data;
                             const dlUrl = `${bUrl}/case-letter/download/${encodeURIComponent(k)}`;
-                            const resp = await fetch(dlUrl, { headers });
+                            const resp = await fetch(dlUrl, { headers: downloadHeaders });
                             if (resp.ok) {
                                 const blob = await resp.blob();
-                                const blobUrl = window.URL.createObjectURL(blob);
-                                if (autoDownload) {
-                                    const a = document.createElement('a');
-                                    a.href = blobUrl;
-                                    a.download = targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 3000);
+                                if (blob && blob.size > 0) {
+                                    const blobUrl = window.URL.createObjectURL(blob);
+                                    const fileName = targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf`;
+                                    if (autoDownload) {
+                                        const a = document.createElement('a');
+                                        a.href = blobUrl;
+                                        a.download = fileName;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 3000);
+                                    }
+                                    return { blobUrl, fileName };
                                 }
-                                return { blobUrl, fileName: targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf` };
                             }
                             if (targetAnnex.blobUrl) {
+                                const fileName = targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf`;
                                 if (autoDownload) {
                                     const a = document.createElement('a');
                                     a.href = targetAnnex.blobUrl;
-                                    a.download = targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf`;
+                                    a.download = fileName;
                                     a.target = '_blank';
                                     a.rel = 'noopener noreferrer';
                                     document.body.appendChild(a);
                                     a.click();
                                     document.body.removeChild(a);
                                 }
-                                return { blobUrl: targetAnnex.blobUrl, fileName: targetAnnex.originalFileName || `Annexures_SLEEPER_${k}.pdf` };
+                                return { blobUrl: targetAnnex.blobUrl, fileName };
                             }
                         }
                     }
@@ -633,29 +649,47 @@ export const generateSleeperAnnexuresPDF = async (call, autoDownload = true) => 
 
     // 1. Check if backend has uploaded Annexures
     try {
-        const headers = getAuthHeaders('application/json');
-        const listRes = await fetch(`${BASE_URL}/ic-annexures/list?callNo=${encodeURIComponent(callId)}&moduleType=SLEEPER`, { headers });
-        if (listRes.ok) {
-            const listData = await listRes.json();
-            const annexList = listData?.responseData || listData || [];
-            if (Array.isArray(annexList) && annexList.length > 0) {
-                const targetAnnex = annexList[0];
-                const downloadUrl = targetAnnex.fileUrl || `${BASE_URL}/ic-annexures/download/${targetAnnex.id}`;
-                const resp = await fetch(downloadUrl, { headers });
-                if (resp.ok) {
-                    const blob = await resp.blob();
-                    const blobUrl = window.URL.createObjectURL(blob);
-                    if (autoDownload) {
-                        const a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = targetAnnex.fileName || `Annexures_SLEEPER_${callId}.pdf`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 3000);
+        for (const bUrl of baseUrls) {
+            for (const k of candidateKeys) {
+                try {
+                    const listRes = await fetch(`${bUrl}/ic-annexures/list?callNo=${encodeURIComponent(k)}&moduleType=SLEEPER`, { headers: rawHeaders });
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        const annexList = listData?.data || listData?.responseData || (Array.isArray(listData) ? listData : []);
+                        if (Array.isArray(annexList) && annexList.length > 0 && annexList[0]) {
+                            const targetAnnex = annexList[0];
+                            const docId = targetAnnex.id || targetAnnex.documentId;
+                            const fileName = targetAnnex.originalFileName || targetAnnex.fileName || `Annexures_SLEEPER_${k}.pdf`;
+                            const dlUrls = [
+                                docId ? `${bUrl}/ic-annexures/download/${docId}` : null,
+                                targetAnnex.blobUrl,
+                                targetAnnex.fileUrl
+                            ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
+
+                            for (const dlUrl of dlUrls) {
+                                try {
+                                    const resp = await fetch(dlUrl, { headers: downloadHeaders });
+                                    if (resp.ok) {
+                                        const blob = await resp.blob();
+                                        if (blob && blob.size > 0) {
+                                            const blobUrl = window.URL.createObjectURL(blob);
+                                            if (autoDownload) {
+                                                const a = document.createElement('a');
+                                                a.href = blobUrl;
+                                                a.download = fileName;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 3000);
+                                            }
+                                            return { blobUrl, fileName };
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
+                        }
                     }
-                    return { blobUrl, fileName: targetAnnex.fileName || `Annexures_SLEEPER_${callId}.pdf` };
-                }
+                } catch (_) {}
             }
         }
     } catch (e) {
