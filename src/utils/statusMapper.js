@@ -120,8 +120,15 @@ export const getStatusVariant = (apiStatus) => {
  * @param {string} systemStatus - Status from API response
  * @returns {Object} { mainStatus: string, subStatus: string }
  */
-export const getDetailedStatus = (systemStatus) => {
+export const PROCESS_INSPECTION_STARTED_STATUSES = new Set(['INITIATE_INSPECTION', 'VERIFY_PO_DETAILS']);
+export const isProcessCallNo = (callNo) => String(callNo || '').trim().toUpperCase().startsWith('EP-');
+
+// callNo (optional): a Process call (EP-) counts as Under Inspection once the IE has initiated inspection
+export const getDetailedStatus = (systemStatus, callNo) => {
   const statusLower = (systemStatus || '').trim().toUpperCase().replace(/\s+/g, '_');
+  if (isProcessCallNo(callNo) && PROCESS_INSPECTION_STARTED_STATUSES.has(statusLower)) {
+    return { mainStatus: 'Under Inspection', subStatus: 'Inspection Initiated', combinedText: 'Under Inspection - Inspection Initiated' };
+  }
 
   const mapping = {
     'CREATED': { mainStatus: 'Pending', subStatus: 'Call Raised' },
