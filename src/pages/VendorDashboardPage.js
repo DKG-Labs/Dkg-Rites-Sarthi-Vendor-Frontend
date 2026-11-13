@@ -4,7 +4,7 @@ import Tabs from '../components/Tabs';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { InstrumentForm } from '../components/CalibrationForms';
-import { getDetailedStatus } from '../utils/statusMapper';
+import { getDetailedStatus, isProcessCallNo, PROCESS_INSPECTION_STARTED_STATUSES } from '../utils/statusMapper';
 import InitialCalibrationRegistration from '../components/InitialCalibrationRegistration';
 import RaiseInspectionCallForm from '../components/RaiseInspectionCallForm';
 import { MasterUpdatingForm } from '../components/MasterUpdatingForm';
@@ -3663,7 +3663,7 @@ const VendorDashboardPage = ({ onBack }) => {
       label: 'Status',
       width: '160px',
       render: (val, row) => {
-        const { mainStatus, combinedText } = getDetailedStatus(val);
+        const { mainStatus, combinedText } = getDetailedStatus(val, row?.callNo || row?.call_no || row?.icNumber);
         return (
           <div>
             <StatusBadge status={mainStatus} text={combinedText} />
@@ -3729,8 +3729,8 @@ const VendorDashboardPage = ({ onBack }) => {
       key: 'status',
       label: 'Status',
       width: '160px',
-      render: (value) => {
-        const { mainStatus, combinedText } = getDetailedStatus(value);
+      render: (value, row) => {
+        const { mainStatus, combinedText } = getDetailedStatus(value, row?.callNo || row?.call_no || row?.icNumber);
         return <StatusBadge status={mainStatus} text={combinedText} />;
       }
     },
@@ -6028,6 +6028,8 @@ const VendorDashboardPage = ({ onBack }) => {
                       const cs = c.poSerialNo || c.po_serial_no || '';
                       if (!cs || cs !== _srNo) return false;
                       const st = (c.workflowStatus || c.status || c.jobStatus || '').toUpperCase().trim();
+                      // Process (EP-) call with inspection initiated is under inspection: don't block a new Process call
+                      if (isProcessCallNo(c.callNo || c.call_no || c.icNumber) && PROCESS_INSPECTION_STARTED_STATUSES.has(st)) return false;
                       return _ACTIVE_STATUSES.has(st);
                     })
                     .map(c => c.stage || '')
