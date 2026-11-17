@@ -100,6 +100,26 @@ const cleanSerialNo = (serial) => {
   return parts[parts.length - 1].trim();
 };
 
+const isMatchingSerialNo = (serialA, serialB) => {
+  const cleanA = cleanSerialNo(serialA);
+  const cleanB = cleanSerialNo(serialB);
+  if (!cleanA || !cleanB) return false;
+  if (cleanA.toUpperCase() === cleanB.toUpperCase()) return true;
+  const numA = parseInt(cleanA, 10);
+  const numB = parseInt(cleanB, 10);
+  if (!isNaN(numA) && !isNaN(numB)) {
+    return numA === numB;
+  }
+  return false;
+};
+
+const isMatchingPoNo = (poA, poB) => {
+  if (!poA || !poB) return false;
+  const cleanA = String(poA).split('/')[0].trim().toUpperCase();
+  const cleanB = String(poB).split('/')[0].trim().toUpperCase();
+  return cleanA === cleanB;
+};
+
 const VendorDashboardPage = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('vendorActiveTab') || 'po-assigned';
@@ -1083,12 +1103,17 @@ const VendorDashboardPage = ({ onBack }) => {
 
   // ============ RAISE INSPECTION REQUEST HANDLERS ============
   const handleOpenInspectionModal = (po, item, subPO = null) => {
-    // Calculate already inspected quantities from requestedCalls for this PO Serial
+    // Calculate already inspected quantities from requestedCalls for this specific PO and PO Serial strictly
+    const targetPoNo = po?.po_no || item?.po_no || '';
     const poSerialNo = item.po_serial_no || item.poSerialNo;
 
-    // Filter for completed calls matching the PO serial
+    // Filter for completed calls matching this PO and PO serial strictly (different PO serials never mix)
     const poCompletedCalls = [...requestedCalls, ...completedCalls].filter(call => {
-      const matchPo = call.poSerialNo === poSerialNo || call.po_serial_no === poSerialNo;
+      const callPoNo = call.poNo || call.po_no || '';
+      const callSrNo = call.poSerialNo || call.po_serial_no || '';
+      if (!isMatchingPoNo(callPoNo, targetPoNo) || !isMatchingSerialNo(callSrNo, poSerialNo)) {
+        return false;
+      }
       // Consider calls that have completed their workflow successfully
       const isCompleted = [call.status, call.workflowStatus, call.jobStatus].some(s =>
         s && (
@@ -1099,7 +1124,7 @@ const VendorDashboardPage = ({ onBack }) => {
           s.toUpperCase() === 'CLOSED'
         )
       );
-      return matchPo && isCompleted;
+      return isCompleted;
     });
 
     const qty_rm = poCompletedCalls
@@ -4782,24 +4807,27 @@ const VendorDashboardPage = ({ onBack }) => {
                                                       } catch (e) { }
                                                     }
 
-                                                    const shouldDisableRaiseCall = isPlantBlocked || (isErcVendor && isCaseNoMissing) || isOdpExpired;
+                                                    // For ERC vendors, payment block is checked per specific Place of Inspection (unit) inside the form;
+                                                    // do not block table-wide so multiple units can raise calls for their respective PO serials.
+                                                    const isPaymentBlockedForVendor = !isErcVendor && isPlantBlocked;
+                                                    const shouldDisableRaiseCall = isPaymentBlockedForVendor || (isErcVendor && isCaseNoMissing) || isOdpExpired;
 
                                                     const dpTypeLabel = isEdpUsed ? "Extended Delivery Period (EDP)" : "Original Delivery Period (ODP)";
                                                     const dpShortLabel = isEdpUsed ? "EDP" : "ODP";
 
-                                                    const disableReason = isPlantBlocked
+                                                    const disableReason = isPaymentBlockedForVendor
                                                       ? `Call raising is blocked for this plant due to pending cancellation charges.\n\nPlease clear payment details in the Payment Details Updating Module.`
                                                       : (isErcVendor && isCaseNoMissing)
                                                         ? `Case No. is not available for PO No. ${po.po_no || ''}.\n\nPlease contact RITES Administrator to update the Case No.`
                                                         : (isOdpExpired ? `${dpTypeLabel} date is ${formattedTargetDp}. Inspection calls can only be raised up to 5 days before DP date (Cutoff date was ${formattedCutoffDate}).` : '');
 
-                                                    const disableTitle = isPlantBlocked
+                                                    const disableTitle = isPaymentBlockedForVendor
                                                       ? "Call raising blocked: pending cancellation charges. Please update Payment Details."
                                                       : (isErcVendor && isCaseNoMissing)
                                                         ? "Case No. not found for this PO. Please contact RITES Admin."
                                                         : (isOdpExpired ? `Call raising cutoff expired (Must be raised at least 5 days before ${dpShortLabel} date: ${formattedTargetDp}).` : "");
 
-                                                    const disableTooltipText = isPlantBlocked
+                                                    const disableTooltipText = isPaymentBlockedForVendor
                                                       ? "⚠️ Payment Pending: Call raising blocked due to pending cancellation charges."
                                                       : (isErcVendor && isCaseNoMissing)
                                                         ? "⚠️ Case No. not available for this PO. Inspection call disabled."
@@ -4851,7 +4879,7 @@ const VendorDashboardPage = ({ onBack }) => {
                                                                   pointerEvents: 'auto'
                                                                 }}
                                                               >
-                                                                {isPlantBlocked ? 'Raise Call (Blocked)' : (isOdpExpired ? 'Cutoff Expired' : 'Raise Inspection Request')}
+                                                                {isPaymentBlockedForVendor ? 'Raise Call (Blocked)' : (isOdpExpired ? 'Cutoff Expired' : 'Raise Inspection Request')}
                                                               </button>
 
                                                               {shouldDisableRaiseCall && hoveredDisabledPoItemId === item.id && (
@@ -6049,7 +6077,8 @@ const VendorDashboardPage = ({ onBack }) => {
                 </div>
               )}
               {(() => {
-                const _srNo = selectedPOItem?.item?.po_serial_no || selectedPOItem?.item?.poSerialNo || '';
+                const _targetPoNo = selectedPOItem?.po?.po_no || selectedPOItem?.item?.po_no || '';
+                const _targetSrNo = selectedPOItem?.item?.po_serial_no || selectedPOItem?.item?.poSerialNo || '';
                 const _ACTIVE_STATUSES = new Set([
                   'VERIFY_PO_DETAILS','CREATED','CALL_REGISTERED','IE_SCHEDULED',
                   'CALL WITHHELD','RETURNED','RETURNED BY CALL DESK'
@@ -6057,8 +6086,13 @@ const VendorDashboardPage = ({ onBack }) => {
                 const _blockedCallTypes = new Set(
                   [...requestedCalls, ...completedCalls]
                     .filter(c => {
-                      const cs = c.poSerialNo || c.po_serial_no || '';
-                      if (!cs || cs !== _srNo) return false;
+                      const callPoNo = c.poNo || c.po_no || '';
+                      const callSrNo = c.poSerialNo || c.po_serial_no || '';
+                      // Must match both PO Number and PO Serial Number strictly;
+                      // calls for different PO Serial Numbers or different POs will never block each other.
+                      if (!isMatchingPoNo(callPoNo, _targetPoNo) || !isMatchingSerialNo(callSrNo, _targetSrNo)) {
+                        return false;
+                      }
                       const st = (c.workflowStatus || c.status || c.jobStatus || '').toUpperCase().trim();
                       // Process (EP-) call with inspection initiated is under inspection: don't block a new Process call
                       if (isProcessCallNo(c.callNo || c.call_no || c.icNumber) && PROCESS_INSPECTION_STARTED_STATUSES.has(st)) return false;
