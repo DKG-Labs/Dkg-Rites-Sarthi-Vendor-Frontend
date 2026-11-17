@@ -404,6 +404,24 @@ export const apiService = {
         }
     },
 
+    // Date-range list for the Production Declaration dashboard. fromDate/toDate are ISO
+    // yyyy-MM-dd, inclusive, on casting date; either may be omitted (open-ended). Throws on
+    // failure so callers can tell an error apart from an empty result.
+    getProductionDeclarationsByRange: async ({ fromDate, toDate, signal } = {}) => {
+        const params = new URLSearchParams();
+        try {
+            const selectedPlant = JSON.parse(localStorage.getItem('selectedPlant'));
+            if (selectedPlant?.plantId) params.set('plantId', selectedPlant.plantId);
+        } catch { /* no plant selected: fetch unfiltered */ }
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        const query = params.toString();
+        const response = await fetch(`${BASE_URL}/production-declaration/getAllLite${query ? `?${query}` : ''}`, { signal });
+        if (!response.ok) throw new Error('Failed to fetch production declarations');
+        const data = await response.json();
+        return data.responseData || [];
+    },
+
     getProductionDeclarationById: async (id) => {
         try {
             const response = await fetch(`${BASE_URL}/production-declaration/${id}`);

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import InventoryForm from '../sleeperGeneral/inventoryManagement/InventoryForm';
-import ShiftProductionForm from '../sleeperGeneral/sections/ShiftProductionForm';
+// Loaded on demand so the large form is split into its own chunk
+const ShiftProductionForm = lazy(() => import('../sleeperGeneral/sections/ShiftProductionForm'));
 
 const VendorEditRequest = () => {
     const { moduleId, requestId, workflowTransitionId } = useParams();
@@ -122,6 +123,7 @@ const VendorEditRequest = () => {
     if (moduleId === '11') {
         return (
             <div style={{ padding: '20px' }}>
+                <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading form…</div>}>
                 <ShiftProductionForm 
                     initialData={formData} 
                     onSave={async (data) => {
@@ -131,6 +133,7 @@ const VendorEditRequest = () => {
                     }}
                     onBack={() => navigate(-1)}
                 />
+                </Suspense>
             </div>
         );
     }
