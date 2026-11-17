@@ -801,19 +801,15 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     </div>
                                     <input
                                         type="number"
-                                        min={isMtrUom ? '0.01' : '1'}
+                                        min="0.01"
                                         max={srItem.due !== undefined ? srItem.due : undefined}
-                                        step={isMtrUom ? '0.01' : '1'}
+                                        step="0.01"
                                         value={toBeOffered}
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             if (val === '') { setToBeOffered(''); return; }
-                                            if (isMtrUom) {
-                                                // keep max 2 decimals; keep raw text while typing (e.g. "12.")
-                                                if (/^\d*\.?\d{0,2}$/.test(val)) setToBeOffered(val);
-                                                return;
-                                            }
-                                            setToBeOffered(parseInt(val, 10) || 0);
+                                            // Set and MTR both allow up to 2 decimals (e.g. 0.5, 12.25); keep raw text while typing (e.g. "12.")
+                                            if (/^\d*\.?\d{0,2}$/.test(val)) setToBeOffered(val);
                                         }}
                                         placeholder="1"
                                         style={{
@@ -833,7 +829,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 3 }}>
                                         {isMtrUom
                                             ? <>Enter quantity in <strong>Metres</strong> (e.g. 100)</>
-                                            : <>Enter number of <strong>Sets</strong> (e.g. 1)</>}
+                                            : <>Enter number of <strong>Sets</strong> (e.g. 1 or 0.5)</>}
                                     </div>
                                 </div>
                             ) : (
@@ -1561,7 +1557,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     poNo,
                                     srNo: srItem.itemSrNo || srItem.srNo || (srItem.poSerialNo ? srItem.poSerialNo.split('/').pop() : 'N/A'),
                                     sleeperType: mainSleeperType,
-                                    totalOffered: isMtrUom ? Number(effectiveOffered.toFixed(2)) : effectiveOffered,
+                                    totalOffered: isEffectiveSetUom ? Number(effectiveOffered.toFixed(2)) : effectiveOffered,
                                     totalRejected: Number(summary.totalRejectedCount) || 0,
                                     desiredInspectionDate: dateOfInspection || null,
                                     createdBy: numericUserId,
