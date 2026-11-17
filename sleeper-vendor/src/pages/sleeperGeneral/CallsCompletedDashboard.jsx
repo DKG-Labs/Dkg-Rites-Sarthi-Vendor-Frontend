@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../../services/api';
 import { generateSleeperAnnexuresPDF } from '../../utils/generateSleeperAnnexures';
+import { downloadMergedIcAndCorrectionSlip } from '../../services/correctionSlipService';
 
 // Native SVG Icons to ensure 100% React 19 compatibility
 const SearchIcon = ({ size = 18, color = '#94a3b8' }) => (
@@ -168,14 +169,18 @@ const isTerminalCompletedCall = (c) => {
 
 const isSendCallToIbsCall = (c) => {
     if (!c || isHiddenSleeperCall(c)) return false;
+    if (c.isClosed) return true;
     const combined = [
         c?.status,
         c?.workflowStatus,
+        c?.workflow_status,
         c?.latestAction,
         c?.action,
         c?.rawStatus,
         c?.jobStatus,
-        c?.job_status
+        c?.job_status,
+        c?.ibsStatus,
+        c?.ibs_status
     ].map(v => String(v || '').trim().toUpperCase()).join(' ');
     return (
         combined.includes('SEND_CALL_TO_IBS') ||
@@ -183,6 +188,7 @@ const isSendCallToIbsCall = (c) => {
         combined.includes('SENT_TO_IBS') ||
         combined.includes('SEND_TO_IBS') ||
         combined.includes('SEND CALL TO IBS') ||
+        combined.includes('CLOSED') ||
         combined.includes('IBS')
     );
 };
@@ -440,6 +446,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     const [icLoading, setIcLoading] = useState(false);
     const [icDownloading, setIcDownloading] = useState(false);
     const [annexuresDownloading, setAnnexuresDownloading] = useState(false);
+    const [mergedDownloading, setMergedDownloading] = useState(false);
     const [icError, setIcError] = useState(null);
     const [icData, setIcData] = useState(null);
     const [showIcPreview, setShowIcPreview] = useState(false);
@@ -455,6 +462,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
         setIcError(null);
         setIcLoading(false);
         setIcDownloading(false);
+        setAnnexuresDownloading(false);
+        setMergedDownloading(false);
         setShowIcPreview(false);
     };
 
@@ -469,6 +478,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
         setIcError(null);
         setIcLoading(false);
         setIcDownloading(false);
+        setAnnexuresDownloading(false);
+        setMergedDownloading(false);
         setShowIcPreview(false);
     };
 
@@ -625,6 +636,37 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             showToast('warning', msg);
         } finally {
             setAnnexuresDownloading(false);
+        }
+    };
+
+    const handleDownloadMerged = async (call) => {
+        if (!call) return;
+        const callNo = call?.requestId || call?.callNo || call?.call_no || '';
+        if (!callNo) {
+            showToast('error', 'Call Number not found.');
+            return;
+        }
+        setMergedDownloading(true);
+        try {
+            showToast('info', `Checking Correction Slips for ${callNo}...`);
+            const success = await downloadMergedIcAndCorrectionSlip(callNo, {
+                onNotFound: (msg) => {
+                    showToast('info', msg || 'No correction slip has been found this call');
+                }
+            });
+            if (success) {
+                showToast('success', `IC & Correction Slips PDF for ${callNo} downloaded successfully!`);
+            }
+        } catch (err) {
+            console.error('Download Merged IC error:', err);
+            const msg = err?.message || 'No correction slip has been found this call';
+            if (msg.includes('No correction slip') || msg.includes('404')) {
+                showToast('info', 'No correction slip has been found this call');
+            } else {
+                showToast('error', msg);
+            }
+        } finally {
+            setMergedDownloading(false);
         }
     };
 
@@ -1014,6 +1056,21 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             Download PDF
                                         </button>
                                         <button
+                                            onClick={() => handleDownloadMerged(actionCall)}
+                                            disabled={mergedDownloading}
+                                            style={{
+                                                padding: '7px 16px', borderRadius: '8px', border: 'none',
+                                                background: '#0d9488', color: '#fff', fontSize: '12.5px', fontWeight: 800,
+                                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                boxShadow: '0 2px 8px rgba(13, 148, 136, 0.4)'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#0f766e'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#0d9488'}
+                                        >
+                                            {mergedDownloading ? <LoaderIcon size={15} color="#fff" /> : <DownloadIcon size={15} color="#fff" />}
+                                            IC & Correction Slips
+                                        </button>
+                                        <button
                                             onClick={() => {
                                                 if (icData?.blobUrl) {
                                                     window.open(icData.blobUrl, '_blank');
@@ -1367,6 +1424,81 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 ) : (
                                                     <>
                                                         <DownloadIcon size={16} color="#fff" /> Download IC PDF
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Card 4: Download Merged IC & Correction Slips */}
+                                        <div
+                                            onClick={() => !mergedDownloading && handleDownloadMerged(actionCall)}
+                                            style={{
+                                                background: '#f8fafc',
+                                                border: '1.5px solid #e2e8f0',
+                                                borderRadius: '18px',
+                                                padding: '20px',
+                                                cursor: mergedDownloading ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!mergedDownloading) {
+                                                    e.currentTarget.style.borderColor = '#0d9488';
+                                                    e.currentTarget.style.background = '#f0fdfa';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(13, 148, 136, 0.15)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!mergedDownloading) {
+                                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                                    e.currentTarget.style.background = '#f8fafc';
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                                <div style={{
+                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    background: '#ccfbf1', color: '#0f766e',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {mergedDownloading ? <LoaderIcon size={22} color="#0f766e" /> : <FileTextIcon size={22} color="#0f766e" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                        IC & Correction Slips
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        Merged IC and Correction Slips
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                                Download the unified PDF containing original IC and all issued correction slips.
+                                            </p>
+                                            <button
+                                                disabled={mergedDownloading}
+                                                style={{
+                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                    border: 'none', background: '#0d9488', color: '#fff',
+                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
+                                                }}
+                                            >
+                                                {mergedDownloading ? (
+                                                    <>
+                                                        <LoaderIcon size={16} color="#fff" /> Downloading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <DownloadIcon size={16} color="#fff" /> Download Merged PDF
                                                     </>
                                                 )}
                                             </button>

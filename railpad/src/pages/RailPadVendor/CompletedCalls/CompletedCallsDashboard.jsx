@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import inspectionCallService from '../../../services/inspectionCallService';
 import {
-    Search, FileText, Calendar, Package, Eye,
-    ChevronRight, Loader2, AlertCircle, CheckCircle2,
-    Clock, ArrowLeft, ClipboardList, Info, Plus, X,
-    Download, FileCheck, ExternalLink, ShieldCheck, Lock
+    Search, FileText, Calendar, Eye,
+    Loader2, AlertCircle, CheckCircle2,
+    Clock, ClipboardList, Info, X,
+    Download, FileCheck, Files
 } from 'lucide-react';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
@@ -14,6 +14,7 @@ import {
     downloadAllCallDocuments
 } from '../../../utils/generateDocumentPDFs';
 import { generateRailpadAnnexurePDF } from '../../../utils/generateAnnexurePDF';
+import { downloadMergedIcAndCorrectionSlip } from '../../../services/correctionSlipService';
 
 const getCallStatusInfo = (statusStr, actionStr) => {
     const rawStatus = String(statusStr || '').toUpperCase().trim();
@@ -193,15 +194,31 @@ const isHiddenRailpadCall = (call) => {
 
 const checkIsSendToIbs = (call) => {
     if (!call || isHiddenRailpadCall(call)) return false;
+    if (call.isClosed) return true;
     const combined = [
         call.status,
         call.workflowStatus,
+        call.workflow_status,
         call.latestAction,
         call.action,
         call.workflowAction,
-        call.jobStatus
+        call.jobStatus,
+        call.job_status,
+        call.callStatus,
+        call.call_status,
+        call.inspectionStatus,
+        call.ibsStatus,
+        call.ibs_status
     ].map(v => String(v || '').trim().toUpperCase()).join(' ');
-    return combined.includes('IBS');
+    return (
+        combined.includes('SEND_CALL_TO_IBS') ||
+        combined.includes('SENT_CALL_TO_IBS') ||
+        combined.includes('SENT_TO_IBS') ||
+        combined.includes('SEND_TO_IBS') ||
+        combined.includes('SEND CALL TO IBS') ||
+        combined.includes('CLOSED') ||
+        combined.includes('IBS')
+    );
 };
 
 const getCallUom = (call) => {
@@ -375,6 +392,41 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         } catch (err) {
             console.error("Error downloading IC PDF:", err);
             showToast('error', "Failed to download Inspection Certificate PDF.");
+        } finally {
+            setDownloadingDoc(null);
+        }
+    };
+
+    const handleDownloadMerged = async (call) => {
+        if (!call) return;
+        const callNo = call?.callNo || call?.call_no || call?.requestId || '';
+        if (!callNo) {
+            showToast('error', 'Call number not found.');
+            return;
+        }
+        try {
+            setDownloadingDoc('merged_ic');
+            showToast('info', `Checking Correction Slips for ${callNo}...`);
+            const success = await downloadMergedIcAndCorrectionSlip(callNo, {
+                onNotFound: (msg) => {
+                    const displayMsg = msg || 'No correction slip has been found this call';
+                    showToast('info', displayMsg);
+                    setAnnexureNotification({ type: 'warning', message: displayMsg });
+                }
+            });
+            if (success) {
+                showToast('success', 'IC & Correction Slips PDF downloaded successfully!');
+                setAnnexureNotification(null);
+            }
+        } catch (err) {
+            console.error('Error downloading merged IC & correction slips:', err);
+            const msg = err.message || 'No correction slip has been found this call';
+            if (msg.includes('No correction slip') || msg.includes('404')) {
+                showToast('info', 'No correction slip has been found this call');
+                setAnnexureNotification({ type: 'warning', message: 'No correction slip has been found this call' });
+            } else {
+                showToast('error', msg);
+            }
         } finally {
             setDownloadingDoc(null);
         }
@@ -965,6 +1017,52 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                             )}
                                         </div>
                                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#c2410c' }}>IC</div>
+                                    </div>
+                                )}
+
+                                {/* Card 4b: IC & Correction Slips - Merged IC & Correction Slips */}
+                                {!isHiddenRailpadCall(selectedCall) && (
+                                    <div
+                                        onClick={() => handleDownloadMerged(selectedCall)}
+                                        style={{
+                                            background: '#f0fdf4',
+                                            border: '1.5px solid #bbf7d0',
+                                            borderRadius: '16px',
+                                            padding: '20px 12px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            textAlign: 'center'
+                                        }}
+                                        title="Download Merged IC and Correction Slips"
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.borderColor = '#22c55e';
+                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(34, 197, 94, 0.15)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'none';
+                                            e.currentTarget.style.borderColor = '#bbf7d0';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '42px', height: '42px', borderRadius: '50%',
+                                            background: '#fff',
+                                            border: '1px solid #bbf7d0',
+                                            color: '#16a34a',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px'
+                                        }}>
+                                            {downloadingDoc === 'merged_ic' ? (
+                                                <Loader2 size={20} className="animate-spin" />
+                                            ) : (
+                                                <Files size={20} />
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#15803d' }}>IC & Correction Slips</div>
                                     </div>
                                 )}
 

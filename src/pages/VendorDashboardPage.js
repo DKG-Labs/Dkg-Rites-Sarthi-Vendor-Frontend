@@ -43,6 +43,7 @@ import poAssignedService from '../services/poAssignedService';
 import inventoryService from '../services/inventoryService';
 import httpClient from '../services/httpClient';
 import vendorCalibrationService from '../services/vendorCalibrationService';
+import { downloadMergedIcAndCorrectionSlip } from '../services/correctionSlipService';
 import '../styles/vendorDashboard.css';
 import { getStoredUser } from '../services/authService';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -1942,25 +1943,26 @@ const VendorDashboardPage = ({ onBack }) => {
   // Helper: true only when completed call status is Send to IBS (not withdraw / cancel / reject / others)
   const isCompletedCallSendToIbs = (call) => {
     if (!call) return false;
-    const wf = String(call.workflowStatus || '').trim().toUpperCase();
+    if (call.isClosed) return true;
+    const wf = String(call.workflowStatus || call.workflow_status || '').trim().toUpperCase();
     const st = String(call.status || '').trim().toUpperCase();
-    const jb = String(call.jobStatus || '').trim().toUpperCase();
-    const combined = `${wf} ${st} ${jb}`;
+    const jb = String(call.jobStatus || call.job_status || '').trim().toUpperCase();
+    const act = String(call.action || call.latestAction || '').trim().toUpperCase();
+    const ibs = String(call.ibsStatus || call.ibs_status || '').trim().toUpperCase();
+    const combined = `${wf} ${st} ${jb} ${act} ${ibs}`;
     if (combined.includes('WITHDRAW') || combined.includes('CANCEL') || combined.includes('REJECT')) {
       return false;
     }
-    return [wf, st, jb].some((val) => {
-      const norm = val.replace(/_/g, ' ');
-      return (
-        val === 'SEND_CALL_TO_IBS' ||
-        val === 'SENT_TO_IBS' ||
-        val === 'SEND_TO_IBS' ||
-        val === 'SENT_CALL_TO_IBS' ||
-        norm === 'SEND CALL TO IBS' ||
-        norm === 'SENT CALL TO IBS' ||
-        val.includes('IBS')
-      );
-    });
+    return (
+      combined.includes('SEND_CALL_TO_IBS') ||
+      combined.includes('SENT_TO_IBS') ||
+      combined.includes('SEND_TO_IBS') ||
+      combined.includes('SENT_CALL_TO_IBS') ||
+      combined.includes('SEND CALL TO IBS') ||
+      combined.includes('SENT CALL TO IBS') ||
+      combined.includes('CLOSED') ||
+      combined.includes('IBS')
+    );
   };
 
   // Download IC handler
@@ -2050,6 +2052,36 @@ const VendorDashboardPage = ({ onBack }) => {
       showNotification(`Failed to download IC: ${error.message}`, 'error');
     } finally {
       setPdfGenerating(false);
+    }
+  };
+
+  // Download Merged IC and Correction Slips handler
+  const handleDownloadMergedIc = async (call) => {
+    if (!call) return;
+    const cleanCallNo = String(call?.call_no || call?.callNumber || call?.requestId || '').trim();
+    if (!cleanCallNo) {
+      showNotification('Call Number not found.', 'error');
+      return;
+    }
+
+    try {
+      showNotification(`Checking Correction Slips for ${cleanCallNo}...`, 'info');
+      const success = await downloadMergedIcAndCorrectionSlip(cleanCallNo, {
+        onNotFound: (msg) => {
+          showNotification(msg || 'No correction slip has been found this call', 'info');
+        }
+      });
+      if (success) {
+        showNotification('IC & Correction Slips PDF downloaded successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Error downloading merged IC & correction slips:', err);
+      const msg = err.message || 'No correction slip has been found this call';
+      if (msg.includes('No correction slip') || msg.includes('404')) {
+        showNotification('No correction slip has been found this call', 'info');
+      } else {
+        showNotification(msg, 'error');
+      }
     }
   };
 
@@ -7178,6 +7210,12 @@ const VendorDashboardPage = ({ onBack }) => {
                           />
                         </>
                       )}
+                      <ActionCard
+                        title="IC & Correction Slips"
+                        icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
+                        colors={{ bg1: '#f0fdf4', bg2: '#dcfce7', border: '#86efac', iconColor: '#16a34a', textColor: '#15803d', shadow1: 'rgba(22, 163, 74, 0.2)', shadow2: 'rgba(22, 163, 74, 0.1)' }}
+                        onClick={() => handleDownloadMergedIc(call)}
+                      />
                     </>
                   )}
                   {false && (
