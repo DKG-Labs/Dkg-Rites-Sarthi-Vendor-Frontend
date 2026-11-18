@@ -1516,7 +1516,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             fontWeight: 600,
                                             lineHeight: 1.5
                                         }}>
-                                            Inspection Certificate (IC) and Annexures are hidden for this call status and are only available when status is <strong>Send Call to IBS</strong>.
+                                            {getCallStatusInfo(actionCall.status, actionCall.action, actionCall.jobStatus).type === 'withdraw'
+                                                ? 'Since the call has been withdrawn, Annexures and IC are not generated.'
+                                                : <>Inspection Certificate (IC) and Annexures are hidden for this call status and are only available when status is <strong>Send Call to IBS</strong>.</>}
                                         </div>
                                     )}
                                 </div>

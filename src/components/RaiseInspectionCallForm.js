@@ -273,11 +273,11 @@ const getInitialFormState = (selectedPO = null, selectedItem = null) => {
     // === COMMON SECTION (Auto Fetched from IREPS) ===
     po_no: selectedPO?.po_no || '',
     zone_name: selectedPO?.zone_name || selectedPO?.rlyShortName || 'N/A',
-    po_serial_no: '', // Will be set when user selects from dropdown
+    po_serial_no: selectedItem?.po_serial_no || '', // Pre-fill directly from selected item
     po_date: selectedPO?.po_date || '',
     po_description: selectedPO?.description || '',
-    po_qty: 0, // Will be set when user selects PO serial
-    po_unit: selectedPO?.unit || '',
+    po_qty: selectedItem?.item_qty || 0, // Pre-fill directly from selected item
+    po_unit: selectedItem?.item_unit || selectedPO?.unit || '',
     amendment_no: '',
     amendment_date: '',
     vendor_contact_name: '',
@@ -472,9 +472,23 @@ export const RaiseInspectionCallForm = ({
 
   // Handle PO Serial selection
   const handlePoSerialChange = useCallback((serialNo, itemData = null) => {
-    const poSerial = PO_SERIAL_DETAILS.find(p => p.serialNo === serialNo);
+    if (itemData) {
+      // Always prefer real item data from the table/API
+      setSelectedPoSerial(serialNo);
+      setFormData(prev => ({
+        ...prev,
+        po_serial_no: serialNo,
+        po_qty: itemData.item_qty || 0,
+        po_unit: itemData.item_unit || '',
+        qty_already_inspected_rm: itemData.qty_already_inspected_rm || 0,
+        qty_already_inspected_process: itemData.qty_already_inspected_process || 0,
+        qty_already_inspected_final: itemData.qty_already_inspected_final || 0
+      }));
+      return;
+    }
+    const poSerial = PO_SERIAL_DETAILS.find(p => p.serialNo === serialNo && (!selectedPO?.po_no || p.poNo === selectedPO?.po_no));
     if (poSerial) {
-      // Use mock data if found
+      // Use mock data if found matching this PO
       setSelectedPoSerial(serialNo);
       setFormData(prev => ({
         ...prev,
@@ -488,20 +502,8 @@ export const RaiseInspectionCallForm = ({
         qty_already_inspected_process: poSerial.qtyAlreadyInspected.process,
         qty_already_inspected_final: poSerial.qtyAlreadyInspected.final
       }));
-    } else if (itemData) {
-      // Use real data from API if mock data not found
-      setSelectedPoSerial(serialNo);
-      setFormData(prev => ({
-        ...prev,
-        po_serial_no: serialNo,
-        po_qty: itemData.item_qty || 0,
-        po_unit: itemData.item_unit || '',
-        qty_already_inspected_rm: itemData.qty_already_inspected_rm || 0,
-        qty_already_inspected_process: itemData.qty_already_inspected_process || 0,
-        qty_already_inspected_final: itemData.qty_already_inspected_final || 0
-      }));
     }
-  }, []);
+  }, [selectedPO?.po_no]);
 
   // Reset form when PO or Item changes
   useEffect(() => {
@@ -1030,15 +1032,15 @@ export const RaiseInspectionCallForm = ({
             console.log('  📍 Company ID from RM IC:', rmIcData.companyId, 'Type:', typeof rmIcData.companyId);
             console.log('  📍 Unit ID from RM IC:', rmIcData.unitId, 'Type:', typeof rmIcData.unitId);
 
-            // Update form data with company and unit details from RM IC
+            // Update form data with company and unit details from RM IC (defaults if not already selected)
             setFormData(prev => {
               const updated = {
                 ...prev,
-                company_id: rmIcData.companyId || null,
-                company_name: rmIcData.companyName || '',
-                unit_id: rmIcData.unitId || null,
-                unit_name: rmIcData.unitName || '',
-                unit_address: rmIcData.unitAddress || ''
+                company_id: prev.company_id || rmIcData.companyId || null,
+                company_name: prev.company_name || rmIcData.companyName || '',
+                unit_id: prev.unit_id || rmIcData.unitId || null,
+                unit_name: prev.unit_name || rmIcData.unitName || '',
+                unit_address: prev.unit_address || rmIcData.unitAddress || ''
               };
               console.log('  🔄 Updating formData with:', {
                 company_id: updated.company_id,
