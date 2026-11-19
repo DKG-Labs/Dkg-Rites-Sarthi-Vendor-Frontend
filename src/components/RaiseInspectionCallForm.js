@@ -423,9 +423,15 @@ export const RaiseInspectionCallForm = ({
   isLoading = false,
   isModifyMode = false,
   isViewMode = false,
+  isErcVendor = true,
   blockedCallTypes = new Set(),
   completeDiversionSrNos = new Set()
 }) => {
+  const activeRole = localStorage.getItem('activeRole') || '';
+  const effectiveIsErcVendor = isErcVendor || !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' ||
+    (selectedPO?.item_category && (selectedPO.item_category.toLowerCase().includes('elastic rail') || selectedPO.item_category.toUpperCase().includes('ERC'))) ||
+    (selectedItem?.item_name && selectedItem.item_name.toLowerCase().includes('elastic rail'));
+
   const [formData, setFormData] = useState(() => getInitialFormState(selectedPO, selectedItem));
   const [errors, setErrors] = useState({});
   const [selectedPoSerial, setSelectedPoSerial] = useState(selectedItem?.po_serial_no || '');
@@ -3287,7 +3293,7 @@ export const RaiseInspectionCallForm = ({
         </div>
 
         {/* ── Inline warning when selected call type already has an active call ── */}
-        {formData.type_of_call && !isModifyMode && blockedCallTypes.has(formData.type_of_call) && (
+        {!effectiveIsErcVendor && formData.type_of_call && !isModifyMode && blockedCallTypes.has(formData.type_of_call) && (
           <div style={{ margin: '0 0 16px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
             <div>
@@ -3300,7 +3306,7 @@ export const RaiseInspectionCallForm = ({
         )}
 
         {/* ============ SHOW REST OF FORM ONLY AFTER TYPE SELECTION ============ */}
-        {formData.type_of_call && (isModifyMode || !blockedCallTypes.has(formData.type_of_call)) && (
+        {formData.type_of_call && (isModifyMode || effectiveIsErcVendor || !blockedCallTypes.has(formData.type_of_call)) && (
           <>
             <div className="ric-form-grid">
               {/* <FormField label="Desired Inspection Date" name="desired_inspection_date" required hint="" errors={errors}>

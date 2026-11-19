@@ -104,6 +104,7 @@ const isMatchingSerialNo = (serialA, serialB) => {
   const cleanA = cleanSerialNo(serialA);
   const cleanB = cleanSerialNo(serialB);
   if (!cleanA || !cleanB) return false;
+  if (cleanA.toUpperCase() === 'N/A' || cleanB.toUpperCase() === 'N/A') return false;
   if (cleanA.toUpperCase() === cleanB.toUpperCase()) return true;
   const numA = parseInt(cleanA, 10);
   const numB = parseInt(cleanB, 10);
@@ -6079,11 +6080,19 @@ const VendorDashboardPage = ({ onBack }) => {
               {(() => {
                 const _targetPoNo = selectedPOItem?.po?.po_no || selectedPOItem?.item?.po_no || '';
                 const _targetSrNo = selectedPOItem?.item?.po_serial_no || selectedPOItem?.item?.poSerialNo || '';
+                const activeRole = localStorage.getItem('activeRole') || '';
+                const isErcVendor = !activeRole || activeRole === 'Vendor' || activeRole === 'ERC Vendor' || activeRole === 'ERC_VENDOR' ||
+                  (selectedPOItem?.po?.item_category && (selectedPOItem.po.item_category.toLowerCase().includes('elastic rail') || selectedPOItem.po.item_category.toUpperCase().includes('ERC'))) ||
+                  (selectedPOItem?.item?.item_name && selectedPOItem.item.item_name.toLowerCase().includes('elastic rail'));
+
                 const _ACTIVE_STATUSES = new Set([
                   'VERIFY_PO_DETAILS','CREATED','CALL_REGISTERED','IE_SCHEDULED',
                   'CALL WITHHELD','RETURNED','RETURNED BY CALL DESK'
                 ]);
-                const _blockedCallTypes = new Set(
+
+                // For ERC vendors: Multiple Units / Places of Inspection must be able to raise inspection calls
+                // simultaneously for different PO Serial Numbers without blocking each other.
+                const _blockedCallTypes = isErcVendor ? new Set() : new Set(
                   [...requestedCalls, ...completedCalls]
                     .filter(c => {
                       const callPoNo = c.poNo || c.po_no || '';
@@ -6113,6 +6122,7 @@ const VendorDashboardPage = ({ onBack }) => {
                     isLoading={isLoading}
                     isModifyMode={isModifyMode}
                     isViewMode={isViewOnlyMode}
+                    isErcVendor={isErcVendor}
                     blockedCallTypes={_blockedCallTypes}
                     completeDiversionSrNos={completeDiversionSrNos}
                   />
