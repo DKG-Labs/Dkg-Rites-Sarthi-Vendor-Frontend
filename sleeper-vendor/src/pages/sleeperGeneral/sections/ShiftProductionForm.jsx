@@ -119,7 +119,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
 
     const vendorCode = sessionStorage.getItem('vendorCode') || '';
-    const userId = sessionStorage.getItem('userId') || 0;
+    const userId = sessionStorage.getItem('userId');
     const selectedPlantRaw = localStorage.getItem('selectedPlant');
     const selectedPlant = selectedPlantRaw ? JSON.parse(selectedPlantRaw) : null;
     const plantId = selectedPlant ? selectedPlant.plantId : '';
@@ -3066,6 +3066,12 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         <button
                             onClick={() => {
                                 try {
+                                    // Never save a declaration without a valid creator: it would be stored with
+                                    // created_by = 0 and never appear in the IE's ET / Demoulding batch lists.
+                                    if (!userId || !(Number(userId) > 0)) {
+                                        return alert('Your session has expired. Please log in again before submitting the Production Declaration.');
+                                    }
+
                                     if (!formHeader.unit) {
                                         return alert('Production Unit is mandatory. Please select a unit in Section 1.');
                                     }
