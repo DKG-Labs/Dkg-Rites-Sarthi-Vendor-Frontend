@@ -37,7 +37,7 @@ const NCRGRSP_DRAWINGS = [
 ];
 
 const DRAWING_NUMBERS = {
-    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
+    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711", "RDSO/T-4159"],
     "10.00mm GRSP": [], 
     "6.20mm CGRSP": ["RDSO/T-6618", "RDSO/T-8327"],
     "10.00mm CGRSP": ["RDSO/T-8528", "RDSO/T-8694", "RDSO/T-8747", "RDSO/T-8998"],
