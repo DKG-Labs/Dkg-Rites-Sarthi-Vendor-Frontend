@@ -584,6 +584,7 @@ const WorkflowModal = ({ call, actionType, onConfirm, onClose }) => {
 
 // ─── Withdraw Confirm Modal (no-workflow) ─────────────────────────────────────
 const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
+    const [remarks, setRemarks] = useState('');
     if (!call) return null;
     return createPortal(
         <div style={{
@@ -601,12 +602,26 @@ const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
                     <p style={{ margin: '0 0 20px', textAlign: 'center', fontSize: 13, color: '#64748b' }}>
                         Are you sure you want to withdraw <strong>{call.callNo}</strong>? This action will remove the call from the queue.
                     </p>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase' }}>
+                        Reason for withdrawal (optional)
+                    </label>
+                    <textarea
+                        value={remarks}
+                        onChange={e => setRemarks(e.target.value)}
+                        placeholder="State reason for withdrawal..."
+                        rows={2}
+                        style={{
+                            width: '100%', padding: '8px 10px', borderRadius: 8, marginBottom: 16,
+                            border: '1.5px solid #cbd5e1', fontSize: 13, color: '#0f172a',
+                            resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit'
+                        }}
+                    />
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                         <button onClick={onClose} style={{
                             padding: '8px 22px', borderRadius: 8, border: '1.5px solid #cbd5e1',
                             background: '#fff', color: '#475569', fontWeight: 600, fontSize: 13, cursor: 'pointer'
                         }}>Cancel</button>
-                        <button onClick={() => onConfirm(call)} style={{
+                        <button onClick={() => onConfirm(call, remarks)} style={{
                             padding: '8px 22px', borderRadius: 8, border: 'none',
                             background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
                             color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer'
@@ -812,11 +827,11 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         showToast(`Workflow request for ${actionType === 'modify' ? 'modification' : 'withdrawal'} of ${call.callNo} submitted for approval.`, 'info');
     };
 
-    const handleWithdrawConfirm = async (call) => {
+    const handleWithdrawConfirm = async (call, remarks) => {
         setWithdrawSimpleModal(null);
         showToast(`Withdrawing call ${call.callNo}...`, 'info');
         try {
-            await apiService.withdrawSleeperInspectionCall(call.callNo);
+            await apiService.withdrawSleeperInspectionCall(call.callNo, remarks);
             showToast(`Call ${call.callNo} has been withdrawn successfully.`, 'success');
             if (onRefresh) await onRefresh();
         } catch (err) {

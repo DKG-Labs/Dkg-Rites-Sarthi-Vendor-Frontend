@@ -860,9 +860,13 @@ export const apiService = {
         }
     },
 
-    withdrawSleeperInspectionCall: async (callNo) => {
+    withdrawSleeperInspectionCall: async (callNo, remarks) => {
         try {
-            const response = await fetch(`${BASE_URL}/FinalInspectionController/withdraw-call?callNo=${encodeURIComponent(callNo)}`, {
+            const params = new URLSearchParams({ callNo });
+            const actionBy = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+            if (actionBy) params.append('actionBy', actionBy);
+            if (remarks && remarks.trim()) params.append('remarks', remarks.trim());
+            const response = await fetch(`${BASE_URL}/FinalInspectionController/withdraw-call?${params.toString()}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
