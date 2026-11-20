@@ -7,6 +7,7 @@ import PoAssignedDashboard from './POAssigned/PoAssignedDashboard';
 import RequestedCallsDashboard from './RequestedCalls/RequestedCallsDashboard';
 import CompletedCallsDashboard from './CompletedCalls/CompletedCallsDashboard';
 import PaymentDetailsDashboard from './PaymentDetails/PaymentDetailsDashboard';
+import MaterialDiversionPage from './MaterialDiversion/MaterialDiversionPage';
 import RejectionBasket from '../../components/RejectionBasket/RejectionBasket';
 import inspectionCallService from '../../services/inspectionCallService';
 
@@ -58,6 +59,7 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
         { id: 'production-declaration', title: 'Production Declaration', subtitle: 'Daily production logs', icon: '📝' },
         { id: 'calibration-approval', title: 'Calibration & Approval', subtitle: 'Equipment validation', icon: '⚖️', underDevelopment: true },
         { id: 'payment-module', title: 'Payment Details', subtitle: 'Payment Details Updating Module', icon: '💳' },
+        { id: 'material-diversion', title: 'Material Diversion', subtitle: 'Divert passed material to another PO serial', icon: '🔁' },
         { id: 'plant-declaration', title: 'Plant Declaration', subtitle: 'Plant setup & masters', icon: '🏗️' },
         { id: 'rejection-basket', title: 'Rejection Basket', subtitle: 'Rejected pads & scrap ledger', icon: '🗑️' }
     ];
@@ -86,6 +88,8 @@ const RailPadVendorDashboard = ({ selectedPlant, plantId: propPlantId }) => {
                 return <CompletedCallsDashboard {...contextProps} />;
             case 'payment-module':
                 return <PaymentDetailsDashboard {...contextProps} />;
+            case 'material-diversion':
+                return <MaterialDiversionPage {...contextProps} />;
             case 'rejection-basket':
                 // Read-only: the backend shows only this vendor's own plants
                 return <RejectionBasket readOnly />;

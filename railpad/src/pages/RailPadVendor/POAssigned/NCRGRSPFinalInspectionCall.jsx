@@ -2067,12 +2067,25 @@ const NCRGRSPFinalInspectionCall = ({
       setTimeout(() => setNotification(null), 5000);
       return;
     }
+    // Material diversion: a call on a diverted Process IC is a Diverted call; it cannot mix with fresh ICs
+    const divertedIcs = selectedProcessCertNos.filter(ic => {
+      const pc = (processCalls || []).find(p => String(p.callNo || p.inspectionCallNo || '').trim().toUpperCase() === String(ic).trim().toUpperCase());
+      return (pc?.callCategory || '').toUpperCase() === 'DIVERTED_PASSED';
+    });
+    if (divertedIcs.length > 0 && (divertedIcs.length !== selectedProcessCertNos.length || divertedIcs.length > 1)) {
+      setNotification({ type: 'error', message: 'Select only one diverted Process IC, on its own, for a Diverted call.' });
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
     try {
       setIsSubmitting(true);
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = storedUser.id || storedUser.userId || localStorage.getItem('railpad_userId') || user?.id || 195;
 
       const payload = {
+        callNature: divertedIcs.length ? 'DIVERTED' : 'FRESH',
+        isDivertedMaterial: divertedIcs.length > 0,
+        sourceIcNo: divertedIcs.length ? divertedIcs[0] : undefined,
         inspectionCallType: 'FINAL',
         callType: 'FINAL',
         productType: 'NCRGRSP',
