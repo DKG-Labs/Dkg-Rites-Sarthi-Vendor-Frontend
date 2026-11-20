@@ -80,7 +80,8 @@ const NCRGRSP_FILTER_COUNTS = {
 const DRAWING_MAPPING = {
     "6.00mm GRSP": [
         { code: "RDSO/T-3703", label: "RDSO/T-3703", category: "6.00mm GRSP", is6mm: true, is10mm: false },
-        { code: "RDSO/T-3711", label: "RDSO/T-3711", category: "6.00mm GRSP", is6mm: true, is10mm: false }
+        { code: "RDSO/T-3711", label: "RDSO/T-3711", category: "6.00mm GRSP", is6mm: true, is10mm: false },
+        { code: "RDSO/T-4159", label: "RDSO/T-4159", category: "6.00mm GRSP", is6mm: true, is10mm: false }
     ],
     "10.00mm GRSP": [],
     "6.20mm CGRSP": [

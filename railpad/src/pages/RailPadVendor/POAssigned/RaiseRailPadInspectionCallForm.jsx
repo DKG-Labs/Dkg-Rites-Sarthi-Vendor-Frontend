@@ -22,7 +22,7 @@ const RAIL_PAD_TYPES = [
 ];
 
 const DRAWING_MAPPING = {
-    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711"],
+    "6.00mm GRSP": ["RDSO/T-3703", "RDSO/T-3711", "RDSO/T-4159"],
     "10.00mm GRSP": [], 
     "6.20mm CGRSP": ["RT-6618", "RT-8327"],
     "10.00mm CGRSP": ["RT-8528", "RT-8694", "RT-8747", "RT-8998"],
