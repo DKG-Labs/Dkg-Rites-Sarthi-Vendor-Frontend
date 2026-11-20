@@ -719,6 +719,20 @@ const RaiseRailPadInspectionCallForm = ({
             alert(`Lot Limit Exceeded!\n\nOne or more lots exceed the maximum limit of ${lotLimit.toLocaleString()} Nos. (IRS T-55 constraint).\n\nPlease reduce the quantity or allocate the excess to a second lot.`);
             return;
         }
+        // Material diversion: a Final call on a diverted Process IC is a Diverted call; it cannot mix with fresh ICs
+        const isIcDiverted = (ic) => {
+            const pc = (processCalls || []).find(p => String(p.callNo || p.inspectionCallNo || '').trim().toUpperCase() === String(ic).trim().toUpperCase());
+            return (pc?.callCategory || '').toUpperCase() === 'DIVERTED_PASSED';
+        };
+        const divertedIcs = selectedProcessIcs.filter(isIcDiverted);
+        if (divertedIcs.length > 0 && divertedIcs.length !== selectedProcessIcs.length) {
+            alert('A diverted Process IC cannot be combined with other Process ICs in one call. Raise a separate call for it.');
+            return;
+        }
+        if (divertedIcs.length > 1) {
+            alert('Select only one diverted Process IC per call.');
+            return;
+        }
         try {
             setIsSubmitting(true);
             const userId = localStorage.getItem('railpad_userId') || vendorCode || 'Vendor';
@@ -736,6 +750,10 @@ const RaiseRailPadInspectionCallForm = ({
                 railPadType: railPadType,
                 drawingNo: drawingNo,
                 processIcNo: selectedProcessIcs.join(','),
+                // Material diversion (backend reserves qty from the diverted IC and rejects over-offer)
+                callNature: divertedIcs.length ? 'DIVERTED' : 'FRESH',
+                isDivertedMaterial: divertedIcs.length > 0,
+                sourceIcNo: divertedIcs.length ? divertedIcs[0] : undefined,
                 totalQty: parseInt(totalQtyToOffer),
                 noOfLots: parseInt(noOfLots),
                 inspectionDate: desiredDate,
@@ -1433,6 +1451,9 @@ const RaiseRailPadInspectionCallForm = ({
                                                             </td>
                                                             <td style={{ padding: '8px 10px', fontWeight: 800, color: '#1e293b' }}>
                                                                 {cCallNo}
+                                                                {(c.callCategory || '').toUpperCase() === 'DIVERTED_PASSED' && (
+                                                                    <span style={{ marginLeft: 6, fontSize: '11px', fontWeight: 600, color: '#b45309' }} title="Diverted Process IC — the call is raised as a Diverted call">Diverted</span>
+                                                                )}
                                                             </td>
                                                             <td style={{ padding: '8px 10px', color: '#64748b' }}>
                                                                 {c.inspectionDate ? formatDateDDMMYY(c.inspectionDate) : (c.callDate ? formatDateDDMMYY(c.callDate) : '-')}
