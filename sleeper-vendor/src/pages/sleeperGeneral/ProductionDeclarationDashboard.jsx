@@ -309,6 +309,28 @@ const ProductionDeclarationDashboard = () => {
                     }}>
                         {getStatusLabel(item.status).toUpperCase()}
                     </span>
+                    {item.lotRejected && (
+                        // Lot rejected by a failed water cube test: whole batch returned to the vendor
+                        <div
+                            title={item.lotRejectionReason || ''}
+                            style={{
+                                marginTop: '6px',
+                                display: 'inline-block',
+                                background: '#fef2f2',
+                                color: '#991b1b',
+                                border: '1px solid #fecaca',
+                                padding: '3px 8px',
+                                borderRadius: '20px',
+                                fontSize: '10px',
+                                fontWeight: '700'
+                            }}
+                        >
+                            REJECTED – RETURNED TO VENDOR
+                            {item.lotRejectionReason && (
+                                <div style={{ fontWeight: '500', fontSize: '10px' }}>{item.lotRejectionReason}</div>
+                            )}
+                        </div>
+                    )}
                 </td>
                 <td style={{ padding: '10px 16px' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>{renderActions(item)}</div>
