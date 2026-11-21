@@ -138,7 +138,7 @@
 
 .payment-table th {
     background: #f8fafc;
-    padding: 14px 16px;
+    padding: 10px 16px;
     font-size: 11px;
     font-weight: 800;
     color: #64748b;
@@ -148,7 +148,7 @@
 }
 
 .payment-table td {
-    padding: 14px 16px;
+    padding: 10px 16px;
     font-size: 13px;
     color: #1e293b;
     border-bottom: 1px solid #f1f5f9;

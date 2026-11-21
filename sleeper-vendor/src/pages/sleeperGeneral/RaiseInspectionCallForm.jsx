@@ -667,7 +667,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 {/* ── Header ── */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                    padding: '18px 28px', flexShrink: 0,
+                    padding: '14px 20px', flexShrink: 0,
                     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
                 }}>
                     <div>
@@ -691,17 +691,17 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                 </div>
 
                 {/* ── Scrollable Body ── */}
-                <div style={{ overflowY: 'auto', flex: 1, padding: '20px 28px 0' }}>
+                <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px 0' }}>
 
                     {/* ════ SECTION A ════ */}
                     <div style={{
                         background: '#f8fafc', border: '1px solid #e2e8f0',
-                        borderRadius: 12, padding: '18px 20px', marginBottom: 20
+                        borderRadius: 12, padding: '14px 16px', marginBottom: 14
                     }}>
                         <SectionHeader step="A" label="Call Header & PO Statistics (Auto-Fetched)" color="#21808d" />
 
                         {/* Call info row */}
-                        <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                             <div style={{ flex: 1, minWidth: 120 }}>
                                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 3 }}>PO NO.</div>
                                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{poNo}</div>
@@ -841,18 +841,18 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     {/* ════ SECTION B ════ */}
                     <div style={{
                         background: '#f8fafc', border: '1px solid #e2e8f0',
-                        borderRadius: 12, padding: '18px 20px', marginBottom: 20
+                        borderRadius: 12, padding: '14px 16px', marginBottom: 14
                     }}>
                         <SectionHeader step="B" label="Sleeper Type & Granular Batch Selection" color="#7c3aed" />
 
                         {/* Sleeper Type(s) Multi-Select Dropdown */}
-                        <div style={{ marginBottom: 18, position: 'relative' }} ref={dropdownRef}>
+                        <div style={{ marginBottom: 14, position: 'relative' }} ref={dropdownRef}>
                             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Sleeper Type(s) <span style={{ color: '#dc2626' }}>*</span>
                             </label>
                             {isLoadingTypes ? (
                                 <div style={{
-                                    width: '100%', maxWidth: 360, height: 42,
+                                    width: '100%', maxWidth: 360, height: 38,
                                     display: 'flex', alignItems: 'center', padding: '0 14px',
                                     border: '1.5px solid #cbd5e1', borderRadius: 8,
                                     fontSize: 13, color: '#94a3b8', background: '#fff'
@@ -861,7 +861,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 </div>
                             ) : sleeperTypes.length === 0 ? (
                                 <div style={{
-                                    width: '100%', maxWidth: 360, height: 42,
+                                    width: '100%', maxWidth: 360, height: 38,
                                     display: 'flex', alignItems: 'center', padding: '0 14px',
                                     border: '1.5px dashed #fca5a5', borderRadius: 8,
                                     fontSize: 13, color: '#dc2626', background: '#fef2f2'
@@ -874,7 +874,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                     <div
                                         onClick={() => setIsDropdownOpen(prev => !prev)}
                                         style={{
-                                            width: '100%', minHeight: 42, padding: '6px 14px',
+                                            width: '100%', minHeight: 38, padding: '6px 14px',
                                             border: `1.5px solid ${isDropdownOpen ? '#21808d' : '#cbd5e1'}`,
                                             borderRadius: 8, fontSize: 13, fontWeight: 700,
                                             color: selectedSleeperTypes.length > 0 ? '#0f172a' : '#94a3b8',
@@ -1447,7 +1447,7 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                     <div style={{
                         background: summary.exceedsCap ? '#fff5f5' : '#f0fdf4',
                         border: `1.5px solid ${summary.exceedsCap ? '#fca5a5' : '#bbf7d0'}`,
-                        borderRadius: 12, padding: '18px 20px', marginBottom: 20
+                        borderRadius: 12, padding: '14px 16px', marginBottom: 14
                     }}>
                         <SectionHeader step="C" label="Combined Summary & System Validations" color={summary.exceedsCap ? '#dc2626' : '#16a34a'} />
 

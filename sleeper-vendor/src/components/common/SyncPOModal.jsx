@@ -983,7 +983,7 @@ const styles = {
         width: '490px',
         maxWidth: '95vw',
         maxHeight: '90vh',
-        borderRadius: '24px',
+        borderRadius: '16px',
         boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.2)',
         border: '1px solid #e2e8f0',
         transition: 'all 0.3s ease',
@@ -992,7 +992,7 @@ const styles = {
         position: 'relative'
     },
     header: {
-        padding: '20px 24px',
+        padding: '14px 20px',
         backgroundColor: '#f8fafc',
         borderBottom: '1px solid #e2e8f0',
         display: 'flex',
@@ -1047,7 +1047,7 @@ const styles = {
         transition: 'all 0.2s ease'
     },
     body: {
-        padding: '24px',
+        padding: '18px 20px',
         overflowY: 'auto',
         maxHeight: 'calc(90vh - 85px)'
     },
@@ -1057,7 +1057,7 @@ const styles = {
         backgroundColor: '#f1f5f9',
         borderRadius: '14px',
         padding: '5px',
-        marginBottom: '22px',
+        marginBottom: '16px',
         gap: '4px',
         border: '1px solid #e2e8f0'
     },
@@ -1086,7 +1086,7 @@ const styles = {
     formGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '16px'
+        gap: '12px'
     },
     formGroup: {
         display: 'flex',
@@ -1184,8 +1184,8 @@ const styles = {
     },
     heroCaseCard: {
         background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-        borderRadius: '16px',
-        padding: '18px 20px',
+        borderRadius: '12px',
+        padding: '14px 16px',
         color: '#ffffff',
         boxShadow: '0 8px 20px rgba(2, 132, 199, 0.25)',
         marginBottom: '16px'
@@ -1221,8 +1221,8 @@ const styles = {
     reviewGridCard: {
         backgroundColor: '#f8fafc',
         border: '1px solid #e2e8f0',
-        borderRadius: '16px',
-        padding: '16px',
+        borderRadius: '12px',
+        padding: '12px 14px',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: '12px',
@@ -1276,10 +1276,10 @@ const styles = {
         display: 'flex',
         justifyContent: 'flex-end',
         gap: '12px',
-        marginTop: '20px'
+        marginTop: '16px'
     },
     cancelBtn: {
-        padding: '11px 20px',
+        padding: '9px 18px',
         borderRadius: '12px',
         border: '1px solid #cbd5e1',
         backgroundColor: '#ffffff',
@@ -1290,7 +1290,7 @@ const styles = {
         transition: 'all 0.2s ease'
     },
     syncBtn: {
-        padding: '11px 24px',
+        padding: '9px 20px',
         borderRadius: '12px',
         border: 'none',
         backgroundColor: '#0284c7',

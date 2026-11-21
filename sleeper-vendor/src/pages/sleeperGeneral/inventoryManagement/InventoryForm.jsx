@@ -634,8 +634,8 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
 
     const inputStyle = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' };
     const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '6px' };
-    const groupStyle = { marginBottom: '16px' };
-    const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
+    const groupStyle = { marginBottom: '12px' };
+    const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' };
 
     const renderFields = () => {
         switch (material.id) {
@@ -666,7 +666,7 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
                 };
 
                 return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={gridStyle}>
                             <div style={groupStyle}>
                                 <label style={labelStyle}>Grade / Spec</label>
@@ -687,8 +687,8 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
                             <div style={groupStyle}><label style={labelStyle}>Invoice Date</label><input type="date" value={formData.details.ewayDate || ''} onChange={(e) => handleChange(e, 'ewayDate', true)} required style={inputStyle} /></div>
                         </div>
 
-                        <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Batch Details</h3>
                                 <button type="button" onClick={addBatch} style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Add Batch</button>
                             </div>
@@ -794,7 +794,7 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
                 };
 
                 return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {/* Top fields */}
                         <div style={gridStyle}>
                             <div style={groupStyle}>
@@ -838,8 +838,8 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
                         </div>
 
                         {/* Coil Entry Panel */}
-                        <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Coil Details</h4>
                                 <div style={{ display: 'flex', gap: '20px' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: inputMode === 'range' ? '#42818c' : '#475569' }}>
@@ -1164,7 +1164,7 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
         }}>
             <div style={{
                 background: 'white', 
-                borderRadius: '32px', 
+                borderRadius: '16px', 
                 width: '100%', 
                 maxWidth: '750px',
                 maxHeight: '90vh', 
@@ -1174,22 +1174,22 @@ const InventoryForm = ({ material, onClose, onSubmit, onDelete, initialData, exi
                 flexDirection: 'column',
                 animation: 'modalFadeIn 0.3s ease-out'
             }}>
-                <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
                     <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {isReadOnly ? `View ${material.name} Details` : (initialData ? `Edit ${material.name}` : `Add New ${material.name}`)}
                         {isReadOnly && <span style={{ fontSize: '11px', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '8px', fontWeight: '700' }}>🔒 Verified & Locked</span>}
                     </h2>
                     <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>×</button>
                 </div>
-                <form onSubmit={handleSubmit} style={{ padding: '32px' }}>
-                    <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <form onSubmit={handleSubmit} style={{ padding: '18px 20px' }}>
+                    <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={groupStyle}>
                             <label style={labelStyle}>Date of Receipt</label>
                             <input type="date" value={formData.date} onChange={(e) => handleChange(e, 'date')} required style={{ ...inputStyle, padding: '12px', border: '2px solid #f1f5f9' }} />
                         </div>
                         {renderFields()}
                     </fieldset>
-                    <div style={{ marginTop: '32px', display: 'flex', gap: '12px', background: 'white', pt: '16px' }}>
+                    <div style={{ marginTop: '18px', display: 'flex', gap: '12px', background: 'white', pt: '16px' }}>
                         {isReadOnly ? (
                             <button type="button" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#42818c', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(66, 129, 140, 0.2)' }}>
                                 Close

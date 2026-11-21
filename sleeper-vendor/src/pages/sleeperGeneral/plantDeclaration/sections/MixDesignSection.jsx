@@ -196,9 +196,9 @@ const MixDesignSection = () => {
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Mix Design Declaration</h3>
 
             {/* Mix Design Form */}
-            <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <h4 style={{ color: '#42818c', marginTop: 0, marginBottom: '20px', fontSize: '14px' }}>{editingId ? 'Edit Mix Design' : 'Add New Mix Design'}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <h4 style={{ color: '#42818c', marginTop: 0, marginBottom: '12px', fontSize: '14px' }}>{editingId ? 'Edit Mix Design' : 'Add New Mix Design'}</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                     <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>Identification</label>
                         <input
@@ -351,7 +351,7 @@ const MixDesignSection = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
                     {editingId && (
                         <button
                             onClick={() => {

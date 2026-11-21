@@ -57,8 +57,8 @@ const VendorIncomingRequests = () => {
     };
 
     return (
-        <div style={{ padding: '24px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ padding: '16px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1e293b' }}>Requested Changes</h2>
                 <button 
                     onClick={loadRequests}
@@ -178,7 +178,7 @@ const VendorIncomingRequests = () => {
                         overflow: 'hidden',
                         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
                     }}>
-                        <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, color: '#1e293b' }}>Workflow History (Request ID: {historyModal.requestId})</h3>
                             <button 
                                 onClick={() => setHistoryModal({ ...historyModal, open: false })}
@@ -187,7 +187,7 @@ const VendorIncomingRequests = () => {
                                 &times;
                             </button>
                         </div>
-                        <div style={{ padding: '20px', maxHeight: '60vh', overflowY: 'auto' }}>
+                        <div style={{ padding: '16px 18px', maxHeight: '60vh', overflowY: 'auto' }}>
                             {historyModal.loading ? (
                                 <div style={{ textAlign: 'center', padding: '40px' }}>Fetching history...</div>
                             ) : historyModal.data.length === 0 ? (
@@ -233,7 +233,7 @@ const VendorIncomingRequests = () => {
                                 </table>
                             )}
                         </div>
-                        <div style={{ padding: '16px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
+                        <div style={{ padding: '12px 18px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
                             <button 
                                 onClick={() => setHistoryModal({ ...historyModal, open: false })}
                                 style={{ 

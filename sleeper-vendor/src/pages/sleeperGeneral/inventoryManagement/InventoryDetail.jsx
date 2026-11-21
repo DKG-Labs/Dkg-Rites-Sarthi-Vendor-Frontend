@@ -6,6 +6,10 @@ import HistoryModal from './HistoryModal';
 import Notification from '../../../components/common/Notification';
 import { apiService } from '../../../services/api';
 
+// Shared table spacing (compact layout: ~40-44px rows)
+const TABLE_HEADER_PADDING = '10px 16px';
+const TABLE_CELL_PADDING = '8px 16px';
+
 const InventoryDetail = ({ material, onBack }) => {
     const [showForm, setShowForm] = useState(false);
     const [editingEntry, setEditingEntry] = useState(null);
@@ -388,7 +392,7 @@ const InventoryDetail = ({ material, onBack }) => {
     };
 
     const renderRow = (entry) => {
-        const tdStyle = { padding: '16px 24px', color: '#1e293b', fontSize: '13px', whiteSpace: 'nowrap' };
+        const tdStyle = { padding: TABLE_CELL_PADDING, color: '#1e293b', fontSize: '13px', whiteSpace: 'nowrap' };
         const boldStyle = { ...tdStyle, fontWeight: '700' };
 
         switch (material.id) {
@@ -570,7 +574,7 @@ const InventoryDetail = ({ material, onBack }) => {
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} autoClose={true} autoCloseDelay={5000} />
             
             {/* Page Header */}
-            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button onClick={onBack} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#64748b' }}>
                     ← Back
                 </button>
@@ -581,8 +585,8 @@ const InventoryDetail = ({ material, onBack }) => {
             </div>
 
             {/* Dynamic Status Tabs (Cumulative Status Cards) */}
-            <div style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Cumulative Status</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+            <div style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Cumulative Status</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                 {[
                     { id: 'procured', label: 'RM Procured', value: stats.procured, color: '#42818c' },
                     { id: 'used', label: 'RM Used', value: stats.used, color: '#64748b' },
@@ -599,8 +603,8 @@ const InventoryDetail = ({ material, onBack }) => {
                             }}
                             style={{ 
                                 background: isActive ? '#f0f7ff' : 'white', 
-                                padding: '16px 20px', 
-                                borderRadius: '20px', 
+                                padding: '12px 16px',
+                                borderRadius: '12px',
                                 border: `2px solid ${isActive ? '#0ea5e9' : '#e2e8f0'}`, 
                                 textAlign: 'left', 
                                 boxShadow: isActive ? '0 10px 15px -3px rgba(14, 165, 233, 0.15)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
@@ -609,8 +613,8 @@ const InventoryDetail = ({ material, onBack }) => {
                                 position: 'relative'
                             }}
                         >
-                            <div style={{ fontSize: '11px', color: stat.color, fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
-                            <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b' }}>
+                            <div style={{ fontSize: '11px', color: stat.color, fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1.4' }}>{stat.label}</div>
+                            <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b', lineHeight: '1.3' }}>
                                 {stat.value.toLocaleString()} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>{material.unit}</span>
                             </div>
                             {isActive && (
@@ -640,11 +644,11 @@ const InventoryDetail = ({ material, onBack }) => {
                     usedEntries={allVerifiedUsed}
                 />
             ) : (
-                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                     {/* Header */}
-                    <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'white' }}>
                         <div>
-                            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                            <h3 style={{ margin: '0 0 2px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b', lineHeight: '1.3' }}>
                                 {activeSection === 'procured' ? 'RM Procured Registry' : 'RM Consumption Records'}
                             </h3>
                             <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
@@ -657,14 +661,14 @@ const InventoryDetail = ({ material, onBack }) => {
                         {activeSection === 'procured' ? (
                             <button 
                                 onClick={() => { setEditingEntry(null); setShowForm(true); }} 
-                                style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(66, 129, 140, 0.2)' }}
+                                style={{ background: '#42818c', color: 'white', border: 'none', borderRadius: '10px', padding: '8px 16px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(66, 129, 140, 0.2)' }}
                             >
                                 + Add New Inventory
                             </button>
                         ) : (
                             <button 
                                 onClick={() => { setEditingUsedEntry(null); setShowUsedForm(true); }} 
-                                style={{ background: '#0284c7', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.2)' }}
+                                style={{ background: '#0284c7', color: 'white', border: 'none', borderRadius: '10px', padding: '8px 16px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.2)' }}
                             >
                                 + Add New Entry
                             </button>
@@ -672,11 +676,11 @@ const InventoryDetail = ({ material, onBack }) => {
                     </div>
 
                     {/* Inner Tabs: Pending vs Verified Switcher */}
-                    <div style={{ padding: '16px 24px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ padding: '8px 16px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center' }}>
                         <div style={{
                             background: '#f1f5f9',
                             borderRadius: '16px',
-                            padding: '6px',
+                            padding: '4px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px'
@@ -687,7 +691,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                    padding: '10px 18px',
+                                    padding: '6px 14px',
                                     background: activeTab === 'unverified' ? 'white' : 'transparent',
                                     border: 'none',
                                     borderRadius: '12px',
@@ -710,7 +714,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                    padding: '10px 18px',
+                                    padding: '6px 14px',
                                     background: activeTab === 'verified' ? 'white' : 'transparent',
                                     border: 'none',
                                     borderRadius: '12px',
@@ -738,8 +742,8 @@ const InventoryDetail = ({ material, onBack }) => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ background: '#f8fafc' }}>
-                                        {getColumns().map(col => (<th key={col} style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{col}</th>))}
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
+                                        {getColumns().map(col => (<th key={col} style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{col}</th>))}
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -749,7 +753,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                         filteredProcured.map((entry, idx) => (
                                             <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                                 {renderRow(entry)}
-                                                <td style={{ padding: '16px 24px' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING }}>
                                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                                                         {activeTab === 'unverified' ? (
                                                             <>
@@ -778,14 +782,14 @@ const InventoryDetail = ({ material, onBack }) => {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ background: '#f8fafc' }}>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date of Use</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Sub Type</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>RM Used For</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Sleepers Made</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Estimated Qty Used</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Actual Qty Used</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Status</th>
-                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date of Use</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Sub Type</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>RM Used For</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Sleepers Made</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Estimated Qty Used</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Actual Qty Used</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                                        <th style={{ padding: TABLE_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -794,22 +798,22 @@ const InventoryDetail = ({ material, onBack }) => {
                                     ) : (
                                         filteredUsed.map((entry, idx) => (
                                             <tr key={entry.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b' }}>{entry.date}</td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#1e293b' }}>{entry.date}</td>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#1e293b' }}>
                                                     <span style={{ fontWeight: '700' }}>{material.name}</span>
                                                     <span style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: '700' }}>{entry.subType}</span>
                                                 </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#475569' }}>{entry.usedFor}</td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b', fontWeight: '600', textAlign: 'right' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#475569' }}>{entry.usedFor}</td>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#1e293b', fontWeight: '600', textAlign: 'right' }}>
                                                     {entry.usedFor === 'Wastage' ? '-' : entry.sleepersMade}
                                                 </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#047857', fontWeight: '600', textAlign: 'right' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#047857', fontWeight: '600', textAlign: 'right' }}>
                                                     {entry.usedFor === 'Wastage' ? '-' : `${entry.estimatedQty.toLocaleString()} ${material.unit}`}
                                                 </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b', fontWeight: '700', textAlign: 'right' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px', color: '#1e293b', fontWeight: '700', textAlign: 'right' }}>
                                                     {entry.qty.toLocaleString()} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{material.unit}</span>
                                                 </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING, fontSize: '13px' }}>
                                                     <span style={{ 
                                                         background: isUsedEntryVerified(entry) ? '#ecfdf5' : '#fffbeb', 
                                                         color: isUsedEntryVerified(entry) ? '#047857' : '#d97706', 
@@ -820,7 +824,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                                             : getStatusLabel(entry.status)}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '16px 24px' }}>
+                                                <td style={{ padding: TABLE_CELL_PADDING }}>
                                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                                                         {isUsedEntryVerified(entry) ? (
                                                             <>
@@ -855,7 +859,7 @@ const InventoryDetail = ({ material, onBack }) => {
                                 
                         {/* Pagination for RM Used */}
                         {activeSection === 'used' && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
                                     Showing {activeTab === 'verified' ? verifiedTotal : unverifiedTotal} items
                                 </div>

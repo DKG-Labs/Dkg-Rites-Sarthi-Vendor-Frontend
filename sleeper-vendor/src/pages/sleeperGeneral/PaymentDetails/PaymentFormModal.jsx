@@ -153,7 +153,7 @@ const PaymentFormModal = ({ isOpen, onClose, onSubmit, editData = null, selected
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: '20px 24px',
+                    padding: '14px 20px',
                     borderBottom: '1px solid #f1f5f9',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -189,14 +189,14 @@ const PaymentFormModal = ({ isOpen, onClose, onSubmit, editData = null, selected
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+                <form onSubmit={handleSubmit} style={{ padding: '16px 20px' }}>
                     {/* Readonly Call Details Banner */}
                     <div style={{
                         background: '#f0fdf4',
                         border: '1px solid #bbf7d0',
                         borderRadius: '12px',
-                        padding: '16px',
-                        marginBottom: '20px',
+                        padding: '12px 14px',
+                        marginBottom: '14px',
                         display: 'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gap: '12px'
@@ -217,7 +217,7 @@ const PaymentFormModal = ({ isOpen, onClose, onSubmit, editData = null, selected
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                         {/* Payment Mode */}
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
@@ -273,7 +273,7 @@ const PaymentFormModal = ({ isOpen, onClose, onSubmit, editData = null, selected
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                         {/* Payment Date */}
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
@@ -355,7 +355,7 @@ const PaymentFormModal = ({ isOpen, onClose, onSubmit, editData = null, selected
                     </div>
 
                     {/* Remarks */}
-                    <div style={{ marginBottom: '24px' }}>
+                    <div style={{ marginBottom: '16px' }}>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
                             Remarks (Optional)
                         </label>

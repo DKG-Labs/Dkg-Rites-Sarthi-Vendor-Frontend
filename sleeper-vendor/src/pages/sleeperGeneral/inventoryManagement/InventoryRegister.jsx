@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from 'react';
 
+// Shared ledger table spacing (compact layout: ~40-44px rows)
+const LEDGER_HEADER_PADDING = '10px 16px';
+const LEDGER_CELL_PADDING = '10px 16px';
+
 const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] }) => {
     // Sub-types based on material
     const getSubTypes = (id) => {
@@ -106,7 +110,7 @@ const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] })
     }, [procuredEntries, usedEntries, selectedSubType, material.id, subTypes]);
 
     const selectStyle = {
-        padding: '10px 16px',
+        padding: '8px 12px',
         borderRadius: '12px',
         border: '1px solid #e2e8f0',
         fontSize: '14px',
@@ -124,12 +128,12 @@ const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] })
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
-                marginBottom: '20px',
+                marginBottom: '12px',
                 flexWrap: 'wrap',
                 gap: '12px'
             }}>
                 <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                    <h3 style={{ margin: '0 0 2px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b', lineHeight: '1.3' }}>
                         RM Inventory Ledger
                     </h3>
                     <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
@@ -152,15 +156,15 @@ const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] })
             </div>
 
             {/* Ledger Table */}
-            <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc' }}>
-                            <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date</th>
-                            <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Its Type</th>
-                            <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Quantity Procured</th>
-                            <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Quantity Used</th>
-                            <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Running Balance</th>
+                            <th style={{ padding: LEDGER_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date</th>
+                            <th style={{ padding: LEDGER_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Raw Material & Its Type</th>
+                            <th style={{ padding: LEDGER_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Quantity Procured</th>
+                            <th style={{ padding: LEDGER_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Quantity Used</th>
+                            <th style={{ padding: LEDGER_HEADER_PADDING, fontSize: '12px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Running Balance</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -174,10 +178,10 @@ const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] })
                         ) : (
                             ledgerRows.map((row, idx) => (
                                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: row.type === 'procured' ? '#fcfdfd' : '#fdfcfc' }}>
-                                    <td style={{ padding: '16px 24px', fontSize: '13px', color: '#334155', fontWeight: '500' }}>
+                                    <td style={{ padding: LEDGER_CELL_PADDING, fontSize: '13px', color: '#334155', fontWeight: '500' }}>
                                         {row.date}
                                     </td>
-                                    <td style={{ padding: '16px 24px', fontSize: '13px', color: '#1e293b' }}>
+                                    <td style={{ padding: LEDGER_CELL_PADDING, fontSize: '13px', color: '#1e293b' }}>
                                         <span style={{ fontWeight: '600' }}>{material.name}</span>
                                         <span style={{ 
                                             background: '#f1f5f9', 
@@ -191,13 +195,13 @@ const InventoryRegister = ({ material, procuredEntries = [], usedEntries = [] })
                                             {row.subType}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '16px 24px', fontSize: '13px', color: '#047857', fontWeight: '700', textAlign: 'right' }}>
+                                    <td style={{ padding: LEDGER_CELL_PADDING, fontSize: '13px', color: '#047857', fontWeight: '700', textAlign: 'right' }}>
                                         {row.procuredQty > 0 ? `+ ${row.procuredQty.toLocaleString()} ${material.unit}` : '-'}
                                     </td>
-                                    <td style={{ padding: '16px 24px', fontSize: '13px', color: '#b91c1c', fontWeight: '700', textAlign: 'right' }}>
+                                    <td style={{ padding: LEDGER_CELL_PADDING, fontSize: '13px', color: '#b91c1c', fontWeight: '700', textAlign: 'right' }}>
                                         {row.usedQty > 0 ? `- ${row.usedQty.toLocaleString()} ${material.unit}` : '-'}
                                     </td>
-                                    <td style={{ padding: '16px 24px', fontSize: '14px', color: '#1e293b', fontWeight: '800', textAlign: 'right' }}>
+                                    <td style={{ padding: LEDGER_CELL_PADDING, fontSize: '14px', color: '#1e293b', fontWeight: '800', textAlign: 'right' }}>
                                         {row.balance.toLocaleString()} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>{material.unit}</span>
                                     </td>
                                 </tr>

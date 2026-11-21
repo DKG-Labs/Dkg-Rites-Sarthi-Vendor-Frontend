@@ -1878,7 +1878,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     const sectionHeaderStyle = {
         background: '#f8fafc',
-        padding: '16px 24px',
+        padding: '12px 16px',
         borderBottom: '1px solid #e2e8f0',
         display: 'flex',
         justifyContent: 'space-between',
@@ -1887,15 +1887,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
         userSelect: 'none'
     };
 
-    const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '800', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' };
+    const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '800', color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' };
     const inputStyle = {
         width: '100%',
-        padding: '0 16px',
+        padding: '0 12px',
         borderRadius: '10px',
         border: '1px solid #cbd5e1',
         fontSize: '14px',
         backgroundColor: '#ffffff',
-        height: '45px',
+        height: '40px',
         color: '#1e293b',
         transition: 'border-color 0.2s',
         outline: 'none'
@@ -1904,7 +1904,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
     return (
         <div className="fade-in">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                 <button
                     onClick={onBack}
                     style={{ background: 'none', border: '1px solid #e2e8f0', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
@@ -1943,14 +1943,14 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             </style>
 
             {/* Section 1: Batch Header */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                 <div style={sectionHeaderStyle} onClick={() => toggleSection(1)}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Section 1: Batch Header (Initial Declaration)</h3>
                     <span>{activeSections[1] ? '▼' : '▶'}</span>
                 </div>
                 {activeSections[1] && (
-                    <div style={{ padding: '24px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+                    <div style={{ padding: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
                             <div>
                                 <label style={labelStyle}>Production Unit (Shed/Line No.)</label>
                                 <select
@@ -2121,18 +2121,18 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             </div>
 
             {/* Section 2: Casting & Bench Mapping */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                 <div style={sectionHeaderStyle} onClick={() => toggleSection(2)}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Section 2: Casting & Bench Mapping</h3>
                     <span>{activeSections[2] ? '▼' : '▶'}</span>
                 </div>
                 {activeSections[2] && (
-                    <div style={{ padding: '24px' }}>
+                    <div style={{ padding: '16px' }}>
                         {plantType === 'Stress Bench' ? (
                             <div>
                                 {stressBenchForms.map((row, rowIndex) => (
-                                    <div key={row.id} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <div key={row.id} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                                             <h4 style={{ margin: 0, color: '#1e293b', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stress Bench Row #{rowIndex + 1}</h4>
                                             {stressBenchForms.length > 1 && !isReadOnly && (
                                                 <button
@@ -2345,7 +2345,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         };
 
                                         const renderSection = (label, sectionKey) => (
-                                            <div style={{ marginBottom: '18px' }} key={sectionKey}>
+                                            <div style={{ marginBottom: '14px' }} key={sectionKey}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                                                     <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', minWidth: '80px' }}>{label}</span>
                                                     {!isReadOnly && (
@@ -2427,8 +2427,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         );
 
                                         return (
-                                            <div key={type} style={{ background: 'white', padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', marginTop: '16px', marginBottom: '16px' }}>
-                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '18px' }}>
+                                            <div key={type} style={{ background: 'white', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '12px', marginBottom: '16px' }}>
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '12px' }}>
                                                     Select Sleepers for Turnout
                                                     <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
                                                         — {type}
@@ -2444,7 +2444,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                                 {/* Multi-row entry action buttons */}
                                 {!isReadOnly && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', marginBottom: '16px' }}>
                                         <button
                                             onClick={addStressBenchRow}
                                             style={{
@@ -2481,7 +2481,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 )}
 
                                 {stressBenchEntries.length > 0 && (
-                                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -2569,8 +2569,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                         ) : (
                             <div>
                                 {longLineForms.map((row, rowIndex) => (
-                                    <div key={row.id} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <div key={row.id} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                                             <h4 style={{ margin: 0, color: '#1e293b', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Long Line Row #{rowIndex + 1}</h4>
                                             {longLineForms.length > 1 && !isReadOnly && (
                                                 <button
@@ -2768,7 +2768,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         };
 
                                         const renderSection = (label, sectionKey) => (
-                                            <div style={{ marginBottom: '18px' }} key={sectionKey}>
+                                            <div style={{ marginBottom: '14px' }} key={sectionKey}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                                                     <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', minWidth: '80px' }}>{label}</span>
                                                     {!isReadOnly && (
@@ -2850,8 +2850,8 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         );
 
                                         return (
-                                            <div key={type} style={{ background: 'white', padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', marginTop: '16px', marginBottom: '24px' }}>
-                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '18px' }}>
+                                            <div key={type} style={{ background: 'white', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '12px', marginBottom: '24px' }}>
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1e293b', marginBottom: '12px' }}>
                                                     Select Sleepers for Turnout
                                                     <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
                                                         — {type}
@@ -2867,7 +2867,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
 
                                 {/* Multi-row entry action buttons for Long Line */}
                                 {!isReadOnly && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', marginBottom: '16px' }}>
                                         <button
                                             onClick={addLongLineRow}
                                             style={{
@@ -2904,7 +2904,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                 )}
 
                                 {longLineEntries.length > 0 && (
-                                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -2996,15 +2996,15 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             </div>
 
             {/* Section 3: Summary & Observation */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                 <div style={sectionHeaderStyle} onClick={() => toggleSection(3)}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Section 3: Summary & Observation</h3>
                     <span>{activeSections[3] ? '▼' : '▶'}</span>
                 </div>
                 {activeSections[3] && (
-                    <div style={{ padding: '24px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '40px' }}>
-                            <div style={{ background: '#f0f9fa', padding: '24px', borderRadius: '16px', border: '1px solid #ccfbf1' }}>
+                    <div style={{ padding: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+                            <div style={{ background: '#f0f9fa', padding: '16px', borderRadius: '12px', border: '1px solid #ccfbf1' }}>
                                 <h4 style={{ margin: '0 0 16px 0', color: '#115e59', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase' }}>Production Calculation</h4>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3033,7 +3033,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
                                         ))}
                                     </div>
                                 </div>
-                                <div style={{ marginTop: '20px', padding: '12px', background: 'white', borderRadius: '8px', fontSize: '11px', color: '#0d9488' }}>
+                                <div style={{ marginTop: '14px', padding: '12px', background: 'white', borderRadius: '8px', fontSize: '11px', color: '#0d9488' }}>
                                     <strong>Triggers:</strong> Visual Inspection, Steam Cube Testing, Water Cube Testing tasks will be auto-generated for the IE.
                                 </div>
                             </div>
@@ -3054,7 +3054,7 @@ const ShiftProductionForm = ({ onBack, onSave, lastBatchNumber, initialData, isR
             </div>
 
             {/* Form Actions */}
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                     onClick={onBack}
                     style={{ background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '12px 24px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}

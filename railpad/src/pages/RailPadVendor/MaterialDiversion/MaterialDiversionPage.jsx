@@ -28,12 +28,138 @@ const fmtDate = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('-'
 
 const Toast = ({ toast }) => (toast ? <div className={`md-toast ${toast.type}`}>{toast.msg}</div> : null);
 
+const fmtDateTime = (d) => {
+  if (!d) return '-';
+  const t = new Date(d);
+  return isNaN(t.getTime()) ? String(d) : t.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+const REASON_LABEL = { PO_QUANTITY_REVISION: 'PO quantity revision' };
+
+/**
+ * Request details (same layout as the ERC diversion screen): material, reason & railway permission, workflow.
+ * Edit / Resubmit / Delete are offered here, by status.
+ */
+const RequestDetailsModal = ({ request, onClose, onEdit, onResubmit, onDelete, onLetter, busy }) => {
+  const [full, setFull] = useState(request);
+  const [history, setHistory] = useState([]);
+  const [loadingDetails, setLoadingDetails] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [r, h] = await Promise.all([
+          diversionService.getRequest(request.id).catch(() => request),
+          diversionService.getHistory(request.id).catch(() => []),
+        ]);
+        if (alive) { setFull(r || request); setHistory(Array.isArray(h) ? h : []); }
+      } finally {
+        if (alive) setLoadingDetails(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [request]);
+
+  const r = full || request;
+  const [label, cls] = STATUS_LABEL[r.status] || [r.status, 'idle'];
+  const items = Array.isArray(r.items) ? r.items : [];
+
+  return (
+    <div className="md-overlay" role="dialog" aria-modal="true">
+      <div className="md-modal">
+        <div className="md-modal-head">
+          <div>
+            <h3>Diversion Request {r.requestNo}</h3>
+            <div className="md-sub">Diversion No. {r.diversionNo || '—'} · Raised {fmtDate(r.createdDate)} · <span className={`md-badge ${cls}`}>{label}</span></div>
+          </div>
+          <button type="button" className="md-x" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        <div className="md-modal-body">
+          <section className="md-section">
+            <h4>Material Details</h4>
+            <div className="md-kv">
+              <div><span>Stage</span><strong>{r.stage === 'PROCESS' ? 'Process' : 'Final'}</strong></div>
+              <div><span>Diversion Type</span><strong>{r.diversionType === 'COMPLETE' ? 'Complete' : 'Partial'}</strong></div>
+              <div><span>Source IC</span><strong>{r.sourceIcNo || '—'}</strong></div>
+              <div><span>Source Call</span><strong>{r.sourceCallNo || '—'}</strong></div>
+              <div><span>Source PO / Sr.</span><strong>{r.sourcePoNo} / {r.sourcePoSrNo}</strong></div>
+              <div><span>Target PO / Sr.</span><strong>{r.targetPoNo} / {r.targetPoSrNo}</strong></div>
+              <div><span>Total Diversion Qty</span><strong>{fmtQty(r.totalDiversionQty)} {r.unitOfMeasurement}</strong></div>
+              <div><span>Diverted Call</span><strong>{r.divertedCallNo || '—'}</strong></div>
+              <div><span>Source IC Date</span><strong>{fmtDate(r.sourceIcDate)}</strong></div>
+              <div><span>Plant</span><strong>{r.plantId || '—'}</strong></div>
+            </div>
+            {items.length > 0 && (
+              <div className="md-table-wrap">
+                <table className="md-table">
+                  <thead><tr><th>Lot / Batch</th><th className="num">Accepted</th><th className="num">Used</th><th className="num">Available</th><th className="num">Diverted</th><th className="num">Balance</th></tr></thead>
+                  <tbody>
+                    {items.map((it, i) => (
+                      <tr key={it.id || i}>
+                        <td className="md-strong">{it.lotNo || it.batchNo || '—'}</td>
+                        <td className="num">{fmtQty(it.acceptedQty)}</td>
+                        <td className="num">{fmtQty(it.downstreamConsumedQty)}</td>
+                        <td className="num">{fmtQty(it.availableBalanceQty)}</td>
+                        <td className="num md-strong">{fmtQty(it.diversionQty)}</td>
+                        <td className="num">{fmtQty(it.remainingBalanceQty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="md-section">
+            <h4>Reason &amp; Permission</h4>
+            <div className="md-kv">
+              <div><span>Reason</span><strong>{REASON_LABEL[r.reasonCode] || r.reasonCode || '—'}</strong></div>
+              <div><span>Railway Permission No.</span><strong>{r.railwayPermissionNo || '—'}</strong></div>
+              <div><span>Permission Date</span><strong>{fmtDate(r.railwayPermissionDate)}</strong></div>
+              <div><span>Permission Letter</span><strong><button type="button" className="md-link" onClick={() => onLetter(r.id)}>View Letter</button></strong></div>
+            </div>
+            {r.reasonRemarks && <p className="md-note"><strong>Reason remarks:</strong> {r.reasonRemarks}</p>}
+            {r.vendorRemarks && <p className="md-note"><strong>Vendor remarks:</strong> {r.vendorRemarks}</p>}
+          </section>
+
+          <section className="md-section">
+            <h4>Workflow</h4>
+            {loadingDetails ? (
+              <p className="md-note">Loading history...</p>
+            ) : history.length === 0 ? (
+              <p className="md-note">No actions yet.</p>
+            ) : (
+              <ol className="md-timeline">
+                {history.map((h, i) => (
+                  <li key={h.id || i}>
+                    <div className="md-strong">{(h.action || '').replace(/_/g, ' ')} <span className="md-sub">by {h.actionUserName || h.actionUserId || h.actionRole || '—'} ({h.actionRole || '—'})</span></div>
+                    <div className="md-sub">{fmtDateTime(h.createdDate)}{h.toStatus ? ` · ${(STATUS_LABEL[h.toStatus] || [h.toStatus])[0]}` : ''}</div>
+                    {h.remarks && <div className="md-note">{h.remarks}</div>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+        <div className="md-modal-foot">
+          {RETURNED.includes(r.status) && <button type="button" className="md-btn primary" disabled={busy} onClick={() => onResubmit(r)}>Resubmit to CM</button>}
+          {EDITABLE.includes(r.status) && <button type="button" className="md-btn light" disabled={busy} onClick={() => onEdit(r)}>Edit Request</button>}
+          {EDITABLE.includes(r.status) && <button type="button" className="md-btn danger" disabled={busy} onClick={() => onDelete(r)}>Delete Request</button>}
+          <button type="button" className="md-btn light" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MaterialDiversionPage = ({ plantId, vendorCode }) => {
   const [tab, setTab] = useState('requests');
   const [requests, setRequests] = useState([]);
   const [basket, setBasket] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formFor, setFormFor] = useState(null); // null = closed, {} = new, request = edit
+  const [detailFor, setDetailFor] = useState(null); // request shown in the details panel
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -163,10 +289,8 @@ const MaterialDiversionPage = ({ plantId, vendorCode }) => {
                     <td><span className={`md-badge ${cls}`}>{label}</span></td>
                     <td className="md-ic">{r.divertedCallNo || '—'}</td>
                     <td className="md-actions">
-                      <button type="button" className="md-link" onClick={() => openLetter(r.id)}>Letter</button>
-                      {EDITABLE.includes(r.status) && <button type="button" className="md-link" disabled={busyId === r.id} onClick={() => setFormFor(r)}>Edit</button>}
-                      {RETURNED.includes(r.status) && <button type="button" className="md-link" disabled={busyId === r.id} onClick={() => act(r.id, () => diversionService.resubmit(r.id), 'Resubmitted to CM')}>Resubmit</button>}
-                      {EDITABLE.includes(r.status) && <button type="button" className="md-link danger" disabled={busyId === r.id} onClick={() => act(r.id, () => diversionService.remove(r.id), 'Request deleted')}>Delete</button>}
+                      {/* Same as ERC: one button; Edit / Resubmit / Delete / Letter are inside the details */}
+                      <button type="button" className="md-link" onClick={() => setDetailFor(r)}>View Details</button>
                     </td>
                   </tr>
                 );
@@ -223,6 +347,29 @@ const MaterialDiversionPage = ({ plantId, vendorCode }) => {
           onClose={() => setFormFor(null)}
           onSaved={() => { setFormFor(null); load(); }}
         />
+      )}
+      {detailFor && (
+        <RequestDetailsModal
+          request={detailFor}
+          busy={busyId === detailFor.id}
+          onClose={() => setDetailFor(null)}
+          onLetter={openLetter}
+          onEdit={(r) => { setDetailFor(null); setFormFor(r); }}
+          onResubmit={(r) => { setDetailFor(null); act(r.id, () => diversionService.resubmit(r.id), 'Resubmitted to CM'); }}
+          onDelete={(r) => { setDetailFor(null); setConfirmDelete(r); }}
+        />
+      )}
+      {confirmDelete && (
+        <div className="md-overlay" role="dialog" aria-modal="true">
+          <div className="md-modal md-confirm">
+            <div className="md-modal-head"><h3>Delete Diversion Request?</h3></div>
+            <div className="md-modal-body"><p className="md-note">Request <strong>{confirmDelete.requestNo}</strong> will be deleted. This cannot be undone.</p></div>
+            <div className="md-modal-foot">
+              <button type="button" className="md-btn light" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button type="button" className="md-btn danger" onClick={() => { const r = confirmDelete; setConfirmDelete(null); act(r.id, () => diversionService.remove(r.id), 'Request deleted'); }}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
       <Toast toast={toast} />
     </div>

@@ -137,24 +137,24 @@ const RawMaterialSourceSection = () => {
     };
 
     return (
-        <div className="fade-in" style={{ padding: '20px', position: 'relative' }}>
+        <div className="fade-in" style={{ padding: '16px', position: 'relative' }}>
             {loading && (
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="spinner">Loading...</div>
                 </div>
             )}
-            <h3 style={{ color: '#1e293b', marginBottom: '24px', fontSize: '20px', fontWeight: '700' }}>
+            <h3 style={{ color: '#1e293b', marginBottom: '14px', fontSize: '20px', fontWeight: '700' }}>
                 Raw Material Source Declaration
             </h3>
 
             {/* Form Section */}
             <div style={{
                 background: '#ffffff',
-                padding: '30px',
-                borderRadius: '20px',
+                padding: '18px 20px',
+                borderRadius: '12px',
                 border: '1px solid #f1f5f9',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                marginBottom: '32px'
+                marginBottom: '16px'
             }}>
                 <h4 style={{
                     margin: '0 0 30px 0',
@@ -168,8 +168,8 @@ const RawMaterialSourceSection = () => {
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: formData.rawMaterialType === 'Water Source' ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr',
-                        gap: '24px',
-                        marginBottom: '30px'
+                        gap: '16px',
+                        marginBottom: '16px'
                     }}>
                         <div>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#8c9fb1', marginBottom: '12px' }}>Raw Material Type</label>
@@ -181,7 +181,7 @@ const RawMaterialSourceSection = () => {
                                     required
                                     style={{
                                         width: '100%',
-                                        height: '48px',
+                                        height: '40px',
                                         padding: '0 40px 0 16px',
                                         borderRadius: '12px',
                                         border: '1px solid #ebf0f5',
@@ -336,35 +336,35 @@ const RawMaterialSourceSection = () => {
             </div>
 
             {/* List Section */}
-            <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Raw Material</th>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Source/Supplier</th>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Approval Ref.</th>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Validity</th>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Status</th>
-                            <th style={{ padding: '16px', fontSize: '13px', fontWeight: '600', color: '#64748b', textAlign: 'center' }}>Actions</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Raw Material</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Source/Supplier</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Approval Ref.</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Validity</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Status</th>
+                            <th style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#64748b', textAlign: 'center' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {entries.length === 0 ? (
                             <tr>
-                                <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>No entries found. Add a source above.</td>
+                                <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>No entries found. Add a source above.</td>
                             </tr>
                         ) : (
                             entries.map((entry) => (
                                 <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                    <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500', color: '#0f172a' }}>{entry.rawMaterialType}</td>
-                                    <td style={{ padding: '16px', fontSize: '14px', color: '#475569' }}>{entry.source}</td>
-                                    <td style={{ padding: '16px', fontSize: '14px', color: '#475569' }}>{entry.approvalReference}</td>
-                                    <td style={{ padding: '16px', fontSize: '13px', color: '#475569' }}>
+                                    <td style={{ padding: '10px 16px', fontSize: '14px', fontWeight: '500', color: '#0f172a' }}>{entry.rawMaterialType}</td>
+                                    <td style={{ padding: '10px 16px', fontSize: '14px', color: '#475569' }}>{entry.source}</td>
+                                    <td style={{ padding: '10px 16px', fontSize: '14px', color: '#475569' }}>{entry.approvalReference}</td>
+                                    <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>
                                         {entry.rawMaterialType === 'Water Source'
                                             ? <span style={{ color: '#94a3b8' }}>—</span>
                                             : <>{entry.validityFrom} <span style={{ color: '#94a3b8' }}>to</span> {entry.validityTo}</>}
                                     </td>
-                                    <td style={{ padding: '16px' }}>
+                                    <td style={{ padding: '10px 16px' }}>
                                         <span style={{
                                             display: 'inline-flex',
                                             alignItems: 'center',
@@ -380,7 +380,7 @@ const RawMaterialSourceSection = () => {
                                             {entry.status}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '16px', textAlign: 'center' }}>
+                                    <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                             <button
                                                 onClick={() => handleEdit(entry)}
@@ -425,7 +425,7 @@ const RawMaterialSourceSection = () => {
                 </table>
             </div>
 
-            <div style={{ marginTop: '24px', textAlign: 'right', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
+            <div style={{ marginTop: '16px', textAlign: 'right', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
                 * New entries are set to 'Pending for verification' by default. Verified & Locked entries cannot be modified or deleted.
             </div>
         </div>
