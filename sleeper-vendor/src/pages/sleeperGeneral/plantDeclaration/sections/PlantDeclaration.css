@@ -15,14 +15,14 @@
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .summary-card {
   background: white;
-  padding: 24px;
-  border-radius: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -88,15 +88,15 @@
 /* Form Section Styling */
 .form-section-card {
   background: #ffffff;
-  padding: 32px;
-  border-radius: 20px;
+  padding: 20px;
+  border-radius: 12px;
   border: 1px solid #f1f5f9;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03);
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .form-title-h4 {
-  margin: 0 0 28px 0;
+  margin: 0 0 16px 0;
   color: #1e293b;
   font-size: 18px;
   font-weight: 700;
@@ -115,7 +115,7 @@
 .section-divider {
   height: 1px;
   background: linear-gradient(to right, transparent, #e2e8f0, transparent);
-  margin: 40px -32px;
+  margin: 24px -20px;
   border: none;
 }
 
@@ -123,7 +123,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   padding: 12px 16px;
   background: #f8fafc;
   border-radius: 12px;
@@ -176,16 +176,16 @@
 .row-grid-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .row-grid-mixed {
   display: grid;
   grid-template-columns: 2fr 1fr 2fr 1.5fr;
-  gap: 20px;
+  gap: 14px;
   align-items: flex-end;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .input-label {
@@ -193,14 +193,14 @@
   font-size: 13px;
   font-weight: 600;
   color: #64748b;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   text-transform: none;
 }
 
 .image-style-select, .image-style-input {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 12px;
   border-radius: 12px;
   border: 1.5px solid #e2e8f0;
   background-color: #fff;
@@ -262,7 +262,7 @@
   background: #f1f5f9;
   padding: 4px;
   border-radius: 12px;
-  height: 48px;
+  height: 40px;
   overflow: hidden;
 }
 
@@ -303,7 +303,7 @@
   background: linear-gradient(135deg, var(--primary-color), #2d6a74);
   color: white;
   border: none;
-  padding: 14px 32px;
+  padding: 10px 24px;
   border-radius: 12px;
   font-size: 15px;
   font-weight: 700;
@@ -330,7 +330,7 @@
 /* Table Styling */
 .table-container {
   overflow-x: auto;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
   background: white;
   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
@@ -344,7 +344,7 @@
 
 .modern-table th {
   background: #f8fafc;
-  padding: 16px 20px;
+  padding: 10px 16px;
   font-size: 11px;
   font-weight: 800;
   color: #64748b;
@@ -355,7 +355,7 @@
 }
 
 .modern-table td {
-  padding: 16px 20px;
+  padding: 10px 16px;
   font-size: 14px;
   color: #334155;
   border-bottom: 1px solid #f8fafc;
@@ -424,12 +424,12 @@
 
 .turnout-info-bar {
   background: #f0f9fa;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   border-left: 5px solid var(--primary-color);
   display: flex;
   align-items: center;
@@ -439,9 +439,9 @@
 .turnout-table-wrapper {
   background: white;
   border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 

@@ -554,7 +554,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '60px 16px', color: '#64748b' }}>
+                                <td colSpan={8} style={{ textAlign: 'center', padding: '40px 16px', color: '#64748b' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                                         <Loader2 size={36} className="spin-animation" style={{ color: '#2563eb' }} />
                                         <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
@@ -917,7 +917,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                 }}>
                     <div style={{
                         background: '#ffffff',
-                        borderRadius: '20px',
+                        borderRadius: '16px',
                         maxWidth: '540px',
                         width: '100%',
                         boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.06)',
@@ -927,7 +927,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                     }}>
                         {/* Modal Header */}
                         <div style={{
-                            padding: '20px 24px 18px',
+                            padding: '14px 18px 12px',
                             borderBottom: '1px solid #e0f2fe',
                             display: 'flex',
                             alignItems: 'center',
@@ -981,7 +981,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                         </div>
 
                         {/* Modal Body */}
-                        <div style={{ padding: '22px 24px 18px', fontSize: '13.5px', color: '#334155' }}>
+                        <div style={{ padding: '16px 18px 14px', fontSize: '13.5px', color: '#334155' }}>
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1003,9 +1003,9 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                             <div style={{
                                 background: 'linear-gradient(180deg, #fafbfd 0%, #f4f6fa 100%)',
                                 border: '1px solid #e2e8f0',
-                                borderRadius: '16px',
-                                padding: '16px 18px',
-                                marginBottom: '16px',
+                                borderRadius: '12px',
+                                padding: '12px 14px',
+                                marginBottom: '12px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '12px',
@@ -1183,7 +1183,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
 
                         {/* Modal Footer */}
                         <div style={{
-                            padding: '16px 24px 20px',
+                            padding: '12px 18px 14px',
                             background: '#f8fafc',
                             borderTop: '1px solid #e2e8f0',
                             display: 'flex',
@@ -1258,7 +1258,7 @@ const PaymentDetailsDashboard = ({ plantId: propPlantId, vendorCode: propVendorC
                     }}>
                         {/* Modal Header */}
                         <div style={{
-                            padding: '16px 24px',
+                            padding: '12px 18px',
                             borderBottom: '1px solid #e2e8f0',
                             display: 'flex',
                             alignItems: 'center',

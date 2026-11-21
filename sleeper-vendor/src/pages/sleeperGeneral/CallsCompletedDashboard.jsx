@@ -705,7 +705,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     }
 
     return (
-        <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', fontFamily: '"Inter", -apple-system, sans-serif' }}>
+        <div style={{ padding: '16px', maxWidth: '1400px', margin: '0 auto', fontFamily: '"Inter", -apple-system, sans-serif' }}>
             <style>{`
                 @keyframes pulse {
                     0% { opacity: 1; }
@@ -735,7 +735,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             )}
 
             {/* Header with Title & Search */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>Completed Calls</h1>
                     <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>View and manage your completed inspection requests and download certificates</p>
@@ -771,7 +771,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             </div>
 
             {error ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: '#fef2f2', borderRadius: '16px', border: '1px solid #fee2e2', color: '#991b1b' }}>
+                <div style={{ padding: '24px', textAlign: 'center', background: '#fef2f2', borderRadius: '12px', border: '1px solid #fee2e2', color: '#991b1b' }}>
                     <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
                         <AlertCircleIcon size={48} color="#dc2626" />
                     </div>
@@ -780,7 +780,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     <button onClick={fetchCompletedCalls} style={{ marginTop: '16px', padding: '8px 24px', borderRadius: '8px', background: '#991b1b', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Retry</button>
                 </div>
             ) : filteredCalls.length === 0 ? (
-                <div style={{ padding: '100px 0', textAlign: 'center', background: '#fff', borderRadius: '24px', border: '1px dashed #e2e8f0', color: '#94a3b8' }}>
+                <div style={{ padding: '48px 0', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px dashed #e2e8f0', color: '#94a3b8' }}>
                     <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
                         <ClipboardListIcon size={64} color="#94a3b8" />
                     </div>
@@ -788,16 +788,16 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     <p style={{ marginTop: '4px' }}>{search ? "No calls match your search criteria." : "Completed inspection calls and certificates will appear here."}</p>
                 </div>
             ) : (
-                <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 20px -4px rgba(0,0,0,0.05)' }}>
+                <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 20px -4px rgba(0,0,0,0.05)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#fcf8ee', borderBottom: '1px solid #f2e9d8' }}>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Call Details</th>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PO Reference</th>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Item Details</th>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>IC Number & Date</th>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
-                                <th style={{ padding: '16px 20px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Call Details</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PO Reference</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Item Details</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>IC Number & Date</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -819,7 +819,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                     >
                                         {/* 1. Call Details */}
-                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #dbeafe' }}>
                                                     <FileTextIcon size={17} color="#2563eb" />
@@ -834,14 +834,14 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         </td>
 
                                         {/* 2. PO Reference */}
-                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                                                 {formatPoSrNo(call)}
                                             </div>
                                         </td>
 
                                         {/* 3. Item & Quantities */}
-                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '13px' }}>{sleeperItem}</div>
                                             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                 <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '5px', fontWeight: 600 }}>Off: {offeredQuantity.toLocaleString()}</span>
@@ -852,7 +852,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         </td>
 
                                         {/* 4. IC Number & IC Date */}
-                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             {icNumber ? (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #d1fae5' }}>
@@ -877,7 +877,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         </td>
 
                                         {/* 5. Status */}
-                                        <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             <div style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 padding: '5px 12px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700,
@@ -890,7 +890,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         </td>
 
                                         {/* 6. Action */}
-                                        <td style={{ padding: '16px 20px', textAlign: 'right', verticalAlign: 'middle' }}>
+                                        <td style={{ padding: '10px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
                                             <button
                                                 onClick={() => handleViewActions(call)}
                                                 style={{
@@ -915,7 +915,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     {/* Pagination Controls */}
                     {filteredCalls.length > 0 && (
                         <div style={{
-                            padding: '16px 24px', background: '#f8fafc',
+                            padding: '10px 16px', background: '#f8fafc',
                             borderTop: '1px solid #e2e8f0',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             fontSize: '13px', color: '#64748b', flexWrap: 'wrap', gap: '12px'
@@ -990,7 +990,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     <div 
                         style={{
                             background: '#fff', 
-                            borderRadius: '24px', 
+                            borderRadius: '16px', 
                             width: showIcPreview ? '96vw' : '640px',
                             maxWidth: showIcPreview ? '1280px' : '640px',
                             height: showIcPreview ? '92vh' : 'auto',
@@ -1114,7 +1114,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                             <div>
                                 {/* Modal Header */}
                                 <div style={{
-                                    padding: '20px 24px', borderBottom: '1px solid #f1f5f9',
+                                    padding: '14px 18px', borderBottom: '1px solid #f1f5f9',
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     background: '#f8fafc'
                                 }}>
@@ -1150,10 +1150,10 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                 </div>
 
                                 {/* Call Details Summary Box */}
-                                <div style={{ padding: '20px 24px' }}>
+                                <div style={{ padding: '16px 18px' }}>
                                     <div style={{
-                                        background: '#fcf8ee', border: '1px solid #fef3c7', borderRadius: '16px',
-                                        padding: '16px', marginBottom: '20px'
+                                        background: '#fcf8ee', border: '1px solid #fef3c7', borderRadius: '12px',
+                                        padding: '12px 14px', marginBottom: '14px'
                                     }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
                                             <div>
@@ -1189,7 +1189,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                         <div style={{
                                             padding: '12px 16px', background: '#fef2f2', border: '1px solid #fee2e2',
                                             borderRadius: '12px', color: '#991b1b', fontSize: '13px', display: 'flex',
-                                            alignItems: 'center', gap: '10px', marginBottom: '20px'
+                                            alignItems: 'center', gap: '10px', marginBottom: '14px'
                                         }}>
                                             <AlertCircleIcon size={18} color="#dc2626" />
                                             <span>{icError}</span>
@@ -1203,15 +1203,15 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 Inspection Certificate (IC) & Annexures Actions
                                             </div>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
                                         {/* Card 1: See / Preview IC */}
                                         <div
                                             onClick={() => !icLoading && handlePreviewIC(actionCall)}
                                             style={{
                                                 background: '#f8fafc',
                                                 border: '1.5px solid #e2e8f0',
-                                                borderRadius: '18px',
-                                                padding: '20px',
+                                                borderRadius: '12px',
+                                                padding: '14px',
                                                 cursor: icLoading ? 'wait' : 'pointer',
                                                 display: 'flex',
                                                 flexDirection: 'column',
@@ -1236,9 +1236,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 }
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                                                 <div style={{
-                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    width: '40px', height: '40px', borderRadius: '12px',
                                                     background: '#dbeafe', color: '#1d4ed8',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     flexShrink: 0
@@ -1254,7 +1254,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
                                                 Open and review the official e-signed Inspection Certificate directly inside the browser.
                                             </p>
                                             <button
@@ -1285,8 +1285,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             style={{
                                                 background: '#f8fafc',
                                                 border: '1.5px solid #e2e8f0',
-                                                borderRadius: '18px',
-                                                padding: '20px',
+                                                borderRadius: '12px',
+                                                padding: '14px',
                                                 cursor: annexuresDownloading ? 'wait' : 'pointer',
                                                 display: 'flex',
                                                 flexDirection: 'column',
@@ -1311,9 +1311,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 }
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                                                 <div style={{
-                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    width: '40px', height: '40px', borderRadius: '12px',
                                                     background: '#ede9fe', color: '#7c3aed',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     flexShrink: 0
@@ -1329,7 +1329,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
                                                 Download the official batch-wise inspection statement, accepted/rejection metrics and test annexures.
                                             </p>
                                             <button
@@ -1360,8 +1360,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             style={{
                                                 background: '#f8fafc',
                                                 border: '1.5px solid #e2e8f0',
-                                                borderRadius: '18px',
-                                                padding: '20px',
+                                                borderRadius: '12px',
+                                                padding: '14px',
                                                 cursor: icDownloading ? 'wait' : 'pointer',
                                                 display: 'flex',
                                                 flexDirection: 'column',
@@ -1386,9 +1386,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 }
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                                                 <div style={{
-                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    width: '40px', height: '40px', borderRadius: '12px',
                                                     background: '#d1fae5', color: '#047857',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     flexShrink: 0
@@ -1404,7 +1404,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
                                                 Download the verified e-signed Inspection Certificate PDF file directly to your computer.
                                             </p>
                                             <button
@@ -1435,8 +1435,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             style={{
                                                 background: '#f8fafc',
                                                 border: '1.5px solid #e2e8f0',
-                                                borderRadius: '18px',
-                                                padding: '20px',
+                                                borderRadius: '12px',
+                                                padding: '14px',
                                                 cursor: mergedDownloading ? 'wait' : 'pointer',
                                                 display: 'flex',
                                                 flexDirection: 'column',
@@ -1461,9 +1461,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 }
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                                                 <div style={{
-                                                    width: '46px', height: '46px', borderRadius: '14px',
+                                                    width: '40px', height: '40px', borderRadius: '12px',
                                                     background: '#ccfbf1', color: '#0f766e',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     flexShrink: 0
@@ -1479,7 +1479,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
                                                 Download the unified PDF containing original IC and all issued correction slips.
                                             </p>
                                             <button
@@ -1525,7 +1525,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
                                 {/* Modal Footer */}
                                 <div style={{
-                                    padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9',
+                                    padding: '12px 18px', background: '#f8fafc', borderTop: '1px solid #f1f5f9',
                                     display: 'flex', justifyContent: 'flex-end', gap: '10px'
                                 }}>
                                     <button

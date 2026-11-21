@@ -187,7 +187,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                 {/* ── Header ── */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0d3b3f 0%, #21808d 100%)',
-                    padding: '18px 24px 0', flexShrink: 0
+                    padding: '14px 18px 0', flexShrink: 0
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div>
@@ -264,7 +264,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                 </div>
 
                 {/* ── Body ── */}
-                <div style={{ overflowY: 'auto', flex: 1, padding: '22px 24px' }}>
+                <div style={{ overflowY: 'auto', flex: 1, padding: '16px 18px' }}>
 
                     {/* TAB: Details & History */}
                     {activeTab === 'details' && (
@@ -273,7 +273,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {isReturned && call.returnReason && (
                                 <div style={{
                                     background: '#fff7ed', border: '1.5px solid #fed7aa',
-                                    borderRadius: 10, padding: '12px 16px', marginBottom: 18,
+                                    borderRadius: 10, padding: '12px 16px', marginBottom: 14,
                                     display: 'flex', gap: 10, alignItems: 'flex-start'
                                 }}>
                                     <span style={{ fontSize: 18, flexShrink: 0 }}>↩️</span>
@@ -288,7 +288,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {call.ieName && (
                                 <div style={{
                                     background: '#f0fdf4', border: '1px solid #bbf7d0',
-                                    borderRadius: 10, padding: '12px 16px', marginBottom: 18,
+                                    borderRadius: 10, padding: '12px 16px', marginBottom: 14,
                                     display: 'flex', gap: 20, flexWrap: 'wrap'
                                 }}>
                                     <div>
@@ -351,11 +351,11 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
 
                     {/* TAB: Actions */}
                     {activeTab === 'actions' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
                             {/* Download Call Letter — always available */}
                             <div style={{
-                                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '16px 18px',
+                                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '12px 14px',
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
                             }}>
                                 <div>
@@ -376,7 +376,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
 
                             {/* Download Sleeper Offer List — added as requested */}
                             <div style={{
-                                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '16px 18px',
+                                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '12px 14px',
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
                             }}>
                                 <div>
@@ -398,7 +398,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {/* Resubmit — only when Returned by Call Desk */}
                             {isReturned && (
                                 <div style={{
-                                    border: '1.5px solid #fed7aa', borderRadius: 12, padding: '16px 18px',
+                                    border: '1.5px solid #fed7aa', borderRadius: 12, padding: '12px 14px',
                                     background: '#fff9f5',
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
                                 }}>
@@ -423,7 +423,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {canModify && (
                                 <div style={{
                                     border: `1.5px solid ${cfg.needsWorkflow ? '#fde68a' : '#bfdbfe'}`,
-                                    borderRadius: 12, padding: '16px 18px',
+                                    borderRadius: 12, padding: '12px 14px',
                                     background: cfg.needsWorkflow ? '#fefce8' : '#eff6ff',
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
                                 }}>
@@ -453,7 +453,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {canWithdraw && (
                                 <div style={{
                                     border: `1.5px solid ${cfg.needsWorkflow ? '#fde68a' : '#fca5a5'}`,
-                                    borderRadius: 12, padding: '16px 18px',
+                                    borderRadius: 12, padding: '12px 14px',
                                     background: cfg.needsWorkflow ? '#fefce8' : '#fff5f5',
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
                                 }}>
@@ -481,7 +481,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                             {/* Locked / Restricted state */}
                             {(!canModify && !canWithdraw && !isReturned) && (
                                 <div style={{
-                                    border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '24px 18px',
+                                    border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '16px 14px',
                                     background: '#f8fafc', textAlign: 'center'
                                 }}>
                                     <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
@@ -537,7 +537,7 @@ const WorkflowModal = ({ call, actionType, onConfirm, onClose }) => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>×</button>
                 </div>
-                <div style={{ padding: '20px 24px' }}>
+                <div style={{ padding: '16px 18px' }}>
                     <div style={{
                         background: '#fef9ec', border: '1px solid #fde68a',
                         borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#8a5700'
@@ -596,7 +596,7 @@ const WithdrawSimpleModal = ({ call, onConfirm, onClose }) => {
                 background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420,
                 boxShadow: '0 20px 48px rgba(0,0,0,0.22)', overflow: 'hidden'
             }}>
-                <div style={{ padding: '24px 26px' }}>
+                <div style={{ padding: '18px 20px' }}>
                     <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
                     <h3 style={{ margin: '0 0 8px', textAlign: 'center', color: '#0f172a', fontWeight: 800 }}>Withdraw Call?</h3>
                     <p style={{ margin: '0 0 20px', textAlign: 'center', fontSize: 13, color: '#64748b' }}>
@@ -961,7 +961,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     return (
         <div className="fade-in">
             {/* ── Page Header ── */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                 <div>
                     <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: 22, fontWeight: 800 }}>
                         Inspection Calls — Requested
@@ -1009,7 +1009,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
                 {filtered.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>No calls with status "{filterStatus}"</div>
                         <div style={{ fontSize: 12, marginTop: 4 }}>Try selecting a different filter above.</div>
@@ -1021,7 +1021,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                 <tr style={{ background: '#fdf8e6', borderBottom: '2px solid #e2e8f0' }}>
                                     {['Call Details', 'PO Reference', 'Sleeper Info', 'IE / Schedule', 'Status', 'Action'].map(h => (
                                         <th key={h} style={{
-                                            padding: '12px 16px', fontSize: 10, fontWeight: 800,
+                                            padding: '10px 16px', fontSize: 10, fontWeight: 800,
                                             color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em',
                                             whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0',
                                             textAlign: h === 'Action' ? 'center' : 'left'
@@ -1042,7 +1042,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                             }}
                                         >
                                             {/* Call Details */}
-                                            <td style={{ padding: '14px 16px' }}>
+                                            <td style={{ padding: '10px 16px' }}>
                                                 <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{call.callNo}</div>
                                                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Raised: {call.callDate}</div>
                                                 {isReturned && call.returnReason && (
@@ -1057,20 +1057,20 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                             </td>
 
                                             {/* PO Reference */}
-                                            <td style={{ padding: '14px 16px' }}>
+                                            <td style={{ padding: '10px 16px' }}>
                                                 <div style={{ fontWeight: 600, fontSize: 12, color: '#334155' }}>{call.poNo}</div>
                                                 <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>SR. No. {call.srNo}</div>
                                             </td>
 
                                             {/* Sleeper Info */}
-                                            <td style={{ padding: '14px 16px' }}>
+                                            <td style={{ padding: '10px 16px' }}>
                                                 <div style={{ fontWeight: 700, fontSize: 12, color: '#7c3aed' }}>{call.sleeperType}</div>
                                                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{(Number(call.qtyOffered) || 0).toLocaleString()} {getCallUom(call)}</div>
                                                 <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{call.batches} batch{call.batches !== 1 ? 'es' : ''}</div>
                                             </td>
 
                                             {/* IE / Schedule */}
-                                            <td style={{ padding: '14px 16px' }}>
+                                            <td style={{ padding: '10px 16px' }}>
                                                 {call.ieName ? (
                                                     <>
                                                         <div style={{ fontSize: 11, fontWeight: 600, color: '#15803d' }}>👷 {call.ieName}</div>
@@ -1084,12 +1084,12 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                             </td>
 
                                             {/* Status */}
-                                            <td style={{ padding: '14px 16px', minWidth: 200 }}>
+                                            <td style={{ padding: '10px 16px', minWidth: 200 }}>
                                                 <StatusBadge status={call.status} scheduledDate={call.scheduledDate} />
                                             </td>
 
                                             {/* Action */}
-                                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                            <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => setSelectedCall(call)}
                                                     style={{

@@ -105,9 +105,9 @@ const VendorEditRequest = () => {
             '10': { id: 'dowel', name: 'Dowel' }
         };
         return (
-            <div style={{ padding: '20px' }}>
-                <h2 style={{ marginBottom: '20px', color: '#1e293b' }}>Edit {moduleName} Request</h2>
-                <div style={{ background: 'white', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '16px' }}>
+                <h2 style={{ marginBottom: '14px', color: '#1e293b' }}>Edit {moduleName} Request</h2>
+                <div style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                     <InventoryForm 
                         material={materials[moduleId]} 
                         initialData={formData} 
@@ -122,7 +122,7 @@ const VendorEditRequest = () => {
     // Use ShiftProductionForm for module 11
     if (moduleId === '11') {
         return (
-            <div style={{ padding: '20px' }}>
+            <div style={{ padding: '16px' }}>
                 <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading form…</div>}>
                 <ShiftProductionForm 
                     initialData={formData} 
@@ -140,8 +140,8 @@ const VendorEditRequest = () => {
 
     // Generic fallback for modules 1-4 (Plant Profile, etc.)
     return (
-        <div style={{ padding: '40px', maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div>
                     <h1 style={{ margin: '0 0 8px 0', color: '#1e293b', fontSize: '28px', fontWeight: '800' }}>Edit {moduleName}</h1>
                     <p style={{ margin: 0, color: '#64748b' }}>Update the details below and resubmit for verification</p>
@@ -154,7 +154,7 @@ const VendorEditRequest = () => {
                 </button>
             </div>
 
-            <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
                 <form onSubmit={async (e) => {
                     e.preventDefault();
                     setSubmitting(true);
@@ -174,7 +174,7 @@ const VendorEditRequest = () => {
                         setSubmitting(false);
                     }
                 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                         {Object.entries(formData).map(([key, value]) => {
                             if (['id', 'vendorId', 'createdBy', 'updatedBy', 'workflowTransitionId', 'moduleId', 'requestId', 'updatedDate', 'createdAt', 'updatedAt', 'version', 'status'].includes(key)) return null;
                             if (typeof value === 'object') return null;

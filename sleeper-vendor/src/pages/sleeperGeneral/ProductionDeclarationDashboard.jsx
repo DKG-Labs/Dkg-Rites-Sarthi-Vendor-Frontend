@@ -61,7 +61,7 @@ const pulse = {
 const SkeletonRow = () => (
     <tr data-testid="skeleton-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
         {[140, 90, 80, 80, 80, 110, 100].map((w, i) => (
-            <td key={i} style={{ padding: '18px 20px' }}>
+            <td key={i} style={{ padding: '12px 16px' }}>
                 <div style={{ ...pulse, height: '14px', width: `${w}px` }} />
             </td>
         ))}
@@ -69,7 +69,7 @@ const SkeletonRow = () => (
 );
 
 const StatCardSkeleton = () => (
-    <div data-testid="stat-skeleton" style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+    <div data-testid="stat-skeleton" style={{ background: 'white', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
         <div style={{ ...pulse, height: '11px', width: '140px', marginBottom: '10px' }} />
         <div style={{ ...pulse, height: '10px', width: '90px', marginBottom: '14px' }} />
         <div style={{ ...pulse, height: '28px', width: '120px' }} />
@@ -80,7 +80,7 @@ const FormSkeleton = () => (
     <div data-testid="form-skeleton" style={{ display: 'grid', gap: '16px' }}>
         <div style={{ ...pulse, height: '28px', width: '260px' }} />
         {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '20px', display: 'grid', gap: '12px' }}>
+            <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '14px', display: 'grid', gap: '10px' }}>
                 <div style={{ ...pulse, height: '14px', width: '180px' }} />
                 <div style={{ ...pulse, height: '36px', width: '100%' }} />
             </div>
@@ -89,7 +89,7 @@ const FormSkeleton = () => (
 );
 
 const TABLE_HEADERS = ['Date & Shift', 'Line/Shed No.', 'Batch No.', 'Total Casted', 'Type', 'Status', 'Actions'];
-const thStyle = (h) => ({ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b', ...(h === 'Actions' ? { textAlign: 'center' } : {}) });
+const thStyle = (h) => ({ padding: '10px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', ...(h === 'Actions' ? { textAlign: 'center' } : {}) });
 
 const getStatusStyle = (status) => (isVerifiedStatus(status)
     ? { background: '#f0fdf4', color: '#166534' }
@@ -258,7 +258,7 @@ const ProductionDeclarationDashboard = () => {
 
     const renderEmpty = (icon, message) => (
         <tr>
-            <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+            <td colSpan="7" style={{ padding: '28px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
                 <div style={{ fontSize: '32px', marginBottom: '12px' }}>{search ? '🔍' : icon}</div>
                 {search ? (
                     <>
@@ -278,7 +278,7 @@ const ProductionDeclarationDashboard = () => {
         if (tableError) {
             return (
                 <tr>
-                    <td colSpan="7" style={{ padding: '40px', textAlign: 'center' }}>
+                    <td colSpan="7" style={{ padding: '28px', textAlign: 'center' }}>
                         <p style={{ color: '#ef4444', fontWeight: '600', marginBottom: '16px' }}>Failed to load production declarations for this range.</p>
                         <button type="button" onClick={() => rangeQuery.revalidate()}
                             style={{ background: '#42818c', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
@@ -291,15 +291,15 @@ const ProductionDeclarationDashboard = () => {
         if (list.length === 0) return renderEmpty(emptyIcon, emptyMessage);
         return pagination.pageItems.map((item, index) => (
             <tr key={item.id || index} style={{ borderBottom: index === pagination.pageItems.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
+                <td style={{ padding: '10px 16px', fontSize: '14px', color: '#334155' }}>
                     <div style={{ fontWeight: '600' }}>{item.castingDate}</div>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>{item.shift}</div>
                 </td>
-                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>{item.productionUnit}</td>
-                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '700' }}>{item.batchNumber}</td>
-                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>{item.totalCastedSleepers}</td>
-                <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{item.plantType}</td>
-                <td style={{ padding: '16px 20px', fontSize: '14px' }}>
+                <td style={{ padding: '10px 16px', fontSize: '14px', color: '#334155' }}>{item.productionUnit}</td>
+                <td style={{ padding: '10px 16px', fontSize: '14px', color: '#334155', fontWeight: '700' }}>{item.batchNumber}</td>
+                <td style={{ padding: '10px 16px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>{item.totalCastedSleepers}</td>
+                <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{item.plantType}</td>
+                <td style={{ padding: '10px 16px', fontSize: '14px' }}>
                     <span style={{
                         ...getStatusStyle(item.status),
                         padding: '4px 10px',
@@ -310,7 +310,7 @@ const ProductionDeclarationDashboard = () => {
                         {getStatusLabel(item.status).toUpperCase()}
                     </span>
                 </td>
-                <td style={{ padding: '16px 20px' }}>
+                <td style={{ padding: '10px 16px' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>{renderActions(item)}</div>
                 </td>
             </tr>
@@ -319,7 +319,7 @@ const ProductionDeclarationDashboard = () => {
 
     const renderTable = (pagination, list, emptyIcon, emptyMessage, renderActions) => (
         <div className="fade-in">
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 20px -10px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 20px -10px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                         <tr>{TABLE_HEADERS.map((h) => <th key={h} style={thStyle(h)}>{h}</th>)}</tr>
@@ -368,11 +368,11 @@ const ProductionDeclarationDashboard = () => {
     );
 
     const statCard = (style, icon, title, titleColor, subtitle, value) => (
-        <div style={{ padding: '24px', borderRadius: '20px', position: 'relative', overflow: 'hidden', ...style }}>
+        <div style={{ padding: '12px 16px', borderRadius: '12px', position: 'relative', overflow: 'hidden', ...style }}>
             <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '60px', opacity: 0.05, transform: 'rotate(-15deg)' }}>{icon}</div>
-            <p style={{ margin: '0 0 8px 0', color: titleColor, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}</p>
-            <p style={{ margin: '0 0 4px 0', color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>{subtitle}</p>
-            <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900' }}>{value}</h2>
+            <p style={{ margin: '0 0 2px 0', color: titleColor, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1.4 }}>{title}</p>
+            <p style={{ margin: '0 0 2px 0', color: '#94a3b8', fontSize: '10px', fontWeight: '600', lineHeight: 1.4 }}>{subtitle}</p>
+            <h2 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '900', lineHeight: 1.2 }}>{value}</h2>
         </div>
     );
 
@@ -381,7 +381,7 @@ const ProductionDeclarationDashboard = () => {
             {skeletonStyles}
 
             {/* Statistical Summary Bar (selected date range) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
                 {pageLoading || tableLoading ? (
                     <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
                 ) : (
@@ -405,7 +405,7 @@ const ProductionDeclarationDashboard = () => {
             </div>
 
             {/* Header: title + refreshing indicator | search + add button */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h3 style={{ margin: 0, color: '#1e293b', fontWeight: '700' }}>Production Declaration Dashboard</h3>
                     {refreshing && !pageLoading && (
@@ -453,7 +453,7 @@ const ProductionDeclarationDashboard = () => {
 
             {/* Skeleton / Error / Content */}
             {pageLoading ? (
-                <div style={{ display: 'grid', gap: '24px' }}>
+                <div style={{ display: 'grid', gap: '16px' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                         {/* Tab switcher skeleton */}
                         <div style={{ display: 'flex', background: '#f1f5f9', padding: '6px', borderRadius: '14px', width: 'fit-content', gap: '4px' }}>
@@ -464,11 +464,11 @@ const ProductionDeclarationDashboard = () => {
                         <DateRangeFilter value={range} onChange={changeRange} presets={PD_CONFIG.presetDays} maxDate={today} />
                     </div>
                     {/* Skeleton table */}
-                    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                 <tr>{TABLE_HEADERS.map(h => (
-                                    <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: '600', color: '#64748b', textAlign: 'left' }}>{h}</th>
+                                    <th key={h} style={{ padding: '10px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textAlign: 'left' }}>{h}</th>
                                 ))}</tr>
                             </thead>
                             <tbody>
@@ -491,7 +491,7 @@ const ProductionDeclarationDashboard = () => {
                     </button>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gap: '24px' }}>
+                <div style={{ display: 'grid', gap: '16px' }}>
 
                     {/* Tab switcher | date range filter */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '8px' }}>

@@ -87,31 +87,29 @@ const InventoryManagementDashboard = () => {
     }, [selectedMaterial]);
 
     return (
-        <div className="inventory-dashboard fade-in" style={{ padding: '20px' }}>
-            <div style={{ marginBottom: '16px' }}>
-                <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Inventory Overview</h2>
+        <div className="inventory-dashboard fade-in" style={{ padding: '0 16px 16px' }}>
+            <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ margin: '0 0 2px 0', fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Inventory Overview</h2>
                 <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Select a material to view details and manage stock</p>
             </div>
 
             {/* Horizontal Row of Material Cards */}
             <div style={{
-                display: 'flex',
-                gap: '12px',
-                padding: '10px 4px 20px 4px',
-                flexWrap: 'wrap',
-                justifyContent: 'flex-start'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: '10px',
+                padding: '4px 4px 12px 4px'
             }}>
                 {materials.map(material => (
                     <div
                         key={material.id}
                         onClick={() => setSelectedMaterial(selectedMaterial?.id === material.id ? null : material)}
                         style={{
-                            minWidth: '180px',
-                            flex: '1 1 180px',
-                            maxWidth: '220px',
+                            minWidth: 0,
+                            boxSizing: 'border-box',
                             background: selectedMaterial?.id === material.id ? '#f0f9ff' : 'white',
-                            borderRadius: '16px',
-                            padding: '12px',
+                            borderRadius: '12px',
+                            padding: '10px 12px',
                             cursor: 'pointer',
                             transition: 'all 0.3s ease',
                             border: `2px solid ${selectedMaterial?.id === material.id ? '#0ea5e9' : '#e2e8f0'}`,
@@ -142,21 +140,22 @@ const InventoryManagementDashboard = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '20px'
+                            fontSize: '20px',
+                            flexShrink: 0
                         }}>
                             {material.icon}
                         </div>
 
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
+                        <div style={{ flex: 1, minWidth: 0, lineHeight: '1.3' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                                <h3 title={material.name} style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {material.name}
                                 </h3>
                                 {material.alerts.length > 0 && (
-                                    <span title={material.alerts.join(', ')} style={{ color: '#ef4444', fontSize: '14px' }}>⚠️</span>
+                                    <span title={material.alerts.join(', ')} style={{ color: '#ef4444', fontSize: '14px', flexShrink: 0 }}>⚠️</span>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '2px' }}>
                                 <span style={{ fontSize: '18px', fontWeight: '800', color: '#0369a1' }}>
                                     {material.quantity.toLocaleString()}
                                 </span>
@@ -187,12 +186,11 @@ const InventoryManagementDashboard = () => {
             {/* Detail View Below the Row */}
             {selectedMaterial ? (
                 <div style={{
-                    marginTop: '20px',
-                    padding: '24px',
+                    marginTop: '8px',
+                    padding: '16px',
                     background: '#f8fafc',
-                    borderRadius: '24px',
-                    border: '1px solid #e2e8f0',
-                    minHeight: '400px'
+                    borderRadius: '16px',
+                    border: '1px solid #e2e8f0'
                 }}>
                     <InventoryDetail
                         material={selectedMaterial}
@@ -201,11 +199,11 @@ const InventoryManagementDashboard = () => {
                 </div>
             ) : (
                 <div style={{
-                    marginTop: '20px',
-                    padding: '60px',
+                    marginTop: '8px',
+                    padding: '32px',
                     textAlign: 'center',
                     background: 'white',
-                    borderRadius: '24px',
+                    borderRadius: '16px',
                     border: '2px dashed #e2e8f0',
                     color: '#94a3b8'
                 }}>

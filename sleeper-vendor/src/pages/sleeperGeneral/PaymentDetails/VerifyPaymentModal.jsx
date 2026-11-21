@@ -155,7 +155,7 @@ const VerifyPaymentModal = ({ isOpen, onClose, ibsResult, callRow, onApproved })
         }}>
             <div style={{
                 background: '#ffffff',
-                borderRadius: '22px',
+                borderRadius: '16px',
                 maxWidth: '520px',
                 width: '100%',
                 boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.06)',
@@ -166,7 +166,7 @@ const VerifyPaymentModal = ({ isOpen, onClose, ibsResult, callRow, onApproved })
             }}>
                 {/* Modern Header Banner */}
                 <div style={{
-                    padding: '18px 22px',
+                    padding: '14px 18px',
                     background: sc.headerBg,
                     borderBottom: `1px solid ${sc.headerBorder}`,
                     display: 'flex',
@@ -234,7 +234,7 @@ const VerifyPaymentModal = ({ isOpen, onClose, ibsResult, callRow, onApproved })
                 </div>
 
                 {/* Body Content */}
-                <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ padding: '16px 18px', overflowY: 'auto', flex: 1 }}>
 
                     {/* Scenario: Missing / Pending Parameters */}
                     {isMissingParams ? (

@@ -749,8 +749,8 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
 
             </div>
 
-            <div style={{ background: '#fff', padding: '32px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h4 className="form-title-h4" style={{ margin: 0 }}>
                         Master Declaration Grid
                     </h4>
@@ -826,7 +826,7 @@ const BenchMouldMasterSection = ({ profiles = [] }) => {
                                     </tr>
                                 )
                             }) : (
-                                <tr><td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No entries found</td></tr>
+                                <tr><td colSpan="8" style={{ padding: '28px', textAlign: 'center', color: '#94a3b8' }}>No entries found</td></tr>
                             )}
                         </tbody>
                     </table>

@@ -218,12 +218,12 @@ const VendorDashboard = () => {
     };
 
     return (
-        <div className="dashboard-container" style={{ padding: '0px 24px 24px', background: '#f8fafc', minHeight: '100vh' }}>
+        <div className="dashboard-container" style={{ padding: '0px 20px 20px', background: '#f8fafc', minHeight: '100vh' }}>
             <div style={{
                 background: 'white',
                 borderRadius: '12px',
-                padding: '20px',
-                marginBottom: '24px',
+                padding: '14px',
+                marginBottom: '16px',
                 border: '1px solid #e2e8f0',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
@@ -240,13 +240,13 @@ const VendorDashboard = () => {
                                 background: selectedModule === mod.id ? '#f0f7ff' : '#ffffff',
                                 border: `1px solid ${selectedModule === mod.id ? '#3b82f6' : '#e5e7eb'}`,
                                 borderRadius: '10px',
-                                padding: '10px 14px',
+                                padding: '10px 12px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 display: mod.hidden ? 'none' : 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                minHeight: '85px',
+                                minHeight: '68px',
                                 height: 'auto',
                                 width: '100%',
                                 boxSizing: 'border-box',
@@ -323,6 +323,7 @@ const VendorDashboard = () => {
                                 ) : (
                                     <div style={{
                                         fontSize: '18px',
+                                        lineHeight: '1.2',
                                         background: mod.id === 'calibration-approval' ? '#3b82f6' : 'transparent',
                                         padding: mod.id === 'calibration-approval' ? '6px' : '0',
                                         borderRadius: '4px',
@@ -339,7 +340,7 @@ const VendorDashboard = () => {
                 </div>
             </div>
 
-            <div className="fade-in" style={{ marginTop: '20px' }}>
+            <div className="fade-in" style={{ marginTop: '16px' }}>
                 {renderContent()}
             </div>
         </div>

@@ -43,13 +43,13 @@ const HistoryModal = ({ entryId, onClose }) => {
 
     return createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ background: 'white', borderRadius: '24px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10, borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
+            <div style={{ background: 'white', borderRadius: '16px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10, borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
                     <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Workflow History</h2>
                     <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b', fontSize: '18px' }}>&times;</button>
                 </div>
                 
-                <div style={{ padding: '24px' }}>
+                <div style={{ padding: '16px 20px' }}>
                     {loading && <div style={{ textAlign: 'center', color: '#64748b' }}>Loading history...</div>}
                     {error && <div style={{ textAlign: 'center', color: '#ef4444' }}>{error}</div>}
                     
@@ -58,7 +58,7 @@ const HistoryModal = ({ entryId, onClose }) => {
                     )}
                     
                     {!loading && !error && history.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {history.map((record, index) => (
                                 <div key={index} style={{ display: 'flex', gap: '16px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px', position: 'relative' }}>
                                     <div style={{ position: 'absolute', left: '-7px', top: '0', width: '12px', height: '12px', borderRadius: '50%', background: '#0284c7' }}></div>

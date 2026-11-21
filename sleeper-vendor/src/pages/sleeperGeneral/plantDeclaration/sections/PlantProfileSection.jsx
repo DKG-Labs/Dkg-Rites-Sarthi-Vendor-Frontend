@@ -121,12 +121,12 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
             <h3 style={{ color: '#1e293b', marginBottom: '16px' }}>Plant Profile Declaration</h3>
 
             {/* Form Section - Always visible to maintain layout */}
-            <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+            <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
                 <>
-                    <h4 style={{ marginTop: 0, marginBottom: '20px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: '12px', color: '#475569', fontSize: '14px', borderLeft: '4px solid #42818c', paddingLeft: '12px' }}>
                         {editingId ? 'Modify Plant Profile' : 'Add New Plant Profile'}
                     </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Plant Name & Location</label>
                             <input type="text" disabled value={`${selectedPlant.plantName || ''} - ${selectedPlant.plantId || ''}`} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b' }} />
@@ -163,7 +163,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                         </div>
                     </div>
 
-                    <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                    <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                         <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); handleSave(); }}
@@ -185,8 +185,8 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
             </div>
 
             {/* List Section */}
-            <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h4 style={{ margin: 0, color: '#475569', fontSize: '14px' }}>Added Plant Profiles ({profiles.length})</h4>
                 </div>
 
@@ -203,7 +203,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                         <tbody>
                             {profiles.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                                    <td colSpan="4" style={{ padding: '28px', textAlign: 'center', color: '#94a3b8' }}>
                                         <div style={{ fontSize: '24px', marginBottom: '8px' }}>📋</div>
                                         No profiles added yet. Please use the form above.
                                     </td>
@@ -211,8 +211,8 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                             ) : (
                                 profiles.map(profile => (
                                     <tr key={profile.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                        <td style={{ padding: '16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
-                                        <td style={{ padding: '16px', color: '#475569' }}>
+                                        <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{profile.type}</td>
+                                        <td style={{ padding: '10px 16px', color: '#475569' }}>
                                             {profile.shedsLines} {profile.type === 'Stress Bench' ? 'Sheds' : 'Lines'}
                                             {profile.shedsLines > 0 && (
                                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
@@ -222,7 +222,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ padding: '16px' }}>
+                                        <td style={{ padding: '10px 16px' }}>
                                             <span style={{
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
@@ -236,7 +236,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                                                 {profile.status}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '16px', textAlign: 'right' }}>
+                                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                                 <button
                                                     type="button"
@@ -283,7 +283,7 @@ const PlantProfileSection = ({ profiles, setProfiles, refreshProfiles }) => {
                     </table>
                 </div>
                 {profiles.some(p => p.status === STATUSES.LOCKED) && (
-                    <div style={{ marginTop: '20px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                    <div style={{ marginTop: '14px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#64748b', border: '1px solid #e2e8f0' }}>
                         <strong>Note:</strong> Verified & Locked entries cannot be modified. Contact your IE for unlocking if changes are required.
                     </div>
                 )}
