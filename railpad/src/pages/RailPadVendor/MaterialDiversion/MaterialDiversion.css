@@ -112,3 +112,16 @@
   .md-modal { max-height: 100vh; border-radius: 0; }
   .md-modal-foot .md-btn { flex: 1; }
 }
+
+/* Request details panel (same layout as the ERC diversion screen) */
+.md-btn.danger { background: #dc2626; color: #fff; } .md-btn.danger:disabled { background: #fca5a5; cursor: not-allowed; }
+.md-section { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; }
+.md-section h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #1e40af; }
+.md-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 16px; }
+.md-kv > div { display: grid; gap: 2px; min-width: 0; }
+.md-kv span { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.md-kv strong { font-size: 13.5px; color: #0f172a; overflow-wrap: anywhere; }
+.md-timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid #e2e8f0; display: grid; gap: 10px; }
+.md-timeline li { position: relative; }
+.md-timeline li::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #2563eb; }
+.md-confirm { max-width: 440px; }
