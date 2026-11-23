@@ -2137,6 +2137,16 @@ const NCRGRSPFinalInspectionCall = ({
 
       console.log('Submitting NCRGRSP Final Inspection Call payload:', payload);
 
+      if (isModifyMode && callData) {
+        const prevSets = parseInt(callData.noOfSets || callData.totalQty || callData.offeredQty || 0, 10);
+        const newSets = parseInt(totalSets, 10);
+        if (prevSets > 0 && newSets > 0 && newSets < prevSets) {
+          alert(`❌ Modification not allowed: Call quantity (sets) cannot be decreased.\n\nPrevious sets: ${prevSets}\nEntered sets: ${newSets}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       let res;
       if (onSubmitInspectionCall) {
         res = await onSubmitInspectionCall(payload);

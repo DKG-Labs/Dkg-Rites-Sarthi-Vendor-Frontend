@@ -476,6 +476,31 @@ export const RaiseInspectionCallForm = ({
   const [heatSummaryData, setHeatSummaryData] = useState([]);
   const [loadingHeatSummary, setLoadingHeatSummary] = useState(false);
 
+  // Modification quantity decrease validation
+  const isQuantityDecreased = useMemo(() => {
+    if (!isModifyMode || !selectedItem) return false;
+    if (formData.type_of_call === 'Raw Material') {
+      const prevQty = parseFloat(selectedItem.rm_offered_qty_erc || selectedItem.quantity_offered || selectedItem.offeredQty || 0);
+      const currQty = parseFloat(formData.rm_offered_qty_erc) || 0;
+      return prevQty > 0 && currQty < prevQty;
+    }
+    if (formData.type_of_call === 'Process') {
+      const prevQty = parseFloat(selectedItem.quantity_offered || selectedItem.offeredQty || 0);
+      const currQty = (formData.process_lot_heat_mapping || []).reduce((sum, p) => sum + (parseInt(p.offeredQty) || 0), 0);
+      return prevQty > 0 && currQty < prevQty;
+    }
+    if (formData.type_of_call === 'Final') {
+      const prevQty = parseFloat(selectedItem.final_total_qty || selectedItem.quantity_offered || selectedItem.offeredQty || 0);
+      const currQty = parseInt(formData.final_total_qty) || (formData.final_lots_data || []).reduce((sum, l) => sum + (parseInt(l.offeredQty) || 0), 0);
+      const anyLotDecreased = (formData.final_lots_data || []).some(lot => {
+        const orig = selectedItem?.final_lots_data?.find(ol => ol.lotNumber === lot.lotNumber);
+        return orig && (parseInt(lot.offeredQty) || 0) < (parseInt(orig.offeredQty) || 0);
+      });
+      return (prevQty > 0 && currQty < prevQty) || anyLotDecreased;
+    }
+    return false;
+  }, [isModifyMode, selectedItem, formData.type_of_call, formData.rm_offered_qty_erc, formData.process_lot_heat_mapping, formData.final_total_qty, formData.final_lots_data]);
+
   // Handle PO Serial selection
   const handlePoSerialChange = useCallback((serialNo, itemData = null) => {
     if (itemData) {
@@ -2939,6 +2964,23 @@ export const RaiseInspectionCallForm = ({
       }
     }
 
+    // Validation for Modification: decrease in call quantity should not be allowed
+    if (isModifyMode && selectedItem) {
+      const prevQty = parseFloat(selectedItem.quantity_offered || selectedItem.offeredQty || selectedItem.rm_offered_qty_erc || selectedItem.final_total_qty || 0);
+      let currentCallQty = 0;
+      if (formData.type_of_call === 'Raw Material') {
+        currentCallQty = parseFloat(formData.rm_offered_qty_erc) || 0;
+      } else if (formData.type_of_call === 'Process') {
+        currentCallQty = (formData.process_lot_heat_mapping || []).reduce((sum, item) => sum + (parseFloat(item.offeredQty) || 0), 0);
+      } else if (formData.type_of_call === 'Final') {
+        currentCallQty = parseFloat(formData.final_total_qty) || 0;
+      }
+      if (prevQty > 0 && currentCallQty > 0 && currentCallQty < prevQty) {
+        newErrors.call_quantity_decreased = `Modification not allowed: Call quantity cannot be decreased. Previous quantity: ${prevQty}, entered: ${currentCallQty}`;
+        alert(`❌ Modification not allowed: Call quantity cannot be decreased below previous quantity.\n\nPrevious quantity: ${prevQty.toLocaleString()}\nEntered quantity: ${currentCallQty.toLocaleString()}`);
+      }
+    }
+
     console.log('🔍 Validation errors:', newErrors);
 
     if (Object.keys(newErrors).length > 0) {
@@ -3774,6 +3816,19 @@ export const RaiseInspectionCallForm = ({
                     />
                   </FormField>
                 </div>
+
+                {(() => {
+                  const currentTotalRm = parseFloat(formData.rm_offered_qty_erc) || 0;
+                  const prevTotalRm = parseFloat(selectedItem?.rm_offered_qty_erc || selectedItem?.quantity_offered || selectedItem?.offeredQty || 0);
+                  if (isModifyMode && prevTotalRm > 0 && currentTotalRm < prevTotalRm) {
+                    return (
+                      <div style={{ color: '#ef4444', backgroundColor: '#fef2f2', border: '1.5px solid #fecaca', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, margin: '8px 0 16px 0' }}>
+                        ⚠️ Modification not allowed: Call quantity cannot be decreased. (Previous Call Qty: {prevTotalRm.toLocaleString()} Nos., Current Qty: {currentTotalRm.toLocaleString()} Nos.)
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             )}
 
@@ -4254,6 +4309,9 @@ export const RaiseInspectionCallForm = ({
                             const totalAvailable = Math.max(0, (lot.acceptedQtyProcess || 0) - (lot.offeredEarlier || 0));
                             const currentOffered = parseInt(lot.offeredQty) || 0;
                             const dynamicBalance = isViewMode ? 0 : Math.max(0, totalAvailable - currentOffered);
+                            const originalLot = selectedItem?.final_lots_data?.find(l => l.lotNumber === lot.lotNumber);
+                            const originalOffered = originalLot ? (parseInt(originalLot.offeredQty) || 0) : 0;
+                            const isQtyDecreased = isModifyMode && originalOffered > 0 && currentOffered < originalOffered;
                             const isQtyInvalid = !isViewMode && (currentOffered > totalAvailable);
                             const minBagsRequired = Math.ceil(currentOffered / 50);
                             const isBagsInvalid = !isViewMode && (lot.noOfBags > 0 && lot.noOfBags < minBagsRequired);
@@ -4270,15 +4328,21 @@ export const RaiseInspectionCallForm = ({
                                 <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>
                                   <input
                                     type="number"
-                                    className={`ric-form-input ${isQtyInvalid ? 'error' : ''}`}
+                                    className={`ric-form-input ${isQtyInvalid || isQtyDecreased ? 'error' : ''}`}
                                     value={lot.offeredQty}
                                     onChange={(e) => handleFinalLotDataChange(lot.lotNumber, 'offeredQty', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                                     placeholder="Quantity"
                                     max={totalAvailable}
+                                    min={isModifyMode && originalOffered > 0 ? originalOffered : 0}
                                     disabled={isViewMode}
-                                    style={isQtyInvalid ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : (isViewMode ? { backgroundColor: '#f9fafb', cursor: 'default' } : {})}
+                                    style={(isQtyInvalid || isQtyDecreased) ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : (isViewMode ? { backgroundColor: '#f9fafb', cursor: 'default' } : {})}
                                   />
-                                  {isQtyInvalid && (
+                                  {isQtyDecreased && (
+                                    <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', fontWeight: 700 }}>
+                                      Modification not allowed: Call quantity cannot be decreased. (Previous: {originalOffered.toLocaleString()})
+                                    </div>
+                                  )}
+                                  {isQtyInvalid && !isQtyDecreased && (
                                     <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
                                       Cannot exceed available balance ({totalAvailable})
                                     </div>
@@ -4305,16 +4369,22 @@ export const RaiseInspectionCallForm = ({
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        if (isModifyMode) {
+                                          alert('Modification not allowed: Call quantity cannot be decreased.');
+                                          return;
+                                        }
                                         const newLots = formData.final_lot_numbers.filter(l => l !== lot.lotNumber);
                                         setFormData(prev => ({ ...prev, final_lot_numbers: newLots }));
                                       }}
+                                      disabled={isModifyMode}
+                                      title={isModifyMode ? "Cannot remove lot in modify mode: decrease in call quantity is not allowed" : "Remove lot"}
                                       style={{
                                         padding: '4px 8px',
-                                        backgroundColor: '#fee2e2',
-                                        color: '#ef4444',
-                                        border: '1px solid #fecaca',
+                                        backgroundColor: isModifyMode ? '#f3f4f6' : '#fee2e2',
+                                        color: isModifyMode ? '#9ca3af' : '#ef4444',
+                                        border: isModifyMode ? '1px solid #e5e7eb' : '1px solid #fecaca',
                                         borderRadius: '4px',
-                                        cursor: 'pointer',
+                                        cursor: isModifyMode ? 'not-allowed' : 'pointer',
                                         fontSize: '12px'
                                       }}
                                     >
@@ -4378,6 +4448,19 @@ export const RaiseInspectionCallForm = ({
                     />
                   </FormField>
                 </div>
+
+                {(() => {
+                  const currentTotalFinal = parseInt(formData.final_total_qty) || (formData.final_lots_data || []).reduce((sum, l) => sum + (parseInt(l.offeredQty) || 0), 0);
+                  const prevTotalFinal = parseFloat(selectedItem?.final_total_qty || selectedItem?.quantity_offered || selectedItem?.offeredQty || 0);
+                  if (isModifyMode && prevTotalFinal > 0 && currentTotalFinal < prevTotalFinal) {
+                    return (
+                      <div style={{ color: '#ef4444', backgroundColor: '#fef2f2', border: '1.5px solid #fecaca', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, margin: '8px 0 16px 0' }}>
+                        ⚠️ Modification not allowed: Call quantity cannot be decreased. (Previous Call Qty: {prevTotalFinal.toLocaleString()} Nos., Current Qty: {currentTotalFinal.toLocaleString()} Nos.)
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             )}
 
@@ -4522,12 +4605,18 @@ export const RaiseInspectionCallForm = ({
               >
                 Reset Form
               </button>
+              {isQuantityDecreased && (
+                <div style={{ color: '#ef4444', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  ⚠️ Modification not allowed: Call quantity cannot be decreased.
+                </div>
+              )}
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={handleSubmit}
-                disabled={isLoading || !formData.type_of_call || isPoiBlocked}
-                title={isPoiBlocked ? 'Call raising is blocked due to pending cancellation payment' : ''}
+                disabled={isLoading || !formData.type_of_call || isPoiBlocked || isQuantityDecreased}
+                title={isPoiBlocked ? 'Call raising is blocked due to pending cancellation payment' : (isQuantityDecreased ? 'Modification not allowed: Call quantity cannot be decreased' : '')}
+                style={isQuantityDecreased ? { backgroundColor: '#9ca3af', borderColor: '#9ca3af', cursor: 'not-allowed' } : {}}
               >
                 {isLoading ? (isModifyMode ? 'Updating...' : 'Submitting...') : (isModifyMode ? 'Update Inspection Call' : 'Submit Inspection Call')}
               </button>

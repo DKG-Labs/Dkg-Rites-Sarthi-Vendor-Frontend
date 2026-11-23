@@ -4,7 +4,7 @@ import {
     Search, FileText, Calendar, Eye,
     Loader2, AlertCircle, CheckCircle2,
     Clock, ClipboardList, Info, X,
-    Download, FileCheck, Files
+    Download, FileCheck, Files, Award
 } from 'lucide-react';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
 import { generateRailpadCallLetterPDF } from '../../../utils/generateCallLetterPDF';
@@ -293,8 +293,24 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
         }
     };
 
+    const isCompletedCall = (call) => {
+        const rawStatus = String(call?.status || call?.workflowStatus || '').toUpperCase().trim();
+        const act = String(call?.action || call?.latestAction || '').toUpperCase().trim();
+        const jb = String(call?.jobStatus || call?.job_status || '').toUpperCase().trim();
+        const combined = `${rawStatus} ${act} ${jb}`;
+
+        return (
+            combined.includes('WITHDRAW') ||
+            combined.includes('CANCEL') ||
+            combined.includes('REJECT') ||
+            combined.includes('IBS') ||
+            combined.includes('CLOSED')
+        );
+    };
+
     const filteredCalls = useMemo(() => {
         return calls.filter(call => {
+            if (!isCompletedCall(call)) return false;
             const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
                 call.poNo?.toLowerCase().includes(search.toLowerCase()) ||
                 call.railPadType?.toLowerCase().includes(search.toLowerCase());
@@ -559,43 +575,67 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO Reference</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Details</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO Reference</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Details</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quantity Accepted</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IC Number & IC Date</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredCalls.map((call, idx) => {
                                 const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
+                                const isWithdrawnOrRejected = call.status?.toUpperCase()?.includes('WITHDRAW') || call.status?.toUpperCase()?.includes('REJECT') || call.status?.toUpperCase()?.includes('CANCEL');
+                                const isIbsOrComplete = !isWithdrawnOrRejected && (call.status?.toUpperCase()?.includes('IBS') || call.status?.toUpperCase()?.includes('COMPLET') || call.workflowStatus?.toUpperCase()?.includes('IBS') || call.workflowStatus?.toUpperCase()?.includes('COMPLET'));
+                                const acceptedVal = isWithdrawnOrRejected ? 0 : (call.acceptedQty ?? (isIbsOrComplete ? (call.offeredQty ?? call.totalQty ?? 0) : 0));
+                                const icNum = (!isWithdrawnOrRejected && (isIbsOrComplete || call.icNo || call.certificateNo)) ? (call.icNo || call.certificateNo || (call.callNo ? `N/${call.callNo}/ARV` : null)) : null;
+                                const icDt = !isWithdrawnOrRejected ? (call.icDate || call.certificateDate || (icNum ? (call.updatedAt || call.inspectionDate || call.callDate || call.createdAt) : null)) : null;
+
                                 return (
                                     <tr key={call.id || idx} style={{ borderBottom: idx === filteredCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ padding: '20px 24px' }}>
+                                        <td style={{ padding: '16px 20px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                     <FileText size={20} />
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '14px' }}>{call.callNo || 'N/A'}</div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                        <Calendar size={12} /> {formatDateDDMMYY(call.inspectionDate)}
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        {formatDateDDMMYY(call.inspectionDate || call.callDate || call.createdAt)}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td style={{ padding: '20px 24px' }}>
+                                        <td style={{ padding: '16px 20px' }}>
                                             <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                                                 {formatPoSrNo(call, true)}
                                             </div>
                                         </td>
-                                        <td style={{ padding: '20px 24px' }}>
-                                            <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
-                                            <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>
-                                                Qty: {(call.offeredQty ?? call.totalQty)?.toLocaleString()} ({getCallUom(call)})
+                                        <td style={{ padding: '16px 20px' }}>
+                                            <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType || call.itemDescription || 'Rail Pad'}</div>
+                                        </td>
+                                        <td style={{ padding: '16px 20px' }}>
+                                            <div style={{ fontWeight: 800, color: '#15803d', fontSize: '13px' }}>
+                                                {Number(acceptedVal).toLocaleString()} ({getCallUom(call)})
                                             </div>
                                         </td>
-                                        <td style={{ padding: '20px 24px' }}>
+                                        <td style={{ padding: '16px 20px' }}>
+                                            {icNum ? (
+                                                <div>
+                                                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '12.5px' }}>{icNum}</div>
+                                                    {icDt && (
+                                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                                            {formatDateDDMMYY(icDt)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>-</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '16px 20px' }}>
                                             <div style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
@@ -604,7 +644,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                                 {statusInfo.icon} {statusInfo.label}
                                             </div>
                                         </td>
-                                        <td style={{ padding: '20px 24px', textAlign: 'right' }}>
+                                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                                             <button
                                                 onClick={() => handleOpenActions(call)}
                                                 style={{

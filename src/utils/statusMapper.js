@@ -124,24 +124,45 @@ export const PROCESS_INSPECTION_STARTED_STATUSES = new Set(['INITIATE_INSPECTION
 export const isProcessCallNo = (callNo) => String(callNo || '').trim().toUpperCase().startsWith('EP-');
 
 // callNo (optional): a Process call (EP-) counts as Under Inspection once the IE has initiated inspection
-export const getDetailedStatus = (systemStatus, callNo) => {
+// callDetails (optional): object containing scheduledDate, jobStatus, nextRoleName, etc.
+export const getDetailedStatus = (systemStatus, callNo, callDetails) => {
   const statusLower = (systemStatus || '').trim().toUpperCase().replace(/\s+/g, '_');
+  const jobStatus = String(callDetails?.jobStatus || callDetails?.job_status || '').trim().toUpperCase();
+  const scheduledDate = callDetails?.scheduledDate || callDetails?.scheduled_date;
+  const isScheduled = !!scheduledDate || jobStatus.includes('SCHEDULE') || statusLower.includes('SCHEDULE');
+
   if (isProcessCallNo(callNo) && PROCESS_INSPECTION_STARTED_STATUSES.has(statusLower)) {
     return { mainStatus: 'Under Inspection', subStatus: 'Inspection Initiated', combinedText: 'Under Inspection - Inspection Initiated' };
   }
 
+  // Priority check for scheduled calls
+  if (isScheduled && !statusLower.includes('COMPLET') && !statusLower.includes('CANCEL') && !statusLower.includes('WITHDRAW') && !statusLower.includes('REJECT') && !statusLower.includes('IBS')) {
+    return { mainStatus: 'Pending', subStatus: 'Call Scheduled', combinedText: 'Pending - Call Scheduled' };
+  }
+
   const mapping = {
     'CREATED': { mainStatus: 'Pending', subStatus: 'Call Raised' },
+    'CALL_RAISED': { mainStatus: 'Pending', subStatus: 'Call Raised' },
+    'PENDING_FOR_VERIFICATION': { mainStatus: 'Pending', subStatus: 'Call Raised' },
     'VERIFIED': { mainStatus: 'Pending', subStatus: 'Call Registered' },
     'RETURNED': { mainStatus: 'Pending', subStatus: 'Returned to Vendor' },
+    'RETURNED_BY_CALL_DESK': { mainStatus: 'Pending', subStatus: 'Returned to Vendor' },
+    'RESUBMITTED': { mainStatus: 'Pending', subStatus: 'Resubmitted' },
     'CALL_REGISTERED': { mainStatus: 'Pending', subStatus: 'Call Registered' },
     'IE_SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'SCHEDULED': { mainStatus: 'Pending', subStatus: 'Call Scheduled' }, // Fallback for some frontend statuses
     'INITIATE_INSPECTION': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
     'VERIFY_PO_DETAILS': { mainStatus: 'Pending', subStatus: 'Call Scheduled' },
+    'PO_VERIFICATION': { mainStatus: 'Pending', subStatus: 'PO Verification' },
+    'PO_VERIF': { mainStatus: 'Pending', subStatus: 'PO Verification' },
+    'CALL_ASSIGNED_TO_IE': { mainStatus: 'Pending', subStatus: 'Call Assigned to IE' },
+    'ASSIGNED_TO_IE': { mainStatus: 'Pending', subStatus: 'Call Assigned to IE' },
+    'ASSIGNED': { mainStatus: 'Pending', subStatus: 'Call Assigned to IE' },
     'PAUSE_INSPECTION_RESUME_NEXT_DAY': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' },
     'INSPECTION_PAUSED': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' }, // Alias
+    'PAUSED': { mainStatus: 'Under Inspection', subStatus: 'Paused for Next Schedule' },
     'ENTER_SHIFT_DETAILS_AND_START_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Under inspection' },
+    'UNDER_INSPECTION': { mainStatus: 'Under Inspection', subStatus: 'Under inspection' },
     'INSPECTION_COMPLETE_CONFIRM': { mainStatus: 'Completed', subStatus: 'IC Issuance Pending' },
     'GENERATE_IC': { mainStatus: 'Completed', subStatus: 'IC Issued' },
     'DSC_SIGN_IC': { mainStatus: 'Completed', subStatus: 'E-Signed' },
@@ -160,6 +181,18 @@ export const getDetailedStatus = (systemStatus, callNo) => {
     'SENT_CALL_TO_IBS': { mainStatus: 'Completed', subStatus: 'Sent to IBS' },
     'CLOSED': { mainStatus: 'Completed', subStatus: 'Sent to IBS' }
   };
+
+  // If status is PENDING or empty, determine sub-status from role/action or default to Call Raised
+  if (statusLower === 'PENDING' || !statusLower) {
+    if (isScheduled) {
+      return { mainStatus: 'Pending', subStatus: 'Call Scheduled', combinedText: 'Pending - Call Scheduled' };
+    }
+    const nextRole = String(callDetails?.nextRoleName || callDetails?.currentRoleName || '').toUpperCase();
+    if (nextRole.includes('IE') || nextRole.includes('INSPECTOR')) {
+      return { mainStatus: 'Pending', subStatus: 'Call Registered', combinedText: 'Pending - Call Registered' };
+    }
+    return { mainStatus: 'Pending', subStatus: 'Call Raised', combinedText: 'Pending - Call Raised' };
+  }
 
   const result = mapping[statusLower] || { mainStatus: statusLower || '-', subStatus: '-' };
 
