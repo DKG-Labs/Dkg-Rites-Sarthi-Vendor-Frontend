@@ -3973,11 +3973,18 @@ const VendorDashboardPage = ({ onBack }) => {
     // Apply search filter
     if (poAssignedSearchTerm) {
       const searchLower = poAssignedSearchTerm.toLowerCase();
-      result = result.filter(po =>
-        Object.values(po).some(val =>
+      result = result.filter(po => {
+        const matchesDirect = Object.values(po).some(val =>
           String(val).toLowerCase().includes(searchLower)
-        )
-      );
+        );
+        if (matchesDirect) return true;
+        const items = po.items || po.poItem || po.srItems || [];
+        return items.some(item =>
+          Object.values(item).some(val =>
+            String(val).toLowerCase().includes(searchLower)
+          )
+        );
+      });
     }
 
     // Apply sorting
@@ -4101,7 +4108,26 @@ const VendorDashboardPage = ({ onBack }) => {
     setPoAssignedCurrentPage(1);
   };
 
-  const requestedCallsTotalPages = Math.ceil(filteredAndSortedRequestedCalls.length / requestedCallsPageSize);
+  const requestedCallsTotalPages = Math.ceil(filteredAndSortedRequestedCalls.length / requestedCallsPageSize) || 1;
+
+  useEffect(() => {
+    if (requestedCallsCurrentPage > requestedCallsTotalPages && requestedCallsTotalPages > 0) {
+      setRequestedCallsCurrentPage(1);
+    }
+  }, [requestedCallsCurrentPage, requestedCallsTotalPages]);
+
+  useEffect(() => {
+    if (completedCallsCurrentPage > completedCallsTotalPages && completedCallsTotalPages > 0) {
+      setCompletedCallsCurrentPage(1);
+    }
+  }, [completedCallsCurrentPage, completedCallsTotalPages]);
+
+  useEffect(() => {
+    const poAssignedTotalPages = Math.ceil(sortedPOAssigned.length / poAssignedPageSize) || 1;
+    if (poAssignedCurrentPage > poAssignedTotalPages && poAssignedTotalPages > 0) {
+      setPoAssignedCurrentPage(1);
+    }
+  }, [poAssignedCurrentPage, sortedPOAssigned.length, poAssignedPageSize]);
 
   // Handle sorting for requested calls
   const handleRequestedCallsSort = (columnKey) => {

@@ -260,12 +260,10 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
 
     useEffect(() => {
         if (plantId) fetchCalls();
-    }, [plantId, page, size]);
+    }, [plantId]);
 
     const showToast = (type, message) => {
         setToast({ type, message });
@@ -275,15 +273,9 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const fetchCalls = async () => {
         try {
             setLoading(true);
-            const data = await inspectionCallService.getCompletedPaginatedByPlant(plantId, page, size);
-            if (data && data.content) {
-                setCalls(data.content);
-                setTotalPages(data.totalPages);
-                setTotalElements(data.totalElements);
-            } else {
-                setCalls(Array.isArray(data) ? data : []);
-                setTotalPages(1);
-            }
+            const data = await inspectionCallService.getByPlant(plantId);
+            const callList = Array.isArray(data) ? data : (data?.content || []);
+            setCalls(callList);
             setError(null);
         } catch (err) {
             console.error("Error fetching completed calls:", err);
@@ -311,12 +303,49 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
     const filteredCalls = useMemo(() => {
         return calls.filter(call => {
             if (!isCompletedCall(call)) return false;
-            const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
-                call.poNo?.toLowerCase().includes(search.toLowerCase()) ||
-                call.railPadType?.toLowerCase().includes(search.toLowerCase());
-            return matchesSearch;
+            if (!search.trim()) return true;
+            const q = search.trim().toLowerCase();
+            const poSrFormatted = formatPoSrNo(call, true).toLowerCase();
+            const callNo = String(call.callNo || call.call_no || '').toLowerCase();
+            const poNo = String(call.poNo || call.po_no || '').toLowerCase();
+            const itemDesc = String(call.railPadType || call.itemDescription || call.itemName || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
+            const ieName = String(call.ieAssignedName || call.ieName || call.assigned_to_user || '').toLowerCase();
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const rly = String(call.scrCode || call.rlyCode || call.rlyShortName || '').toLowerCase();
+            const icNum = String(call.icNo || call.certificateNo || '').toLowerCase();
+            const icDt = String(call.icDate || call.certificateDate || '').toLowerCase();
+            const rawStatus = String(call.status || call.workflowStatus || '').toLowerCase();
+
+            return callNo.includes(q) ||
+                poNo.includes(q) ||
+                poSrFormatted.includes(q) ||
+                itemDesc.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                rly.includes(q) ||
+                icNum.includes(q) ||
+                icDt.includes(q) ||
+                rawStatus.includes(q);
         });
     }, [calls, search]);
+
+    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
+    const totalElements = filteredCalls.length;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
+
+    const paginatedCalls = useMemo(() => {
+        const start = page * size;
+        return filteredCalls.slice(start, start + size);
+    }, [filteredCalls, page, size]);
 
     const handleOpenActions = async (call) => {
         setSelectedCall(call);
@@ -538,9 +567,12 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                     <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
                     <input
                         type="text"
-                        placeholder="Search Call No / PO No..."
+                        placeholder="Search Call No / PO No / IC / Drawing..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
                         style={{
                             padding: '12px 12px 12px 40px',
                             borderRadius: '12px',
@@ -585,7 +617,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredCalls.map((call, idx) => {
+                            {paginatedCalls.map((call, idx) => {
                                 const statusInfo = getCallStatusInfo(call.status || call.workflowStatus, call.latestAction || call.action || call.workflowAction);
                                 const isWithdrawnOrRejected = call.status?.toUpperCase()?.includes('WITHDRAW') || call.status?.toUpperCase()?.includes('REJECT') || call.status?.toUpperCase()?.includes('CANCEL');
                                 const isIbsOrComplete = !isWithdrawnOrRejected && (call.status?.toUpperCase()?.includes('IBS') || call.status?.toUpperCase()?.includes('COMPLET') || call.workflowStatus?.toUpperCase()?.includes('IBS') || call.workflowStatus?.toUpperCase()?.includes('COMPLET'));
@@ -594,7 +626,7 @@ const CompletedCallsDashboard = ({ vendorCode, plantId }) => {
                                 const icDt = !isWithdrawnOrRejected ? (call.icDate || call.certificateDate || (icNum ? (call.updatedAt || call.inspectionDate || call.callDate || call.createdAt) : null)) : null;
 
                                 return (
-                                    <tr key={call.id || idx} style={{ borderBottom: idx === filteredCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <tr key={call.id || idx} style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ padding: '16px 20px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

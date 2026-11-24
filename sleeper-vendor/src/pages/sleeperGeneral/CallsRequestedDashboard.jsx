@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../../services/api';
 import { generateOfferListPDF } from '../../utils/offerListGenerator';
@@ -873,6 +873,48 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         ? displayCalls
         : displayCalls.filter(c => matchesFilter(c.status, filterStatus));
 
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(10);
+
+    const filteredBySearch = useMemo(() => {
+        if (!search.trim()) return filtered;
+        const q = search.trim().toLowerCase();
+        return filtered.filter(call => {
+            const callNo = String(call.callNo || call.callNumber || call.requestId || '').toLowerCase();
+            const poNo = String(call.poNo || '').toLowerCase();
+            const srNo = String(call.srNo || '').toLowerCase();
+            const sleeperType = String(call.sleeperType || call.itemDesc || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
+            const ieName = String(call.ieName || call.assigned_to_user || '').toLowerCase();
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const status = String(call.status || '').toLowerCase();
+            return callNo.includes(q) ||
+                poNo.includes(q) ||
+                srNo.includes(q) ||
+                sleeperType.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                status.includes(q);
+        });
+    }, [filtered, search]);
+
+    const totalPages = Math.ceil(filteredBySearch.length / size) || 1;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
+
+    const paginatedCalls = useMemo(() => {
+        const start = page * size;
+        return filteredBySearch.slice(start, start + size);
+    }, [filteredBySearch, page, size]);
+
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3500);
@@ -1079,16 +1121,47 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                 ))}
             </div>
 
+            {/* ── Search Bar ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ position: 'relative', width: '320px' }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+                    <input
+                        type="text"
+                        placeholder="Search Call No / PO No / Sleeper / Case..."
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
+                        style={{
+                            width: '100%',
+                            height: 38,
+                            padding: '0 12px 0 36px',
+                            border: '1.5px solid #e2e8f0',
+                            borderRadius: 10,
+                            fontSize: 13,
+                            color: '#0f172a',
+                            background: '#fff',
+                            outline: 'none',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                    />
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Showing {filteredBySearch.length} {filteredBySearch.length === 1 ? 'call' : 'calls'}
+                </div>
+            </div>
+
             <div style={{
                 background: '#fff', borderRadius: 16,
                 border: '1px solid #e2e8f0', overflow: 'hidden',
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
-                {filtered.length === 0 ? (
+                {filteredBySearch.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>No calls with status "{filterStatus}"</div>
-                        <div style={{ fontSize: 12, marginTop: 4 }}>Try selecting a different filter above.</div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{search ? "No calls match your search criteria." : `No calls with status "${filterStatus}"`}</div>
+                        <div style={{ fontSize: 12, marginTop: 4 }}>{search ? "Try searching with different keywords." : "Try selecting a different filter above."}</div>
                     </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
@@ -1106,13 +1179,13 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((call, idx) => {
+                                {paginatedCalls.map((call, idx) => {
                                     const isReturned = call.status === 'Returned by Call Desk';
                                     return (
                                         <tr
                                             key={call.id || call.callNo || `call-row-${idx}`}
                                             style={{
-                                                borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid #f1f5f9',
+                                                borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9',
                                                 background: isReturned ? '#fff9f5' : (idx % 2 === 0 ? '#fff' : '#fafcff'),
                                                 transition: 'background 0.15s'
                                             }}
@@ -1200,6 +1273,63 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                )}
+                {/* ── Pagination Controls ── */}
+                {totalPages > 1 && (
+                    <div style={{
+                        padding: '12px 18px', background: '#f8fafc',
+                        borderTop: '1px solid #e2e8f0',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        fontSize: '12px', color: '#64748b', flexWrap: 'wrap', gap: '10px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div>
+                                Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages}</strong>
+                                <span style={{ marginLeft: 6 }}>({filteredBySearch.length} total calls)</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>Per page:</label>
+                                <select
+                                    value={size}
+                                    onChange={(e) => {
+                                        setSize(Number(e.target.value));
+                                        setPage(0);
+                                    }}
+                                    style={{
+                                        padding: '4px 8px', borderRadius: '6px',
+                                        border: '1px solid #cbd5e1', background: '#fff',
+                                        color: '#0f172a', fontSize: '12px', outline: 'none', cursor: 'pointer'
+                                    }}
+                                >
+                                    {[5, 10, 20, 50].map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                                onClick={() => setPage(p => Math.max(0, p - 1))}
+                                disabled={page === 0}
+                                style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: '1px solid #e2e8f0', background: '#fff',
+                                    color: page === 0 ? '#cbd5e1' : '#475569',
+                                    cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 12
+                                }}
+                            >Previous</button>
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                                disabled={page >= totalPages - 1}
+                                style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: '1px solid #e2e8f0', background: '#fff',
+                                    color: page >= totalPages - 1 ? '#cbd5e1' : '#475569',
+                                    cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 12
+                                }}
+                            >Next</button>
+                        </div>
                     </div>
                 )}
             </div>

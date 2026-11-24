@@ -152,25 +152,17 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
 
     useEffect(() => {
         if (plantId) fetchCalls();
-    }, [plantId, page, size]);
+    }, [plantId]);
 
     const fetchCalls = async () => {
         try {
             setLoading(true);
-            const data = await inspectionCallService.getPaginatedByPlant(plantId, page, size, 'pending');
-            if (data && data.content) {
-                setCalls(data.content);
-                setTotalPages(data.totalPages);
-                setTotalElements(data.totalElements);
-            } else {
-                setCalls(Array.isArray(data) ? data : []);
-                setTotalPages(1);
-            }
+            const data = await inspectionCallService.getByPlant(plantId);
+            const callList = Array.isArray(data) ? data : (data?.content || []);
+            setCalls(callList);
             setError(null);
         } catch (err) {
             console.error("Error fetching calls:", err);
@@ -193,11 +185,45 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW') || rawStatus.includes('REJECT') || rawStatus.includes('IBS') || rawStatus.includes('CLOSED')) {
                 return false;
             }
-            const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
-                call.poNo?.toLowerCase().includes(search.toLowerCase());
-            return matchesSearch;
+            if (!search.trim()) return true;
+            const q = search.trim().toLowerCase();
+            const poSrFormatted = formatPoSrNo(call).toLowerCase();
+            const callNo = String(call.callNo || call.call_no || '').toLowerCase();
+            const poNo = String(call.poNo || call.po_no || '').toLowerCase();
+            const itemDesc = String(call.railPadType || call.itemDescription || call.itemName || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
+            const ieName = String(call.ieAssignedName || call.ieName || call.assigned_to_user || '').toLowerCase();
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const rly = String(call.scrCode || call.rlyCode || call.rlyShortName || '').toLowerCase();
+            const status = rawStatus.toLowerCase();
+
+            return callNo.includes(q) ||
+                poNo.includes(q) ||
+                poSrFormatted.includes(q) ||
+                itemDesc.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                rly.includes(q) ||
+                status.includes(q);
         });
     }, [calls, search]);
+
+    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
+    const totalElements = filteredCalls.length;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
+
+    const paginatedCalls = useMemo(() => {
+        const start = page * size;
+        return filteredCalls.slice(start, start + size);
+    }, [filteredCalls, page, size]);
 
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [processCallDetails, setProcessCallDetails] = useState(null);
@@ -629,9 +655,12 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
                     <input
                         type="text"
-                        placeholder="Search Call No / PO No..."
+                        placeholder="Search Call No / PO No / Drawing / Case..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
                         style={{
                             padding: '12px 12px 12px 40px',
                             borderRadius: '12px',
@@ -676,8 +705,8 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredCalls.map((call, idx) => (
-                                <tr key={call.id} style={{ borderBottom: idx === filteredCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                            {paginatedCalls.map((call, idx) => (
+                                <tr key={call.id || idx} style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                                     <td style={{ padding: '20px 20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

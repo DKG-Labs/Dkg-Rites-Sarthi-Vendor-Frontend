@@ -437,24 +437,48 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     const filteredCalls = useMemo(() => {
         const visibleCalls = calls.filter(isTerminalCompletedCall);
         if (!search.trim()) return visibleCalls;
-        const q = search.toLowerCase();
+        const q = search.trim().toLowerCase();
         return visibleCalls.filter(call => {
             const callNo = (call.requestId || call.callNo || '').toLowerCase();
             const icNo = (call.icNo || call.icNumber || call.certificateNo || '').toLowerCase();
             const icDate = (call.icDate ? formatDateDDMMYY(call.icDate) : '').toLowerCase();
             const poNo = (call.poNo || '').toLowerCase();
-            const sleeperType = (call.sleeperType || call.productType || '').toLowerCase();
+            const srNo = String(call.srNo || call.poSr || '').toLowerCase();
+            const sleeperType = (call.sleeperType || call.productType || call.itemDesc || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
             const ieName = (call.assignedToUserName || call.ieName || '').toLowerCase();
-            return callNo.includes(q) || icNo.includes(q) || icDate.includes(q) || poNo.includes(q) || sleeperType.includes(q) || ieName.includes(q);
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const rly = String(call.rlyCode || call.scrCode || call.rlyShortName || '').toLowerCase();
+            const status = String(call.status || call.workflowStatus || '').toLowerCase();
+
+            return callNo.includes(q) ||
+                icNo.includes(q) ||
+                icDate.includes(q) ||
+                poNo.includes(q) ||
+                srNo.includes(q) ||
+                sleeperType.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                rly.includes(q) ||
+                status.includes(q);
         });
     }, [calls, search]);
+
+    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
 
     const paginatedCalls = useMemo(() => {
         const start = page * size;
         return filteredCalls.slice(start, start + size);
     }, [filteredCalls, page, size]);
-
-    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
 
     const [actionCall, setActionCall] = useState(null);
     const [icLoading, setIcLoading] = useState(false);
