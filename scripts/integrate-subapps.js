@@ -58,8 +58,13 @@ try {
         if (fs.existsSync(appDir)) {
             console.log(`\n--- Building ${app.name} (Vite) ---`);
             try {
-                console.log(`Installing ${app.name} dependencies...`);
-                execSync('npm install', { cwd: appDir, stdio: 'inherit' });
+                const nodeModulesPath = path.join(appDir, 'node_modules');
+                if (!fs.existsSync(nodeModulesPath)) {
+                    console.log(`Installing ${app.name} dependencies...`);
+                    execSync('npm install', { cwd: appDir, stdio: 'inherit' });
+                } else {
+                    console.log(`Skipping npm install for ${app.name} (node_modules already present)`);
+                }
 
                 console.log(`Executing ${app.name} build...`);
                 execSync('npm run build', {

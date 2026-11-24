@@ -10,6 +10,7 @@ import {
     User, Activity, LayoutGrid, Download, Edit, XCircle, X
 } from 'lucide-react';
 import { formatDateDDMMYY } from '../../../utils/dateUtils';
+import { getIeContact } from '../../../utils/userMasterContacts';
 
 const formatPoSrNo = (call) => {
     if (!call) return '-';
@@ -151,25 +152,17 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
 
     useEffect(() => {
         if (plantId) fetchCalls();
-    }, [plantId, page, size]);
+    }, [plantId]);
 
     const fetchCalls = async () => {
         try {
             setLoading(true);
-            const data = await inspectionCallService.getPaginatedByPlant(plantId, page, size, 'pending');
-            if (data && data.content) {
-                setCalls(data.content);
-                setTotalPages(data.totalPages);
-                setTotalElements(data.totalElements);
-            } else {
-                setCalls(Array.isArray(data) ? data : []);
-                setTotalPages(1);
-            }
+            const data = await inspectionCallService.getByPlant(plantId);
+            const callList = Array.isArray(data) ? data : (data?.content || []);
+            setCalls(callList);
             setError(null);
         } catch (err) {
             console.error("Error fetching calls:", err);
@@ -189,14 +182,48 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                 call.workflowAction,
                 call.jobStatus
             ].map(v => String(v || '').trim().toUpperCase()).join(' ');
-            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW') || rawStatus.includes('REJECT')) {
+            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW') || rawStatus.includes('REJECT') || rawStatus.includes('IBS') || rawStatus.includes('CLOSED')) {
                 return false;
             }
-            const matchesSearch = call.callNo?.toLowerCase().includes(search.toLowerCase()) ||
-                call.poNo?.toLowerCase().includes(search.toLowerCase());
-            return matchesSearch;
+            if (!search.trim()) return true;
+            const q = search.trim().toLowerCase();
+            const poSrFormatted = formatPoSrNo(call).toLowerCase();
+            const callNo = String(call.callNo || call.call_no || '').toLowerCase();
+            const poNo = String(call.poNo || call.po_no || '').toLowerCase();
+            const itemDesc = String(call.railPadType || call.itemDescription || call.itemName || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
+            const ieName = String(call.ieAssignedName || call.ieName || call.assigned_to_user || '').toLowerCase();
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const rly = String(call.scrCode || call.rlyCode || call.rlyShortName || '').toLowerCase();
+            const status = rawStatus.toLowerCase();
+
+            return callNo.includes(q) ||
+                poNo.includes(q) ||
+                poSrFormatted.includes(q) ||
+                itemDesc.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                rly.includes(q) ||
+                status.includes(q);
         });
     }, [calls, search]);
+
+    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
+    const totalElements = filteredCalls.length;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
+
+    const paginatedCalls = useMemo(() => {
+        const start = page * size;
+        return filteredCalls.slice(start, start + size);
+    }, [filteredCalls, page, size]);
 
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [processCallDetails, setProcessCallDetails] = useState(null);
@@ -448,6 +475,12 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
             showToast('error', 'Desired Inspection Date cannot be in the past.');
             return;
         }
+        const prevQty = parseInt(selectedCall?.totalQty || selectedCall?.offeredQty || modifyForm?.previousQty || 0, 10);
+        const newQty = parseInt(modifyForm.totalQty, 10);
+        if (prevQty > 0 && newQty > 0 && newQty < prevQty) {
+            showToast('error', `Modification not allowed: Call quantity cannot be decreased. Previous quantity: ${prevQty}, entered: ${newQty}`);
+            return;
+        }
         try {
             setSavingModification(true);
             const payload = {
@@ -622,9 +655,12 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
                     <input
                         type="text"
-                        placeholder="Search Call No / PO No..."
+                        placeholder="Search Call No / PO No / Drawing / Case..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
                         style={{
                             padding: '12px 12px 12px 40px',
                             borderRadius: '12px',
@@ -659,71 +695,186 @@ const RequestedCallsDashboard = ({ vendorCode, plantId }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO Reference</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Details</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Details</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PO Refrence</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detail of Inspection Call</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Offered Qunatity</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IE Assigned & mobile Number</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredCalls.map((call, idx) => (
-                                <tr key={call.id} style={{ borderBottom: idx === filteredCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                    <td style={{ padding: '20px 24px' }}>
+                            {paginatedCalls.map((call, idx) => (
+                                <tr key={call.id || idx} style={{ borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fcfdfe'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <td style={{ padding: '20px 20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <FileText size={20} />
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '14px' }}>{call.callNo || 'N/A'}</div>
-                                                <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <Calendar size={12} /> {formatDateDDMMYY(call.inspectionDate)}
+                                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                    {formatDateDDMMYY(call.inspectionDate || call.created_at)}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '20px 24px' }}>
+                                    <td style={{ padding: '20px 20px' }}>
                                         <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                                             {formatPoSrNo(call)}
                                         </div>
                                     </td>
-                                    <td style={{ padding: '20px 24px' }}>
-                                        <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType}</div>
-                                        <div style={{ fontSize: '11px', color: '#0891b2', fontWeight: 800, marginTop: '2px' }}>Qty: {call.totalQty?.toLocaleString()} ({getCallUom(call)})</div>
+                                    <td style={{ padding: '20px 20px' }}>
+                                        <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>{call.railPadType || call.itemDescription || 'Rail Pad'}</div>
+                                        {call.drawingNo && (
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Drg: {call.drawingNo}</div>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: '20px 20px' }}>
+                                        <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                                            {call.totalQty?.toLocaleString()} {getCallUom(call)}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '20px 20px' }}>
+                                        {(() => {
+                                            const ieName = call.ieAssignedName || call.ieName;
+                                            const hasIe = ieName && ieName !== 'No ie assigned' && ieName !== 'Not Assigned' && ieName !== 'N/A';
+                                            const iePhone = getIeContact(ieName || call.assigned_to_user, call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone);
+                                            return hasIe ? (
+                                                <div>
+                                                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: '13px' }}>{ieName}</div>
+                                                    {iePhone ? (
+                                                        <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', fontWeight: 600 }}>{iePhone}</div>
+                                                    ) : null}
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '12px', color: '#94a3b8' }}>Not Assigned</span>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '20px 24px' }}>
                                         {(() => {
                                             const rawStatus = String(call.status || call.workflowStatus || 'PENDING').toUpperCase();
-                                            if (rawStatus.includes('CANCEL') || rawStatus.includes('WITHDRAW')) {
-                                                const isCancel = rawStatus.includes('CANCEL');
+                                            const act = String(call.action || call.latestAction || '').toUpperCase();
+                                            const jb = String(call.jobStatus || call.job_status || '').toUpperCase();
+                                            const combined = `${rawStatus} ${act} ${jb}`;
+
+                                            if (combined.includes('CANCEL') || combined.includes('WITHDRAW')) {
+                                                const isCancel = combined.includes('CANCEL');
                                                 return (
                                                     <div style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                         padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                         background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5'
                                                     }}>
-                                                        <XCircle size={12} /> {isCancel ? (rawStatus.includes('PAYMENT') ? 'CANCELLED & PAYMENT PENDING' : 'CANCELLED') : 'WITHDRAWN'}
+                                                        <XCircle size={12} /> {isCancel ? (combined.includes('PAYMENT') ? 'CANCELLED & PAYMENT PENDING' : 'CANCELLED') : 'WITHDRAWN'}
                                                     </div>
                                                 );
                                             }
-                                            if (rawStatus.includes('APPROVED') || rawStatus.includes('COMPLETE') || rawStatus.includes('IC_ISSUE') || rawStatus.includes('SEND_CALL_TO_IBS') || rawStatus.includes('SEND TO IBS')) {
+                                            if (combined.includes('REJECT')) {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5'
+                                                    }}>
+                                                        <AlertCircle size={12} /> REJECTED
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('GENERATE_IC') || combined.includes('IC_GENERATION') || combined.includes('DSC_SIGN') || combined.includes('E_SIGN') || combined.includes('ESIGN') || combined.includes('E-SIGN')) {
                                                 return (
                                                     <div style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                         padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
                                                         background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
                                                     }}>
-                                                        <CheckCircle2 size={12} /> {rawStatus.replace(/_/g, ' ')}
+                                                        <CheckCircle2 size={12} /> Completed - E-Signed
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('IC_ISSUE') || combined.includes('ISSUE_IC') || combined.includes('IC_ISSUED')) {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
+                                                    }}>
+                                                        <CheckCircle2 size={12} /> Completed - IC Issued
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('COMPLETE') || combined.includes('FINISH') || combined.includes('APPROVED')) {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
+                                                    }}>
+                                                        <CheckCircle2 size={12} /> Completed
+                                                    </div>
+                                                );
+                                            }
+                                            const isScheduled = !!call.scheduledDate || !!call.scheduleDate || !!call.scheduleStatus || combined.includes('SCHEDULE');
+                                            if (isScheduled) {
+                                                return (
+                                                    <div>
+                                                        <div style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                            padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                                                            background: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3'
+                                                        }}>
+                                                            <Calendar size={12} /> Pending - Call Scheduled
+                                                        </div>
+                                                        {(call.scheduledDate || call.scheduleDate) && (
+                                                            <div style={{ fontSize: '11px', marginTop: '3px', color: '#64748b', fontWeight: 600 }}>
+                                                                Scheduled: {formatDateDDMMYY(call.scheduledDate || call.scheduleDate)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('UNDER INSPECTION') || combined.includes('INITIATE') || combined.includes('IN_PROGRESS')) {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
+                                                        background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0'
+                                                    }}>
+                                                        <Activity size={12} /> Under Inspection
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('PO_VERIF') || call.displayStatus === 'Pending - PO Verification') {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                                                        background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe'
+                                                    }}>
+                                                        <Search size={12} /> Pending - PO Verification
+                                                    </div>
+                                                );
+                                            }
+                                            if (combined.includes('REGISTERED') || combined.includes('VERIF') || call.displayStatus === 'Pending - Call Registered') {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                                                        background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa'
+                                                    }}>
+                                                        <ClipboardList size={12} /> Pending - Call Registered
                                                     </div>
                                                 );
                                             }
                                             return (
                                                 <div style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800,
-                                                    background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a'
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                                                    background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa'
                                                 }}>
-                                                    <Clock size={12} /> {rawStatus.replace(/_/g, ' ')}
+                                                    <Clock size={12} /> {call.displayStatus || 'Pending - Call Raised'}
                                                 </div>
                                             );
                                         })()}

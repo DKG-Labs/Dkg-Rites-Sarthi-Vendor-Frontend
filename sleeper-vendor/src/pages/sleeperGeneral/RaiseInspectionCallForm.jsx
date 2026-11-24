@@ -1603,6 +1603,12 @@ const RaiseInspectionCallForm = ({ srItem, poNo, onClose, onSubmitInspectionCall
                                 }
 
                                 if (isEdit) {
+                                    const prevQty = parseInt(editCall?.totalOffered || editCall?.qtyOffered || editCallDetails?.totalOffered || editCallDetails?.qtyOffered || 0, 10);
+                                    if (prevQty > 0 && payload.totalOffered < prevQty) {
+                                        alert(`❌ Modification not allowed: Call quantity cannot be decreased.\n\nPrevious offered quantity: ${prevQty.toLocaleString()}\nEntered quantity: ${payload.totalOffered.toLocaleString()}`);
+                                        setIsSubmitting(false);
+                                        return;
+                                    }
                                     payload.callNo = editCallNo;
                                     const result = await apiService.modifySleeperInspectionCall(payload);
                                     if (onSubmitInspectionCall) {

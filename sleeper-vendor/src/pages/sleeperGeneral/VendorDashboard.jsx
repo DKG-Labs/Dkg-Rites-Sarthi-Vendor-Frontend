@@ -88,6 +88,8 @@ const VendorDashboard = () => {
             const completedData = completed.status === 'fulfilled' ? completed.value : [];
 
             const isCompletedSectionCall = (c) => {
+                if (!c) return false;
+                if (c.isClosed) return true;
                 const combined = [
                     c?.status,
                     c?.workflowStatus,
@@ -106,27 +108,32 @@ const VendorDashboard = () => {
                     combined.includes('SENT_TO_IBS') ||
                     combined.includes('SEND_TO_IBS') ||
                     combined.includes('SEND CALL TO IBS') ||
-                    combined.includes('IBS') ||
-                    combined.includes('COMPLETED') ||
-                    combined.includes('LOCKED') ||
-                    combined.includes('IC_ISSUE') ||
-                    combined.includes('IC_ISSUED') ||
-                    combined.includes('GENERATE_IC') ||
-                    combined.includes('DSC_SIGN') ||
-                    combined.includes('FINISH')
+                    combined.includes('CLOSED') ||
+                    combined.includes('IBS')
                 );
             };
 
             const activeRequestedCalls = (callsData || []).filter(c => !isCompletedSectionCall(c));
             const completedFromInspectionCalls = (callsData || []).filter(c => isCompletedSectionCall(c));
 
-            const combinedCompleted = Array.isArray(completedData) ? [...completedData] : [];
+            const combinedCompleted = Array.isArray(completedData) ? completedData.filter(isCompletedSectionCall) : [];
             completedFromInspectionCalls.forEach(c => {
                 const callKey = (c.callNo || c.requestId || c.id || '').toString();
                 if (!combinedCompleted.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {
                     combinedCompleted.push(c);
                 }
             });
+
+            if (Array.isArray(completedData)) {
+                completedData.forEach(c => {
+                    if (!isCompletedSectionCall(c)) {
+                        const callKey = (c.callNo || c.requestId || c.id || '').toString();
+                        if (!activeRequestedCalls.some(item => (item.callNo || item.requestId || item.id || '').toString() === callKey)) {
+                            activeRequestedCalls.push(c);
+                        }
+                    }
+                });
+            }
 
             const filteredCompleted = plantId && Array.isArray(combinedCompleted)
                 ? combinedCompleted.filter(item => isPlantMatching(item.plantId, [plantId]))

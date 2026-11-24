@@ -1,26 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../../services/api';
 import { generateOfferListPDF } from '../../utils/offerListGenerator';
 import { generateCallLetterPDF } from '../../utils/generateCallLetterPDF';
 import RaiseInspectionCallForm from './RaiseInspectionCallForm';
+import { getIeContact } from '../../utils/userMasterContacts';
 
 // ─── Status Configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-    'Call Raised': {
-        bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
-        dot: '#3b82f6', canModify: true, canWithdraw: true, needsWorkflow: false,
+    'Pending - Call Scheduled': {
+        bg: '#fff1f2', color: '#be123c', border: '#fecdd3',
+        dot: '#e11d48', canModify: true, canWithdraw: false, needsWorkflow: false,
+        icon: '📅', description: 'Inspection date scheduled'
+    },
+    'Scheduled by IE': {
+        bg: '#fff1f2', color: '#be123c', border: '#fecdd3',
+        dot: '#e11d48', canModify: true, canWithdraw: false, needsWorkflow: false,
+        icon: '📅', description: 'Inspection date scheduled'
+    },
+    'Pending - Call Raised': {
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '📋', description: 'Awaiting Call Desk review'
     },
+    'Call Raised': {
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '📋', description: 'Awaiting Call Desk review'
+    },
+    'Pending - Call Registered': {
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '📋', description: 'Call registered and verified'
+    },
     'Pending for verification': {
-        bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
-        dot: '#3b82f6', canModify: true, canWithdraw: true, needsWorkflow: false,
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '📋', description: 'Awaiting verification'
+    },
+    'Pending - PO Verification': {
+        bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
+        dot: '#3b82f6', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '🔍', description: 'Under PO Verification'
     },
     'PO Verification': {
         bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe',
         dot: '#3b82f6', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '🔍', description: 'Under PO Verification'
+    },
+    'Pending - Returned to Vendor': {
+        bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
+        dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '↩️', description: 'Returned for rectification'
     },
     'Returned by Call Desk': {
         bg: '#fff7ed', color: '#c2410c', border: '#fed7aa',
@@ -32,20 +63,25 @@ const STATUS_CONFIG = {
         dot: '#f97316', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '↩️', description: 'Returned for rectification'
     },
+    'Pending - Resubmitted': {
+        bg: '#fefce8', color: '#a16207', border: '#fde68a',
+        dot: '#eab308', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '🔄', description: 'Resubmitted to Call Desk'
+    },
     'Resubmitted': {
         bg: '#fefce8', color: '#a16207', border: '#fde68a',
         dot: '#eab308', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '🔄', description: 'Resubmitted to Call Desk'
     },
-    'Call Assigned to IE': {
+    'Pending - Call Assigned to IE': {
         bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0',
         dot: '#22c55e', canModify: true, canWithdraw: true, needsWorkflow: false,
         icon: '👷', description: 'Assigned to IE'
     },
-    'Scheduled by IE': {
-        bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe',
-        dot: '#8b5cf6', canModify: true, canWithdraw: false, needsWorkflow: false,
-        icon: '📅', description: 'Inspection date scheduled'
+    'Call Assigned to IE': {
+        bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0',
+        dot: '#22c55e', canModify: true, canWithdraw: true, needsWorkflow: false,
+        icon: '👷', description: 'Assigned to IE'
     },
     'Under Inspection': {
         bg: '#ecfdf5', color: '#047857', border: '#a7f3d0',
@@ -57,7 +93,17 @@ const STATUS_CONFIG = {
         dot: '#10b981', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '⏸️', description: 'Inspection paused'
     },
+    'Under Inspection - Paused': {
+        bg: '#ecfdf5', color: '#047857', border: '#a7f3d0',
+        dot: '#10b981', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '⏸️', description: 'Inspection paused'
+    },
     'Withheld': {
+        bg: '#fdf2f8', color: '#9d174d', border: '#f9a8d4',
+        dot: '#ec4899', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '⏸️', description: 'Withheld by IE'
+    },
+    'Under Inspection - Withheld': {
         bg: '#fdf2f8', color: '#9d174d', border: '#f9a8d4',
         dot: '#ec4899', canModify: false, canWithdraw: false, needsWorkflow: false,
         icon: '⏸️', description: 'Withheld by IE'
@@ -70,13 +116,45 @@ const STATUS_CONFIG = {
     'Completed': {
         bg: '#f0fdf4', color: '#166534', border: '#86efac',
         dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
-        icon: '✅', description: 'Moved to Completed Calls'
+        icon: '✅', description: 'Inspection completed'
+    },
+    'Completed - E-Signed': {
+        bg: '#f0fdf4', color: '#166534', border: '#86efac',
+        dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '✅', description: 'Completed - E-Signed'
+    },
+    'Completed - IC Issued': {
+        bg: '#f0fdf4', color: '#166534', border: '#86efac',
+        dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
+        icon: '✅', description: 'Completed - IC Issued'
     },
     'Locked': {
         bg: '#f0fdf4', color: '#166534', border: '#86efac',
         dot: '#16a34a', canModify: false, canWithdraw: false, needsWorkflow: false,
-        icon: '✅', description: 'Moved to Completed Calls'
+        icon: '🔒', description: 'Inspection completed (Locked)'
     },
+};
+
+export const formatDateDDMMYY = (val) => {
+    if (!val) return 'N/A';
+    try {
+        if (typeof val === 'string') {
+            const s = val.trim();
+            // Already dd/mm/yyyy (vendor-calls API) - normalise padding only
+            const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+            if (dmy) return `${dmy[1].padStart(2, '0')}/${dmy[2].padStart(2, '0')}/${dmy[3]}`;
+            // ISO yyyy-mm-dd[Thh:mm...]
+            const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        }
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            return `${day}/${month}/${d.getFullYear()}`;
+        }
+    } catch (e) { }
+    return String(val);
 };
 
 export const getCallUom = (call) => {
@@ -100,9 +178,9 @@ const MOCK_CALLS = [];
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status, scheduledDate }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['Call Raised'];
-    const label = (status === 'Scheduled by IE' && scheduledDate)
-        ? `Scheduled (${scheduledDate})` : status;
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['Pending - Call Raised'] || STATUS_CONFIG['Call Raised'];
+    const label = (status && status.includes('Scheduled') && scheduledDate)
+        ? `${status} (${scheduledDate})` : status;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
             <span style={{
@@ -692,37 +770,37 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         const norm = rawStatus.toUpperCase();
         const normJob = rawJobStatus.toUpperCase();
 
-        let status = 'Call Raised';
-        if (
-            norm === 'COMPLETED' || normJob === 'COMPLETED' ||
-            norm === 'LOCKED' || normJob === 'LOCKED' ||
-            norm.includes('IC_ISSUE') || normJob.includes('IC_ISSUE') ||
-            norm.includes('IC_ISSUED') || normJob.includes('IC_ISSUED') ||
-            norm.includes('IBS') || normJob.includes('IBS')
-        ) {
+        let status = 'Pending - Call Raised';
+        if (norm.includes('E-SIGNED') || normJob.includes('E-SIGNED') || norm.includes('E_SIGNED') || normJob.includes('E_SIGNED') || norm.includes('ESIGN') || normJob.includes('ESIGN')) {
+            status = 'Completed - E-Signed';
+        } else if (norm.includes('IC_ISSUE') || normJob.includes('IC_ISSUE') || norm.includes('IC_ISSUED') || normJob.includes('IC_ISSUED') || norm.includes('GENERATE_IC') || normJob.includes('GENERATE_IC')) {
+            status = 'Completed - IC Issued';
+        } else if (norm === 'COMPLETED' || normJob === 'COMPLETED' || norm.includes('FINISH') || normJob.includes('FINISH')) {
             status = 'Completed';
+        } else if (norm === 'LOCKED' || normJob === 'LOCKED') {
+            status = 'Locked';
         } else if (normJob === 'PO_VERIFICATION' || normJob.includes('PO_VERIF') || norm === 'PO_VERIFICATION' || norm.includes('PO_VERIF')) {
-            status = 'PO Verification';
+            status = 'Pending - PO Verification';
         } else if (normJob === 'PAUSED' || norm === 'PAUSED') {
-            status = 'Paused';
+            status = 'Under Inspection - Paused';
         } else if (normJob === 'INITIATED' || normJob.includes('INSPECT') || norm === 'UNDER INSPECTION' || norm === 'UNDER_INSPECTION') {
             status = 'Under Inspection';
-        } else if (normJob === 'SCHEDULED' || normJob === 'RESCHEDULE' || normJob.includes('SCHEDULE') || norm === 'SCHEDULED BY IE' || norm === 'SCHEDULED') {
-            status = 'Scheduled by IE';
+        } else if (c.scheduledDate || c.scheduleDate || normJob === 'SCHEDULED' || normJob === 'RESCHEDULE' || normJob.includes('SCHEDULE') || norm === 'SCHEDULED BY IE' || norm === 'SCHEDULED') {
+            status = 'Pending - Call Scheduled';
         } else if (norm === 'RETURNED BY CALL DESK' || norm === 'RETURNED') {
-            status = 'Returned by Call Desk';
+            status = 'Pending - Returned to Vendor';
         } else if (norm === 'RESUBMITTED') {
-            status = 'Resubmitted';
+            status = 'Pending - Resubmitted';
         } else if (norm === 'CALL ASSIGNED TO IE' || norm === 'ASSIGNED' || norm === 'ASSIGNED TO IE' || normJob === 'ASSIGNED') {
-            status = 'Call Assigned to IE';
+            status = 'Pending - Call Assigned to IE';
         } else if (norm === 'WITHHELD') {
-            status = 'Withheld';
+            status = 'Under Inspection - Withheld';
         } else if (norm === 'CANCELLED') {
             status = 'Cancelled';
+        } else if (norm === 'VERIFIED' || norm === 'CALL_REGISTERED') {
+            status = 'Pending - Call Registered';
         } else if (norm === 'PENDING FOR VERIFICATION' || norm === 'PENDING' || norm === 'CALL RAISED' || norm === 'CREATED') {
-            status = 'Pending for verification';
-        } else if (norm === 'LOCKED') {
-            status = 'Locked';
+            status = 'Pending - Call Raised';
         } else if (rawStatus) {
             status = rawStatus;
         }
@@ -734,6 +812,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
             poNo: c.poNo,
             srNo: c.srNo,
             callDate: c.callDate || new Date().toLocaleDateString('en-IN'),
+            scheduledDate: c.scheduledDate ? formatDateDDMMYY(c.scheduledDate) : (c.scheduleDate ? formatDateDDMMYY(c.scheduleDate) : (c.scheduled_date ? formatDateDDMMYY(c.scheduled_date) : null)),
             sleeperType: c.sleeperType,
             uom: c.uom || getCallUom(c),
             qtyOffered: Number(c.qtyOffered) || 0,
@@ -745,49 +824,45 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
         };
     });
 
-    const isCompletedOrIbs = (call) => {
-        const raw = String(call.rawStatus || call.status || call.action || '').toUpperCase().trim();
-        const rawJob = String(call.jobStatus || call.job_status || '').toUpperCase().trim();
-        return (
-            raw === 'COMPLETED' ||
-            rawJob === 'COMPLETED' ||
-            raw === 'LOCKED' ||
-            rawJob === 'LOCKED' ||
-            raw.includes('IC_ISSUE') ||
-            rawJob.includes('IC_ISSUE') ||
-            raw.includes('IC_ISSUED') ||
-            rawJob.includes('IC_ISSUED') ||
-            raw.includes('IBS') ||
-            rawJob.includes('IBS')
-        );
-    };
-
-    const ACTIVE_STATUSES = [
-        'Call Raised', 'Returned by Call Desk', 'Resubmitted',
-        'Call Assigned to IE', 'Scheduled by IE', 'Under Inspection',
-        'Paused', 'PO Verification', 'Withheld', 'Pending for verification', 'Created', 'PENDING'
-    ];
-    const isHiddenStatus = (c) => {
+    const isCompletedSectionCall = (c) => {
+        if (!c) return false;
+        if (c.isClosed) return true;
         const combined = [
             c?.status,
             c?.workflowStatus,
+            c?.workflow_status,
             c?.latestAction,
             c?.action,
             c?.rawStatus,
             c?.jobStatus,
-            c?.job_status
+            c?.job_status,
+            c?.ibsStatus,
+            c?.ibs_status
         ].map(v => String(v || '').trim().toUpperCase()).join(' ');
         return (
             combined.includes('WITHDRAW') ||
             combined.includes('CANCEL') ||
             combined.includes('REJECT') ||
-            combined.includes('LOCKED')
+            combined.includes('SEND_CALL_TO_IBS') ||
+            combined.includes('SENT_CALL_TO_IBS') ||
+            combined.includes('SENT_TO_IBS') ||
+            combined.includes('SEND_TO_IBS') ||
+            combined.includes('SEND CALL TO IBS') ||
+            combined.includes('CLOSED') ||
+            combined.includes('IBS')
         );
     };
-    const displayCalls = allCalls.filter(c => {
-        if (isHiddenStatus(c) || isCompletedOrIbs(c)) return false;
-        return ACTIVE_STATUSES.includes(c.status) || (String(c.status || '').toUpperCase() !== 'COMPLETED');
-    });
+
+    const displayCalls = allCalls.filter(c => !isCompletedSectionCall(c));
+
+    const matchesFilter = (callStatus, tabKey) => {
+        if (!callStatus || !tabKey) return false;
+        if (tabKey === 'All') return true;
+        if (callStatus === tabKey) return true;
+        const normCall = String(callStatus).replace(/^Pending -\s*/i, '').replace(/^Under Inspection -\s*/i, '').trim().toUpperCase();
+        const normTab = String(tabKey).replace(/^Pending -\s*/i, '').replace(/^Under Inspection -\s*/i, '').trim().toUpperCase();
+        return normCall === normTab;
+    };
 
     const statusCounts = {};
     Object.keys(STATUS_CONFIG).forEach(s => {
@@ -796,7 +871,49 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
 
     const filtered = filterStatus === 'All'
         ? displayCalls
-        : displayCalls.filter(c => c.status === filterStatus);
+        : displayCalls.filter(c => matchesFilter(c.status, filterStatus));
+
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(10);
+
+    const filteredBySearch = useMemo(() => {
+        if (!search.trim()) return filtered;
+        const q = search.trim().toLowerCase();
+        return filtered.filter(call => {
+            const callNo = String(call.callNo || call.callNumber || call.requestId || '').toLowerCase();
+            const poNo = String(call.poNo || '').toLowerCase();
+            const srNo = String(call.srNo || '').toLowerCase();
+            const sleeperType = String(call.sleeperType || call.itemDesc || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
+            const ieName = String(call.ieName || call.assigned_to_user || '').toLowerCase();
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const status = String(call.status || '').toLowerCase();
+            return callNo.includes(q) ||
+                poNo.includes(q) ||
+                srNo.includes(q) ||
+                sleeperType.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                status.includes(q);
+        });
+    }, [filtered, search]);
+
+    const totalPages = Math.ceil(filteredBySearch.length / size) || 1;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
+
+    const paginatedCalls = useMemo(() => {
+        const start = page * size;
+        return filteredBySearch.slice(start, start + size);
+    }, [filteredBySearch, page, size]);
 
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
@@ -946,16 +1063,17 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
     };
 
     const FILTER_TABS = [
-        { key: 'All', color: '#21808d' },
-        { key: 'Call Raised', color: '#3b82f6' },
-        { key: 'PO Verification', color: '#3b82f6' },
-        { key: 'Returned by Call Desk', color: '#f97316' },
-        { key: 'Resubmitted', color: '#eab308' },
-        { key: 'Call Assigned to IE', color: '#22c55e' },
-        { key: 'Scheduled by IE', color: '#8b5cf6' },
-        { key: 'Under Inspection', color: '#10b981' },
-        { key: 'Paused', color: '#047857' },
-        { key: 'Withheld', color: '#ec4899' },
+        { key: 'All', label: 'All Active', color: '#21808d' },
+        { key: 'Pending - Call Raised', label: 'Call Raised', color: '#3b82f6' },
+        { key: 'Pending - PO Verification', label: 'PO Verification', color: '#3b82f6' },
+        { key: 'Pending - Returned to Vendor', label: 'Returned', color: '#f97316' },
+        { key: 'Pending - Resubmitted', label: 'Resubmitted', color: '#eab308' },
+        { key: 'Pending - Call Assigned to IE', label: 'Assigned to IE', color: '#22c55e' },
+        { key: 'Pending - Call Scheduled', label: 'Call Scheduled', color: '#8b5cf6' },
+        { key: 'Under Inspection', label: 'Under Inspection', color: '#10b981' },
+        { key: 'Under Inspection - Paused', label: 'Paused', color: '#047857' },
+        { key: 'Under Inspection - Withheld', label: 'Withheld', color: '#ec4899' },
+        { key: 'Completed', label: 'Completed', color: '#166534' },
     ];
 
     return (
@@ -975,8 +1093,8 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[
                         { label: 'Total Active', val: displayCalls.length, bg: '#f0f9fa', color: '#21808d', border: '#a7d8dc' },
-                        { label: 'Pending for verification', val: (statusCounts['Call Raised'] || 0) + (statusCounts['Resubmitted'] || 0), bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-                        { label: 'Needs Action', val: statusCounts['Returned by Call Desk'] || 0, bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+                        { label: 'Pending for verification', val: (statusCounts['Pending - Call Raised'] || statusCounts['Call Raised'] || 0) + (statusCounts['Pending - Resubmitted'] || statusCounts['Resubmitted'] || 0), bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                        { label: 'Needs Action', val: (statusCounts['Pending - Returned to Vendor'] || statusCounts['Returned by Call Desk'] || 0), bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
                     ].map(s => (
                         <div key={s.label} style={{
                             background: s.bg, border: `1.5px solid ${s.border}`,
@@ -994,8 +1112,8 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                 {FILTER_TABS.map(tab => (
                     <FilterTab
                         key={tab.key}
-                        label={tab.key === 'All' ? 'All Active' : tab.key}
-                        count={tab.key === 'All' ? displayCalls.length : (statusCounts[tab.key] || 0)}
+                        label={tab.label || (tab.key === 'All' ? 'All Active' : tab.key)}
+                        count={tab.key === 'All' ? displayCalls.length : (statusCounts[tab.key] || statusCounts[tab.key.replace(/^Pending -\s*/, '')] || 0)}
                         active={filterStatus === tab.key}
                         color={tab.color}
                         onClick={() => setFilterStatus(tab.key)}
@@ -1003,23 +1121,54 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                 ))}
             </div>
 
+            {/* ── Search Bar ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ position: 'relative', width: '320px' }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+                    <input
+                        type="text"
+                        placeholder="Search Call No / PO No / Sleeper / Case..."
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
+                        style={{
+                            width: '100%',
+                            height: 38,
+                            padding: '0 12px 0 36px',
+                            border: '1.5px solid #e2e8f0',
+                            borderRadius: 10,
+                            fontSize: 13,
+                            color: '#0f172a',
+                            background: '#fff',
+                            outline: 'none',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                    />
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Showing {filteredBySearch.length} {filteredBySearch.length === 1 ? 'call' : 'calls'}
+                </div>
+            </div>
+
             <div style={{
                 background: '#fff', borderRadius: 16,
                 border: '1px solid #e2e8f0', overflow: 'hidden',
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
-                {filtered.length === 0 ? (
+                {filteredBySearch.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>No calls with status "{filterStatus}"</div>
-                        <div style={{ fontSize: 12, marginTop: 4 }}>Try selecting a different filter above.</div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{search ? "No calls match your search criteria." : `No calls with status "${filterStatus}"`}</div>
+                        <div style={{ fontSize: 12, marginTop: 4 }}>{search ? "Try searching with different keywords." : "Try selecting a different filter above."}</div>
                     </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                             <thead>
                                 <tr style={{ background: '#fdf8e6', borderBottom: '2px solid #e2e8f0' }}>
-                                    {['Call Details', 'PO Reference', 'Sleeper Info', 'IE / Schedule', 'Status', 'Action'].map(h => (
+                                    {['Call Details', 'PO Refrence', 'Detail of Inspection Call', 'Offered Qunatity', 'IE Assigned & mobile Number', 'Status', 'Action'].map(h => (
                                         <th key={h} style={{
                                             padding: '10px 16px', fontSize: 10, fontWeight: 800,
                                             color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -1030,13 +1179,13 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((call, idx) => {
+                                {paginatedCalls.map((call, idx) => {
                                     const isReturned = call.status === 'Returned by Call Desk';
                                     return (
                                         <tr
-                                            key={call.id}
+                                            key={call.id || call.callNo || `call-row-${idx}`}
                                             style={{
-                                                borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid #f1f5f9',
+                                                borderBottom: idx === paginatedCalls.length - 1 ? 'none' : '1px solid #f1f5f9',
                                                 background: isReturned ? '#fff9f5' : (idx % 2 === 0 ? '#fff' : '#fafcff'),
                                                 transition: 'background 0.15s'
                                             }}
@@ -1044,7 +1193,7 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                             {/* Call Details */}
                                             <td style={{ padding: '10px 16px' }}>
                                                 <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{call.callNo}</div>
-                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Raised: {call.callDate}</div>
+                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{call.callDate || call.inspectionDate || ''}</div>
                                                 {isReturned && call.returnReason && (
                                                     <div style={{
                                                         marginTop: 6, fontSize: 10, color: '#c2410c',
@@ -1062,25 +1211,40 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                                 <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>SR. No. {call.srNo}</div>
                                             </td>
 
-                                            {/* Sleeper Info */}
+                                            {/* Detail of Inspection Call */}
                                             <td style={{ padding: '10px 16px' }}>
                                                 <div style={{ fontWeight: 700, fontSize: 12, color: '#7c3aed' }}>{call.sleeperType}</div>
-                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{(Number(call.qtyOffered) || 0).toLocaleString()} {getCallUom(call)}</div>
-                                                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{call.batches} batch{call.batches !== 1 ? 'es' : ''}</div>
+                                                {call.batches ? (
+                                                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{call.batches} batch{call.batches !== 1 ? 'es' : ''}</div>
+                                                ) : null}
                                             </td>
 
-                                            {/* IE / Schedule */}
+                                            {/* Offered Quantity */}
                                             <td style={{ padding: '10px 16px' }}>
-                                                {call.ieName ? (
-                                                    <>
-                                                        <div style={{ fontSize: 11, fontWeight: 600, color: '#15803d' }}>👷 {call.ieName}</div>
-                                                        {call.scheduledDate && (
-                                                            <div style={{ fontSize: 11, color: '#6d28d9', marginTop: 3, fontWeight: 600 }}>📅 {call.scheduledDate}</div>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <span style={{ fontSize: 11, color: '#cbd5e1' }}>—</span>
-                                                )}
+                                                <div style={{ fontWeight: 700, fontSize: 12, color: '#0f172a' }}>
+                                                    {(Number(call.qtyOffered) || 0).toLocaleString()} {getCallUom(call)}
+                                                </div>
+                                            </td>
+
+                                            {/* IE Assigned & mobile Number */}
+                                            <td style={{ padding: '10px 16px' }}>
+                                                {(() => {
+                                                    const ieName = call.ieName;
+                                                    const hasIe = ieName && ieName !== 'Not Assigned' && ieName !== 'N/A';
+                                                    const iePhone = getIeContact(ieName || call.assigned_to_user, call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone);
+                                                    return hasIe ? (
+                                                        <>
+                                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>{ieName}</div>
+                                                            {iePhone ? (
+                                                                <div style={{ fontSize: 11, color: '#475569', marginTop: 2, fontWeight: 600 }}>
+                                                                    {iePhone}
+                                                                </div>
+                                                            ) : null}
+                                                        </>
+                                                    ) : (
+                                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>Not Assigned</span>
+                                                    );
+                                                })()}
                                             </td>
 
                                             {/* Status */}
@@ -1109,6 +1273,63 @@ const CallsRequestedDashboard = ({ inspectionCalls: propCalls, onRefresh }) => {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                )}
+                {/* ── Pagination Controls ── */}
+                {totalPages > 1 && (
+                    <div style={{
+                        padding: '12px 18px', background: '#f8fafc',
+                        borderTop: '1px solid #e2e8f0',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        fontSize: '12px', color: '#64748b', flexWrap: 'wrap', gap: '10px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div>
+                                Showing page <strong style={{ color: '#0f172a' }}>{page + 1}</strong> of <strong style={{ color: '#0f172a' }}>{totalPages}</strong>
+                                <span style={{ marginLeft: 6 }}>({filteredBySearch.length} total calls)</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>Per page:</label>
+                                <select
+                                    value={size}
+                                    onChange={(e) => {
+                                        setSize(Number(e.target.value));
+                                        setPage(0);
+                                    }}
+                                    style={{
+                                        padding: '4px 8px', borderRadius: '6px',
+                                        border: '1px solid #cbd5e1', background: '#fff',
+                                        color: '#0f172a', fontSize: '12px', outline: 'none', cursor: 'pointer'
+                                    }}
+                                >
+                                    {[5, 10, 20, 50].map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                                onClick={() => setPage(p => Math.max(0, p - 1))}
+                                disabled={page === 0}
+                                style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: '1px solid #e2e8f0', background: '#fff',
+                                    color: page === 0 ? '#cbd5e1' : '#475569',
+                                    cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 12
+                                }}
+                            >Previous</button>
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                                disabled={page >= totalPages - 1}
+                                style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: '1px solid #e2e8f0', background: '#fff',
+                                    color: page >= totalPages - 1 ? '#cbd5e1' : '#475569',
+                                    cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 12
+                                }}
+                            >Next</button>
+                        </div>
                     </div>
                 )}
             </div>

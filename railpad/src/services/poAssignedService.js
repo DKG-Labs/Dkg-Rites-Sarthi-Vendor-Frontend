@@ -23,6 +23,23 @@ const poAssignedService = {
     }
   },
 
+  /**
+   * Declare New Production: only POs that have a process (RPP) call in progress at this plant
+   * (not yet Sent to IBS / Withdrawn / Cancelled). Returns [{ poNo, poDate, callNos }].
+   */
+  getOpenProcessPos: async (vendorCode, plantId) => {
+    if (!vendorCode) throw new Error('Vendor code is required');
+    const params = new URLSearchParams({ vendorCode });
+    if (plantId && plantId !== '1') params.append('plantId', plantId);
+    const token = localStorage.getItem('railpad_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+    const response = await fetch(`${API_CONFIG.RAIL_INSPECTION_CALL}/open-process-pos?${params.toString()}`, {
+      headers: { 'Accept': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+    });
+    if (!response.ok) throw new Error('Failed to fetch POs with open process calls');
+    const data = await response.json();
+    return data.responseData || data;
+  },
+
   getPoCount: async (vendorCode, vendorType = 'Rail Pads') => {
     try {
       const data = await poAssignedService.getPoAssigned(vendorCode, vendorType);

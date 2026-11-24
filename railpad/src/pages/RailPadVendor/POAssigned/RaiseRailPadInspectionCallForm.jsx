@@ -793,6 +793,16 @@ const RaiseRailPadInspectionCallForm = ({
                 })
             };
 
+            if (isModifyMode && callData) {
+                const prevQty = parseInt(callData.totalQty || callData.offeredQty || 0, 10);
+                const newQty = parseInt(payload.totalQty, 10);
+                if (prevQty > 0 && newQty > 0 && newQty < prevQty) {
+                    alert(`❌ Modification not allowed: Call quantity cannot be decreased.\n\nPrevious quantity: ${prevQty.toLocaleString()}\nEntered quantity: ${newQty.toLocaleString()}`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             let result;
             if (onSubmitInspectionCall) {
                 result = await onSubmitInspectionCall(payload);

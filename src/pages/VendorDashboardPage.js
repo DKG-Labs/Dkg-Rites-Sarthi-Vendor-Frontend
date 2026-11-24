@@ -33,6 +33,7 @@ import {
   VENDOR_SUB_PO_LIST
 } from '../data/vendorMockData';
 import { formatDate, getCallDateFromCallNo } from '../utils/helpers';
+import { getIeContact } from '../utils/userMasterContacts';
 import { generateCallLetterPDF } from '../utils/generateCallLetterPDF';
 import jsPDF from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -633,6 +634,7 @@ const VendorDashboardPage = ({ onBack }) => {
           lotNoProcess: call.lotNoProcess,
           lotNoFinal: call.lotNoFinal,
           ieName: call.ieName || 'Not Assigned',
+          ieContactNo: call.ieContactNo || call.ieMobile || call.mobileNo || '',
           uom: call.uom || '',
           scheduledDate: call.scheduledDate,
           unitName: call.unitName || call.placeOfInspection || 'N/A',
@@ -654,6 +656,8 @@ const VendorDashboardPage = ({ onBack }) => {
           quantity_accepted: call.workflowStatus === 'WITHDRAW' ? 0 : (call.acceptedQty ?? call.quantityOffered ?? 0),
           quantity_rejected: 0,
           ic_number: call.icNumber || '',
+          certificateNo: call.certificateNo || call.certificate_no || call.icNo || '',
+          certificateDate: call.certificateDate || call.certificate_date || call.icDate || '',
           workflowTransitionId: call.workflowTransitionId,
           inspection_summary: {
             inspector_name: call.ieName || 'N/A',
@@ -675,6 +679,7 @@ const VendorDashboardPage = ({ onBack }) => {
             s === 'SEND_TO_IBS' ||
             s === 'SEND CALL TO IBS' ||
             s === 'SENT CALL TO IBS' ||
+            s === 'CLOSED' ||
             s.replace(/_/g, ' ') === 'SEND CALL TO IBS'
           );
         };
@@ -695,6 +700,9 @@ const VendorDashboardPage = ({ onBack }) => {
           if (isCallHiddenDocs(call)) {
             return false;
           }
+          if (call.isClosed) {
+            return true;
+          }
           const wf = String(call.workflowStatus || '').trim().toUpperCase();
           const st = String(call.status || '').trim().toUpperCase();
           const jb = String(call.jobStatus || '').trim().toUpperCase();
@@ -705,7 +713,10 @@ const VendorDashboardPage = ({ onBack }) => {
             isSendCallToIbsStatus(jb) ||
             wf.includes('IBS') ||
             st.includes('IBS') ||
-            jb.includes('IBS')
+            jb.includes('IBS') ||
+            wf.includes('CLOSED') ||
+            st.includes('CLOSED') ||
+            jb.includes('CLOSED')
           );
         };
 
@@ -1425,8 +1436,19 @@ const VendorDashboardPage = ({ onBack }) => {
     try {
       const icNumber = modifyingCall.call_no;
       const updatedBy = String(user.userId);
+      const prevQty = parseFloat(modifyingCall.quantity_offered || modifyingCall.offeredQty || modifyingCall.offeredQtyErc || modifyingCall.totalOfferedQty || 0);
 
       if (data.type_of_call === 'Raw Material') {
+        const newOfferedQtyErc = parseInt(data.rm_offered_qty_erc) || 0;
+        if (prevQty > 0 && newOfferedQtyErc > 0 && newOfferedQtyErc < prevQty) {
+          setNotification({
+            message: `❌ Modification not allowed: Call quantity cannot be decreased. Previous quantity: ${prevQty}, entered: ${newOfferedQtyErc}`,
+            type: 'error'
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Build only the modified fields for InspectionCallRequestDto
         const icFields = {
           desiredInspectionDate: data.desired_inspection_date || null,
@@ -1500,14 +1522,6 @@ const VendorDashboardPage = ({ onBack }) => {
           throw new Error('Modification failed on the server');
         }
       } else if (data.type_of_call === 'Process') {
-        const icFields = {
-          desiredInspectionDate: data.desired_inspection_date || null,
-          placeOfInspection: data.placeOfInspection || null,
-          remarks: data.remarks || null,
-          ercType: data.type_of_erc || null,
-          updatedBy
-        };
-
         const processDetails = (data.process_lot_heat_mapping || []).map(lotHeat => ({
           rmIcNumber: data.process_rm_ic_numbers && data.process_rm_ic_numbers.length > 0
             ? data.process_rm_ic_numbers.join(',')
@@ -1526,6 +1540,24 @@ const VendorDashboardPage = ({ onBack }) => {
           unitName: data.unit_name || null,
           unitAddress: data.unit_address || null
         }));
+
+        const totalNewProcessQty = processDetails.reduce((sum, p) => sum + (p.offeredQty || 0), 0);
+        if (prevQty > 0 && totalNewProcessQty > 0 && totalNewProcessQty < prevQty) {
+          setNotification({
+            message: `❌ Modification not allowed: Call quantity cannot be decreased. Previous quantity: ${prevQty}, entered: ${totalNewProcessQty}`,
+            type: 'error'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const icFields = {
+          desiredInspectionDate: data.desired_inspection_date || null,
+          placeOfInspection: data.placeOfInspection || null,
+          remarks: data.remarks || null,
+          ercType: data.type_of_erc || null,
+          updatedBy
+        };
 
         const filteredIcFields = Object.fromEntries(
           Object.entries(icFields).filter(([, v]) => v !== null && v !== undefined && v !== '')
@@ -1548,6 +1580,16 @@ const VendorDashboardPage = ({ onBack }) => {
           throw new Error('Modification failed on the server');
         }
       } else if (data.type_of_call === 'Final') {
+        const totalNewFinalQty = parseInt(data.final_total_qty) || 0;
+        if (prevQty > 0 && totalNewFinalQty > 0 && totalNewFinalQty < prevQty) {
+          setNotification({
+            message: `❌ Modification not allowed: Call quantity cannot be decreased. Previous quantity: ${prevQty}, entered: ${totalNewFinalQty}`,
+            type: 'error'
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const icFields = {
           desiredInspectionDate: data.desired_inspection_date || null,
           placeOfInspection: data.placeOfInspection || null,
@@ -3688,10 +3730,22 @@ const VendorDashboardPage = ({ onBack }) => {
   ];
 
   const requestedColumns = [
-    { key: 'call_no', label: 'Call No.', width: '110px' },
+    {
+      key: 'call_no',
+      label: 'Call Details',
+      width: '140px',
+      render: (val, row) => (
+        <div>
+          <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13.5px' }}>{val || row.call_no || row.callNo || '-'}</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            {formatDate(row.call_date || row.desiredInspectionDate || row.createdAt)}
+          </div>
+        </div>
+      )
+    },
     {
       key: 'poCombined',
-      label: 'PO No.',
+      label: 'PO Refrence',
       width: '190px',
       render: (_, row) => `${row.rlyShortName || ''} / ${row.po_no || ''} / ${cleanSerialNo(row.poSerialNo)}`
     },
@@ -3709,7 +3763,7 @@ const VendorDashboardPage = ({ onBack }) => {
     },
     {
       key: 'quantity_offered',
-      label: 'Qty Offered',
+      label: 'Offered Qunatity',
       width: '120px',
       render: (val, row) => {
         const uom = (!row.uom || row.uom === 'N/A') ? 'Nos.' : row.uom;
@@ -3717,15 +3771,36 @@ const VendorDashboardPage = ({ onBack }) => {
       }
     },
     {
+      key: 'ieAssigned',
+      label: 'IE Assigned & mobile Number',
+      width: '190px',
+      render: (_, row) => {
+        const ieName = row.ieName || row.assignedIe || row.inspector_name;
+        const hasIe = ieName && ieName !== 'Not Assigned' && ieName !== 'N/A' && ieName !== '-';
+        const iePhone = getIeContact(ieName || row.assigned_to_user || row.process_ie_user_id, row.ieContactNo || row.ieMobile || row.iePhone);
+        return hasIe ? (
+          <div>
+            <div style={{ fontWeight: 700, color: '#15803d', fontSize: '13px' }}>{ieName}</div>
+            {iePhone ? (
+              <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', fontWeight: 600 }}>{iePhone}</div>
+            ) : null}
+          </div>
+        ) : (
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>Not Assigned</span>
+        );
+      }
+    },
+    {
       key: 'status',
       label: 'Status',
       width: '160px',
       render: (val, row) => {
-        const { mainStatus, combinedText } = getDetailedStatus(val, row?.callNo || row?.call_no || row?.icNumber);
+        const { mainStatus, combinedText } = getDetailedStatus(val, row?.callNo || row?.call_no || row?.icNumber, row);
+        const isScheduled = (val === 'SCHEDULED' || (combinedText && combinedText.includes('Scheduled')) || row?.scheduledDate);
         return (
           <div>
             <StatusBadge status={mainStatus} text={combinedText} />
-            {val === 'SCHEDULED' && row.scheduledDate && (
+            {isScheduled && row?.scheduledDate && (
               <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
                 Scheduled: {formatDate(row.scheduledDate)}
               </div>
@@ -3768,27 +3843,93 @@ const VendorDashboardPage = ({ onBack }) => {
   ];
 
   const completedColumns = [
-    { key: 'call_no', label: 'Call No.', width: '110px' },
+    {
+      key: 'call_no',
+      label: 'Call Details',
+      width: '160px',
+      render: (val, row) => (
+        <div>
+          <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '13.5px' }}>{val || row.call_no || row.callNo || '-'}</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            {formatDate(row.call_date || row.desiredInspectionDate || row.createdAt)}
+          </div>
+        </div>
+      )
+    },
     {
       key: 'poCombined',
-      label: 'PO No.',
-      width: '200px',
-      render: (_, row) => `${row.rlyShortName || ''} / ${row.po_no || ''} / ${cleanSerialNo(row.poSerialNo)}`
+      label: 'PO Reference',
+      width: '190px',
+      render: (_, row) => (
+        <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
+          {`${row.rlyShortName || ''} / ${row.po_no || ''} / ${cleanSerialNo(row.poSerialNo)}`}
+        </div>
+      )
     },
     {
-      key: 'completion_date',
-      label: 'Completion Date',
-      width: '140px',
-      render: (value) => formatDate(value)
+      key: 'item_name',
+      label: 'Item Details',
+      width: '190px',
+      render: (val, row) => {
+        let details = `${row.ercType || ''} (${row.stage || ''})`.trim();
+        if (row.stage === 'Raw Material' && row.noOfHeatsRM) details += ` - ${row.noOfHeatsRM} ${row.noOfHeatsRM === 1 ? 'Heat' : 'Heats'}`;
+        if (row.stage === 'Process' && row.lotNoProcess) details += ` - Lot: ${row.lotNoProcess}`;
+        if (row.stage === 'Final' && row.lotNoFinal) details += ` - Lot: ${row.lotNoFinal}`;
+        return (
+          <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
+            {details && details !== '()' ? details : (row.item_name || row.itemName || row.ercType || 'N/A')}
+          </div>
+        );
+      }
     },
-    { key: 'quantity_offered', label: 'Qty Offered', width: '120px' },
-    { key: 'quantity_accepted', label: 'Qty Accepted', width: '120px' },
+    {
+      key: 'quantity_accepted',
+      label: 'Quantity Accepted',
+      width: '140px',
+      render: (val, row) => {
+        const uom = (!row.uom || row.uom === 'N/A') ? 'Nos.' : row.uom;
+        const acceptedVal = row.status?.toUpperCase()?.includes('WITHDRAW') ? 0 : (val != null ? val : (row.acceptedQty != null ? row.acceptedQty : 0));
+        return (
+          <div style={{ fontWeight: 800, color: '#15803d', fontSize: '13px' }}>
+            {Number(acceptedVal).toLocaleString()} {uom}
+          </div>
+        );
+      }
+    },
+    {
+      key: 'ic_details',
+      label: 'IC Number & IC Date',
+      width: '180px',
+      render: (_, row) => {
+        const isWithdrawnOrRejected = (row.workflowStatus || row.status || '').toUpperCase().includes('WITHDRAW') || (row.workflowStatus || row.status || '').toUpperCase().includes('REJECT') || (row.workflowStatus || row.status || '').toUpperCase().includes('CANCEL');
+        if (isWithdrawnOrRejected) {
+          return <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>-</span>;
+        }
+        const isIbsOrComplete = (row.workflowStatus || row.status || '').toUpperCase().includes('IBS') || (row.workflowStatus || row.status || '').toUpperCase().includes('COMPLET');
+        const icNum = (isIbsOrComplete || row.certificateNo || row.certificate_no || row.icNo)
+          ? (row.certificateNo || row.certificate_no || row.icNo || (isIbsOrComplete && (row.call_no || row.ic_number) ? `N/${row.call_no || row.ic_number}/ARV` : null))
+          : null;
+        const icDt = row.certificateDate || row.certificate_date || row.icDate || (icNum ? (row.completion_date || row.desiredInspectionDate || row.createdAt) : null);
+        return icNum ? (
+          <div>
+            <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '12.5px' }}>{icNum}</div>
+            {icDt && (
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                {formatDate(icDt)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>-</span>
+        );
+      }
+    },
     {
       key: 'status',
       label: 'Status',
       width: '160px',
       render: (value, row) => {
-        const { mainStatus, combinedText } = getDetailedStatus(value, row?.callNo || row?.call_no || row?.icNumber);
+        const { mainStatus, combinedText } = getDetailedStatus(value, row?.callNo || row?.call_no || row?.icNumber, row);
         return <StatusBadge status={mainStatus} text={combinedText} />;
       }
     },
@@ -3832,11 +3973,18 @@ const VendorDashboardPage = ({ onBack }) => {
     // Apply search filter
     if (poAssignedSearchTerm) {
       const searchLower = poAssignedSearchTerm.toLowerCase();
-      result = result.filter(po =>
-        Object.values(po).some(val =>
+      result = result.filter(po => {
+        const matchesDirect = Object.values(po).some(val =>
           String(val).toLowerCase().includes(searchLower)
-        )
-      );
+        );
+        if (matchesDirect) return true;
+        const items = po.items || po.poItem || po.srItems || [];
+        return items.some(item =>
+          Object.values(item).some(val =>
+            String(val).toLowerCase().includes(searchLower)
+          )
+        );
+      });
     }
 
     // Apply sorting
@@ -3960,7 +4108,26 @@ const VendorDashboardPage = ({ onBack }) => {
     setPoAssignedCurrentPage(1);
   };
 
-  const requestedCallsTotalPages = Math.ceil(filteredAndSortedRequestedCalls.length / requestedCallsPageSize);
+  const requestedCallsTotalPages = Math.ceil(filteredAndSortedRequestedCalls.length / requestedCallsPageSize) || 1;
+
+  useEffect(() => {
+    if (requestedCallsCurrentPage > requestedCallsTotalPages && requestedCallsTotalPages > 0) {
+      setRequestedCallsCurrentPage(1);
+    }
+  }, [requestedCallsCurrentPage, requestedCallsTotalPages]);
+
+  useEffect(() => {
+    if (completedCallsCurrentPage > completedCallsTotalPages && completedCallsTotalPages > 0) {
+      setCompletedCallsCurrentPage(1);
+    }
+  }, [completedCallsCurrentPage, completedCallsTotalPages]);
+
+  useEffect(() => {
+    const poAssignedTotalPages = Math.ceil(sortedPOAssigned.length / poAssignedPageSize) || 1;
+    if (poAssignedCurrentPage > poAssignedTotalPages && poAssignedTotalPages > 0) {
+      setPoAssignedCurrentPage(1);
+    }
+  }, [poAssignedCurrentPage, sortedPOAssigned.length, poAssignedPageSize]);
 
   // Handle sorting for requested calls
   const handleRequestedCallsSort = (columnKey) => {

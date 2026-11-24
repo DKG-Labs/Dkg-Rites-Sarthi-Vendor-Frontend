@@ -138,17 +138,37 @@ const isHiddenSleeperCall = (c) => {
     );
 };
 
+const getCallUom = (call) => {
+    if (call?.uom && String(call.uom).trim() !== '') {
+        const u = String(call.uom).trim();
+        return u.toUpperCase().includes('SET') ? 'Set' : u;
+    }
+    if (call?.unit && String(call.unit).trim() !== '') {
+        const u = String(call.unit).trim();
+        return u.toUpperCase().includes('SET') ? 'Set' : u;
+    }
+    const st = (call?.sleeperType || call?.productType || '').toUpperCase();
+    if (st.includes('SET') || st.includes('PNC') || st.includes('TURNOUT') || st.includes('4218') || st.includes('4865') || st.includes('9790') || st.includes('4732') || st.includes('DERAIL')) {
+        return 'Set';
+    }
+    return 'Nos.';
+};
+
 const isTerminalCompletedCall = (c) => {
     if (!c) return false;
     if (isHiddenSleeperCall(c)) return true;
+    if (c.isClosed) return true;
     const combined = [
         c?.status,
         c?.workflowStatus,
+        c?.workflow_status,
         c?.latestAction,
         c?.action,
         c?.rawStatus,
         c?.jobStatus,
-        c?.job_status
+        c?.job_status,
+        c?.ibsStatus,
+        c?.ibs_status
     ].map(v => String(v || '').trim().toUpperCase()).join(' ');
     return (
         combined.includes('SEND_CALL_TO_IBS') ||
@@ -156,14 +176,8 @@ const isTerminalCompletedCall = (c) => {
         combined.includes('SENT_TO_IBS') ||
         combined.includes('SEND_TO_IBS') ||
         combined.includes('SEND CALL TO IBS') ||
-        combined.includes('IBS') ||
-        combined.includes('COMPLETED') ||
-        combined.includes('LOCKED') ||
-        combined.includes('IC_ISSUE') ||
-        combined.includes('IC_ISSUED') ||
-        combined.includes('GENERATE_IC') ||
-        combined.includes('DSC_SIGN') ||
-        combined.includes('FINISH')
+        combined.includes('CLOSED') ||
+        combined.includes('IBS')
     );
 };
 
@@ -387,7 +401,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
             ]);
 
             const list1 = (completedRes.status === 'fulfilled' && Array.isArray(completedRes.value))
-                ? completedRes.value
+                ? completedRes.value.filter(isTerminalCompletedCall)
                 : [];
             const list2 = (vendorCallsRes.status === 'fulfilled' && Array.isArray(vendorCallsRes.value))
                 ? vendorCallsRes.value.filter(isTerminalCompletedCall)
@@ -421,26 +435,50 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
     }, [initialCalls, plantId]);
 
     const filteredCalls = useMemo(() => {
-        const visibleCalls = calls;
+        const visibleCalls = calls.filter(isTerminalCompletedCall);
         if (!search.trim()) return visibleCalls;
-        const q = search.toLowerCase();
+        const q = search.trim().toLowerCase();
         return visibleCalls.filter(call => {
             const callNo = (call.requestId || call.callNo || '').toLowerCase();
             const icNo = (call.icNo || call.icNumber || call.certificateNo || '').toLowerCase();
             const icDate = (call.icDate ? formatDateDDMMYY(call.icDate) : '').toLowerCase();
             const poNo = (call.poNo || '').toLowerCase();
-            const sleeperType = (call.sleeperType || call.productType || '').toLowerCase();
+            const srNo = String(call.srNo || call.poSr || '').toLowerCase();
+            const sleeperType = (call.sleeperType || call.productType || call.itemDesc || '').toLowerCase();
+            const drawingNo = String(call.drawingNo || '').toLowerCase();
+            const caseNo = String(call.caseNo || call.case_no || '').toLowerCase();
             const ieName = (call.assignedToUserName || call.ieName || '').toLowerCase();
-            return callNo.includes(q) || icNo.includes(q) || icDate.includes(q) || poNo.includes(q) || sleeperType.includes(q) || ieName.includes(q);
+            const iePhone = String(call.ieContactNo || call.ieMobile || call.mobileNo || call.iePhone || '').toLowerCase();
+            const rly = String(call.rlyCode || call.scrCode || call.rlyShortName || '').toLowerCase();
+            const status = String(call.status || call.workflowStatus || '').toLowerCase();
+
+            return callNo.includes(q) ||
+                icNo.includes(q) ||
+                icDate.includes(q) ||
+                poNo.includes(q) ||
+                srNo.includes(q) ||
+                sleeperType.includes(q) ||
+                drawingNo.includes(q) ||
+                caseNo.includes(q) ||
+                ieName.includes(q) ||
+                iePhone.includes(q) ||
+                rly.includes(q) ||
+                status.includes(q);
         });
     }, [calls, search]);
+
+    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
+
+    useEffect(() => {
+        if (page >= totalPages && totalPages > 0) {
+            setPage(0);
+        }
+    }, [page, totalPages]);
 
     const paginatedCalls = useMemo(() => {
         const start = page * size;
         return filteredCalls.slice(start, start + size);
     }, [filteredCalls, page, size]);
-
-    const totalPages = Math.ceil(filteredCalls.length / size) || 1;
 
     const [actionCall, setActionCall] = useState(null);
     const [icLoading, setIcLoading] = useState(false);
@@ -455,7 +493,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
         if (icData?.blobUrl && icData.isLocalBlob) {
             try {
                 window.URL.revokeObjectURL(icData.blobUrl);
-            } catch (e) {}
+            } catch (e) { }
         }
         setActionCall(null);
         setIcData(null);
@@ -471,7 +509,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
         if (icData?.blobUrl && icData.isLocalBlob) {
             try {
                 window.URL.revokeObjectURL(icData.blobUrl);
-            } catch (e) {}
+            } catch (e) { }
         }
         setActionCall(call);
         setIcData(null);
@@ -792,10 +830,11 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#fcf8ee', borderBottom: '1px solid #f2e9d8' }}>
-                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Call Details</th>
+<th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Call Details</th>
                                 <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PO Reference</th>
                                 <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Item Details</th>
-                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>IC Number & Date</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Quantity Accepted</th>
+                                <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>IC Number & IC Date</th>
                                 <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
                                 <th style={{ padding: '10px 16px', fontSize: '11.5px', fontWeight: 800, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
@@ -806,10 +845,12 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                 const inspectionDate = call.callDate || call.desiredInspectionDate || call.createdDate;
                                 const sleeperItem = call.sleeperType || call.productType || 'Sleeper';
                                 const offeredQuantity = Number(call.offeredQty || call.qtyOffered || call.totalCastedSleepers || 0);
-                                const acceptedQuantity = Number(call.acceptedQty != null ? call.acceptedQty : (call.totalOffered != null ? call.totalOffered : (call.qtyAccepted != null ? call.qtyAccepted : offeredQuantity)));
+                                const isWithdrawnOrRejected = String(call.status || '').toUpperCase().includes('WITHDRAW') || String(call.status || '').toUpperCase().includes('REJECT') || String(call.status || '').toUpperCase().includes('CANCEL');
+                                const acceptedQuantity = Number(isWithdrawnOrRejected ? 0 : (call.acceptedQty != null ? call.acceptedQty : (call.totalOffered != null ? call.totalOffered : (call.qtyAccepted != null ? call.qtyAccepted : offeredQuantity))));
                                 const statusInfo = getCallStatusInfo(call.status, call.action, call.jobStatus);
-                                const icNumber = call.icNo || call.icNumber || call.certificateNo || call.certificate_no || (callNo && callNo !== 'N/A' ? `N/${callNo}/OPS1` : null);
-                                const icDate = call.icDate || call.certificateDate || call.updatedDate || call.createdDate || call.callDate;
+                                const isIbsOrComplete = !isWithdrawnOrRejected && (isSendCallToIbsCall(call) || String(call.status || '').toUpperCase().includes('IBS') || String(call.status || '').toUpperCase().includes('COMPLET') || String(call.jobStatus || '').toUpperCase().includes('COMPLET') || String(call.workflowStatus || '').toUpperCase().includes('COMPLET'));
+                                const icNumber = !isWithdrawnOrRejected ? (call.icNo || call.icNumber || call.certificateNo || call.certificate_no || (isIbsOrComplete && callNo && callNo !== 'N/A' ? `N/${callNo}/ARV` : null)) : null;
+                                const icDate = !isWithdrawnOrRejected ? (call.icDate || call.certificateDate || (isIbsOrComplete ? (call.updatedDate || call.createdDate || call.callDate) : null)) : null;
 
                                 return (
                                     <tr
@@ -826,8 +867,8 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>{callNo}</div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                        <CalendarIcon size={12} color="#64748b" /> {formatDateDDMMYY(inspectionDate)}
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        {formatDateDDMMYY(inspectionDate)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -840,36 +881,30 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             </div>
                                         </td>
 
-                                        {/* 3. Item & Quantities */}
+                                        {/* 3. Item Details */}
                                         <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '13px' }}>{sleeperItem}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                                <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '5px', fontWeight: 600 }}>Off: {offeredQuantity.toLocaleString()}</span>
-                                                <span style={{ color: '#15803d', fontWeight: 800, background: '#dcfce7', padding: '1px 7px', borderRadius: '5px', border: '1px solid #bbf7d0' }}>
-                                                    Acc: {acceptedQuantity.toLocaleString()} (Nos.)
-                                                </span>
+                                        </td>
+
+                                        {/* 4. Quantity Accepted */}
+                                        <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                                            <div style={{ fontWeight: 800, color: '#15803d', fontSize: '13px' }}>
+                                                {Number(call.status?.toUpperCase()?.includes('WITHDRAW') ? 0 : acceptedQuantity).toLocaleString()} {getCallUom(call)}
                                             </div>
                                         </td>
 
-                                        {/* 4. IC Number & IC Date */}
+                                        {/* 5. IC Number & IC Date */}
                                         <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                                             {icNumber ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #d1fae5' }}>
-                                                        <AwardIcon size={18} color="#059669" />
+                                                <div>
+                                                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', letterSpacing: '-0.01em' }}>
+                                                        {icNumber}
                                                     </div>
-                                                    <div>
-                                                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', letterSpacing: '-0.01em' }}>
-                                                            {icNumber}
+                                                    {icDate ? (
+                                                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                            {formatDateDDMMYY(icDate)}
                                                         </div>
-                                                        {icDate ? (
-                                                            <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                                <CalendarIcon size={12} color="#64748b" /> {formatDateDDMMYY(icDate)}
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>-</div>
-                                                        )}
-                                                    </div>
+                                                    ) : null}
                                                 </div>
                                             ) : (
                                                 <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>-</span>
@@ -978,7 +1013,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
 
             {/* Actions Modal & IC Viewer */}
             {actionCall && (
-                <div 
+                <div
                     style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                         background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)',
@@ -987,19 +1022,19 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                     }}
                     onClick={handleCloseActionsModal}
                 >
-                    <div 
+                    <div
                         style={{
-                            background: '#fff', 
-                            borderRadius: '16px', 
+background: '#fff',
+                            borderRadius: '16px',
                             width: showIcPreview ? '96vw' : '640px',
                             maxWidth: showIcPreview ? '1280px' : '640px',
                             height: showIcPreview ? '92vh' : 'auto',
-                            maxHeight: '92vh', 
-                            display: 'flex', 
+                            maxHeight: '92vh',
+                            display: 'flex',
                             flexDirection: 'column',
-                            overflow: 'hidden', 
+                            overflow: 'hidden',
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                            border: '1px solid #e2e8f0', 
+                            border: '1px solid #e2e8f0',
                             animation: 'slideUp 0.25s ease-out'
                         }}
                         onClick={(e) => e.stopPropagation()}
@@ -1014,7 +1049,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                     borderBottom: '1px solid #334155', flexShrink: 0, flexWrap: 'wrap', gap: '10px'
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <button 
+                                        <button
                                             onClick={() => setShowIcPreview(false)}
                                             style={{
                                                 padding: '6px 12px', borderRadius: '8px', border: '1px solid #475569',
@@ -1102,9 +1137,9 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                 </div>
                                 {/* Iframe container */}
                                 <div style={{ flex: 1, position: 'relative', background: '#525659', overflow: 'hidden' }}>
-                                    <iframe 
-                                        src={icData?.blobUrl} 
-                                        title={icData?.fileName || "Inspection Certificate"} 
+                                    <iframe
+                                        src={icData?.blobUrl}
+                                        title={icData?.fileName || "Inspection Certificate"}
                                         style={{ width: '100%', height: '100%', border: 'none' }}
                                     />
                                 </div>
@@ -1135,7 +1170,7 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             </div>
                                         </div>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={handleCloseActionsModal}
                                         style={{
                                             padding: '8px', borderRadius: '8px', border: 'none',
@@ -1204,306 +1239,306 @@ const CallsCompletedDashboard = ({ plantId: propPlantId, initialCalls, onRefresh
                                             </div>
 
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                                        {/* Card 1: See / Preview IC */}
-                                        <div
-                                            onClick={() => !icLoading && handlePreviewIC(actionCall)}
-                                            style={{
-                                                background: '#f8fafc',
-                                                border: '1.5px solid #e2e8f0',
-                                                borderRadius: '12px',
-                                                padding: '14px',
-                                                cursor: icLoading ? 'wait' : 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!icLoading) {
-                                                    e.currentTarget.style.borderColor = '#3b82f6';
-                                                    e.currentTarget.style.background = '#eff6ff';
-                                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(59, 130, 246, 0.15)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!icLoading) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0';
-                                                    e.currentTarget.style.background = '#f8fafc';
-                                                    e.currentTarget.style.transform = 'none';
-                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
-                                                }
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                                                <div style={{
-                                                    width: '40px', height: '40px', borderRadius: '12px',
-                                                    background: '#dbeafe', color: '#1d4ed8',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {icLoading ? <LoaderIcon size={22} color="#1d4ed8" /> : <EyeIcon size={22} color="#1d4ed8" />}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
-                                                        See Your IC
+                                                {/* Card 1: See / Preview IC */}
+                                                <div
+                                                    onClick={() => !icLoading && handlePreviewIC(actionCall)}
+                                                    style={{
+                                                        background: '#f8fafc',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        borderRadius: '12px',
+                                                        padding: '14px',
+                                                        cursor: icLoading ? 'wait' : 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!icLoading) {
+                                                            e.currentTarget.style.borderColor = '#3b82f6';
+                                                            e.currentTarget.style.background = '#eff6ff';
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(59, 130, 246, 0.15)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!icLoading) {
+                                                            e.currentTarget.style.borderColor = '#e2e8f0';
+                                                            e.currentTarget.style.background = '#f8fafc';
+                                                            e.currentTarget.style.transform = 'none';
+                                                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                                                        <div style={{
+                                                            width: '40px', height: '40px', borderRadius: '12px',
+                                                            background: '#dbeafe', color: '#1d4ed8',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {icLoading ? <LoaderIcon size={22} color="#1d4ed8" /> : <EyeIcon size={22} color="#1d4ed8" />}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                                See Your IC
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                                Interactive PDF preview
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                                        Interactive PDF preview
-                                                    </div>
+                                                    <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
+                                                        Open and review the official e-signed Inspection Certificate directly inside the browser.
+                                                    </p>
+                                                    <button
+                                                        disabled={icLoading}
+                                                        style={{
+                                                            width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                            border: 'none', background: '#2563eb', color: '#fff',
+                                                            fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                                        }}
+                                                    >
+                                                        {icLoading ? (
+                                                            <>
+                                                                <LoaderIcon size={16} color="#fff" /> Loading IC...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <EyeIcon size={16} color="#fff" /> View IC Certificate
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
-                                            </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-                                                Open and review the official e-signed Inspection Certificate directly inside the browser.
-                                            </p>
-                                            <button
-                                                disabled={icLoading}
-                                                style={{
-                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
-                                                    border: 'none', background: '#2563eb', color: '#fff',
-                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
-                                                }}
-                                            >
-                                                {icLoading ? (
-                                                    <>
-                                                        <LoaderIcon size={16} color="#fff" /> Loading IC...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <EyeIcon size={16} color="#fff" /> View IC Certificate
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
 
-                                        {/* Card 3: Download Annexures */}
-                                        <div
-                                            onClick={() => !annexuresDownloading && handleDownloadAnnexures(actionCall)}
-                                            style={{
-                                                background: '#f8fafc',
-                                                border: '1.5px solid #e2e8f0',
-                                                borderRadius: '12px',
-                                                padding: '14px',
-                                                cursor: annexuresDownloading ? 'wait' : 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!annexuresDownloading) {
-                                                    e.currentTarget.style.borderColor = '#8b5cf6';
-                                                    e.currentTarget.style.background = '#f5f3ff';
-                                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.15)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!annexuresDownloading) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0';
-                                                    e.currentTarget.style.background = '#f8fafc';
-                                                    e.currentTarget.style.transform = 'none';
-                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
-                                                }
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                                                <div style={{
-                                                    width: '40px', height: '40px', borderRadius: '12px',
-                                                    background: '#ede9fe', color: '#7c3aed',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {annexuresDownloading ? <LoaderIcon size={22} color="#7c3aed" /> : <FileTextIcon size={22} color="#7c3aed" />}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
-                                                        Download Annexures
+                                                {/* Card 2: Download IC */}
+                                                <div
+                                                    onClick={() => !icDownloading && handleDownloadIC(actionCall)}
+                                                    style={{
+                                                        background: '#f8fafc',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        borderRadius: '12px',
+                                                        padding: '14px',
+                                                        cursor: icDownloading ? 'wait' : 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!icDownloading) {
+                                                            e.currentTarget.style.borderColor = '#10b981';
+                                                            e.currentTarget.style.background = '#ecfdf5';
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.15)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!icDownloading) {
+                                                            e.currentTarget.style.borderColor = '#e2e8f0';
+                                                            e.currentTarget.style.background = '#f8fafc';
+                                                            e.currentTarget.style.transform = 'none';
+                                                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                                                        <div style={{
+                                                            width: '40px', height: '40px', borderRadius: '12px',
+                                                            background: '#d1fae5', color: '#047857',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {icDownloading ? <LoaderIcon size={22} color="#047857" /> : <DownloadIcon size={22} color="#047857" />}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                                Download IC
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                                Save official PDF copy
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                                        Inspection Statement (Annexure-1)
-                                                    </div>
+                                                    <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
+                                                        Download the verified e-signed Inspection Certificate PDF file directly to your computer.
+                                                    </p>
+                                                    <button
+                                                        disabled={icDownloading}
+                                                        style={{
+                                                            width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                            border: 'none', background: '#059669', color: '#fff',
+                                                            fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                            boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+                                                        }}
+                                                    >
+                                                        {icDownloading ? (
+                                                            <>
+                                                                <LoaderIcon size={16} color="#fff" /> Downloading...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <DownloadIcon size={16} color="#fff" /> Download IC PDF
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
-                                            </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-                                                Download the official batch-wise inspection statement, accepted/rejection metrics and test annexures.
-                                            </p>
-                                            <button
-                                                disabled={annexuresDownloading}
-                                                style={{
-                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
-                                                    border: 'none', background: '#7c3aed', color: '#fff',
-                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
-                                                }}
-                                            >
-                                                {annexuresDownloading ? (
-                                                    <>
-                                                        <LoaderIcon size={16} color="#fff" /> Preparing Annexures...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <DownloadIcon size={16} color="#fff" /> Download Annexures PDF
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
 
-                                        {/* Card 2: Download IC */}
-                                        <div
-                                            onClick={() => !icDownloading && handleDownloadIC(actionCall)}
-                                            style={{
-                                                background: '#f8fafc',
-                                                border: '1.5px solid #e2e8f0',
-                                                borderRadius: '12px',
-                                                padding: '14px',
-                                                cursor: icDownloading ? 'wait' : 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!icDownloading) {
-                                                    e.currentTarget.style.borderColor = '#10b981';
-                                                    e.currentTarget.style.background = '#ecfdf5';
-                                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.15)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!icDownloading) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0';
-                                                    e.currentTarget.style.background = '#f8fafc';
-                                                    e.currentTarget.style.transform = 'none';
-                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
-                                                }
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                                                <div style={{
-                                                    width: '40px', height: '40px', borderRadius: '12px',
-                                                    background: '#d1fae5', color: '#047857',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {icDownloading ? <LoaderIcon size={22} color="#047857" /> : <DownloadIcon size={22} color="#047857" />}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
-                                                        Download IC
+                                                {/* Card 3: Download Annexures */}
+                                                <div
+                                                    onClick={() => !annexuresDownloading && handleDownloadAnnexures(actionCall)}
+                                                    style={{
+                                                        background: '#f8fafc',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        borderRadius: '12px',
+                                                        padding: '14px',
+                                                        cursor: annexuresDownloading ? 'wait' : 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!annexuresDownloading) {
+                                                            e.currentTarget.style.borderColor = '#8b5cf6';
+                                                            e.currentTarget.style.background = '#f5f3ff';
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.15)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!annexuresDownloading) {
+                                                            e.currentTarget.style.borderColor = '#e2e8f0';
+                                                            e.currentTarget.style.background = '#f8fafc';
+                                                            e.currentTarget.style.transform = 'none';
+                                                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                                                        <div style={{
+                                                            width: '40px', height: '40px', borderRadius: '12px',
+                                                            background: '#ede9fe', color: '#7c3aed',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {annexuresDownloading ? <LoaderIcon size={22} color="#7c3aed" /> : <FileTextIcon size={22} color="#7c3aed" />}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                                Download Annexures
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                                Inspection Statement (Annexure-1)
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                                        Save official PDF copy
-                                                    </div>
+                                                    <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
+                                                        Download the official batch-wise inspection statement, accepted/rejection metrics and test annexures.
+                                                    </p>
+                                                    <button
+                                                        disabled={annexuresDownloading}
+                                                        style={{
+                                                            width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                            border: 'none', background: '#7c3aed', color: '#fff',
+                                                            fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                            boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
+                                                        }}
+                                                    >
+                                                        {annexuresDownloading ? (
+                                                            <>
+                                                                <LoaderIcon size={16} color="#fff" /> Preparing Annexures...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <DownloadIcon size={16} color="#fff" /> Download Annexures PDF
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
-                                            </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-                                                Download the verified e-signed Inspection Certificate PDF file directly to your computer.
-                                            </p>
-                                            <button
-                                                disabled={icDownloading}
-                                                style={{
-                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
-                                                    border: 'none', background: '#059669', color: '#fff',
-                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                    boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
-                                                }}
-                                            >
-                                                {icDownloading ? (
-                                                    <>
-                                                        <LoaderIcon size={16} color="#fff" /> Downloading...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <DownloadIcon size={16} color="#fff" /> Download IC PDF
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
 
-                                        {/* Card 4: Download Merged IC & Correction Slips */}
-                                        <div
-                                            onClick={() => !mergedDownloading && handleDownloadMerged(actionCall)}
-                                            style={{
-                                                background: '#f8fafc',
-                                                border: '1.5px solid #e2e8f0',
-                                                borderRadius: '12px',
-                                                padding: '14px',
-                                                cursor: mergedDownloading ? 'wait' : 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!mergedDownloading) {
-                                                    e.currentTarget.style.borderColor = '#0d9488';
-                                                    e.currentTarget.style.background = '#f0fdfa';
-                                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(13, 148, 136, 0.15)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!mergedDownloading) {
-                                                    e.currentTarget.style.borderColor = '#e2e8f0';
-                                                    e.currentTarget.style.background = '#f8fafc';
-                                                    e.currentTarget.style.transform = 'none';
-                                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
-                                                }
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                                                <div style={{
-                                                    width: '40px', height: '40px', borderRadius: '12px',
-                                                    background: '#ccfbf1', color: '#0f766e',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {mergedDownloading ? <LoaderIcon size={22} color="#0f766e" /> : <FileTextIcon size={22} color="#0f766e" />}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
-                                                        IC & Correction Slips
+                                                {/* Card 4: Download Merged IC & Correction Slips */}
+                                                <div
+                                                    onClick={() => !mergedDownloading && handleDownloadMerged(actionCall)}
+                                                    style={{
+                                                        background: '#f8fafc',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        borderRadius: '12px',
+                                                        padding: '14px',
+                                                        cursor: mergedDownloading ? 'wait' : 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!mergedDownloading) {
+                                                            e.currentTarget.style.borderColor = '#0d9488';
+                                                            e.currentTarget.style.background = '#f0fdfa';
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.15)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!mergedDownloading) {
+                                                            e.currentTarget.style.borderColor = '#e2e8f0';
+                                                            e.currentTarget.style.background = '#f8fafc';
+                                                            e.currentTarget.style.transform = 'none';
+                                                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                                                        <div style={{
+                                                            width: '40px', height: '40px', borderRadius: '12px',
+                                                            background: '#ccfbf1', color: '#0f766e',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {mergedDownloading ? <LoaderIcon size={22} color="#0f766e" /> : <FileTextIcon size={22} color="#0f766e" />}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>
+                                                                IC & Correction Slips
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                                Merged IC and Correction Slips
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                                        Merged IC and Correction Slips
-                                                    </div>
+                                                    <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
+                                                        Download the unified PDF containing original IC and all issued correction slips.
+                                                    </p>
+                                                    <button
+                                                        disabled={mergedDownloading}
+                                                        style={{
+                                                            width: '100%', padding: '9px 16px', borderRadius: '10px',
+                                                            border: 'none', background: '#0d9488', color: '#fff',
+                                                            fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                            boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
+                                                        }}
+                                                    >
+                                                        {mergedDownloading ? (
+                                                            <>
+                                                                <LoaderIcon size={16} color="#fff" /> Downloading...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <DownloadIcon size={16} color="#fff" /> Download Merged PDF
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-                                                Download the unified PDF containing original IC and all issued correction slips.
-                                            </p>
-                                            <button
-                                                disabled={mergedDownloading}
-                                                style={{
-                                                    width: '100%', padding: '9px 16px', borderRadius: '10px',
-                                                    border: 'none', background: '#0d9488', color: '#fff',
-                                                    fontSize: '13px', fontWeight: 800, cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
-                                                }}
-                                            >
-                                                {mergedDownloading ? (
-                                                    <>
-                                                        <LoaderIcon size={16} color="#fff" /> Downloading...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <DownloadIcon size={16} color="#fff" /> Download Merged PDF
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
                                         </>
                                     ) : (
                                         <div style={{

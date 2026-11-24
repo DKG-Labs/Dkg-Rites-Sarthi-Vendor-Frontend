@@ -635,16 +635,33 @@ const PoAssignedDashboard = ({ vendorCode, plantId }) => {
         acc + (po.poItem || po.srItems || []).filter(s => (s.due || 0) > 0).length, 0);
 
     const filtered = useMemo(() => {
-        const q = search.toLowerCase();
-        return poDataList.filter(po =>
-            (po.poNo && String(po.poNo).toLowerCase().includes(q)) ||
-            (po.rlyShortName && String(po.rlyShortName).toLowerCase().includes(q)) ||
-            (po.purchasingAuthority && String(po.purchasingAuthority).toLowerCase().includes(q)) ||
-            (po.itemCategory && String(po.itemCategory).toLowerCase().includes(q))
-        );
+        const q = search.trim().toLowerCase();
+        if (!q) return poDataList;
+        return poDataList.filter(po => {
+            const poNo = String(po.poNo || '').toLowerCase();
+            const rly = String(po.rlyShortName || '').toLowerCase();
+            const auth = String(po.purchasingAuthority || '').toLowerCase();
+            const cat = String(po.itemCategory || po.poDes || '').toLowerCase();
+            const caseNo = String(po.caseNo || po.case_no || '').toLowerCase();
+            const items = po.poItem || po.srItems || [];
+            const itemMatches = items.some(item => {
+                const desc = String(item.description || item.itemDesc || item.itemDescription || '').toLowerCase();
+                const sr = String(item.itemSrNo || item.srNo || item.poSerialNo || '').toLowerCase();
+                const drg = String(item.drawingNo || item.drgNo || '').toLowerCase();
+                return desc.includes(q) || sr.includes(q) || drg.includes(q);
+            });
+            return poNo.includes(q) || rly.includes(q) || auth.includes(q) || cat.includes(q) || caseNo.includes(q) || itemMatches;
+        });
     }, [search, poDataList]);
 
-    const totalPages = Math.ceil(filtered.length / perPage);
+    const totalPages = Math.ceil(filtered.length / perPage) || 1;
+
+    useEffect(() => {
+        if (page > totalPages && totalPages > 0) {
+            setPage(1);
+        }
+    }, [page, totalPages]);
+
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
     const showNotification = (message, type = 'success') => {

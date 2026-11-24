@@ -47,7 +47,7 @@ const DRAWING_NUMBERS = {
 
 const SHIFTS = ["Shift A", "Shift B", "Shift C", "General"];
 
-const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled }) => {
+const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceholder = "Search...", loading, disabled, emptyText = "No POs found" }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
@@ -228,7 +228,7 @@ const SearchableSelect = ({ value, onChange, options, placeholder, searchPlaceho
                             </div>
                         ) : filteredOptions.length === 0 ? (
                             <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                                No POs found
+                                {emptyText}
                             </div>
                         ) : (
                              filteredOptions.map(opt => (
@@ -366,10 +366,11 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
     const fetchPOs = async () => {
         try {
             setPosLoading(true);
-            const { user } = getLatestUserAndPlant();
+            const { user, plant } = getLatestUserAndPlant();
             const vcode = propVendorCode || user.vendorCode;
             if (vcode) {
-                const data = await poAssignedService.getPoAssigned(vcode);
+                // only POs with a process (RPP) call in progress at this plant
+                const data = await poAssignedService.getOpenProcessPos(vcode, plantId || plant?.plantId);
                 const list = Array.isArray(data) ? data : (data.responseData || []);
                 setPos(list);
             }
@@ -1329,6 +1330,7 @@ const ProductionDeclarationDashboard = ({ plantId, vendorCode: propVendorCode })
                                               placeholder={posLoading ? 'Loading POs...' : 'Select PO'}
                                               searchPlaceholder="Search PO..."
                                               loading={posLoading}
+                                              emptyText="No PO with an open process call at this plant. Raise a process call first."
                                               disabled={isReadOnly}
                                           />
                                      </div>

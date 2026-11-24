@@ -45,7 +45,8 @@ const inspectionCallService = {
 
     getByPlant: async (plantId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/plant/${plantId}`);
+            // plant ids contain '/' (e.g. ":1007406/Mohali") — send as a query parameter, not in the path
+            const response = await axios.get(`${BASE_URL}/plant`, { params: { plantId } });
             return response.data?.responseData;
         } catch (error) {
             console.error('Error fetching plant inspection calls:', error);

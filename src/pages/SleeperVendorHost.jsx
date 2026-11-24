@@ -35,6 +35,7 @@ const SleeperVendorHost = () => {
         if (vendorName) p.set('vendorName', vendorName);
         if (plantId) p.set('plantId', plantId);
         if (selectedPlant) p.set('selectedPlant', selectedPlant);
+        p.set('_t', String(Date.now()));
         return p.toString();
     };
 
