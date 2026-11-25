@@ -2321,7 +2321,19 @@ const NCRGRSPFinalInspectionCall = ({
                 </div>
               </div>
 
-              <HeaderCard label="Call Date" value={desiredDate} highlightColor="#1677ff" />
+              <HeaderCard
+                label="Call Date"
+                value={(() => {
+                  const raw = callData?.callDate || callData?.createdAt;
+                  if (raw) {
+                    const parsed = new Date(raw);
+                    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+                    return String(raw).slice(0, 10);
+                  }
+                  return todayStr;
+                })()}
+                highlightColor="#1677ff"
+              />
               <HeaderCard label="Ordered Qty" value={(effectiveSrItem?.orderedQty || effectiveSrItem?.ordered || 10000).toLocaleString()} />
               <HeaderCard label="Offered Qty" value={totalOfferedQty.toLocaleString()} highlightColor="#722ed1" />
               <HeaderCard label="Accepted Qty" value={(effectiveSrItem?.acceptedTillNow || 0).toLocaleString()} highlightColor="#52c41a" />

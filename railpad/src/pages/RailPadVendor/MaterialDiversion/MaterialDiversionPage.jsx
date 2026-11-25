@@ -85,6 +85,7 @@ const RequestDetailsModal = ({ request, onClose, onEdit, onResubmit, onDelete, o
               <div><span>Source PO / Sr.</span><strong>{r.sourcePoNo} / {r.sourcePoSrNo}</strong></div>
               <div><span>Target PO / Sr.</span><strong>{r.targetPoNo} / {r.targetPoSrNo}</strong></div>
               <div><span>Total Diversion Qty</span><strong>{fmtQty(r.totalDiversionQty)} {r.unitOfMeasurement}</strong></div>
+              <div><span>Call Date</span><strong>{fmtDate(r.callDate)}</strong></div>
               <div><span>Diverted Call</span><strong>{r.divertedCallNo || '—'}</strong></div>
               <div><span>Source IC Date</span><strong>{fmtDate(r.sourceIcDate)}</strong></div>
               <div><span>Plant</span><strong>{r.plantId || '—'}</strong></div>

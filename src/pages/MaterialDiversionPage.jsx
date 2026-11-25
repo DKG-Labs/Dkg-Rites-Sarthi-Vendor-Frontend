@@ -550,6 +550,7 @@ export const MaterialDiversionPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
                   { label: 'Reason Code', value: selectedRequest.reasonCode },
+                  { label: 'Call Date', value: selectedRequest.callDate ? new Date(selectedRequest.callDate).toLocaleDateString('en-IN') : null },
                   { label: 'Railway Permission No.', value: selectedRequest.railwayPermissionNo },
                   { label: 'Railway Permission Date', value: selectedRequest.railwayPermissionDate ? new Date(selectedRequest.railwayPermissionDate).toLocaleDateString('en-IN') : null },
                 ].map(f => (
