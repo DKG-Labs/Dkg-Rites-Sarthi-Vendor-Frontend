@@ -281,11 +281,11 @@ const inspectionCallService = {
    * @param {string} rmIcNumber - RM IC Number (call_no from inspection_complete_details)
    * @returns {Promise<Object>} - API response with heat numbers and details
    */
-  getHeatNumbersByRmIcNumber: async (rmIcNumber) => {
+  getHeatNumbersByRmIcNumber: async (rmIcNumber, excludeDiverted = false) => {
     try {
       const callNo = normalizeIc(rmIcNumber);
       const response = await httpClient.get(
-        `/raw-material/heats-by-rm-ic/${encodeURIComponent(callNo)}`
+        `/raw-material/heats-by-rm-ic/${encodeURIComponent(callNo)}${excludeDiverted ? '?excludeDiverted=true' : ''}`
       );
       return response;
     } catch (error) {

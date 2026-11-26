@@ -942,7 +942,7 @@ export const RaiseInspectionCallForm = ({
               const callNo = callNoMatch ? callNoMatch[1] : certificateNo;
               console.log(`  ✂️ Extracted call number: ${callNo}`);
 
-              const response = await inspectionCallService.getHeatNumbersByRmIcNumber(callNo);
+              const response = await inspectionCallService.getHeatNumbersByRmIcNumber(callNo, true);
 
               if (response && response.data && Array.isArray(response.data)) {
                 // Add source certificate info to each heat number
@@ -1934,7 +1934,7 @@ export const RaiseInspectionCallForm = ({
             const callNoMatch = rmIcNumber.match(/[^/]+\/([^/]+)\//);
             const callNo = callNoMatch ? callNoMatch[1] : rmIcNumber;
 
-            const heatResponse = await inspectionCallService.getHeatNumbersByRmIcNumber(callNo);
+            const heatResponse = await inspectionCallService.getHeatNumbersByRmIcNumber(callNo, true);
 
             if (heatResponse && heatResponse.data && Array.isArray(heatResponse.data)) {
               const heatNumbers = heatResponse.data;

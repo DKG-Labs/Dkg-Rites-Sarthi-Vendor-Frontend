@@ -614,6 +614,26 @@ export const NCRGRSP_CATALOG = {
     { drawingNo: 'RT-8889', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' },
     { drawingNo: 'RT-8887', qtyPerSet: 72, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 / 52 KG Turnout)' }
   ],
+  // RT-4865 (60E1) – RDSO/T-4865 parts list "FOR 60E1": 1 in 8.5 Turnout, 6400 mm O.R. switch (curved) & CMS crossing (Total 98 Pads / 2 Items)
+  'RT-4865 (60E1)': [
+    { drawingNo: 'RT-10162', qtyPerSet: 26, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 Turnout / 60E1)' },
+    { drawingNo: 'RT-10160', qtyPerSet: 72, description: 'Nylon Cord Reinforced GRSP (1 in 8.5 Turnout / 60E1)' }
+  ],
+  // RT-4967 (60E1) – RDSO/T-4967: 1 in 8.5 Cast Manganese Steel Crossing B.G. for 60E1 rail on PSC sleepers (Total 46 Pads / 12 Items)
+  'RT-4967 (60E1)': [
+    { drawingNo: 'RT-10170', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10169', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10177', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10178', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10176', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10175', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10174', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10173', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10172', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10171', qtyPerSet: 1, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10160', qtyPerSet: 20, description: 'Nylon Cord Reinforced GRSP' },
+    { drawingNo: 'RT-10161', qtyPerSet: 16, description: 'Nylon Cord Reinforced GRSP' }
+  ],
   // RT-9842 to RT-9843 – 10 mm NCR GRSP – NFR RDSO/RT-9842+9843 1 in 8.5 (Total 132 Pads / 22 Items)
   'RT-9842 to RT-9843': [
     { drawingNo: 'RT-9837', qtyPerSet: 4, description: '10 mm NCR GRSP' },
@@ -672,6 +692,10 @@ export const resolveNcrgrspCatalogKey = (dwgOrType, candidateDrawings = []) => {
     return 'RT-4218';
   }
   if (str.includes('4865')) {
+    // 60E1 variant of RDSO/T-4865 (Alt-8 / Alt-9 keep their own keys)
+    if (!/alt/.test(str) && (str.includes('60e1') || str.includes('60 e1'))) {
+      return 'RT-4865 (60E1)';
+    }
     if (str.includes('52 kg') || str.includes('52kg') || str.includes('52')) {
       return 'RT-4865 (52 KG)';
     }
@@ -682,6 +706,9 @@ export const resolveNcrgrspCatalogKey = (dwgOrType, candidateDrawings = []) => {
       return 'RT-4865 Alt-9';
     }
     return 'RT-4865 (52 KG)';
+  }
+  if (str.includes('4967')) {
+    return 'RT-4967 (60E1)';
   }
   if (str.includes('5691-2') || str.includes('5691_2') || str.includes('5691 (2)') || str.includes('5691-02') || str.includes('5691/2')) {
     return 'RT-5691-2';

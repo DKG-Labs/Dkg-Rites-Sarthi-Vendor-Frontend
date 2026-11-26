@@ -28,6 +28,8 @@ const CURATED_NCRGRSP_DRAWINGS = [
     { code: "RT-4218", label: "RT-4218 (60 kg 1 in 12 Turnout Alt.6)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4218_1", label: "RT-4218_1 (Annexure-E 60 kg 1 in 12 Turnout)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-4865 (52 KG)", label: "RT-4865 (52 KG) (1 in 8.5 / 52 KG Turnout)", category: "6mm & 10mm", is6mm: true, is10mm: true },
+    { code: "RT-4865 (60E1)", label: "RT-4865 (60E1) (1 in 8.5 Turnout with 60E1 rail)", category: "6mm & 10mm", is6mm: true, is10mm: true },
+    { code: "RT-4967 (60E1)", label: "RT-4967 (60E1) (1 in 8.5 CMS Crossing, 60E1)", category: "6mm & 10mm", is6mm: true, is10mm: true },
     { code: "RT-4865 Alt-8", label: "RT-4865 Alt-8 (6 mm 1 in 8.5 Turnout with 60E1 rail Alt-8)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4865 Alt-9", label: "RT-4865 Alt-9 (6 mm Thick Pocket Type 1 in 8.5 Alt-09)", category: "6mm", is6mm: true, is10mm: false },
     { code: "RT-4220", label: "RT-4220 (6 mm Turnout)", category: "6mm", is6mm: true, is10mm: false },

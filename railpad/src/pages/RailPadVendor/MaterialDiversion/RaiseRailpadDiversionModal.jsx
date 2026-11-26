@@ -385,6 +385,7 @@ const RaiseRailpadDiversionModal = ({ initial, plantId, vendorCode, onClose, onS
   const [reasonRemarks, setReasonRemarks] = useState(initial?.reasonRemarks || '');
   const [railwayPermissionNo, setRailwayPermissionNo] = useState(initial?.railwayPermissionNo || '');
   const [railwayPermissionDate, setRailwayPermissionDate] = useState(initial?.railwayPermissionDate ? String(initial.railwayPermissionDate).slice(0, 10) : '');
+  const [callDate, setCallDate] = useState(initial?.callDate ? String(initial.callDate).slice(0, 10) : new Date().toISOString().split('T')[0]);
   const [railwayPermissionDocUrl, setRailwayPermissionDocUrl] = useState(initial?.railwayPermissionDocUrl || '');
   const [railwayDocFileName, setRailwayDocFileName] = useState(initial?.railwayPermissionDocUrl ? 'Already uploaded' : '');
   const [railwayDocUploading, setRailwayDocUploading] = useState(false);
@@ -544,6 +545,7 @@ const RaiseRailpadDiversionModal = ({ initial, plantId, vendorCode, onClose, onS
     if (!targetPoNo || !targetPoSrNo) missing.push('Target PO and Item Sr.');
     if (!reasonCode) missing.push('Reason');
     if (!railwayPermissionNo || !railwayPermissionDate) missing.push('Railway approval letter no. and date');
+    if (!callDate) missing.push('Call Date');
     if (!railwayPermissionDocUrl) missing.push('Railway permission PDF');
     if (missing.length) { showToast(`Fill in: ${missing.join(', ')}`, 'error'); return; }
     const over = lineItems.find((i) => num(i.diversionQty) > num(i.availableBalanceQty));
@@ -556,7 +558,7 @@ const RaiseRailpadDiversionModal = ({ initial, plantId, vendorCode, onClose, onS
         id: initial?.id || null,
         stage, diversionType, plantId, cmUserId, sourceIcNo: selectedIcNo,
         targetPoNo, targetPoSrNo, unitOfMeasurement, reasonCode, reasonRemarks,
-        railwayPermissionNo, railwayPermissionDate, railwayPermissionDocUrl, vendorRemarks,
+        railwayPermissionNo, railwayPermissionDate, callDate: callDate || null, railwayPermissionDocUrl, vendorRemarks,
         items: lineItems
           .map((l) => ({ lotNo: l.lotNo, batchNo: l.batchNo, diversionQty: num(l.diversionQty) }))
           .filter((i) => i.diversionQty > 0),
@@ -765,6 +767,10 @@ const RaiseRailpadDiversionModal = ({ initial, plantId, vendorCode, onClose, onS
             <div className="diversion-form-group">
               <label className="diversion-form-label">Approval Date *</label>
               <input type="date" className="diversion-input" max={new Date().toISOString().slice(0, 10)} value={railwayPermissionDate} onChange={(e) => setRailwayPermissionDate(e.target.value)} />
+            </div>
+            <div className="diversion-form-group">
+              <label className="diversion-form-label">Call Date *</label>
+              <input type="date" className="diversion-input" value={callDate} onChange={(e) => setCallDate(e.target.value)} />
             </div>
             <div className="diversion-form-group">
               <label className="diversion-form-label" htmlFor="rp-div-railway-doc">Railway Permission Letter (PDF) *</label>

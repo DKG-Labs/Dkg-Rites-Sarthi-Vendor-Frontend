@@ -777,6 +777,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
   const [reasonCode, setReasonCode] = useState('');
   const [railwayPermissionNo, setRailwayPermissionNo] = useState('');
   const [railwayPermissionDate, setRailwayPermissionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [callDate, setCallDate] = useState(new Date().toISOString().split('T')[0]);
   const [railwayPermissionDocUrl, setRailwayPermissionDocUrl] = useState('');
   const [railwayDocUploading, setRailwayDocUploading] = useState(false);
   const [railwayDocFileName, setRailwayDocFileName] = useState('');
@@ -851,6 +852,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     setReasonCode('');
     setRailwayPermissionNo('');
     setRailwayPermissionDate(new Date().toISOString().split('T')[0]);
+    setCallDate(new Date().toISOString().split('T')[0]);
     setRailwayPermissionDocUrl('');
     setRailwayDocFileName('');
     setVendorRemarks('');
@@ -928,6 +930,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
     setReasonCode(initialData.reasonCode || '');
     setRailwayPermissionNo(initialData.railwayPermissionNo || '');
     setRailwayPermissionDate(initialData.railwayPermissionDate || new Date().toISOString().split('T')[0]);
+    setCallDate(initialData.callDate ? String(initialData.callDate).slice(0, 10) : new Date().toISOString().split('T')[0]);
     setVendorRemarks(initialData.vendorRemarks || '');
     setSelectedIcNo(initialData.sourceIcNo || '');
     setTargetPoNo(initialData.targetPoNo || '');
@@ -1183,8 +1186,12 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       setError('Please select a Reason for Diversion.');
       return;
     }
-    if (!railwayPermissionNo || !railwayPermissionDocUrl) {
-      setError('Railway permission number and document upload are mandatory.');
+    if (!railwayPermissionNo || !railwayPermissionDate || !railwayPermissionDocUrl) {
+      setError('Railway permission number, approval date, and document upload are mandatory.');
+      return;
+    }
+    if (!callDate) {
+      setError('Please select a Call Date.');
       return;
     }
 
@@ -1214,6 +1221,7 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
       reasonRemarks: vendorRemarks,
       railwayPermissionNo: railwayPermissionNo,
       railwayPermissionDate: railwayPermissionDate,
+      callDate: callDate || null,
       railwayPermissionDocUrl: railwayPermissionDocUrl,
       vendorRemarks: vendorRemarks,
       items: lineItems
@@ -1582,6 +1590,10 @@ export const RaiseDiversionRequestModal = ({ isOpen, onClose, onSuccess, vendorU
             <div className="diversion-form-group">
               <label className="diversion-form-label">Approval Date *</label>
               <input type="date" className="diversion-input" value={railwayPermissionDate} onChange={e => setRailwayPermissionDate(e.target.value)} />
+            </div>
+            <div className="diversion-form-group">
+              <label className="diversion-form-label">Call Date *</label>
+              <input type="date" className="diversion-input" value={callDate} onChange={e => setCallDate(e.target.value)} />
             </div>
             <div className="diversion-form-group">
               <label className="diversion-form-label">Upload Railway Permission Doc (PDF) * <span style={{ fontWeight: 400, color: '#64748b', fontSize: '12px' }}>PDF only, max 5 MB</span></label>
