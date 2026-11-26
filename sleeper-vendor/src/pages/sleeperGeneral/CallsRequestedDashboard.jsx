@@ -482,7 +482,7 @@ const CallDetailPopup = ({ call, onClose, onModify, onWithdraw, onResubmit, onDo
                                 }}>
                                     <div>
                                         <div style={{ fontWeight: 800, fontSize: 13, color: '#c2410c', marginBottom: 3 }}>🔄 Resubmit Call</div>
-                                        <div style={{ fontSize: 11, color: '#7c3015' }}>Rectify errors and resubmit. Call Date will update to today's date.</div>
+                                        <div style={{ fontSize: 11, color: '#7c3015' }}>Rectify errors and resubmit to IE. Call Date remains non-editable.</div>
                                     </div>
                                     <button
                                         onClick={() => { onResubmit(call); onClose(); }}
