@@ -379,7 +379,13 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
         return s.includes('SET') || s.includes('PNC') || s.includes('TURNOUT') || s.includes('4218') || s.includes('4865') || s.includes('9790') || s.includes('4732') || s.includes('DERAIL');
     };
     const rawUom = call.uom || call.callUnit || call.unit;
-    const isSetUom = Boolean(
+    // Measured UOMs (running metres): same spellings as sleeper.qty.measured-uoms in the backend's
+    // application.properties. A PO item in metres keeps metres even when the sleeper type is a turnout (PnC / RT-4218).
+    const MEASURED_UOMS = ['rmt', 'r.m.t', 'r.m.t.', 'mtr', 'mtr.', 'mtrs', 'mtrs.', 'mts', 'mts.',
+        'running metre', 'running meter', 'running metres', 'running meters'];
+    const isMeasuredUom = (u) => MEASURED_UOMS.includes(String(u || '').trim().toLowerCase().replace(/\s+/g, ' '));
+    const isMeasured = isMeasuredUom(call.uom) || isMeasuredUom(call.callUnit);
+    const isSetUom = !isMeasured && Boolean(
         (rawUom && String(rawUom).toUpperCase().includes('SET')) ||
         isSetType(call.sleeperType) ||
         isSetType(call.itemDesc) ||
@@ -388,7 +394,12 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
     const effectiveUom = isSetUom ? 'Set' : (rawUom || 'Nos.');
 
     let callQtyDisplay;
-    if (isSetUom) {
+    if (isMeasured) {
+        // Declared offered quantity (may be fractional, e.g. 12.5) in the PO item's unit, as the backend sends it
+        const unit = isMeasuredUom(call.callUnit) ? call.callUnit : call.uom;
+        const qty = call.callQty != null && String(call.callQty).trim() !== '' ? call.callQty : call.totalOffered;
+        callQtyDisplay = qty != null && String(qty).trim() !== '' ? `${qty} ${unit}` : '-';
+    } else if (isSetUom) {
         // If UOM = Set: show offered quantity (in sets)
         let setQty = 1;
         if (call.offeredSetsQuantity != null && Number(call.offeredSetsQuantity) > 0) {
@@ -476,11 +487,16 @@ export const generateCallLetterPDF = (call, shouldDownload = true) => {
 
     drawRow('Raw Material Qty Already Passed for this PO Sr. No.', val(call.rawMaterialQtyPassed, 'N/A'), { rowH: 12 });
     // Same resolution as the IE call letter: use backend cumulative value, else this call's accepted qty
-    const resolvedFinalAccepted = (call.finalAcceptedQty && call.finalAcceptedQty !== '0 Nos.' && call.finalAcceptedQty !== '0')
+    // Unit of the accepted qty: metres for measured PO items, Set for turnout sets, else Nos.
+    const acceptedUnit = isMeasured
+        ? (isMeasuredUom(call.callUnit) ? call.callUnit : call.uom)
+        : (isSetUom ? 'Set' : 'Nos.');
+    const isZeroQty = (v) => v == null || /^\s*0+(\.0+)?(\s+\S+)?\s*$/.test(String(v));
+    const resolvedFinalAccepted = !isZeroQty(call.finalAcceptedQty)
         ? call.finalAcceptedQty
         : (call.acceptedQty != null
-            ? `${call.acceptedQty} Nos.`
-            : (call.acceptedTillNow ? `${call.acceptedTillNow} Nos.` : (call.finalAcceptedQty || '0 Nos.')));
+            ? `${call.acceptedQty} ${acceptedUnit}`
+            : (call.acceptedTillNow ? `${call.acceptedTillNow} ${acceptedUnit}` : `0 ${acceptedUnit}`));
     drawRow('Final Accepted Qty of this PO Sr. No.', val(resolvedFinalAccepted), { rowH: 12 });
     drawRow('Total PO Quantity', val(call.poQuantity || call.poQty || '-'), { rowH: 9 });
     drawRow('Total PO Value', val(call.poValue || (call.totalValue ? `₹${call.totalValue}` : '-')), { rowH: 9 });
