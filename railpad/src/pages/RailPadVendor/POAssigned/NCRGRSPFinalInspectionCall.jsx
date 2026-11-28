@@ -2166,7 +2166,7 @@ const NCRGRSPFinalInspectionCall = ({
 
       if (isModifyMode && callData) {
         const prevSets = parseInt(callData.noOfSets || callData.totalQty || callData.offeredQty || 0, 10);
-        const newSets = parseInt(totalSets, 10);
+        const newSets = parseInt(noOfSets, 10);   // was the undefined 'totalSets' (crashed Modify)
         if (prevSets > 0 && newSets > 0 && newSets < prevSets) {
           alert(`❌ Modification not allowed: Call quantity (sets) cannot be decreased.\n\nPrevious sets: ${prevSets}\nEntered sets: ${newSets}`);
           setIsSubmitting(false);
@@ -2357,7 +2357,7 @@ const NCRGRSPFinalInspectionCall = ({
                     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
                     return String(raw).slice(0, 10);
                   }
-                  return todayStr;
+                  return new Date().toISOString().split('T')[0];   // new call: today (todayStr only exists inside validation)
                 })()}
                 highlightColor="#1677ff"
               />
